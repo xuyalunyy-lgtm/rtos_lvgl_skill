@@ -533,6 +533,43 @@ app_event_init → SD 挂载 → lcd bringup(LVGL task) → audio_engine → Due
 
 ---
 
+## 带屏打印机产品实测（bk_printer / BK7258）
+
+来源：2026-06 AI 打印机工程 L2 审查 + 裁剪闭环。
+
+### 密钥（C9）
+
+- 非 AVDK `ap/` 工程：`projects/<app>/config/bk7258/config` + `config.secrets` + `scripts/merge_config_secrets.sh`
+- 云 API 密钥用 `CONFIG_APP_CLOUD_*`（Kconfig.projbuild），禁止 `system_manager.c` 硬编码 `#define`
+
+### 产品层裁剪（C6.5）
+
+| 可裁 | 条件 |
+|------|------|
+| `http_client.c`、`save_opus_data.c`、`upload_image.c` | init 未调用、opus 保存仅在 `#if 0` |
+| `iot_camera.c` | `CONFIG_DVP_CAMERA=n` → `CONFIG_IOT_DEV_CAMERA=n` |
+| Webnet `wn_module_{asp,dav,ssi,upload,...}.c` | `webnet.h` 仅 `WEBNET_USING_CGI` |
+| `components/moduleA/B/C` | Skill checker demo，非产品代码 |
+| `protocol_mqtt.c` | `CONFIG_PROTOCOL_USE_MQTT=n`（CMake 已守卫） |
+
+**勿裁：** `wn_module_cgi.c`（SoftAP 配网）、`iot_volume.c`（须在 `iot_devices_init` 注册 MCP 工具，勿依赖已移除的 `http_client` init）。
+
+### 打印 / 图像并发
+
+- `system_manager_process_received_image` 须 **mutex** 串行化（BLE / 本地二维码 / 云端图共用 `img_rgb565`）
+- 本地二维码任务栈建议 **≥24KB**（JPEG 软解 + 打印流水线）
+- CPU1 读 JPG 文件：**禁止** `lv_img_read_file_to_mem`；用 `open/read` + `psram_malloc`，与 LVGL 解耦
+
+### 栈参考（打印机 + WSS）
+
+| 任务 | 建议栈 (bytes) |
+|------|----------------|
+| `local_qr_print` | 24576 |
+| WSS / dialog / system_manager | ≥4096，须 HighWaterMark 实测 |
+| LVGL init（cpu1 `ui_main`） | ≥3072，含资源加载时上调 |
+
+---
+
 ## 与其他平台的差异
 
 | 对比项 | BK 博通集成 | 杰理 JL | ESP32 |

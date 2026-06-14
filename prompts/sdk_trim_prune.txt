@@ -105,6 +105,20 @@ Phase D — 每步验证
 
 ---
 
+## 产品层裁剪（main/，C6.5）
+
+SDK 配置关断后，还须核对 **产品仓** `main/CMakeLists.txt`：
+
+1. `list(APPEND srcs ...)` 是否与 `config` 中 `CONFIG_*=n` 一致
+2. 模块是否只有「编进镜像」但 **init 链从未调用**（典型：`http_client` 注册 `iot_devices`，MCP 却走另一条 init）
+3. `#if 0` / 注释掉的 `start()` 与仍编入的 `.c` 成对清理
+4. Webnet：只编 `webnet.h` 里 `#define WEBNET_USING_*` 已开启的 `wn_module_*.c`
+5. 孤儿文件（未进 CMakeLists 的 `list_test.c`、demo `moduleA`）— 删除或 `.gitignore`
+
+打印机实测可裁清单见 `platforms/bk.md`「带屏打印机产品实测」。
+
+---
+
 ## 裁剪执行原则（顺序灵活，依依赖而定）
 
 1. **先扫描，后动刀** — JL/BK 必须完成 Phase A 模块地图

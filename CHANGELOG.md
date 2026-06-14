@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.16.0 — 2026-06-16
+
+- 新增 **C6.5** 产品层裁剪：`main/CMakeLists.txt` 与 Kconfig/init 链一致
+- `l2_project_review.md` Step 4b 产品层死代码 spot-check
+- `platforms/bk.md` 增补 bk_printer 实测（密钥路径、可裁模块、打印 mutex/栈）
+- `secrets_kconfig.txt` 单工程 `config/bk7258` 布局；`sdk_trim_prune.txt` 产品层章节
+- 来源：AI 打印机工程审查 + 裁剪闭环
+
 ## 2.15.1 — 2026-06-16
 
 - 新增 [references/git_commit_style.md](references/git_commit_style.md) — 多仓（AIAlarmClock / skill / SDK）中文 conventional commit 规范

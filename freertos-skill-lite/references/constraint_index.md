@@ -52,6 +52,7 @@
 |----|---|--------|
 | C5.1 | 1 | 每大模块 `APP_TEST_MODE_*` |
 | C6.1 | 0 | 先问卷再 SDK 裁剪 |
+| C6.5 | 1 | main/CMakeLists 与 Kconfig/init 链一致，未 init 不得编入 |
 | C7.1 | 0 | 缩池/栈前须有基线 |
 | C7.5 | 0 | WSS 栈 ≥4096 bytes |
 | C7.9 | 1 | 重连指数退避 |

@@ -44,9 +44,31 @@ python tools/run_review.py --dir <产品仓>/components --platform bk
 ```
 
 手工 spot-check（checker 不覆盖）：
-- `naozhong_duer_bind` / 大文件职责是否过重
+- `naozhong_duer_bind` / 大文件职责是否过重（如 `system_manager.c` >3k 行、`webparse.c` >3k 行）
 - Demo TODO（深睡 hack、LED recover）是否阻塞量产
-- LVGL 桥接是否走 `lvgl_port_lock` / `lv_async_call`
+- LVGL 桥接是否走 `lvgl_port_lock` / `lv_async_call` / `lvMsgSendToLvgl`
+- **产品层死代码（C6.5）** — 见 Step 4b
+
+## Step 4b — 产品层裁剪 spot-check（C6.5）
+
+对照 `main/CMakeLists.txt` 与 `config/*/config`，**未启用或未 init 的模块不得编入镜像**：
+
+| 信号 | 处置 |
+|------|------|
+| Kconfig `=n`（如 `PAHO_MQTT`、`PROTOCOL_USE_MQTT`、`VAD`、`DVP_CAMERA`） | 对应 `.c` 用 `if (CONFIG_*)` 守卫或移出 `srcs` |
+| `super.init()` / `*_tool_init()` 从未调用 | 移出编译；若功能仍要，改到正确 init 链（如 MCP → `iot_devices_init`） |
+| `#if 0` 整块或注释掉的 `*_instance()->start()` | 删除死代码或恢复完整链路，勿两头悬空 |
+| Demo 组件（`moduleA/B/C`、空 `list_test.c`） | 删除目录或移出 `components/` |
+| Webnet/AP：仅 `WEBNET_USING_CGI` 开启 | 勿编 asp/dav/ssi/upload 等未定义宏的模块 |
+| 密钥在 `.c` `#define` | 迁 Kconfig + `config.secrets`（C9.1） |
+
+BK 打印机类：`CONFIG_IOT_DEV_CAMERA` 默认 `n`（无 DVP）；JPEG 打印走 `print_job` + `img_rgb565`，与 MCP camera 无关。
+
+```bash
+# 辅助：找未编入但残留的大文件 / 孤儿源
+rg -l "list_test|moduleA" projects/<app>/main || true
+rg "super\.init\(\)|_tool_init" projects/<app>/main --glob '*.c' | head
+```
 
 ## Step 5 — 构建与 CI
 
@@ -67,6 +89,9 @@ python tools/run_review.py --dir <产品仓>/components --platform bk
 
 ## P1（稳定性/文档）
 ...
+
+## P2（裁剪 / 技术债）
+- C6.5 — 未 init 仍编入 / Demo 组件 / Webnet 冗余模块
 
 ## Checker 摘要
 - run_review: ...
