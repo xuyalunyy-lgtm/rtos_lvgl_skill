@@ -25,6 +25,7 @@ L4 可执行     examples/ · tools/    完整版 L2+；Lite 无此层
 | `workflows/` | 步骤编排、输出模板 | 人工 | 同步 + patch |
 | `references/` | 总纲、约束矩阵、结构、日志 | 人工 | 同步 |
 | `references/constraint_index.md` | C#.# 速查（L2 默认，省 token） | 人工 | 同步 |
+| `references/git_commit_style.md` | 多仓 Git 提交说明规范 | 人工 | 同步 |
 | `references/claude_code.md` | Claude Code 懒加载指南 | 人工 | 同步 |
 | `prompts/` | 场景专链（深细节） | 人工 | 同步 |
 | `platforms/` | 芯片/SDK 事实 | 人工 | 同步 |
@@ -45,6 +46,8 @@ L4 可执行     examples/ · tools/    完整版 L2+；Lite 无此层
 | [l3_sdk_trim](../workflows/l3_sdk_trim.md) | core_rules | sdk_trim_prune | — |
 | [l3_new_module](../workflows/l3_new_module.md) | core_rules | 模块表 prompt | mvp_codegen / good_* |
 | [self_iterate](../workflows/self_iterate.md) | **本文件** + iteration_log | 受影响层 prompt | skill_iterate |
+
+用户要求 **git commit / 提交** → 读 [git_commit_style.md](git_commit_style.md)（无需单独 workflow）
 
 Workflow 索引 → [workflows/README.md](../workflows/README.md)
 

@@ -17,6 +17,7 @@ Agent 在 L2/L3 或 workflow 要求时读取本文件。L1 概念问答可跳过
 | **编译** | 命令以 `platforms/xxx.md` 为准；编译失败则读日志、修复、重编，**禁止**留半成品让用户收尾 |
 | **铁律仍生效** | 改动须满足 C1–C8；L2+ 可跑 `run_review.py` 自检 |
 | **须询问用户** | 大规模删 SDK 模块（超 C6 问卷范围）、git push/force、改仓库 secrets、需求根本歧义 |
+| **Git 提交** | 用户要求 commit 时读 [git_commit_style.md](git_commit_style.md)；标题中文 + `type(scope):`；提交前 `git log` 对齐仓库风格 |
 | **不适用** | L2 纯 Code Review；用户写明「只审查/只给方案不改代码」 |
 
 **完成定义：** 功能按需求可演示或逻辑闭环 + 目标工程 **0 error 编译**（warning 可登记，P0 须修）。

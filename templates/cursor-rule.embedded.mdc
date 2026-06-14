@@ -14,5 +14,6 @@ alwaysApply: false
 2. 选定 **1 个** workflow；懒加载 `core_rules` + `constraint_index` + **1**× `platforms/` + **1–3**× `prompts/`（禁 Glob 整个 prompts/）
 3. L2+ 完整版：`python <skill>/tools/run_review.py --dir <src> --platform <芯片>`
 4. L3 实现/修 Bug：自主改代码至功能完成且 **编译 0 error**（见 core_rules）
+5. 用户要求 **git commit**：Read `references/git_commit_style.md`，`git log` 对齐目标仓中文 conventional 风格
 
 显式点名：`@freertos-embedded-architect` 或「按 freertos skill …」

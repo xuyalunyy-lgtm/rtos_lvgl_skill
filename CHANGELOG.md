@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.15.1 — 2026-06-16
+
+- 新增 [references/git_commit_style.md](references/git_commit_style.md) — 多仓（AIAlarmClock / skill / SDK）中文 conventional commit 规范
+- `core_rules`、`skill_structure`、`self_iterate`、SKILL rules 与 Cursor 模板联动
+
 ## 2.15.0 — 2026-06-16
 
 - 新增 **C9 密钥/凭证**（C9.1–C9.6）与 `prompts/secrets_kconfig.txt`

@@ -1,14 +1,15 @@
 ---
 name: freertos-embedded-architect
-version: 2.15.0
+version: 2.15.1
 description: >-
   审查与设计 FreeRTOS 物联网固件：MVP 分层、LVGL 线程安全、I2S/DMA、cJSON 泄漏、
   WSS/mbedTLS、内存优化、启动/WDT、JL/BK SDK 裁剪。
   Use when user mentions: 死机, 崩溃, 花屏, 卡顿, HardFault, 栈溢出, stack overflow,
   Guru Meditation, lv_async_call, xQueueSend, code review, 审查, 审查代码, SDK裁剪,
   裁SDK, 新增模块, 修Bug, WSS, cJSON, DMA, I2S, AC79, BK7258, 杰理, 博流, Armino,
-  ESP32, STM32, 带屏音箱, 语音网关, embedded C, freertos, skill迭代, skill update.
-  Reviews FreeRTOS IoT firmware with C1-C8 constraints; lazy-load constraint_index
+  ESP32, STM32, 带屏音箱, 语音网关, embedded C, freertos, skill迭代, skill update,
+  git commit, 提交, 提交说明, commit message.
+  Reviews FreeRTOS IoT firmware with C1-C9 constraints; lazy-load constraint_index
   + 1 platform + 1-3 prompts.
 ---
 
