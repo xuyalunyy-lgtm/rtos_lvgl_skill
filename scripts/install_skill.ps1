@@ -6,7 +6,10 @@ param(
     [string]$Dest = (Join-Path $env:USERPROFILE ".cursor\skills\freertos-embedded-architect")
 )
 
-$ExcludeDirs = @(".git", "fw-AC79_AIoT_SDK", "__pycache__", ".pytest_cache", "node_modules")
+$ExcludeDirs = @(
+    ".git", "fw-AC79_AIoT_SDK", "bk_idk-release-v2.2.1", "__pycache__",
+    ".pytest_cache", "node_modules", "freertos-skill-lite"
+)
 
 if (-not (Test-Path (Join-Path $Source "SKILL.md"))) {
     Write-Error "SKILL.md not found. Run from skill repo root or pass -Source."

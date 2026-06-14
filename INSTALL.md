@@ -8,7 +8,14 @@
 
 本机路径 `~/.cursor/skills/`，**不**走 Cursor 云账号；全项目 Agent 可加载。
 
-**Windows（推荐脚本，自动排除 `.git` / 本地 SDK 参考目录）**
+**Windows（推荐 `.cmd`，无需改 ExecutionPolicy）**
+
+```powershell
+cd C:\path\to\skill
+.\scripts\install_skill.cmd
+```
+
+或 PowerShell（需 Bypass 或 RemoteSigned）：
 
 ```powershell
 cd C:\path\to\skill
@@ -69,7 +76,7 @@ Rule 使用 `globs: **/*.{c,h}`，打开/编辑 C 源文件时触发，不要求
 
 ```powershell
 cd C:\path\to\skill
-.\scripts\install_skill.ps1
+.\scripts\install_skill.cmd
 ```
 
 ## 触发示例

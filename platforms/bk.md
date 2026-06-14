@@ -470,6 +470,59 @@ make bk7258
 
 ---
 
+## 带屏 AI 产品实测模式（AIAlarmClock / bk_solution 类）
+
+以下模式来自 BK7258 带屏 AI 闹钟量产工程 review，可作为 AVDK AP 侧重构参考。
+
+### RTOS 队列超时
+
+```c
+#define BEKEN_NO_WAIT       (0)           /* 非阻塞 */
+#define BEKEN_WAIT_FOREVER  (0xFFFFFFFF)  /* 永久等待 */
+```
+
+`rtos_push_to_queue(..., 0)` **等于** `BEKEN_NO_WAIT`，不是永久阻塞。
+
+### LVGL 跨线程：app_event → UI
+
+推荐 **Presenter 桥接 + 递归锁**，而非在 network/audio 任务里直接 `lv_obj_*`：
+
+```c
+/* ui_app_evt_bridge.c — app_event 线程 */
+lvgl_port_lock();
+ui_dispatch_from_app_evt(msg->event, msg->param);
+lvgl_port_unlock();
+
+/* lvgl_port.c — GUI 线程重入安全 + 外部线程 lv_async_call */
+lvgl_port_run_on_gui(fn, arg);
+```
+
+`lvgl_port_lock` 须识别 GUI 线程已在 `lv_timer_handler` 内持锁，避免非递归 mutex 自死锁。
+
+### 应用事件总线
+
+- `app_event_send_msg()`：`BEKEN_NO_WAIT` 投队列，**禁止**在 ISR/timer 回调里做 `bk_reboot_ex` 等重型操作
+- 关键事件（Agent/网络/OTA/深睡）队列满时可短重试；深度建议 ≥32
+- Timer 到期 → 仅 `app_event_send_msg(APP_EVT_xxx)` → 业务线程执行 reboot/停倒计时
+
+### 栈参考（BK7258 + TLS/RTC）
+
+| 任务 | 建议栈 (bytes) | 说明 |
+|------|----------------|------|
+| LVGL（PSRAM 线程） | 12288 | 含 SD 资源探测、路由 |
+| Volc/Agora RTC | ≥10240 / ≥12248 | TLS + JSON + 信令；须 `uxTaskGetStackHighWaterMark` 实测 |
+| vsm_worker / Duer | 6144+ | 语音状态机路径深 |
+
+### 启动顺序（带 LVGL）
+
+```
+app_event_init → SD 挂载 → lcd bringup(LVGL task) → audio_engine → Duer → ntwk_trans
+```
+
+配网 `bk_sconf_init` **勿**在 LVGL 小栈同步调用；独立 `wifi_sconf` 任务（栈 ≥4096）。
+
+---
+
 ## 与其他平台的差异
 
 | 对比项 | BK 博通集成 | 杰理 JL | ESP32 |

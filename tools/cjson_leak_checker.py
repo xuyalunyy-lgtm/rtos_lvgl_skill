@@ -154,8 +154,11 @@ def analyze(content: str, filename: str = "<stdin>") -> CheckResult:
                 segment = "\n".join(
                     t for ln, t in body_lines if first_parse < ln <= line_no
                 )
-                # Parse 失败直接 return（root 仍为 NULL）不算泄漏
-                if re.search(r"if\s*\(\s*root\s*==\s*NULL|if\s*\(\s*!\s*root", segment):
+                # Parse 失败直接 return（root/json 仍为 NULL）不算泄漏
+                if re.search(
+                    r"if\s*\(\s*(?:root|json)\s*==\s*NULL|if\s*\(\s*!\s*(?:root|json)\b",
+                    segment,
+                ):
                     if not re.search(
                         r"cJSON_GetObjectItem|cJSON_IsString|cJSON_IsNumber|cJSON_IsObject",
                         segment,

@@ -33,9 +33,21 @@ ALLOWED_FILE_PATTERNS = [
     re.compile(r"lvgl", re.I),
     re.compile(r"screen", re.I),
     re.compile(r"page", re.I),
+    re.compile(r"wizard", re.I),
+    re.compile(r"wgt_", re.I),
+    re.compile(r"study_", re.I),
+    re.compile(r"lcd_", re.I),
+    re.compile(r"disp_", re.I),
+    re.compile(r"port_", re.I),
     re.compile(r"beken_generated", re.I),
     re.compile(r"good_mvp", re.I),
     re.compile(r"good_presenter", re.I),
+]
+
+ALLOWED_PATH_MARKERS = [
+    "/lvgl_ui/",
+    "/beken_generated/",
+    "/lvgl/port/",
 ]
 
 # 高风险的 Model 层文件名模式
@@ -66,6 +78,9 @@ def is_allowed_file(path: Path, extra_allow: str | None) -> bool:
     if name.startswith("bad_"):
         return False
     if extra_allow and extra_allow.lower() in name.lower():
+        return True
+    path_norm = str(path).replace("\\", "/")
+    if any(marker in path_norm for marker in ALLOWED_PATH_MARKERS):
         return True
     return any(p.search(name) for p in ALLOWED_FILE_PATTERNS)
 

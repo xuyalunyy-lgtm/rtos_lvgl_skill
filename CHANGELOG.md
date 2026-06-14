@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.14.0 — 2026-06-16
+
+- BK 平台：`platforms/bk.md` 增补 AIAlarmClock 实测模式（app_event 桥接、BEKEN_NO_WAIT、栈表、timer→事件）
+- Checker：`cjson_leak_checker` 识别 `!json` Parse 失败早 return；`lvgl_thread_checker` 放行 lvgl_ui 目录与 lcd/port 驱动
+- 来源：AIAlarmClock L2 review + P1 修复闭环
+
 ## 2.13.0 — 2026-06-15
 
 - 优化 `SKILL.md` description：中文触发词 + `Use when` 句式，提升 DeepSeek 等模型命中率
