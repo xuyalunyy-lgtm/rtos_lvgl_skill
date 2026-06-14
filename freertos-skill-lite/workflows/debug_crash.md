@@ -25,6 +25,8 @@
 | heap 持续下降 | C3.1–C3.5, **C7.2** | [cjson_safe_parse.txt](../prompts/cjson_safe_parse.txt) · [memory_alloc_optimize.txt](../prompts/memory_alloc_optimize.txt) | `cjson_leak_checker.py` |
 | 缩池 / 关模块后异常 | **C7.6** | [memory_alloc_optimize.txt](../prompts/memory_alloc_optimize.txt) | — |
 | TLS 握手 fail / 反复断线 | C1.5 | [mbedtls_wss_memory.txt](../prompts/mbedtls_wss_memory.txt) | 完整版 `examples/bad_wss_blocking.c` → 完整版 `examples/good_wss_reconnect.c` |
+| WSS 401/断线后 `vc_start` HardFault / `0xcdcdcdcd` | C2.3, C1.6 | [crash_log_decode.txt](../prompts/crash_log_decode.txt) · [mbedtls_wss_memory.txt](../prompts/mbedtls_wss_memory.txt) | `platforms/bk.md` vc_start 节 |
+| Assert `prvNotifyQueueSetContainer` | C2.3 | [crash_log_decode.txt](../prompts/crash_log_decode.txt) | 先排除堆损坏 / WSS 竞态 |
 | WDT / task watchdog | **C8.3–C8.6**, C1.5, C4.7 | [boot_wdt_lifecycle.txt](../prompts/boot_wdt_lifecycle.txt) · [deadlock_lock_order.txt](../prompts/deadlock_lock_order.txt) | 完整版 `examples/bad_wss_blocking.c` |
 
 ## Step 3 — 修复与验证（完整版）

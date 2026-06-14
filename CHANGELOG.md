@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.17.0 — 2026-06-16
+
+- `platforms/bk.md` 增补 bk_printer WSS 异步建链竞态（vc_start）、QueueSet Assert、littlefs 表情资源、SARADC gpio busy
+- `prompts/crash_log_decode.txt` BK7258 HardFault / Assert 解读与 addr2line 流程
+- `workflows/debug_crash.md` 症状路由：WSS 401/断线后 vc_start HardFault
+- 来源：bk_printer 日志诊断 + vc_start 竞态修复闭环
+
 ## 2.16.0 — 2026-06-16
 
 - 新增 **C6.5** 产品层裁剪：`main/CMakeLists.txt` 与 Kconfig/init 链一致

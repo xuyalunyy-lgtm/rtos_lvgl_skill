@@ -565,8 +565,47 @@ app_event_init → SD 挂载 → lcd bringup(LVGL task) → audio_engine → Due
 | 任务 | 建议栈 (bytes) |
 |------|----------------|
 | `local_qr_print` | 24576 |
+| `vc_start`（voicechat 异步建链） | ≥5120 |
 | WSS / dialog / system_manager | ≥4096，须 HighWaterMark 实测 |
 | LVGL init（cpu1 `ui_main`） | ≥3072，含资源加载时上调 |
+
+### WSS 异步建链（vc_start）— HardFault 高发
+
+**症状：** WebSocket 401/断线后 ~8s，`Fault on thread vc_start`，`r3=0xcdcdcdcd`，同一 `pc` 反复出现。
+
+**根因：** `vc_start` 线程在 `voicechat_session_connect()` 内阻塞时，事件回调或 `SYSTEM_EVENT_SERV_NULL` 路径**并发** `stop/deinit` websocket → use-after-free。
+
+**修复清单（MVP）：**
+
+| 项 | 做法 |
+|----|------|
+| 生命周期互斥 | `voicechat_client` 的 `start/stop/configure` 同一把 mutex |
+| 首次建链失败 | 事件回调**勿**发 `SERV_NULL`（`started` 仍为 false）；由 `vc_start` 失败路径统一上报 |
+| SERV_NULL | 处理前 **wait `vc_start` 结束** 再 `stop()` |
+| connect 唤醒 | `DISCONNECTED/CLOSED` 时若仍在 CONNECTING，须 `post connect_sem`，避免 connect 长挂扩大竞态 |
+| 建链失败清理 | `connect` 失败须 `disconnect+deinit`，不留半初始化 session |
+| 线程退出 | 任务末尾 `rtos_delete_thread(NULL)`，**勿**在任务内 `delete_thread(&self_handle)` |
+
+### Assert `prvNotifyQueueSetContainer`
+
+BK SDK 全局 `configUSE_QUEUE_SETS=1`（`FreeRTOSConfig.h`）。Assert @ `queue.c` 多为：
+
+1. QueueSet 通知队列满（成员 queue 事件未被 select 消费），或
+2. **堆损坏**（常与 WSS 并发 deinit 同源，先修 vc_start 再复测）
+
+产品层未直接用 QueueSet 时，优先怀疑内存踩踏而非业务 QueueSet 配置。
+
+### littlefs 表情资源（LVGL decode fail:0）
+
+UI 读 `/emoji/{name}.png`（如 `neutral.png`）。`lv_png_img_load` 返回失败时 LVGL8 常打 `decode fail:0`（`LV_RES_INV`）。
+
+**常见原因：** `USR_CONFIG` littlefs 分区未打包 `emoji/` 目录（仓库常不含 png，须 `mklittlefs -c bk/` 烧录）。
+
+缺文件仅无表情图，不影响 WSS/打印主流程。
+
+### SARADC / `gpio:1 was busy`（电池采样）
+
+CPU1 电池每轮 `bk_adc_init` 从 RF 温度检测「夺回」SARADC ISR，HAL 会打 cosmetic `gpio busy`。读数 `ok=4/4` 时可忽略；**勿**为此去掉 re-init（会导致 `-10504` 或脏读数）。
 
 ---
 
