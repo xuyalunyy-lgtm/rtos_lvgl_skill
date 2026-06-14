@@ -519,6 +519,22 @@ Version:        apps/common/system/version.c
 
 ---
 
+## 共享引擎：prompt + 云端 uplink（C10）
+
+JL 播放/采集经 `audio_server`，与 BK 多 port 模型不同，但 **C10 时序铁律相同**：
+
+| 项 | JL 做法 |
+|----|---------|
+| 播放结束 | 收 `AUDIO_SERVER_EVENT_END` / `SPEAK_STOP` 后再开麦 |
+| dec 关闭 | prompt/TTS 用 `AUDIO_REQ_DEC` close，勿与 enc 并发占 ref |
+| 回调 | `audio_event_handler` 在 server 任务 — 禁止直接 `lv_obj_*`；prompt 完成 → 发消息给 Presenter/会话任务 |
+| settle | END 后 delay 80–150ms + 确认 enc 已 OPEN 且 VAD/AEC ready（`CONFIG_AEC_ENC_ENABLE`） |
+| 诊断 | 对比两轮 peak；有 uplink 但 ASR 空 → 查 AEC/播放未关 |
+
+深细节 → [voice_asr_uplink.txt](../prompts/voice_asr_uplink.txt)
+
+---
+
 ## 与其他平台差异
 
 | 对比项 | JL AC79 | ESP32 | STM32 |

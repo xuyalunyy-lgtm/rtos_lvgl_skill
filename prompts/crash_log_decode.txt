@@ -93,51 +93,25 @@ arm-none-eabi-nm --print-size --size-sort firmware.elf | tail -20
 
 ---
 
-## 博通 BK — Armino Reboot
+## 平台 HardFault / Reboot（通用入口）
 
-### 典型日志
+不同 SoC 日志格式差异大。**先加载用户平台的** `platforms/xxx.md` Crash/addr2line 节。
 
-```
-wdt reboot
-reason: task watchdog
-init:I(10):reason - hard fault
-Fault on thread vc_start
-40 MMFAR x 0x04870c3e
-3 r3 x 0xcdcdcdcd
-(11612)Assert at: prvNotifyQueueSetContainer:3050
-init:I(10):reason - assert
-```
+| 线索 | 通用含义 | 下一步 |
+|------|----------|--------|
+| `0xcdcdcdcd` / poison fill | use-after-free / 已释放堆 | C2.3；查并发 deinit |
+| `Fault on thread <name>` | 该任务内崩溃 | addr2line + 任务栈表 |
+| `Assert at: prvNotifyQueueSetContainer` | QueueSet 通知失败或堆损坏 | 先修内存踩踏 |
+| `task watchdog` / `wdt reboot` | 阻塞或死锁 | C8.3–C8.6 |
 
-或 build 时开启 backtrace：
+**BK Armino** 典型样例（`vc_start`、MMFAR、QueueSet 与 WSS 竞态）→ [platforms/bk.md](../platforms/bk.md)  
+**ESP32** Guru Meditation → 本文 ESP 节  
+**JL** 开机死机 / task_info → [platforms/jl.md](../platforms/jl.md)
 
 ```bash
-arm-none-eabi-addr2line -e app.elf -a -f 020826e2 020447e6 ...
-```
-
-### BK7258 HardFault 寄存器线索
-
-| 字段 | 含义 |
-|------|------|
-| `r3 = 0xcdcdcdcd` | FreeRTOS 已释放堆填充 → **use-after-free**（查并发 stop/deinit） |
-| `MMFAR` 非 `0x28…`/`0x60…` | 野指针 / 损坏地址 |
-| `Fault on thread vc_start` | 异步 WSS 建链与 `SERV_NULL` 竞态 → 见 `platforms/bk.md` 打印机节 |
-| 同一 `pc` 多次复现 | 稳定代码路径，addr2line 优先 |
-
-### Assert `prvNotifyQueueSetContainer`
-
-- FreeRTOS v10 `queue.c` ~3050：`pxQueueSetContainer` 为 NULL 或 QueueSet 已满
-- 产品未用 audio_pipeline QueueSet 时，**先修堆损坏**（WSS 生命周期），再查 SDK 组件
-
-### 排查
-
-1. `projects/xxx/ap/` 用户任务是否抢占 WiFi CP 通信
-2. LVGL + UVC 同时占显示
-3. AP/CP 消息队列满
-4. **WSS：** 401/断线后是否 `vc_start` 与 `stop()` 并发（mutex + wait vc_start）
-
-```bash
-# 若有 map 文件
-grep -i backtrace build/...
+# 工具链依平台 — 见 platforms/xxx.md
+arm-none-eabi-addr2line -pfiaC -e build/firmware.elf <PC>
+xtensa-esp32-elf-addr2line -pfiaC -e build/app.elf <PC>
 ```
 
 ---

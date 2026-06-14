@@ -25,9 +25,11 @@
 | heap 持续下降 | C3.1–C3.5, **C7.2** | [cjson_safe_parse.txt](../prompts/cjson_safe_parse.txt) · [memory_alloc_optimize.txt](../prompts/memory_alloc_optimize.txt) | `cjson_leak_checker.py` |
 | 缩池 / 关模块后异常 | **C7.6** | [memory_alloc_optimize.txt](../prompts/memory_alloc_optimize.txt) | — |
 | TLS 握手 fail / 反复断线 | C1.5 | [mbedtls_wss_memory.txt](../prompts/mbedtls_wss_memory.txt) | 完整版 `examples/bad_wss_blocking.c` → 完整版 `examples/good_wss_reconnect.c` |
-| WSS 401/断线后 `vc_start` HardFault / `0xcdcdcdcd` | C2.3, C1.6 | [crash_log_decode.txt](../prompts/crash_log_decode.txt) · [mbedtls_wss_memory.txt](../prompts/mbedtls_wss_memory.txt) | `platforms/bk.md` vc_start 节 |
-| Assert `prvNotifyQueueSetContainer` | C2.3 | [crash_log_decode.txt](../prompts/crash_log_decode.txt) | 先排除堆损坏 / WSS 竞态 |
+| WSS 断线后异步 reconnect HardFault / use-after-free | C2.3, C1.6 | [crash_log_decode.txt](../prompts/crash_log_decode.txt) · [mbedtls_wss_memory.txt](../prompts/mbedtls_wss_memory.txt) | 平台专档 WSS 生命周期节（如 BK `vc_start`） |
+| Assert `prvNotifyQueueSetContainer` | C2.3 | [crash_log_decode.txt](../prompts/crash_log_decode.txt) | 先排除堆损坏 / WSS 竞态；BK 见 `platforms/bk.md` |
 | WDT / task watchdog | **C8.3–C8.6**, C1.5, C4.7 | [boot_wdt_lifecycle.txt](../prompts/boot_wdt_lifecycle.txt) · [deadlock_lock_order.txt](../prompts/deadlock_lock_order.txt) | 完整版 `examples/bad_wss_blocking.c` |
+| 录音失效 / ASR 空 / 「没听清」 | **C10.1–C10.5** | [voice_asr_uplink.txt](../prompts/voice_asr_uplink.txt) | 完整版 `examples/good_voice_prompt_uplink.c` |
+| 唤醒叮后第二轮麦幅骤降 | **C10.1, C10.2** | [voice_asr_uplink.txt](../prompts/voice_asr_uplink.txt) | — |
 
 ## Step 3 — 修复与验证（完整版）
 

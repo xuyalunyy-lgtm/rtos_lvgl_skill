@@ -217,6 +217,20 @@ arm-none-eabi-nm --print-size --size-sort build/firmware.elf | tail -20
 5. **事件总线**：[queue_event_bus.txt](../prompts/queue_event_bus.txt)
 6. **HAL 回调 = ISR 上下文**：仅 `*FromISR` — [freertos_sync_primitives.txt](../prompts/freertos_sync_primitives.txt)
 
+## 共享引擎：prompt + 云端 uplink（C10）
+
+STM32 常见：HAL I2S 双工 + 软件 AEC 或外置 codec。
+
+| 项 | STM32 做法 |
+|----|------------|
+| prompt 播放 | I2S TX DMA；结束须 `HAL_I2S_Transmit_DMA` stop + 等 TC |
+| 开麦 | TX idle 后再开 RX tap / uplink；遵守 C10.4 串行 |
+| Cache | F4/F7/H7 DMA 缓冲 Non-Cacheable 或 clean/invalidate（C4 + C10） |
+| settle | 80–150ms；确认 AEC ref 缓冲不再写入 |
+| 诊断 | 对比两轮 peak；HardFault 查栈 words |
+
+深细节 → [voice_asr_uplink.txt](../prompts/voice_asr_uplink.txt)
+
 ## 快速参考路径
 
 ```

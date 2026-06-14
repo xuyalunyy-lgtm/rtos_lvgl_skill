@@ -1,30 +1,26 @@
-# Git commit message 模板（复制到 HEREDOC）
+# Git commit 模板（通用）
 
-## AIAlarmClock
-
-```
-<type>(<scope>): <中文简述>
-
-- <要点 why>
-- <要点 why>
-```
-
-示例 scope: `app_event` `vsm` `audio_engine` `board` `ci` `duer`
-
-## skill
+## 产品固件仓
 
 ```
-feat: Skill v<semver> — <中文简述>
+type(scope): 中文简述
+
+- 要点（why）
+- 要点
 ```
 
-## AIAlarmClockSdk
+示例 scope: `audio` `network` `ui` `board` `ci` `config`
+
+## SDK fork 仓
 
 ```
-<type>(<scope>): <中文简述>
+type(scope): 中文简述
 ```
 
-示例 scope: `build` `bk_duer` `bk_audio_player` `bk_voice_service`
+示例 scope: `build` 及 SDK 内组件目录名
 
----
+## skill 仓
 
-完整规范 → [references/git_commit_style.md](../references/git_commit_style.md)
+```
+feat: Skill vX.Y.Z — 中文简述
+```

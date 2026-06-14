@@ -1,5 +1,21 @@
 # Changelog
 
+## 2.19.0 — 2026-06-16
+
+- **通用化**：C10 / `voice_asr_uplink.txt` 去除产品 API 名（VSM/duer/port），改用 session/playback_slot 抽象
+- `secrets_kconfig.txt` 改为全平台三文件模式；BK 细节下沉 `platforms/bk.md`
+- `crash_log_decode.txt` 移除 BK 专章，改平台 HardFault 入口 + 平台专档引用
+- `l2_project_review.md` 去除 BK 默认/产品文件名；平台自动检测
+- `git_commit_style.md` 通用 scope；JL/ESP32 增补 C10 平台节
+- `SKILL.md` 触发词与 rules：芯片差异只在 `platforms/`
+
+## 2.18.0 — 2026-06-16
+
+- 新增 **C10 语音/ASR/Uplink**（C10.1–C10.6）与 `prompts/voice_asr_uplink.txt`
+- `examples/good_voice_prompt_uplink.c` — prompt detach + AEC settle + VSM generation 正例
+- `platforms/bk.md` 共享引擎 prompt 模式；`debug_crash.md` / `l2_code_review.md` 症状与审查路由
+- 来源：带屏 AI 闹钟日志诊断（ASR 空 / 第二轮麦幅塌陷）闭环
+
 ## 2.17.0 — 2026-06-16
 
 - `platforms/bk.md` 增补 bk_printer WSS 异步建链竞态（vc_start）、QueueSet Assert、littlefs 表情资源、SARADC gpio busy

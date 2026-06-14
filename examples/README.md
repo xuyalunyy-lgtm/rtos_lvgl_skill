@@ -41,6 +41,14 @@ L2 Code Review 时按嫌疑加载对应文件；违规报告引用 `C#.#`（见 
 
 Cache 一致性细则 → [audio_dma_pingpong.txt](../prompts/audio_dma_pingpong.txt) **C4.8**
 
+## C10 — 语音 / ASR / Uplink（共享引擎）
+
+| | 文件 | ID | Checker |
+|---|------|-----|---------|
+| ✅ | [good_voice_prompt_uplink.c](good_voice_prompt_uplink.c) detach + settle + session generation | C10.1–C10.6 | 人工 |
+
+深细节 → [voice_asr_uplink.txt](../prompts/voice_asr_uplink.txt)
+
 ## C8 — 启动 / WDT / 阻塞
 
 | | 文件 | ID | Checker |

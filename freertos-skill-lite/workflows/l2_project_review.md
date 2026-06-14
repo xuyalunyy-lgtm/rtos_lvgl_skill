@@ -4,16 +4,18 @@
 
 <thinking>
 1. 识别工作区：产品仓 + SDK 仓 + skill（若有）
-2. 平台默认 BK7258 时读 platforms/bk.md
-3. 分三层：仓库卫生(C9) → 架构文档 → 组件代码(C1–C8)
+2. **从仓库结构识别平台**（Kconfig/sdkconfig/Makefile/`platforms/` 线索），加载对应 `platforms/xxx.md`
+3. 分三层：仓库卫生(C9) → 架构文档 → 组件代码(C1–C10)
 4. 产品 components 跑 run_review；config 跑 secret_scan
 </thinking>
 
 ## Step 1 — 总纲与平台
 
 - [core_rules.md](../references/core_rules.md)
-- [constraint_index.md](../references/constraint_index.md)（含 **C9**）
-- [platforms/bk.md](../platforms/bk.md) 或用户指定平台
+- [constraint_index.md](../references/constraint_index.md)（含 **C9、C10**）
+- **用户指定或检测到的** [platforms/esp32.md](../platforms/esp32.md) | [jl](../platforms/jl.md) | [bk](../platforms/bk.md) | [stm32](../platforms/stm32.md)
+
+平台检测线索：`idf.py` / `sdkconfig` → ESP32；`make ac791n_*` / `task_info_table` → JL；`make bk7258` / `ap/`+`cp/` → BK；CubeMX/`Core/` → STM32。
 
 ## Step 2 — 仓库卫生（C9，优先）
 
@@ -23,8 +25,8 @@ python tools/secret_scan_checker.py --dir <产品仓>/projects
 ```
 
 对照 [secrets_kconfig.txt](../prompts/secrets_kconfig.txt)：
-- 入库 `config` 是否含非空 SECRET/TOKEN
-- `.gitignore` 是否含 `config.secrets` / `config.local`
+- 入库 `config` / `sdkconfig` 是否含非空 SECRET/TOKEN
+- `.gitignore` 是否含 `*.secrets` / `config.local` / `sdkconfig.local`
 - Git remote 是否内嵌 token
 - 是否有提交的调试日志含语音/鉴权数据
 
@@ -40,39 +42,38 @@ python tools/secret_scan_checker.py --dir <产品仓>/projects
 ## Step 4 — 产品代码静态审查
 
 ```bash
-python tools/run_review.py --dir <产品仓>/components --platform bk
+python tools/run_review.py --dir <产品仓>/components --platform <esp32|jl|bk|stm32>
 ```
 
 手工 spot-check（checker 不覆盖）：
-- `naozhong_duer_bind` / 大文件职责是否过重（如 `system_manager.c` >3k 行、`webparse.c` >3k 行）
-- Demo TODO（深睡 hack、LED recover）是否阻塞量产
-- LVGL 桥接是否走 `lvgl_port_lock` / `lv_async_call` / `lvMsgSendToLvgl`
+- **大文件 / 上帝模块**：单文件 >3k 行、`*_bind.c` / `*_manager.c` 职责是否过重
+- Demo TODO（深睡 hack、临时 recover）是否阻塞量产
+- LVGL 桥接是否走 `lv_async_call` / 平台 UI 队列 API（BK: `lvgl_port_lock`；JL: 消息队列；ESP: `esp_lvgl_port`）
+- **语音产品**：prompt/TTS 后 uplink 时序 → [voice_asr_uplink.txt](../prompts/voice_asr_uplink.txt)（C10）
 - **产品层死代码（C6.5）** — 见 Step 4b
 
 ## Step 4b — 产品层裁剪 spot-check（C6.5）
 
-对照 `main/CMakeLists.txt` 与 `config/*/config`，**未启用或未 init 的模块不得编入镜像**：
+对照 `main/CMakeLists.txt`（或 Makefile `srcs`）与 config，**未启用或未 init 的模块不得编入镜像**：
 
 | 信号 | 处置 |
 |------|------|
-| Kconfig `=n`（如 `PAHO_MQTT`、`PROTOCOL_USE_MQTT`、`VAD`、`DVP_CAMERA`） | 对应 `.c` 用 `if (CONFIG_*)` 守卫或移出 `srcs` |
-| `super.init()` / `*_tool_init()` 从未调用 | 移出编译；若功能仍要，改到正确 init 链（如 MCP → `iot_devices_init`） |
-| `#if 0` 整块或注释掉的 `*_instance()->start()` | 删除死代码或恢复完整链路，勿两头悬空 |
-| Demo 组件（`moduleA/B/C`、空 `list_test.c`） | 删除目录或移出 `components/` |
-| Webnet/AP：仅 `WEBNET_USING_CGI` 开启 | 勿编 asp/dav/ssi/upload 等未定义宏的模块 |
-| 密钥在 `.c` `#define` | 迁 Kconfig + `config.secrets`（C9.1） |
+| Kconfig `=n`（MQTT/VAD/Camera 等） | 对应 `.c` 用 `if (CONFIG_*)` 守卫或移出 `srcs` |
+| `super.init()` / `*_tool_init()` 从未调用 | 移出编译；若功能仍要，改到正确 init 链 |
+| `#if 0` 整块或注释掉的 `*_start()` | 删除死代码或恢复完整链路，勿两头悬空 |
+| Demo 组件（空 test、示例 moduleA/B/C） | 删除目录或移出 `components/` |
+| 条件编译 Web 子模块 | 仅编已定义宏的模块 |
+| 密钥在 `.c` `#define` | 迁 Kconfig + 本地 secrets（C9.1） |
 
-BK 打印机类：`CONFIG_IOT_DEV_CAMERA` 默认 `n`（无 DVP）；JPEG 打印走 `print_job` + `img_rgb565`，与 MCP camera 无关。
+平台实测裁剪表（打印机、带屏 AI 等）→ 各 `platforms/xxx.md`，勿在通用 workflow 硬编码产品名。
 
 ```bash
-# 辅助：找未编入但残留的大文件 / 孤儿源
-rg -l "list_test|moduleA" projects/<app>/main || true
-rg "super\.init\(\)|_tool_init" projects/<app>/main --glob '*.c' | head
+rg "super\.init\(\)|_tool_init|_instance\(\)->start" <产品仓>/main --glob '*.c' | head
 ```
 
 ## Step 5 — 构建与 CI
 
-- 能否 `make bk7258` 或 `build.sh` 零配置路径编译
+- 按 `platforms/xxx.md` 编译（如 `idf.py build` / `make ac791n_*` / `make bk7258` / `build.sh`）
 - 是否缺 CI：secret scan + build smoke
 - 产品层是否有单元测试（C5）
 
@@ -91,7 +92,7 @@ rg "super\.init\(\)|_tool_init" projects/<app>/main --glob '*.c' | head
 ...
 
 ## P2（裁剪 / 技术债）
-- C6.5 — 未 init 仍编入 / Demo 组件 / Webnet 冗余模块
+- C6.5 — 未 init 仍编入 / Demo 组件 / 冗余 Web 模块
 
 ## Checker 摘要
 - run_review: ...

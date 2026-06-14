@@ -1,16 +1,17 @@
 ---
 name: freertos-embedded-architect
-version: 2.17.0
+version: 2.19.0
 description: >-
   审查与设计 FreeRTOS 物联网固件：MVP 分层、LVGL 线程安全、I2S/DMA、cJSON 泄漏、
-  WSS/mbedTLS、内存优化、启动/WDT、JL/BK SDK 裁剪、产品层死代码裁剪、WSS 异步建链竞态。
+  WSS/mbedTLS、内存优化、启动/WDT、SDK 裁剪、密钥安全、共享引擎语音 uplink/ASR 时序。
   Use when user mentions: 死机, 崩溃, 花屏, 卡顿, HardFault, 栈溢出, stack overflow,
   Guru Meditation, lv_async_call, xQueueSend, code review, 审查, 审查代码, SDK裁剪,
-  裁SDK, 多余代码, 死代码, 裁剪, 新增模块, 修Bug, WSS, cJSON, DMA, I2S, AC79, BK7258,
-  vc_start, use-after-free, cdcdcdcd, QueueSet, prvNotifyQueueSetContainer, littlefs, emoji,
-  ESP32, STM32, 带屏音箱, 语音网关, embedded C, freertos, skill迭代, skill update,
+  裁SDK, 多余代码, 死代码, 裁剪, 新增模块, 修Bug, WSS, cJSON, DMA, I2S,
+  录音, 录音失效, ASR, 识别不到, 没听清, uplink, prompt tone, 唤醒, AEC, mic peak,
+  use-after-free, ESP32, STM32, JL, AC79, BK, Armino, 带屏音箱, 语音网关,
+  embedded C, freertos, skill迭代, skill update,
   git commit, 提交, 提交说明, commit message.
-  Reviews FreeRTOS IoT firmware with C1-C9 constraints; lazy-load constraint_index
+  Reviews FreeRTOS IoT firmware with C1-C10 constraints; lazy-load constraint_index
   + 1 platform + 1-3 prompts.
 ---
 
@@ -24,10 +25,10 @@ description: >-
 |--------------|----------------|
 | FreeRTOS 多任务 / MVP 架构设计与审查 | 字库、图片资源生成 |
 | LVGL 线程安全、I2S/DMA、WSS/cJSON | 低功耗策略设计（仅 review 用户方案） |
-| JL/BK SDK 需求驱动裁剪 | OTA、产测、CI、通用编译脚本 |
+| JL/BK/ESP32/STM32 SDK 需求驱动裁剪 | OTA、产测、CI、通用编译脚本 |
 | `tools/` checker 与 MVP codegen | LVGL PC 模拟器 / Designer 搭建 |
 
-BK 编译：`bk_build.*` 与 SDK 同级 → [platforms/bk.md](platforms/bk.md)
+**平台专档**（编译/Crash/API 差异）：[esp32](platforms/esp32.md) | [stm32](platforms/stm32.md) | [jl](platforms/jl.md) | [bk](platforms/bk.md)
 
 **Claude Code：** [references/claude_code.md](references/claude_code.md) · 安装 `scripts/install_claude_code.*` · 项目 [templates/CLAUDE.embedded.md](templates/CLAUDE.embedded.md)
 
@@ -62,6 +63,7 @@ BK 编译：`bk_build.*` 与 SDK 同级 → [platforms/bk.md](platforms/bk.md)
 | 7 | 内存优化（C7） | [memory_alloc_optimize.txt](prompts/memory_alloc_optimize.txt) |
 | 8 | 启动/WDT（C8） | [boot_wdt_lifecycle.txt](prompts/boot_wdt_lifecycle.txt) |
 | 9 | 密钥/凭证（C9） | [secrets_kconfig.txt](prompts/secrets_kconfig.txt) |
+| 10 | 语音/ASR/Uplink（C10） | [voice_asr_uplink.txt](prompts/voice_asr_uplink.txt) |
 
 Prompt / 工具 / 范例全表 → [skill_structure.md](references/skill_structure.md)
 
@@ -77,6 +79,7 @@ Prompt / 工具 / 范例全表 → [skill_structure.md](references/skill_structu
 - **L3 实现类任务：全权改代码、无需逐步确认，直至功能完成且编译通过**（见 core_rules 自主实施模式）
 - L2+ 违规报告须引用 `C#.#`，P0 须附修复范例
 - 禁止跨平台照搬优先级数值；禁止未问卷给 SDK 删除清单（C6.1）
+- 通用约束在 prompts/references；**芯片 API、编译命令、实测栈表** 只在 `platforms/xxx.md`
 - Checker 为启发式辅助；Shell 仅 `python tools/*.py` / `scripts/*.py|cmd`
 - 用户要求 **commit** 时读 [git_commit_style.md](references/git_commit_style.md)；中文 `type(scope):` 标题
 </rules>

@@ -210,6 +210,20 @@ xtensa-esp32-elf-addr2line -pfiaC -e build/your_project.elf 0x400d1234
 4. **事件总线**：见 [queue_event_bus.txt](../prompts/queue_event_bus.txt)
 5. **同步原语**：ISR 用 Notification/Queue FromISR — [freertos_sync_primitives.txt](../prompts/freertos_sync_primitives.txt)
 
+## 共享引擎：prompt + 云端 uplink（C10）
+
+ESP-IDF 常见组合：I2S RX/TX + esp-sr AEC 或自定义 ref 注入。
+
+| 项 | ESP32 做法 |
+|----|------------|
+| prompt 播放 | I2S TX / `esp_audio` 播放器；结束须 stop writer 并释放 AEC ref |
+| 开麦 | prompt `PLAYER_EVENT_FINISHED` 或 I2S TX idle 后再 `start_uplink` |
+| settle | 80–150ms + 检查 AEC 状态（esp-sr `afe` reset 若 API 提供） |
+| 任务 | 音频回调在独立 task — 禁止 `lv_obj_*`；用 Queue → Presenter |
+| 诊断 | `uxTaskGetStackHighWaterMark` on voice task；peak 日志对比两轮 |
+
+深细节 → [voice_asr_uplink.txt](../prompts/voice_asr_uplink.txt)
+
 ## 快速参考路径
 
 ```

@@ -70,6 +70,16 @@
 | C9.5 | 2 | 构建支持 config.secrets 覆盖 |
 | C9.6 | 2 | L2 工程审查须跑 secret_scan |
 
+## C10 语音/ASR/Uplink
+| ID | P | 一句话 |
+|----|---|--------|
+| C10.1 | 0 | prompt/TTS 结束须 detach 播放路径 |
+| C10.2 | 0 | 开 uplink 前 AEC settle + mic ready |
+| C10.3 | 1 | 先 peak/uplink 区分无 PCM vs ASR 空 |
+| C10.4 | 1 | prompt 完成后再 start uplink |
+| C10.5 | 1 | session generation 防 stale 回调 |
+| C10.6 | 2 | playback slot/handle 勿 hardcode |
+
 ## 症状 → ID（Crash 用）
 | 症状 | ID |
 |------|-----|
@@ -81,5 +91,7 @@
 | WDT | C8.3–C8.6, C1.5 |
 | heap 下降 | C3.*, C7.2 |
 | 明文密钥入库 | C9.1, C9.2 |
+| ASR 空 / 录音失效 | C10.1–C10.5 |
+| 第二轮麦幅塌陷 | C10.1, C10.2 |
 
 Prompt 深细节按需 1–3 个 → [skill_structure.md](skill_structure.md) 场景表。

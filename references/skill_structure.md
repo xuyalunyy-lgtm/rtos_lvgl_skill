@@ -65,6 +65,8 @@ Workflow 索引 → [workflows/README.md](../workflows/README.md)
 | C6 | SDK 裁剪 | [sdk_trim_prune.txt](../prompts/sdk_trim_prune.txt) |
 | C7 | 内存分配优化 | [memory_alloc_optimize.txt](../prompts/memory_alloc_optimize.txt) |
 | C8 | 启动 / WDT / 阻塞 | [boot_wdt_lifecycle.txt](../prompts/boot_wdt_lifecycle.txt) |
+| C9 | 密钥 / 凭证 | [secrets_kconfig.txt](../prompts/secrets_kconfig.txt) |
+| C10 | 语音 / ASR / Uplink | [voice_asr_uplink.txt](../prompts/voice_asr_uplink.txt) |
 | 网络 | WSS / mbedTLS / 栈 | [mbedtls_wss_memory.txt](../prompts/mbedtls_wss_memory.txt) |
 | Crash | 日志解读 | [crash_log_decode.txt](../prompts/crash_log_decode.txt) |
 | 同步 | FreeRTOS 原语 | [freertos_sync_primitives.txt](../prompts/freertos_sync_primitives.txt) |

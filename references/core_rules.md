@@ -15,7 +15,7 @@ Agent 在 L2/L3 或 workflow 要求时读取本文件。L1 概念问答可跳过
 | **全权改代码** | Agent **自行决定**所有实现改动（`.c/.h`、CMake/Makefile、Kconfig、工程配置），**无需逐步向用户确认** |
 | **跑通为止** | 持续实现 → 编译 → 修错，直至 **用户指定功能完成** 且 **工程编译通过** |
 | **编译** | 命令以 `platforms/xxx.md` 为准；编译失败则读日志、修复、重编，**禁止**留半成品让用户收尾 |
-| **铁律仍生效** | 改动须满足 C1–C8；L2+ 可跑 `run_review.py` 自检 |
+| **铁律仍生效** | 改动须满足 C1–C10；L2+ 可跑 `run_review.py` 自检 |
 | **须询问用户** | 大规模删 SDK 模块（超 C6 问卷范围）、git push/force、改仓库 secrets、需求根本歧义 |
 | **Git 提交** | 用户要求 commit 时读 [git_commit_style.md](git_commit_style.md)；标题中文 + `type(scope):`；提交前 `git log` 对齐仓库风格 |
 | **不适用** | L2 纯 Code Review；用户写明「只审查/只给方案不改代码」 |
@@ -58,9 +58,9 @@ python tools/stack_calculator.py --describe "WSS TLS cJSON" --platform jl
 
 共享类型：`examples/app_mvp.h`（与 `mvp_codegen` 输出一致）；Queue 设计 → [queue_event_bus.txt](../prompts/queue_event_bus.txt)
 
-## 八条硬性约束（摘要）
+## 十条硬性约束（摘要）
 
-**细粒度 ID 矩阵（C1.1–C8.6）** → [constraint_detail.md](constraint_detail.md)（L2+ 违规报告须引用 `C#.#`）
+**细粒度 ID 矩阵（C1.1–C10.6）** → [constraint_detail.md](constraint_detail.md)（L2+ 违规报告须引用 `C#.#`）
 
 | # | 主题 | 细则 | 子约束数 |
 |---|------|------|----------|
@@ -73,6 +73,7 @@ python tools/stack_calculator.py --describe "WSS TLS cJSON" --platform jl
 | 7 | 内存分配优化 | 先量后改；缩池顺序 → [memory_alloc_optimize.txt](../prompts/memory_alloc_optimize.txt) | 9 |
 | 8 | 启动 / WDT | Queue 先于回调；有限 timeout → [boot_wdt_lifecycle.txt](../prompts/boot_wdt_lifecycle.txt) | 6 |
 | 9 | 密钥 / 凭证 | config.secrets 不入库 → [secrets_kconfig.txt](../prompts/secrets_kconfig.txt) | 6 |
+| 10 | 语音 / ASR / Uplink | prompt detach + settle → [voice_asr_uplink.txt](../prompts/voice_asr_uplink.txt) | 6 |
 
 ## 文件归属惯例
 
@@ -97,6 +98,7 @@ app_test_config.h       → APP_TEST_MODE_*
 | 反例 cJSON | [bad_cjson_leak.c](../examples/bad_cjson_leak.c) |
 | 反例 Queue | [bad_queue_stack_pointer.c](../examples/bad_queue_stack_pointer.c) |
 | 反例 WSS | [bad_wss_blocking.c](../examples/bad_wss_blocking.c) |
+| 正例 语音 uplink | [good_voice_prompt_uplink.c](../examples/good_voice_prompt_uplink.c) |
 
 索引与 checker 命令 → [examples/README.md](../examples/README.md)
 

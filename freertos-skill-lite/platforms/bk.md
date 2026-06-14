@@ -480,9 +480,9 @@ make bk7258
 
 ---
 
-## 带屏 AI 产品实测模式（AIAlarmClock / bk_solution 类）
+## 带屏 AI 语音产品实测模式（BK AVDK AP 类）
 
-以下模式来自 BK7258 带屏 AI 闹钟量产工程 review，可作为 AVDK AP 侧重构参考。
+以下模式来自 BK7258 带屏 AI 语音量产工程 review，可作为 AVDK AP 侧重构参考。
 
 ### RTOS 队列超时
 
@@ -530,6 +530,20 @@ app_event_init → SD 挂载 → lcd bringup(LVGL task) → audio_engine → Due
 ```
 
 配网 `bk_sconf_init` **勿**在 LVGL 小栈同步调用；独立 `wifi_sconf` 任务（栈 ≥4096）。
+
+### 共享引擎：prompt tone + 云端 uplink（C10）
+
+AVDK `onboard_speaker_stream` 支持多 **port** attach；唤醒「叮」、本地 TTS 与 Mic uplink 共用 engine + AEC 时：
+
+| 项 | 做法 |
+|----|------|
+| detach | `stop` **与** playback **FINISHED** 均 `detach` 对应 `port_id` |
+| port_id | 来自 `prompt_tone` 配置，勿 hardcode `1` |
+| 时序 | ding **FINISHED+detach** → **80–150ms** settle → `wait_mic_capture_ready` → `voice_start` / uplink tap |
+| 诊断 | 对比第一轮 vs 第二轮 `mic peak` / `tap first frame peak`；有 uplink 字节但 `ASR empty` ≠ 硬件无麦 |
+| 会话 | session generation 丢弃 prompt 完成后的 stale 回调 |
+
+深细节 → [voice_asr_uplink.txt](../prompts/voice_asr_uplink.txt) · 正例 → 完整版 `examples/good_voice_prompt_uplink.c`
 
 ---
 

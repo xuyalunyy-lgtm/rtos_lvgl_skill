@@ -19,7 +19,7 @@
 
 /* 0=正常产品模式，1=仅运行对应模块自测 */
 #define APP_TEST_MODE_NETWORK     0   /* WSS / WiFi */
-#define APP_TEST_MODE_AUDIO       0   /* I2S / audio_server / AVDK */
+#define APP_TEST_MODE_AUDIO       0   /* I2S / audio_server / platform media stack */
 #define APP_TEST_MODE_LVGL        0   /* UI 刷新 */
 #define APP_TEST_MODE_PRESENTER   0   /* Presenter Looper */
 #define APP_TEST_MODE_JSON        0   /* cJSON 解析 */
