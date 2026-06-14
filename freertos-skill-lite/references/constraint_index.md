@@ -59,6 +59,16 @@
 | C8.3 | 1 | Presenter 禁 `portMAX_DELAY` 等 Queue |
 | C8.6 | 0 | init 禁同步 TLS/大 Parse |
 
+## C9 密钥/凭证
+| ID | P | 一句话 |
+|----|---|--------|
+| C9.1 | 0 | 入库 config 禁非空 SECRET/TOKEN/PASSWORD |
+| C9.2 | 0 | Git remote 禁内嵌凭证 |
+| C9.3 | 1 | 日志禁打印密码/token |
+| C9.4 | 1 | secrets 文件须 gitignore |
+| C9.5 | 2 | 构建支持 config.secrets 覆盖 |
+| C9.6 | 2 | L2 工程审查须跑 secret_scan |
+
 ## 症状 → ID（Crash 用）
 | 症状 | ID |
 |------|-----|
@@ -69,5 +79,6 @@
 | STACK OVERFLOW WSS | C7.5, C4.5 |
 | WDT | C8.3–C8.6, C1.5 |
 | heap 下降 | C3.*, C7.2 |
+| 明文密钥入库 | C9.1, C9.2 |
 
 Prompt 深细节按需 1–3 个 → [skill_structure.md](skill_structure.md) 场景表。

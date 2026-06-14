@@ -34,5 +34,9 @@ jobs:
         run: python tools/run_review.py --self-test
       - name: Examples iron-rule constraints
         run: python tools/run_review.py --validate-examples
+      - name: Secret scan fixtures
+        run: |
+          python tools/secret_scan_checker.py tools/fixtures/good_config_secrets
+          python tools/secret_scan_checker.py tools/fixtures/bad_config_secrets && exit 1 || exit 0
       - name: Skill iteration loop (check + dry-run sync)
         run: python scripts/skill_iterate.py --check --skip-self-test

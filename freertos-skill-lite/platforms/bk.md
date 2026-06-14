@@ -199,6 +199,16 @@ CONFIG_APP_MAIN_TASK_PRIO=4
 CONFIG_APP_MAIN_TASK_STACK_SIZE=4096
 ```
 
+### 密钥覆盖（C9 · 产品工程）
+
+```
+ap/config/bk7258_ap/config              # 入库，SECRET=""
+ap/config/bk7258_ap/config.secrets      # 本地，gitignore
+ap/config/bk7258_ap/config.local        # merge 输出 → CONFIG_SUBSTITUTE_FILE
+```
+
+合并：`scripts/merge_config_secrets.sh ap/config/bk7258_ap` → 详见 [secrets_kconfig.txt](../prompts/secrets_kconfig.txt)
+
 ---
 
 ## 关键差异速览

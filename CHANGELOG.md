@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.15.0 — 2026-06-16
+
+- 新增 **C9 密钥/凭证**（C9.1–C9.6）与 `prompts/secrets_kconfig.txt`
+- 新增 `tools/secret_scan_checker.py`；`run_review.py` 支持 `--scan-secrets` / `--git-remotes`
+- 新增 workflow `l2_project_review.md`（多仓工程审查）
+- 来源：AIAlarmClock 工程审查闭环（config.secrets、ARCHITECTURE.md、build.sh 可移植）
+
 ## 2.14.0 — 2026-06-16
 
 - BK 平台：`platforms/bk.md` 增补 AIAlarmClock 实测模式（app_event 桥接、BEKEN_NO_WAIT、栈表、timer→事件）

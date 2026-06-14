@@ -8,6 +8,7 @@
 |------|------|------|
 | [l2_code_review.md](l2_code_review.md) | L2 | review / audit / 审查 C 代码 |
 | [l2_code_review_lite.md](l2_code_review_lite.md) | L2 | Lite 人工审查 |
+| [l2_project_review.md](l2_project_review.md) | L2 | 工程/工作区/量产前审计 |
 | [debug_crash.md](debug_crash.md) | L2–L3 | HardFault / 死机 / WDT / frozen |
 | [l3_sdk_trim.md](l3_sdk_trim.md) | L3 | SDK 改造 / 需求驱动裁剪 |
 | [l3_new_module.md](l3_new_module.md) | L3 | 新模块 / 多任务 / MVP 设计 |

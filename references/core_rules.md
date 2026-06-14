@@ -71,6 +71,7 @@ python tools/stack_calculator.py --describe "WSS TLS cJSON" --platform jl
 | 6 | SDK 裁剪 | 先问卷再动刀；JL/BK 先扫描 → [sdk_trim_prune.txt](../prompts/sdk_trim_prune.txt) | 4 |
 | 7 | 内存分配优化 | 先量后改；缩池顺序 → [memory_alloc_optimize.txt](../prompts/memory_alloc_optimize.txt) | 9 |
 | 8 | 启动 / WDT | Queue 先于回调；有限 timeout → [boot_wdt_lifecycle.txt](../prompts/boot_wdt_lifecycle.txt) | 6 |
+| 9 | 密钥 / 凭证 | config.secrets 不入库 → [secrets_kconfig.txt](../prompts/secrets_kconfig.txt) | 6 |
 
 ## 文件归属惯例
 

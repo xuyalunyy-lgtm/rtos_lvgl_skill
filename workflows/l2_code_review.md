@@ -34,6 +34,14 @@ python tools/run_review.py --dir ./src --platform <esp32|stm32|jl|bk|freertos>
 
 含 `cjson_leak_checker`、`isr_safety_checker`、`lvgl_thread_checker`、**`queue_ownership_checker`（铁律 #2）**。
 
+工程审查另跑密钥扫描（C9）：
+
+```bash
+python tools/secret_scan_checker.py --dir <产品>/projects --git-remotes
+```
+
+或使用 `run_review.py --scan-secrets` 一并执行。
+
 Python 不可用：标注「待本地补验」，改用手工核对 checklist。
 
 ## Step 4 — 输出

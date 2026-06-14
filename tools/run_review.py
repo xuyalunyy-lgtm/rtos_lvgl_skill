@@ -98,6 +98,8 @@ def run_self_test() -> int:
         ("lvgl_thread_checker.py", [str(FIXTURES_DIR / "network_wss_bad.c")], 1),
         ("queue_ownership_checker.py", [str(FIXTURES_DIR / "good_queue_heap.c")], 0),
         ("queue_ownership_checker.py", [str(FIXTURES_DIR / "bad_queue_stack.c")], 1),
+        ("secret_scan_checker.py", [str(FIXTURES_DIR / "good_config_secrets")], 0),
+        ("secret_scan_checker.py", [str(FIXTURES_DIR / "bad_config_secrets")], 1),
     ]
 
     print("=" * 60)
@@ -198,6 +200,16 @@ def main() -> int:
         action="store_true",
         help="验证 examples/ good/bad 与 checker 铁律约束一致",
     )
+    parser.add_argument(
+        "--scan-secrets",
+        action="store_true",
+        help="扫描目录内 config/凭证 (C9)，可与 --dir 联用",
+    )
+    parser.add_argument(
+        "--git-remotes",
+        action="store_true",
+        help="扫描 git remote 内嵌凭证 (C9.2)",
+    )
     args = parser.parse_args()
 
     if args.self_test:
@@ -205,6 +217,27 @@ def main() -> int:
 
     if args.validate_examples:
         return run_validate_examples()
+
+    exit_code = 0
+
+    if args.scan_secrets or args.git_remotes:
+        secret_argv = [sys.executable, str(TOOLS_DIR / "secret_scan_checker.py")]
+        if args.git_remotes:
+            secret_argv.append("--git-remotes")
+        if args.scan_secrets:
+            if args.dir:
+                secret_argv.extend(["--dir", args.dir])
+            secret_argv.extend(args.files)
+        rc = run_cmd("secret_scan_checker", secret_argv)
+        exit_code = max(exit_code, rc)
+        if args.git_remotes and not args.scan_secrets and not args.dir and not args.files:
+            print(f"\n{'=' * 60}")
+            if exit_code == 0:
+                print("Summary: secret_scan 通过")
+            else:
+                print(f"Summary: secret_scan 失败 (exit={exit_code})")
+            print(f"{'=' * 60}\n")
+            return exit_code
 
     c_files = collect_c_files(args.files, args.dir, include_bad=args.include_bad)
     review_root = args.dir or (str(c_files[0].parent) if c_files else ".")
@@ -214,8 +247,6 @@ def main() -> int:
         root = Path(args.dir)
         if root.is_dir():
             skipped_bad = sum(1 for f in root.rglob("*.c") if is_bad_example(f.resolve()))
-
-    exit_code = 0
 
     if skipped_bad:
         print(f"[info] 已排除 {skipped_bad} 个 bad_*.c 反例（加 --include-bad 可纳入）")

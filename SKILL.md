@@ -1,6 +1,6 @@
 ---
 name: freertos-embedded-architect
-version: 2.14.0
+version: 2.15.0
 description: >-
   审查与设计 FreeRTOS 物联网固件：MVP 分层、LVGL 线程安全、I2S/DMA、cJSON 泄漏、
   WSS/mbedTLS、内存优化、启动/WDT、JL/BK SDK 裁剪。
@@ -37,6 +37,7 @@ BK 编译：`bk_build.*` 与 SDK 同级 → [platforms/bk.md](platforms/bk.md)
 |----------|----------|------|
 | 概念 / 单 API | **无 workflow**，直接答 | L1 |
 | Code Review | [l2_code_review.md](workflows/l2_code_review.md) | L2 |
+| **工程 / 工作区审查** | [l2_project_review.md](workflows/l2_project_review.md) | L2 |
 | SDK 改造 / 裁剪 | [l3_sdk_trim.md](workflows/l3_sdk_trim.md) | L3 |
 | 新增模块 / 多任务 | [l3_new_module.md](workflows/l3_new_module.md) | L3 |
 | Bug / Crash / 死机 | [debug_crash.md](workflows/debug_crash.md) | L2–L3 |
@@ -58,6 +59,7 @@ BK 编译：`bk_build.*` 与 SDK 同级 → [platforms/bk.md](platforms/bk.md)
 | 6 | SDK 裁剪（C6） | [sdk_trim_prune.txt](prompts/sdk_trim_prune.txt) |
 | 7 | 内存优化（C7） | [memory_alloc_optimize.txt](prompts/memory_alloc_optimize.txt) |
 | 8 | 启动/WDT（C8） | [boot_wdt_lifecycle.txt](prompts/boot_wdt_lifecycle.txt) |
+| 9 | 密钥/凭证（C9） | [secrets_kconfig.txt](prompts/secrets_kconfig.txt) |
 
 Prompt / 工具 / 范例全表 → [skill_structure.md](references/skill_structure.md)
 

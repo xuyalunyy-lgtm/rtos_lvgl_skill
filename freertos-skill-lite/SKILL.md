@@ -1,6 +1,6 @@
 ---
 name: freertos-embedded-architect
-version: 2.14.0
+version: 2.15.0
 description: >-
   审查与设计 FreeRTOS 物联网固件：MVP 分层、LVGL 线程安全、I2S/DMA、cJSON 泄漏、
   WSS/mbedTLS、内存优化、启动/WDT、JL/BK SDK 裁剪。
