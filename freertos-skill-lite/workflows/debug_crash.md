@@ -23,13 +23,9 @@
 | cJSON / heap 降 | cjson_leak_checker |
 | TLS 握手 fail | SNTP、证书、cipher → mbedtls_wss_memory |
 
-## Step 3 — 验证（完整版）
+## Step 3 — 验证（Lite）
 
-对相关源文件：
-
-```bash
-python tools/run_review.py --dir ./src --platform xxx
-```
+执行 [lite_manual_checklist.md](../references/lite_manual_checklist.md)。
 
 ## Step 4 — 输出
 

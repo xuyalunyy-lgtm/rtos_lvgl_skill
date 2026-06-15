@@ -37,6 +37,18 @@ cp -r /path/to/skill .cursor/skills/freertos-embedded-architect
 JL AC79 带屏音箱，从 SDK Demo 做需求驱动裁剪，设计 MVP 任务优先级
 ```
 
+## CI
+
+Push 到 `tools/` 时 GitHub Actions 自动运行 `python tools/run_review.py --self-test`。
+
+Skill 自我迭代闭环：
+
+```bash
+python scripts/skill_iterate.py --check --sync
+```
+
+记录变更 → `references/iteration_log.md`、`CHANGELOG.md`；流程见 `workflows/self_iterate.md`。
+
 ## 工具（L2 Review / L3 生成后校验）
 
 在项目源码目录执行（Python 3.8+，无第三方依赖）：
@@ -48,7 +60,7 @@ python path/to/skill/tools/run_review.py --dir ./src --platform jl
 # checker 自测（CI / 本地验证工具链）
 python path/to/skill/tools/run_review.py --self-test
 
-# 同步 Lite 分发包（prompts/ + platforms/ + workflows/ + references/）
+# 同步 Lite 分发包（生成 SKILL.md + 同步 prompts/platforms/workflows/references）
 python path/to/skill/scripts/sync_lite.py
 # Windows: .\scripts\sync_lite.ps1
 

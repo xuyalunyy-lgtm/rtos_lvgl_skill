@@ -1,0 +1,22 @@
+name: Skill Tools
+
+on:
+  push:
+    paths:
+      - 'tools/**'
+      - '.github/workflows/skill-tools.yml'
+  pull_request:
+    paths:
+      - 'tools/**'
+      - '.github/workflows/skill-tools.yml'
+
+jobs:
+  self-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run checker fixtures self-test
+        run: python tools/run_review.py --self-test

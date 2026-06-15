@@ -7,8 +7,10 @@
  *   - app_presenter.c    (Presenter 层)
  *
  * 闭环: 按钮回调不延时、不执行业务，仅发消息；业务在 Presenter；UI 经 lv_async_call 刷新
+ * 类型: ui_evt_t / app_mvp_ui_async_t 见 app_mvp.h
  */
 
+#include "app_mvp.h"
 #include "FreeRTOS.h"
 #include "task.h"
 #include "queue.h"
@@ -17,19 +19,7 @@
 #include <string.h>
 #include <stdio.h>
 
-/* ── 事件定义 ─────────────────────────────────────────── */
-
-typedef enum {
-    UI_EVT_BTN_CLICKED = 0,
-    UI_EVT_UPDATE_STATUS,
-} ui_evt_type_t;
-
-typedef struct {
-    ui_evt_type_t type;
-    int param;
-} ui_evt_t;
-
-/* ── 全局资源 ─────────────────────────────────────────── */
+/* ui_evt_t 见 app_mvp.h */
 
 SemaphoreHandle_t g_lvgl_mutex = NULL;
 
@@ -43,9 +33,7 @@ static lv_obj_t *s_action_btn   = NULL;
  *  View 层 — ui_view_manager.c
  * ══════════════════════════════════════════════════════════ */
 
-typedef struct {
-    char text[48];
-} async_label_payload_t;
+typedef app_mvp_ui_async_t async_label_payload_t;
 
 static void async_update_status_cb(void *user_data)
 {
@@ -70,8 +58,8 @@ static void view_update_status_async(const char *text)
     if (p == NULL) {
         return;
     }
-    strncpy(p->text, text, sizeof(p->text) - 1);
-    p->text[sizeof(p->text) - 1] = '\0';
+    strncpy(p->text, text, APP_MVP_UI_TEXT_LEN - 1);
+    p->text[APP_MVP_UI_TEXT_LEN - 1] = '\0';
 
     lv_async_call(async_update_status_cb, p);
 }

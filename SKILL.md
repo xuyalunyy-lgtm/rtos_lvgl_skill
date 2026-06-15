@@ -1,12 +1,13 @@
 ---
 name: freertos-embedded-architect
-version: 2.2.0
+version: 2.4.0
 description: >-
   Use when reviewing or designing FreeRTOS IoT firmware: MVP layering, LVGL
   thread safety, I2S DMA, cJSON leaks, WSS/mbedTLS, JL/BK SDK trimming.
   Trigger on: HardFault, Guru Meditation, stack overflow, WSS reconnect,
-  lv_async_call, code review, sdk trim, AC79, BK7258, embedded C.
-  用于 ESP32/STM32/JL/BK 带屏音箱/语音网关的架构设计、Code Review、SDK 裁剪。
+  lv_async_call, code review, sdk trim, skill update, skill iterate,
+  AC79, BK7258, embedded C.
+  用于 ESP32/STM32/JL/BK 带屏音箱/语音网关的架构设计、Code Review、SDK 裁剪、Skill 自我迭代。
 ---
 
 # FreeRTOS 嵌入式架构专家
@@ -33,6 +34,7 @@ BK 编译：`bk_build.*` 与 SDK 同级 → [platforms/bk.md](platforms/bk.md)
 | SDK 改造 / 裁剪 | [l3_sdk_trim.md](workflows/l3_sdk_trim.md) | L3 |
 | 新增模块 / 多任务 | [l3_new_module.md](workflows/l3_new_module.md) | L3 |
 | Bug / Crash / 死机 | [debug_crash.md](workflows/debug_crash.md) | L2–L3 |
+| **Skill 维护 / 自我迭代** | [self_iterate.md](workflows/self_iterate.md) | L3 |
 
 **平台**（workflow 内 Step 1 加载其一）：[esp32](platforms/esp32.md) | [stm32](platforms/stm32.md) | [jl](platforms/jl.md)（AC79/WL82/AC791N）| [bk](platforms/bk.md)
 
@@ -76,7 +78,8 @@ BK 编译：`bk_build.*` 与 SDK 同级 → [platforms/bk.md](platforms/bk.md)
 |------|------|
 | 一键 L2 | `python tools/run_review.py --dir src/ --platform xxx` |
 | 自测 | `python tools/run_review.py --self-test` |
-| Lite 同步 | `python scripts/sync_lite.py` |
+| Lite 同步 | `python scripts/sync_lite.py`（含生成 Lite `SKILL.md`） |
+| **迭代验证** | `python scripts/skill_iterate.py --check --sync` |
 | MVP 骨架 | `python tools/mvp_codegen_tool.py Module --platform jl -o ./generated` |
 
-范例与 L3 输出模板 → [references/core_rules.md](references/core_rules.md)
+迭代记录 → [references/iteration_log.md](references/iteration_log.md) · [CHANGELOG.md](CHANGELOG.md)

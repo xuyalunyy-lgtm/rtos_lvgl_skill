@@ -38,9 +38,9 @@ python tools/stack_calculator.py --describe "WSS TLS cJSON" --platform jl
 | Presenter | `Handler.handleMessage` | Looper 消费 Queue；**释放 payload** |
 | View | `runOnUiThread` | 仅 LVGL；`lv_async_call` 刷新 |
 
-闭环范例：`good_wss_json_parse.c` → `good_presenter_consumer.c` → View（见 `examples/`）
+闭环范例：`examples/good_*.c`（均 `#include "app_mvp.h"`）
 
-共享类型量产统一到 `examples/app_mvp.h`；Queue 设计 → [queue_event_bus.txt](../prompts/queue_event_bus.txt)
+共享类型：`examples/app_mvp.h`（与 `mvp_codegen` 输出一致）；Queue 设计 → [queue_event_bus.txt](../prompts/queue_event_bus.txt)
 
 ## 六条硬性约束（摘要）
 

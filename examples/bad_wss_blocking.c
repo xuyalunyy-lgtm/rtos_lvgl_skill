@@ -27,8 +27,8 @@ extern int  wss_connect(const char *url);
 extern int  wss_recv(char *buf, size_t max_len, uint32_t timeout_ms);
 extern void wss_disconnect(void);
 
-/* ❌ 错误 1：栈按 bytes 理解，实际 xTaskCreate 参数是 words → 仅 ~8KB，握手必溢出 */
-#define WSS_TASK_STACK_WRONG   (2048)
+/* ❌ 错误 1：栈过小 — TLS 握手需 ≥4096 bytes（ESP-IDF 常需 6144+ words 级） */
+#define WSS_TASK_STACK_WRONG   (512)   /* 512 words ≈ 2KB，握手必 STACK OVERFLOW */
 #define WSS_TASK_PRIO          (tskIDLE_PRIORITY + 4)
 
 static TaskHandle_t s_wss_hdl = NULL;
@@ -115,7 +115,7 @@ void network_wss_task_start_wrong(void)
  *  修复清单（Code Review 时逐条对照）
  * ══════════════════════════════════════════════════════════
  *
- *  [ ] WSS 任务栈 ≥ 4096 words（ESP-IDF）或 stack_calculator 估算 ≥ 6144 bytes
+ *  [ ] WSS 任务栈 ≥ 4096 bytes（xTaskCreate 参数为 words，须 stack_calculator 估算）
  *  [ ] WiFi 获 IP → SNTP sync → 再 TLS（time() 有效）
  *  [ ] 重连指数退避 1s→2s→…→60s，禁止 tight loop
  *  [ ] recv/回调只做轻量工作；cJSON_Parse → 提取 heap copy → Delete → Queue

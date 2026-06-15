@@ -17,6 +17,7 @@
  *   - async UI 数据:  View 分配 → lv_async_call 回调内 vPortFree
  */
 
+#include "app_mvp.h"
 #include "FreeRTOS.h"
 #include "task.h"
 #include "queue.h"
@@ -25,21 +26,7 @@
 #include <string.h>
 #include <stdio.h>
 
-/* ── 与 good_wss_json_parse.c 共享的事件定义 ───────────── */
-
-typedef enum {
-    NET_EVT_CONNECTED = 0,
-    NET_EVT_DATA,
-    NET_EVT_ERROR,
-} net_evt_type_t;
-
-typedef struct {
-    net_evt_type_t type;
-    char *payload;      /* Model 分配，Presenter 释放 */
-    size_t len;
-} net_evt_t;
-
-/* ── 测试模式：仅运行 Presenter 消费链路自测 ───────────── */
+/* net_evt_t 见 app_mvp.h */
 
 #ifndef APP_TEST_MODE_PRESENTER
 #define APP_TEST_MODE_PRESENTER  0   /* 1=只跑 presenter 自测，不启 WSS */
@@ -67,13 +54,9 @@ static QueueHandle_t presenter_test_get_queue(void)
 
 static lv_obj_t *s_status_label = NULL;
 
-typedef struct {
-    char text[64];
-} ui_async_payload_t;
-
 static void ui_async_set_text_cb(void *user_data)
 {
-    ui_async_payload_t *p = (ui_async_payload_t *)user_data;
+    app_mvp_ui_async_t *p = (app_mvp_ui_async_t *)user_data;
     if (p == NULL) {
         return;
     }
@@ -89,12 +72,12 @@ static void view_post_set_text(const char *text)
     if (text == NULL) {
         return;
     }
-    ui_async_payload_t *p = pvPortMalloc(sizeof(ui_async_payload_t));
+    app_mvp_ui_async_t *p = pvPortMalloc(sizeof(app_mvp_ui_async_t));
     if (p == NULL) {
         return;
     }
-    strncpy(p->text, text, sizeof(p->text) - 1);
-    p->text[sizeof(p->text) - 1] = '\0';
+    strncpy(p->text, text, APP_MVP_UI_TEXT_LEN - 1);
+    p->text[APP_MVP_UI_TEXT_LEN - 1] = '\0';
     lv_async_call(ui_async_set_text_cb, p);
 }
 

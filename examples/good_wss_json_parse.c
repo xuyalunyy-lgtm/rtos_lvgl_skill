@@ -4,8 +4,10 @@
  *
  * 文件归属: network_wss_task.c (Model 层)
  * 架构:     Model 只做网络+解析，结果经 Queue 送 Presenter，禁止操作 UI
+ * 类型:     使用 app_mvp.h（与 mvp_codegen 输出一致）
  */
 
+#include "app_mvp.h"
 #include "FreeRTOS.h"
 #include "task.h"
 #include "queue.h"
@@ -13,21 +15,7 @@
 #include <string.h>
 #include <stdio.h>
 
-/* ── 事件定义（与 presenter 共享） ─────────────────────── */
-
-typedef enum {
-    NET_EVT_CONNECTED = 0,
-    NET_EVT_DATA,
-    NET_EVT_ERROR,
-} net_evt_type_t;
-
-typedef struct {
-    net_evt_type_t type;
-    char *payload;      /* 堆分配，Presenter 负责 vPortFree */
-    size_t len;
-} net_evt_t;
-
-/* ── 模块私有 ─────────────────────────────────────────── */
+/* net_evt_t 见 app_mvp.h */
 
 #define WSS_TASK_STACK      (1536)
 #define WSS_TASK_PRIO       (tskIDLE_PRIORITY + 4)

@@ -32,25 +32,10 @@
 | 音频 | [audio_dma_pingpong.txt](../prompts/audio_dma_pingpong.txt) |
 | JSON | [cjson_safe_parse.txt](../prompts/cjson_safe_parse.txt) |
 
-## Step 3 — 代码生成
+## Step 3 — 代码生成（Lite）
 
-**方式 A — 范例对齐：** 参照 完整版 `examples/good_wss_json_parse.c` 等三件套。
-
-**方式 B — codegen：**
-
-```bash
-python tools/mvp_codegen_tool.py <Module> --platform <jl|bk|esp32|stm32> -o ./generated
-```
-
-输出含 `app_mvp.h`；多次生成须**手动合并** `app_test_config.h` 中 `APP_TEST_MODE_*`。
-
-## Step 4 — 工具校验
-
-```bash
-python tools/stack_calculator.py --describe "..." --platform xxx
-python tools/run_review.py --dir ./generated --platform xxx
-```
+按 [core_rules.md](../references/core_rules.md) 与 scene prompt 手写骨架；无 `examples/` 与 `mvp_codegen`/`run_review`。
 
 ## Step 5 — 输出
 
-[core_rules.md](../references/core_rules.md) L3 模板全文 + 校验 checklist。
+[core_rules.md](../references/core_rules.md) L3 模板全文 + [lite_manual_checklist.md](../references/lite_manual_checklist.md)。

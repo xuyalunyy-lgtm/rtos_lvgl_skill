@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
 同步完整版 → freertos-skill-lite（prompts/、platforms/、workflows/、references/）。
-
-Lite 专档中 ../examples/ 链接会 patch 为「完整版 `examples/...`」。
+并从 SKILL.md + skill_lite_body.md 生成 freertos-skill-lite/SKILL.md。
 
 用法（仓库根目录）:
     python scripts/sync_lite.py
     python scripts/sync_lite.py --dry-run
+    python scripts/sync_lite.py --skill-only
 """
 
 from __future__ import annotations
@@ -20,13 +20,81 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 LITE = ROOT / "freertos-skill-lite"
 SYNC_DIRS = ("prompts", "platforms", "workflows", "references")
+SKILL_SRC = ROOT / "SKILL.md"
+SKILL_LITE_BODY = Path(__file__).resolve().parent / "skill_lite_body.md"
+SKILL_LITE_DST = LITE / "SKILL.md"
 
-# Lite 包内无 examples/，将 markdown 链接改为文字引用
 EXAMPLE_LINK_RE = re.compile(r"\[([^\]]+)\]\(\.\./examples/([^)]+)\)")
+
+LITE_WORKFLOW_REPLACEMENTS: list[tuple[str, str, str]] = [
+    (
+        "l3_new_module.md",
+        r"## Step 3 — 代码生成\n\n\*\*方式 A.*?(?=## Step 5)",
+        "## Step 3 — 代码生成（Lite）\n\n"
+        "按 [core_rules.md](../references/core_rules.md) 与 scene prompt 手写骨架；"
+        "无 `examples/` 与 `mvp_codegen`/`run_review`。\n\n",
+    ),
+    (
+        "debug_crash.md",
+        r"## Step 3 — 验证（完整版）\n\n.*?(?=## Step 4)",
+        "## Step 3 — 验证（Lite）\n\n"
+        "执行 [lite_manual_checklist.md](../references/lite_manual_checklist.md)。\n\n",
+    ),
+    (
+        "self_iterate.md",
+        r"## Step 4 — 验证闭环（完整版）\n\n```bash\npython tools/run_review\.py --self-test\npython scripts/skill_iterate\.py --check\npython scripts/sync_lite\.py\n```\n\n.*?(?=## Step 5)",
+        "## Step 4 — 验证闭环（Lite）\n\n"
+        "1. 更新 [iteration_log.md](../references/iteration_log.md) 与 CHANGELOG\n"
+        "2. 运行 `python scripts/sync_lite.py`\n"
+        "3. 完成 [lite_manual_checklist.md](../references/lite_manual_checklist.md)\n\n",
+    ),
+    (
+        "l2_code_review.md",
+        r"## Step 3 — 自动化 checker（完整版）\n\n.*?(?=## Step 4)",
+        "## Step 3 — 人工审查（Lite）\n\n"
+        "使用 [l2_code_review_lite.md](l2_code_review_lite.md)。\n\n",
+    ),
+]
 
 
 def patch_lite_examples(content: str) -> str:
     return EXAMPLE_LINK_RE.sub(r"完整版 `examples/\2`", content)
+
+
+def patch_lite_workflow(content: str, rel: Path) -> str:
+    for name, pattern, repl in LITE_WORKFLOW_REPLACEMENTS:
+        if rel.name == name:
+            content, n = re.subn(pattern, repl, content, count=1, flags=re.DOTALL)
+            if n:
+                break
+    return content
+
+
+def parse_frontmatter(skill_path: Path) -> str:
+    text = skill_path.read_text(encoding="utf-8")
+    if not text.startswith("---"):
+        raise ValueError(f"{skill_path} 缺少 YAML frontmatter")
+    parts = text.split("---", 2)
+    if len(parts) < 3:
+        raise ValueError(f"{skill_path} frontmatter 格式错误")
+    return f"---{parts[1]}---\n"
+
+
+def generate_lite_skill(dry_run: bool) -> list[str]:
+    actions: list[str] = []
+    if not SKILL_LITE_BODY.is_file():
+        raise FileNotFoundError(f"缺少模板: {SKILL_LITE_BODY}")
+    if not SKILL_SRC.is_file():
+        raise FileNotFoundError(f"缺少: {SKILL_SRC}")
+
+    frontmatter = parse_frontmatter(SKILL_SRC)
+    body = SKILL_LITE_BODY.read_text(encoding="utf-8")
+    content = frontmatter + body
+
+    actions.append("GENERATE freertos-skill-lite/SKILL.md")
+    if not dry_run:
+        SKILL_LITE_DST.write_text(content, encoding="utf-8", newline="\n")
+    return actions
 
 
 def sync_tree(src_dir: Path, dst_dir: Path, dry_run: bool) -> list[str]:
@@ -45,12 +113,14 @@ def sync_tree(src_dir: Path, dst_dir: Path, dry_run: bool) -> list[str]:
         if src.suffix.lower() in (".md", ".txt"):
             text = src.read_text(encoding="utf-8")
             patched = patch_lite_examples(text)
-            actions.append(f"PATCH+COPY {rel}")
+            if src_dir.name == "workflows":
+                patched = patch_lite_workflow(patched, rel)
+            actions.append(f"PATCH+COPY {src_dir.name}/{rel}")
             if not dry_run:
                 dst.parent.mkdir(parents=True, exist_ok=True)
                 dst.write_text(patched, encoding="utf-8", newline="\n")
         else:
-            actions.append(f"COPY {rel}")
+            actions.append(f"COPY {src_dir.name}/{rel}")
             if not dry_run:
                 dst.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(src, dst)
@@ -58,7 +128,7 @@ def sync_tree(src_dir: Path, dst_dir: Path, dry_run: bool) -> list[str]:
     stale = set(p.relative_to(dst_dir) for p in dst_dir.rglob("*") if p.is_file())
     fresh = set(p.relative_to(src_dir) for p in src_dir.rglob("*") if p.is_file())
     for rel in sorted(stale - fresh):
-        actions.append(f"DELETE stale {rel}")
+        actions.append(f"DELETE stale {src_dir.name}/{rel}")
         if not dry_run:
             (dst_dir / rel).unlink(missing_ok=True)
 
@@ -66,8 +136,9 @@ def sync_tree(src_dir: Path, dst_dir: Path, dry_run: bool) -> list[str]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="同步完整版 → Lite（prompts/platforms/workflows/references）")
+    parser = argparse.ArgumentParser(description="同步完整版 → Lite")
     parser.add_argument("--dry-run", action="store_true", help="仅打印将执行的操作")
+    parser.add_argument("--skill-only", action="store_true", help="仅生成 Lite SKILL.md")
     args = parser.parse_args()
 
     if not LITE.is_dir():
@@ -75,21 +146,32 @@ def main() -> int:
         return 1
 
     total = 0
-    for name in SYNC_DIRS:
-        src = ROOT / name
-        dst = LITE / name
-        print(f"\n=== {name}/ → freertos-skill-lite/{name}/ ===")
-        try:
-            actions = sync_tree(src, dst, args.dry_run)
-        except FileNotFoundError as e:
-            print(f"  跳过: {e}")
-            continue
-        for line in actions:
+
+    print("\n=== SKILL.md → freertos-skill-lite/SKILL.md ===")
+    try:
+        for line in generate_lite_skill(args.dry_run):
             print(f"  {line}")
-        total += len(actions)
+            total += 1
+    except (FileNotFoundError, ValueError) as e:
+        print(f"  错误: {e}", file=sys.stderr)
+        return 1
+
+    if not args.skill_only:
+        for name in SYNC_DIRS:
+            src = ROOT / name
+            dst = LITE / name
+            print(f"\n=== {name}/ → freertos-skill-lite/{name}/ ===")
+            try:
+                actions = sync_tree(src, dst, args.dry_run)
+            except FileNotFoundError as e:
+                print(f"  跳过: {e}")
+                continue
+            for line in actions:
+                print(f"  {line}")
+            total += len(actions)
 
     mode = "（dry-run）" if args.dry_run else ""
-    print(f"\n完成{mode}，共 {total} 项。Lite SKILL.md / INSTALL.md 未改动（需手工维护 Lite 差异）。")
+    print(f"\n完成{mode}，共 {total} 项。")
     return 0
 
 

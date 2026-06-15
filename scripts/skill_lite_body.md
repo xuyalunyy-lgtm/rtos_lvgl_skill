@@ -1,14 +1,3 @@
----
-name: freertos-embedded-architect
-version: 2.4.0
-description: >-
-  Use when reviewing or designing FreeRTOS IoT firmware: MVP layering, LVGL
-  thread safety, I2S DMA, cJSON leaks, WSS/mbedTLS, JL/BK SDK trimming.
-  Trigger on: HardFault, Guru Meditation, stack overflow, WSS reconnect,
-  lv_async_call, code review, sdk trim, skill update, skill iterate,
-  AC79, BK7258, embedded C.
-  用于 ESP32/STM32/JL/BK 带屏音箱/语音网关的架构设计、Code Review、SDK 裁剪、Skill 自我迭代。
----
 
 # FreeRTOS 嵌入式架构专家（Lite 版）
 
