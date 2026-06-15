@@ -67,17 +67,17 @@ app_test_config.h       → APP_TEST_MODE_*
 
 | 类型 | 文件 |
 |------|------|
-| 正例 WSS Model | [good_wss_json_parse.c](../examples/good_wss_json_parse.c) |
-| 正例 WSS 重连 | [good_wss_reconnect.c](../examples/good_wss_reconnect.c) |
-| 正例 Presenter | [good_presenter_consumer.c](../examples/good_presenter_consumer.c) |
-| 正例 View | [good_mvp_pattern.c](../examples/good_mvp_pattern.c) |
-| 反例 LVGL | [bad_lvgl_cross_thread.c](../examples/bad_lvgl_cross_thread.c) |
-| 反例 ISR | [bad_isr_blocking.c](../examples/bad_isr_blocking.c) |
-| 反例 cJSON | [bad_cjson_leak.c](../examples/bad_cjson_leak.c) |
-| 反例 Queue | [bad_queue_stack_pointer.c](../examples/bad_queue_stack_pointer.c) |
-| 反例 WSS | [bad_wss_blocking.c](../examples/bad_wss_blocking.c) |
+| 正例 WSS Model | 完整版 `examples/good_wss_json_parse.c` |
+| 正例 WSS 重连 | 完整版 `examples/good_wss_reconnect.c` |
+| 正例 Presenter | 完整版 `examples/good_presenter_consumer.c` |
+| 正例 View | 完整版 `examples/good_mvp_pattern.c` |
+| 反例 LVGL | 完整版 `examples/bad_lvgl_cross_thread.c` |
+| 反例 ISR | 完整版 `examples/bad_isr_blocking.c` |
+| 反例 cJSON | 完整版 `examples/bad_cjson_leak.c` |
+| 反例 Queue | 完整版 `examples/bad_queue_stack_pointer.c` |
+| 反例 WSS | 完整版 `examples/bad_wss_blocking.c` |
 
-索引与 checker 命令 → [examples/README.md](../examples/README.md)
+索引与 checker 命令 → 完整版 `examples/README.md`
 
 ## L3 输出模板
 

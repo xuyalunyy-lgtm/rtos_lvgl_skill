@@ -18,17 +18,16 @@
 |------|--------|-------------|
 | STACK OVERFLOW / WssTask | [mbedtls_wss_memory.txt](../prompts/mbedtls_wss_memory.txt) | `stack_calculator.py` |
 | Guru Meditation + network/UI | [lvgl_thread_safety.txt](../prompts/lvgl_thread_safety.txt) | 完整版 `examples/bad_lvgl_cross_thread.c` |
-| HardFault @ Presenter / 随机复现 | [memory_ownership.txt](../prompts/memory_ownership.txt) | 完整版 `examples/bad_queue_stack_pointer.c` |
+| HardFault @ Presenter / 随机复现 | [memory_ownership.txt](../prompts/memory_ownership.txt) | 完整版 `examples/bad_queue_stack_pointer.c` · `queue_ownership_checker.py` |
 | 界面 frozen | [deadlock_lock_order.txt](../prompts/deadlock_lock_order.txt) | — |
 | I2S 卡顿 / 爆音 | [audio_dma_pingpong.txt](../prompts/audio_dma_pingpong.txt) | 完整版 `examples/bad_isr_blocking.c` |
-| heap 持续下降 | [cjson_safe_parse.txt](../prompts/cjson_safe_parse.txt) | 完整版 `cjson_leak_checker.py` |
-| TLS 握手 fail / 反复断线 | [mbedtls_wss_memory.txt](../prompts/mbedtls_wss_memory.txt) | 完整版 `examples/bad_wss_blocking.c` → `good_wss_reconnect.c` |
+| heap 持续下降 | [cjson_safe_parse.txt](../prompts/cjson_safe_parse.txt) | `cjson_leak_checker.py` |
+| TLS 握手 fail / 反复断线 | [mbedtls_wss_memory.txt](../prompts/mbedtls_wss_memory.txt) | 完整版 `examples/bad_wss_blocking.c` → 完整版 `examples/good_wss_reconnect.c` |
 | WDT / task watchdog | [deadlock_lock_order.txt](../prompts/deadlock_lock_order.txt) | 查持锁等 Queue |
 
 ## Step 3 — 验证（Lite）
 
 执行 [lite_manual_checklist.md](../references/lite_manual_checklist.md)。
-
 ## Step 4 — 输出
 
 ```markdown

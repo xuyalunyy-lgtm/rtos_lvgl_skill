@@ -20,16 +20,13 @@
 | ISR 阻塞 | 完整版 `examples/bad_isr_blocking.c` |
 | cJSON 泄漏 | 完整版 `examples/bad_cjson_leak.c` |
 | **Queue 栈指针/cJSON*** | 完整版 `examples/bad_queue_stack_pointer.c` |
-| WSS 栈/重连 | 完整版 `examples/bad_wss_blocking.c` → `good_wss_reconnect.c` |
+| WSS 栈/重连 | 完整版 `examples/bad_wss_blocking.c` → 正例 完整版 `examples/good_wss_reconnect.c` |
 
 按需深读：[lvgl_thread_safety.txt](../prompts/lvgl_thread_safety.txt)、[memory_ownership.txt](../prompts/memory_ownership.txt)、[deadlock_lock_order.txt](../prompts/deadlock_lock_order.txt)
 
 ## Step 3 — 人工审查（Lite）
 
 使用 [l2_code_review_lite.md](l2_code_review_lite.md)。
-
-Python 不可用：标注「待本地补验」，改用手工核对 checklist。
-
 ## Step 4 — 输出
 
 <output_format>
