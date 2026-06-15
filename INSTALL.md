@@ -48,7 +48,7 @@ python path/to/skill/tools/run_review.py --dir ./src --platform jl
 # checker 自测（CI / 本地验证工具链）
 python path/to/skill/tools/run_review.py --self-test
 
-# 同步 Lite 分发包（prompts/ + platforms/）
+# 同步 Lite 分发包（prompts/ + platforms/ + workflows/ + references/）
 python path/to/skill/scripts/sync_lite.py
 # Windows: .\scripts\sync_lite.ps1
 

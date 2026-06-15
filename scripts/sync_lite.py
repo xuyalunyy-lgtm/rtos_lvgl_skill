@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-同步完整版 → freertos-skill-lite（prompts/、platforms/）。
+同步完整版 → freertos-skill-lite（prompts/、platforms/、workflows/、references/）。
 
 Lite 专档中 ../examples/ 链接会 patch 为「完整版 `examples/...`」。
 
@@ -19,7 +19,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 LITE = ROOT / "freertos-skill-lite"
-SYNC_DIRS = ("prompts", "platforms")
+SYNC_DIRS = ("prompts", "platforms", "workflows", "references")
 
 # Lite 包内无 examples/，将 markdown 链接改为文字引用
 EXAMPLE_LINK_RE = re.compile(r"\[([^\]]+)\]\(\.\./examples/([^)]+)\)")
@@ -66,7 +66,7 @@ def sync_tree(src_dir: Path, dst_dir: Path, dry_run: bool) -> list[str]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="同步完整版 prompts/platforms → Lite")
+    parser = argparse.ArgumentParser(description="同步完整版 → Lite（prompts/platforms/workflows/references）")
     parser.add_argument("--dry-run", action="store_true", help="仅打印将执行的操作")
     args = parser.parse_args()
 
