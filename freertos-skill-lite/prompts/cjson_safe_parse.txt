@@ -1,0 +1,103 @@
+# cJSON 安全解析专精（防泄漏）
+
+## 铁律
+
+1. **cJSON 树不得跨 Queue / 线程传递** — 只在解析函数内存在，提取 plain data 后 `cJSON_Delete(root)`
+2. **每个 `cJSON_Parse` 有且仅有一个 `cJSON_Delete` 出口** — 用 `goto cleanup` 或 `do { } while(0)`
+3. **网络循环禁止高频 Parse+Delete** — 考虑 jsmn 流式或复用静态缓冲
+4. 生成/审查后按 [cjson_safe_parse.txt](cjson_safe_parse.txt) 内 Agent 检查清单人工核对（Lite 版无自动化脚本）
+
+---
+
+## 标准模板：goto cleanup（推荐）
+
+```c
+static int parse_command(const char *json, cmd_t *out)
+{
+    int ret = -1;
+    cJSON *root = NULL;
+
+    if (json == NULL || out == NULL) {
+        return -1;
+    }
+
+    root = cJSON_Parse(json);
+    if (root == NULL) {
+        goto cleanup;
+    }
+
+    cJSON *cmd = cJSON_GetObjectItemCaseSensitive(root, "cmd");
+    if (!cJSON_IsString(cmd) || cmd->valuestring == NULL) {
+        goto cleanup;
+    }
+
+    strncpy(out->name, cmd->valuestring, sizeof(out->name) - 1);
+    ret = 0;
+
+cleanup:
+    if (root != NULL) {
+        cJSON_Delete(root);
+    }
+    return ret;
+}
+```
+
+---
+
+## 标准模板：提取堆数据送 Queue（Model → Presenter）
+
+```c
+/* Model 层 — cJSON 生命周期限于本函数 */
+static bool model_emit_text_event(QueueHandle_t q, const char *json)
+{
+    char *heap_copy = NULL;
+    cJSON *root = cJSON_Parse(json);
+
+    if (root == NULL) {
+        return false;
+    }
+
+    cJSON *text = cJSON_GetObjectItemCaseSensitive(root, "text");
+    if (cJSON_IsString(text) && text->valuestring != NULL) {
+        size_t n = strlen(text->valuestring);
+        heap_copy = pvPortMalloc(n + 1);
+        if (heap_copy != NULL) {
+            memcpy(heap_copy, text->valuestring, n + 1);
+        }
+    }
+
+    cJSON_Delete(root);   /* ✅ 进 Queue 前必须 Delete */
+
+    if (heap_copy == NULL) {
+        return false;
+    }
+
+    app_evt_t evt = { .type = APP_EVT_DATA, .payload = heap_copy };
+    if (xQueueSend(q, &evt, pdMS_TO_TICKS(50)) != pdTRUE) {
+        vPortFree(heap_copy);   /* Queue 满则 Model 释放 */
+        return false;
+    }
+    return true;
+}
+/* Presenter 收到 evt 后 vPortFree(evt.payload) */
+```
+
+---
+
+## 反模式对照
+
+见上文反模式列表（Lite 版无范例源码）：
+- early return 遗漏 Delete
+- 循环内 Parse 不 Delete
+- goto fail 未 Delete
+- strdup 失败路径泄漏
+
+---
+
+## 审查清单
+
+- [ ] 每个 Parse 函数有 cleanup 标签？
+- [ ] 循环内每次 Parse 都 Delete？
+- [ ] Queue 传的是 plain buffer 而非 cJSON*？
+- [ ] 错误分支 Queue 满时谁释放 payload？
+- [ ] 已跑 cjson 人工审查清单（Lite 版）

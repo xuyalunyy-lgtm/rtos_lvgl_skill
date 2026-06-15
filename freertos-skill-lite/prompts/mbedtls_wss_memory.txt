@@ -1,0 +1,136 @@
+# mbedTLS + WSS 内存与握手专精
+
+## 背景
+
+WSS = WebSocket + TLS。mbedTLS 握手阶段会在栈和堆上分配大量临时结构：
+- X.509 证书链解析
+- 密钥交换（ECDHE）
+- 加密套件协商
+
+**这是嵌入式 WSS 任务栈溢出和堆耗尽的头号原因。**
+
+---
+
+## RAM 开销估算（32-bit，经验值）
+
+| 组件 | 典型 RAM | 说明 |
+|------|----------|------|
+| mbedTLS SSL 上下文 | 16–40 KB | 取决于 `MBEDTLS_SSL_MAX_CONTENT_LEN` |
+| 证书链缓冲 | 4–8 KB | 每份中间证书 |
+| LwIP TCP + PBUF | 4–16 KB | 与 `MEM_SIZE` 相关 |
+| WebSocket 帧缓冲 | 2–4 KB | 单帧大小 |
+| cJSON 解析树 | 0.5–4 KB | 与 JSON 大小正相关 |
+| **任务栈（握手瞬间）** | **≥ 4096 bytes，建议 6144–8192** | 必须实测 |
+
+Agent 设计 WSS 任务栈时，按 [SKILL.md](../SKILL.md) 堆栈表 + WSS/TLS 取 ≥4096 bytes（建议 6144–8192），并用 `uxTaskGetStackHighWaterMark()` 实测。
+
+---
+
+## 握手流程与线程模型
+
+```
+[WSS Task / SDK 网络任务]
+    │
+    ├─ DNS 解析
+    ├─ TCP connect
+    ├─ TLS ClientHello → ServerHello → Certificate → Finished  ← 栈/堆峰值
+    ├─ WebSocket HTTP Upgrade
+    └─ 进入帧收发循环（峰值下降，但需维持 SSL 会话）
+```
+
+**禁止**在 TLS 握手回调或 ISR 中操作 UI 或 Parse JSON。
+
+---
+
+## mbedTLS 裁剪（仅留 WSS 必需）
+
+### ESP-IDF (menuconfig)
+
+```
+Component config → mbedTLS:
+  - TLS Key Exchange: 仅 ECDHE-ECDSA/RSA + ECDH
+  - 关 SSL3/TLS1.0/TLS1.1（若服务器支持 TLS1.2+）
+  - 关 unused ciphers (CAMELLIA, ARIA...)
+  - Certificate Bundle: 按需（自定义 CA 则关 Bundle 减 Flash）
+```
+
+### STM32 (mbedtls_config.h)
+
+```c
+#define MBEDTLS_SSL_MAX_CONTENT_LEN  4096   /* 默认 16K，可缩小 */
+#define MBEDTLS_MPI_MAX_SIZE         512    /* 视 cipher 而定 */
+/* 关 MBEDTLS_SSL_SRV_SUPPORT、自测服务器功能 */
+```
+
+### 通用原则
+
+- 只保留服务器实际使用的 cipher suite（用 `openssl s_client -connect host:443` 查看）
+- 证书链：只嵌入根 CA + 中间 CA，勿嵌入整张 bundle
+- Session resumption / ticket：量产可开，减重复握手开销
+
+---
+
+## WSS 长连接内存稳态
+
+握手完成后 RAM 应下降并稳定。若持续下降（heap 泄漏）：
+
+| 嫌疑 | 排查 |
+|------|------|
+| 每帧 cJSON_Parse 未 Delete | cjson_leak_checker |
+| WS 帧缓冲 malloc 未 free | 检查 recv 回调 |
+| TLS 重协商 | 设 session timeout，监控 reconnect |
+| LwIP PBUF 泄漏 | `lwip_stats` / `MEM_STATS` |
+
+---
+
+## 非阻塞与重连
+
+```c
+/* Model 层 — WSS 状态机，禁止阻塞 UI */
+typedef enum {
+    WSS_ST_DISCONNECTED,
+    WSS_ST_CONNECTING,
+    WSS_ST_HANDSHAKING,
+    WSS_ST_CONNECTED,
+    WSS_ST_ERROR,
+} wss_state_t;
+
+/* 重连须指数退避，禁止 tight loop 反复握手耗尽显存 */
+#define WSS_RECONNECT_BASE_MS  1000
+#define WSS_RECONNECT_MAX_MS   60000
+```
+
+- SNTP 时间同步**先于** TLS 握手（证书校验依赖正确时间）
+- 重连间隔指数退避：1s → 2s → 4s → … → 60s cap
+
+---
+
+## SNTP 前置条件
+
+```
+1. WiFi 获 IP
+2. SNTP sync（ESP: esp_sntp，STM32: lwIP sntp）
+3. 确认 time() > 2020（证书 notBefore 有效）
+4. 启动 WSS/TLS 连接
+```
+
+---
+
+## 调试命令
+
+| 平台 | 手段 |
+|------|------|
+| ESP32 | `esp_tls` debug level；`heap_caps_get_minimum_free_size()` |
+| STM32 | `mbedtls_ssl_get_bytes_avail`；map 文件看 mbedtls 模块 |
+| 通用 | Wireshark 抓 TLS ClientHello 看 cipher 列表 |
+
+---
+
+## Agent 检查清单
+
+- [ ] WSS 任务栈 ≥ 4096 bytes（建议工具估算）？
+- [ ] mbedTLS 仅留必需 cipher？
+- [ ] SNTP 在 TLS 前同步？
+- [ ] 重连有退避，非 tight loop？
+- [ ] recv 循环 cJSON 成对 Delete？
+- [ ] WSS 回调无 lv_obj_*？

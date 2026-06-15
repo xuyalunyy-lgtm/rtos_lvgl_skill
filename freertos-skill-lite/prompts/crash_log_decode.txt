@@ -1,0 +1,191 @@
+# Crash 日志解读专精（HardFault / Guru Meditation / 死机 dump）
+
+## 原则
+
+**先日志后改代码。** 提取 PC/LR/Backtrace →  addr2line 定位 → 对照 Skill 反例 → 给出 MVP 合规修复。
+
+---
+
+## ESP32 — Guru Meditation Error
+
+### 典型日志
+
+```
+Guru Meditation Error: Core  0 panic'ed (LoadProhibited). Exception was unhandled.
+Core  0 register dump:
+PC      : 0x400d1234  PS      : 0x00060030
+EXCVADDR: 0x00000000  LBEG    : 0x4000xxxx
+Backtrace: 0x400d1234:0x3ffbxxxx 0x400d5678:0x3ffbxxxx
+
+ELF file SHA256: xxxxx
+Rebooting...
+```
+
+### 寄存器解读
+
+| 字段 | 含义 | 常见原因 |
+|------|------|----------|
+| `LoadProhibited` | 读非法地址 | 空指针解引用、Use-after-free |
+| `StoreProhibited` | 写非法地址 | 野指针写、栈溢出踩内存 |
+| `InstrFetchProhibited` | 取指非法 | 函数指针损坏、栈溢出 |
+| `EXCVADDR` | 故障访问地址 | `0x00000000` → 空指针；小地址 → 未映射 |
+| `PC` | 崩溃指令地址 | addr2line 定位源码行 |
+| `Backtrace` | 调用栈 | `xtensa-esp32-elf-addr2line -pfiaC -e app.elf 0x400d1234` |
+
+### ESP32 特有原因
+
+- 跨核竞态（WiFi Core0 + LVGL Core1）
+- `heap_caps_malloc` 未用 `MALLOC_CAP_DMA` 给 DMA 缓冲
+- PSRAM 缓存不一致
+- ISR 中阻塞导致看门狗 → 二次崩溃
+
+---
+
+## STM32 — HardFault
+
+### 典型日志（串口 / debugger）
+
+```
+HardFault_Handler
+PC = 0x08001234, LR = 0x08005678
+HFSR = 0x40000000, CFSR = 0x00008200
+MMFAR = 0x00000000
+```
+
+### CFSR 位域
+
+| 位 | 名称 | 含义 |
+|----|------|------|
+| MMARVALID + MMFAR | 内存管理 | 访问非法地址，MMFAR 为地址 |
+| IBUSERR | 指令总线 | 跳转非法地址 |
+| DACCVIOL | 数据访问 | 读非法地址 |
+| STKERR | 栈错误 | **栈溢出**（常见） |
+
+### 定位命令
+
+```bash
+arm-none-eabi-addr2line -pfiaC -e firmware.elf 0x08001234
+arm-none-eabi-nm --print-size --size-sort firmware.elf | tail -20
+```
+
+### STM32 特有原因
+
+- FPU 上下文：任务使用 float 但未开 `configUSE_TASK_FPU_SUPPORT`
+- D-Cache / DMA 不一致（F4/F7/H7）
+- `configTOTAL_HEAP_SIZE` 不足
+
+---
+
+## 杰理 JL — SDK 死机
+
+### 典型现象
+
+- 串口 log 突然停止，无 Guru Meditation 格式
+- `task_info_table` 末尾缺 `{NULL,NULL,0,0}` → 开机即死
+- 音频/server 回调阻塞
+
+### 排查步骤
+
+1. 确认最后一条 `log_i` / `printf` 在哪个任务
+2. 检查 `task_info_table` 完整性
+3. 检查 audio_server / 网络回调是否有 `lv_obj_*` 或 `thread_delay_ms`
+4. 用 SDK 自带 debug 工具（若有）看 task 列表和堆剩余
+
+---
+
+## 博通 BK — Armino Reboot
+
+### 典型日志
+
+```
+wdt reboot
+reason: task watchdog
+```
+
+或 build 时开启 backtrace。
+
+### 排查
+
+1. `projects/xxx/ap/` 用户任务是否抢占 WiFi CP 通信
+2. LVGL + UVC 同时占显示
+3. AP/CP 消息队列满
+
+```bash
+# 若有 map 文件
+grep -i backtrace build/...
+```
+
+---
+
+## FreeRTOS 栈溢出
+
+### configCHECK_FOR_STACK_OVERFLOW = 2 时
+
+```
+***STACK OVERFLOW detected in task WssTask***
+```
+
+**处理：**
+1. `uxTaskGetStackHighWaterMark(wss_task_hdl)` 测水位
+2. 对照 SKILL.md 堆栈表 + 25% 余量；用 `uxTaskGetStackHighWaterMark` 复核
+3. 检查任务内大局部数组（`char buf[8192]`）
+
+---
+
+## 死锁
+
+### 症状
+
+- 系统「假死」：无 crash，UI 不刷新，网络不通
+- 两任务互相等锁
+
+### 排查
+
+1. 列出所有 mutex：`g_lvgl_mutex`、网络锁、文件锁
+2. 检查加锁顺序是否一致（永远：网络锁 → LVGL 锁）
+3. 检查 ISR 中 `xSemaphoreTake(g_lvgl_mutex, portMAX_DELAY)`
+4. 按 SKILL.md Step 5：检查非 View 文件是否存在 `lv_obj_*` 直接调用
+
+---
+
+## 通用 addr2line 流程
+
+```bash
+# 1. 从日志提取 PC
+PC=0x400d1234
+
+# 2. 查源码（工具链依平台）
+xtensa-esp32-elf-addr2line -pfiaC -e build/app.elf $PC
+arm-none-eabi-addr2line -pfiaC -e build/firmware.elf $PC
+
+# 3. 对照反例
+#    LoadProhibited + network_task → 检查跨线程 lv_obj_*（见 SKILL.md 反模式表）
+#    STACK OVERFLOW + WssTask     → mbedtls_wss_memory.txt
+#    STKERR                       → 缩局部变量或增栈
+```
+
+---
+
+## Agent 输出模板（Bug 诊断 L2）
+
+```markdown
+## 结论
+[一句话根因]
+
+## 日志提取
+- 异常类型：
+- PC：
+- 故障地址 EXCVADDR/MMFAR：
+- 嫌疑任务：
+
+## 定位
+- addr2line 结果：
+- 对照反例/专精 prompt：
+
+## 修复（MVP 合规）
+[具体改法，拒绝打补丁]
+
+## 验证
+- [ ] 修复后按 SKILL.md Step 5 人工审查清单复核
+- [ ] 栈水位复测
+```
