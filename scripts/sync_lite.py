@@ -42,11 +42,11 @@ LITE_WORKFLOW_REPLACEMENTS: list[tuple[str, str, str]] = [
     ),
     (
         "self_iterate.md",
-        r"## Step 4 — 验证闭环（完整版）\n\n```bash\npython tools/run_review\.py --self-test\npython scripts/skill_iterate\.py --check\npython scripts/sync_lite\.py\n```\n\n.*?(?=## Step 5)",
+        r"## Step 4 — 验证闭环（完整版）\n\n```bash\n.*?```\n\n.*?(?=## Step 5)",
         "## Step 4 — 验证闭环（Lite）\n\n"
-        "1. 更新 [iteration_log.md](../references/iteration_log.md) 与 CHANGELOG\n"
-        "2. 运行 `python scripts/sync_lite.py`\n"
-        "3. 完成 [lite_manual_checklist.md](../references/lite_manual_checklist.md)\n\n",
+        "1. 更新 [iteration_log.md](../references/iteration_log.md) 与 [CHANGELOG.md](../CHANGELOG.md)\n"
+        "2. 在完整版仓库运行 `python scripts/sync_lite.py`\n"
+        "3. 完成 [lite_manual_checklist.md](../references/lite_manual_checklist.md)（含铁律 #2 Queue 所有权项）\n\n",
     ),
     (
         "l2_code_review.md",

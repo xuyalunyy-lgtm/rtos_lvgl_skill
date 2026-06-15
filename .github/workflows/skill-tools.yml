@@ -4,10 +4,22 @@ on:
   push:
     paths:
       - 'tools/**'
+      - 'scripts/**'
+      - 'examples/**'
+      - 'SKILL.md'
+      - 'scripts/skill_lite_body.md'
+      - 'workflows/**'
+      - 'references/**'
       - '.github/workflows/skill-tools.yml'
   pull_request:
     paths:
       - 'tools/**'
+      - 'scripts/**'
+      - 'examples/**'
+      - 'SKILL.md'
+      - 'scripts/skill_lite_body.md'
+      - 'workflows/**'
+      - 'references/**'
       - '.github/workflows/skill-tools.yml'
 
 jobs:
@@ -18,5 +30,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Run checker fixtures self-test
+      - name: Checker fixtures self-test
         run: python tools/run_review.py --self-test
+      - name: Examples iron-rule constraints
+        run: python tools/run_review.py --validate-examples
+      - name: Skill iteration loop (check + dry-run sync)
+        run: python scripts/skill_iterate.py --check --skip-self-test

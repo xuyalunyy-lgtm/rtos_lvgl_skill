@@ -81,6 +81,8 @@ def run_self_test() -> int:
         ("isr_safety_checker.py", [str(FIXTURES_DIR / "bad_isr.c")], 1),
         ("lvgl_thread_checker.py", [str(FIXTURES_DIR / "ui_view_good.c")], 0),
         ("lvgl_thread_checker.py", [str(FIXTURES_DIR / "network_wss_bad.c")], 1),
+        ("queue_ownership_checker.py", [str(FIXTURES_DIR / "good_queue_heap.c")], 0),
+        ("queue_ownership_checker.py", [str(FIXTURES_DIR / "bad_queue_stack.c")], 1),
     ]
 
     print("=" * 60)
@@ -101,6 +103,45 @@ def run_self_test() -> int:
         print("Self-test: 全部通过")
     else:
         print(f"Self-test: {failed} 项失败")
+    print(f"{'=' * 60}\n")
+    return 1 if failed else 0
+
+
+def run_validate_examples() -> int:
+    """铁律范例约束：good_* 须通过，bad_* 须触发对应 checker 失败。"""
+    examples = SKILL_ROOT / "examples"
+    cases: list[tuple[str, Path, int, str]] = [
+        ("queue_ownership_checker.py", examples / "good_wss_json_parse.c", 0, "铁律#2 good"),
+        ("queue_ownership_checker.py", examples / "good_presenter_consumer.c", 0, "铁律#2 good"),
+        ("queue_ownership_checker.py", examples / "good_wss_reconnect.c", 0, "铁律#2 good"),
+        ("queue_ownership_checker.py", examples / "bad_queue_stack_pointer.c", 1, "铁律#2 bad"),
+        ("cjson_leak_checker.py", examples / "good_wss_json_parse.c", 0, "铁律#3 good"),
+        ("cjson_leak_checker.py", examples / "bad_cjson_leak.c", 1, "铁律#3 bad"),
+        ("lvgl_thread_checker.py", examples / "bad_lvgl_cross_thread.c", 1, "铁律#1 bad"),
+    ]
+
+    print("=" * 60)
+    print("run_review.py — examples/ 铁律约束验证")
+    print("=" * 60)
+
+    failed = 0
+    for script, path, expected, label in cases:
+        if not path.is_file():
+            print(f"[FAIL] 缺少范例: {path}")
+            failed += 1
+            continue
+        rc = run_checker(script, [str(path)])
+        ok = rc == expected
+        status = "PASS" if ok else "FAIL"
+        print(f"[{status}] {label}: {script} {path.name} → exit {rc} (期望 {expected})")
+        if not ok:
+            failed += 1
+
+    print(f"\n{'=' * 60}")
+    if failed == 0:
+        print("Validate-examples: 全部通过")
+    else:
+        print(f"Validate-examples: {failed} 项失败")
     print(f"{'=' * 60}\n")
     return 1 if failed else 0
 
@@ -133,10 +174,19 @@ def main() -> int:
     parser.add_argument("--skip-cjson", action="store_true")
     parser.add_argument("--skip-isr", action="store_true")
     parser.add_argument("--skip-lvgl", action="store_true")
+    parser.add_argument("--skip-queue", action="store_true")
+    parser.add_argument(
+        "--validate-examples",
+        action="store_true",
+        help="验证 examples/ good/bad 与 checker 铁律约束一致",
+    )
     args = parser.parse_args()
 
     if args.self_test:
         return run_self_test()
+
+    if args.validate_examples:
+        return run_validate_examples()
 
     c_files = collect_c_files(args.files, args.dir, include_bad=args.include_bad)
     review_root = args.dir or (str(c_files[0].parent) if c_files else ".")
@@ -195,6 +245,20 @@ def main() -> int:
             exit_code = max(exit_code, rc)
     elif not args.skip_lvgl:
         print("\n[skip] lvgl_thread_checker: 无 .c 文件")
+
+    if not args.skip_queue and c_files:
+        for f in c_files:
+            rc = run_cmd(
+                "queue_ownership_checker",
+                [
+                    sys.executable,
+                    str(TOOLS_DIR / "queue_ownership_checker.py"),
+                    str(f),
+                ],
+            )
+            exit_code = max(exit_code, rc)
+    elif not args.skip_queue:
+        print("\n[skip] queue_ownership_checker: 无 .c 文件")
 
     if not c_files and args.dir:
         print("\n[warn] 排除 bad_*.c 后无可审查文件")

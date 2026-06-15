@@ -19,7 +19,8 @@
 | 跨线程 LVGL | [bad_lvgl_cross_thread.c](../examples/bad_lvgl_cross_thread.c) |
 | ISR 阻塞 | [bad_isr_blocking.c](../examples/bad_isr_blocking.c) |
 | cJSON 泄漏 | [bad_cjson_leak.c](../examples/bad_cjson_leak.c) |
-| WSS 栈/重连 | [bad_wss_blocking.c](../examples/bad_wss_blocking.c) |
+| **Queue 栈指针/cJSON*** | [bad_queue_stack_pointer.c](../examples/bad_queue_stack_pointer.c) |
+| WSS 栈/重连 | [bad_wss_blocking.c](../examples/bad_wss_blocking.c) → 正例 [good_wss_reconnect.c](../examples/good_wss_reconnect.c) |
 
 按需深读：[lvgl_thread_safety.txt](../prompts/lvgl_thread_safety.txt)、[memory_ownership.txt](../prompts/memory_ownership.txt)、[deadlock_lock_order.txt](../prompts/deadlock_lock_order.txt)
 

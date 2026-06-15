@@ -32,7 +32,8 @@ Code Review 或 L3 校验时逐条核对。完成后输出：**「Lite 人工审
 - [ ] Queue 深度与背压已说明
 - [ ] 每大模块有 `APP_TEST_MODE_*` 宏
 
-## WSS / 死锁
+## Queue / 死锁
 
+- [ ] Queue 只传 heap plain buffer，不传 cJSON* / 栈指针（铁律 #2 → `queue_ownership_checker.py`）
 - [ ] SNTP 先于 TLS；重连指数退避
 - [ ] 无持 LVGL 锁等 Queue / 网络

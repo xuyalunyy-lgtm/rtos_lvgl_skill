@@ -1,6 +1,6 @@
 ---
 name: freertos-embedded-architect
-version: 2.4.0
+version: 2.5.0
 description: >-
   Use when reviewing or designing FreeRTOS IoT firmware: MVP layering, LVGL
   thread safety, I2S DMA, cJSON leaks, WSS/mbedTLS, JL/BK SDK trimming.

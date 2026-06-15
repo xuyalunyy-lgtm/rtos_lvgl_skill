@@ -44,7 +44,7 @@
 
 1. 更新 [iteration_log.md](../references/iteration_log.md) 与 [CHANGELOG.md](../CHANGELOG.md)
 2. 在完整版仓库运行 `python scripts/sync_lite.py`
-3. 完成 [lite_manual_checklist.md](../references/lite_manual_checklist.md)
+3. 完成 [lite_manual_checklist.md](../references/lite_manual_checklist.md)（含铁律 #2 Queue 所有权项）
 
 ## Step 5 — 输出
 
@@ -57,6 +57,7 @@
 
 ## 验证
 - [ ] run_review --self-test
+- [ ] run_review --validate-examples
 - [ ] skill_iterate --check
 - [ ] sync_lite
 - [ ] CHANGELOG + iteration_log

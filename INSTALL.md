@@ -39,13 +39,21 @@ JL AC79 带屏音箱，从 SDK Demo 做需求驱动裁剪，设计 MVP 任务优
 
 ## CI
 
-Push 到 `tools/` 时 GitHub Actions 自动运行 `python tools/run_review.py --self-test`。
+Push 到 `tools/`、`scripts/`、`examples/` 时 GitHub Actions 自动运行：
+
+```bash
+python tools/run_review.py --self-test
+python tools/run_review.py --validate-examples
+python scripts/skill_iterate.py --check --skip-self-test
+```
 
 Skill 自我迭代闭环：
 
 ```bash
 python scripts/skill_iterate.py --check --sync
 ```
+
+含铁律 #2：`queue_ownership_checker.py`（L2 一键审查已串联）。
 
 记录变更 → `references/iteration_log.md`、`CHANGELOG.md`；流程见 `workflows/self_iterate.md`。
 

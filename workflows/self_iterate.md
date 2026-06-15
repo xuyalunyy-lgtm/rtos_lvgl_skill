@@ -44,6 +44,7 @@
 
 ```bash
 python tools/run_review.py --self-test
+python tools/run_review.py --validate-examples
 python scripts/skill_iterate.py --check
 python scripts/sync_lite.py
 ```
@@ -51,8 +52,10 @@ python scripts/sync_lite.py
 | 检查项 | 通过标准 |
 |--------|----------|
 | fixtures 自测 | exit 0 |
+| **铁律范例约束** | `--validate-examples` exit 0 |
 | SKILL version | frontmatter 含 `version:` |
 | Lite 同步 | `freertos-skill-lite/SKILL.md` 版本与完整版一致 |
+| sync dry-run | `sync_lite.py --dry-run` exit 0 |
 | iteration_log | 本次变更有记录 |
 
 Python 不可用：人工执行 [lite_manual_checklist.md](../references/lite_manual_checklist.md) 等价项，标注「待本地补验」。
@@ -68,6 +71,7 @@ Python 不可用：人工执行 [lite_manual_checklist.md](../references/lite_ma
 
 ## 验证
 - [ ] run_review --self-test
+- [ ] run_review --validate-examples
 - [ ] skill_iterate --check
 - [ ] sync_lite
 - [ ] CHANGELOG + iteration_log

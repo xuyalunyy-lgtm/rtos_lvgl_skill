@@ -1,6 +1,6 @@
 ---
 name: freertos-embedded-architect
-version: 2.4.0
+version: 2.5.0
 description: >-
   Use when reviewing or designing FreeRTOS IoT firmware: MVP layering, LVGL
   thread safety, I2S DMA, cJSON leaks, WSS/mbedTLS, JL/BK SDK trimming.
@@ -78,6 +78,7 @@ BK 编译：`bk_build.*` 与 SDK 同级 → [platforms/bk.md](platforms/bk.md)
 |------|------|
 | 一键 L2 | `python tools/run_review.py --dir src/ --platform xxx` |
 | 自测 | `python tools/run_review.py --self-test` |
+| **铁律范例约束** | `python tools/run_review.py --validate-examples` |
 | Lite 同步 | `python scripts/sync_lite.py`（含生成 Lite `SKILL.md`） |
 | **迭代验证** | `python scripts/skill_iterate.py --check --sync` |
 | MVP 骨架 | `python tools/mvp_codegen_tool.py Module --platform jl -o ./generated` |

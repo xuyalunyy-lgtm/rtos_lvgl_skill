@@ -18,7 +18,7 @@ CHANGELOG.md          # 版本历史
 scripts/sync_lite.py  # 生成 Lite SKILL.md + 同步子目录
 platforms/            # 平台专档
 prompts/              # 场景专链
-examples/             # Few-Shot + app_mvp.h
+examples/             # Few-Shot + app_mvp.h + README 铁律索引
 tools/                # checker、codegen、fixtures/
 freertos-skill-lite/  # Lite 分发包
 ```
