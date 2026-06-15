@@ -1,0 +1,190 @@
+# 音视频 DMA Ping-Pong 双缓冲专精提示词
+
+## 架构概览
+
+```
+┌─────────────┐    DMA Half/Full Cplt ISR    ┌──────────────┐
+│  I2S / SPI  │ ──────────────────────────► │  RTOS Task   │
+│  Peripheral │   xTaskNotifyFromISR /      │  (AudioProc) │
+│             │   xSemaphoreGiveFromISR     │              │
+└─────────────┘                              └──────┬───────┘
+                                                    │ Queue
+                                                    ▼
+                                             ┌──────────────┐
+                                             │  Presenter   │
+                                             └──────────────┘
+```
+
+Mic 采集（I2S RX）与扬声器播放（I2S TX）均须使用 **Ping-Pong（双缓冲）** DMA，避免 CPU 轮询与数据断裂。
+
+---
+
+## 双缓冲内存布局
+
+```c
+#define AUDIO_FRAME_SAMPLES  (256)
+#define AUDIO_CHANNELS       (1)
+#define AUDIO_BUF_COUNT      (2)   /* Ping-Pong */
+
+static int16_t s_rx_buf[AUDIO_BUF_COUNT][AUDIO_FRAME_SAMPLES * AUDIO_CHANNELS]
+    __attribute__((aligned(4)));
+
+static volatile uint8_t s_rx_write_idx = 0;  /* DMA 当前写入缓冲索引 */
+```
+
+- DMA 写缓冲区 A 时，任务处理缓冲区 B，交替进行。
+- 缓冲区须 **4 字节对齐**，满足 DMA 控制器要求。
+
+---
+
+## 同步机制选型
+
+| 机制 | 适用场景 | ISR API |
+|------|----------|---------|
+| **Task Notifications** | 单生产者→单消费者，最低开销 | `xTaskNotifyFromISR` |
+| **Binary Semaphore** | 需明确计数、多事件源 | `xSemaphoreGiveFromISR` |
+| **Queue** | 需传递缓冲区指针+元数据 | `xQueueSendFromISR` |
+
+推荐：音频采集用 **Task Notifications**（延迟最低）；需传结构体时用 **Queue 传指针**。
+
+---
+
+## 方案 A：Task Notifications（推荐 Mic 采集）
+
+### 初始化
+
+```c
+static TaskHandle_t s_audio_task_hdl = NULL;
+
+void audio_capture_start(void)
+{
+    xTaskCreate(audio_process_task, "Audio", 768, NULL,
+                configMAX_PRIORITIES - 3, &s_audio_task_hdl);
+    i2s_dma_rx_start(s_rx_buf[0], AUDIO_FRAME_SAMPLES);  /* 启动 DMA */
+}
+```
+
+### DMA 半完成 / 全完成 ISR
+
+```c
+void HAL_I2S_RxHalfCpltCallback(I2S_HandleTypeDef *hi2s)
+{
+    (void)hi2s;
+    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+
+    if (s_audio_task_hdl != NULL) {
+        /* 通知任务：缓冲区 0 已满，可读 */
+        xTaskNotifyFromISR(s_audio_task_hdl, 0x01, eSetBits, &xHigherPriorityTaskWoken);
+    }
+    portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+}
+
+void HAL_I2S_RxCpltCallback(I2S_HandleTypeDef *hi2s)
+{
+    (void)hi2s;
+    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+
+    if (s_audio_task_hdl != NULL) {
+        /* 通知任务：缓冲区 1 已满，可读 */
+        xTaskNotifyFromISR(s_audio_task_hdl, 0x02, eSetBits, &xHigherPriorityTaskWoken);
+    }
+    portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+}
+```
+
+### 音频处理任务
+
+```c
+static void audio_process_task(void *arg)
+{
+    (void)arg;
+    uint32_t notify_val;
+
+    for (;;) {
+        if (xTaskNotifyWait(0, ULONG_MAX, &notify_val, portMAX_DELAY) == pdTRUE) {
+
+            if (notify_val & 0x01) {
+                audio_process_frame(s_rx_buf[0], AUDIO_FRAME_SAMPLES);
+            }
+            if (notify_val & 0x02) {
+                audio_process_frame(s_rx_buf[1], AUDIO_FRAME_SAMPLES);
+            }
+        }
+    }
+}
+```
+
+---
+
+## 方案 B：Binary Semaphore（I2S 播放 TX）
+
+```c
+static SemaphoreHandle_t s_tx_done_sem = NULL;
+
+void audio_playback_init(void)
+{
+    s_tx_done_sem = xSemaphoreCreateBinary();
+    configASSERT(s_tx_done_sem != NULL);
+}
+
+void HAL_I2S_TxCpltCallback(I2S_HandleTypeDef *hi2s)
+{
+    (void)hi2s;
+    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+
+    xSemaphoreGiveFromISR(s_tx_done_sem, &xHigherPriorityTaskWoken);
+    portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+}
+
+/* 播放任务等待 DMA 完成再填下一块 */
+static void playback_task(void *arg)
+{
+    for (;;) {
+        fill_tx_buffer(s_tx_buf[s_tx_idx], AUDIO_FRAME_SAMPLES);
+        i2s_dma_tx_start(s_tx_buf[s_tx_idx], AUDIO_FRAME_SAMPLES);
+
+        if (xSemaphoreTake(s_tx_done_sem, pdMS_TO_TICKS(50)) != pdTRUE) {
+            /* DMA 超时，记录错误 */
+        }
+        s_tx_idx ^= 1;  /* 切换 Ping-Pong */
+    }
+}
+```
+
+---
+
+## ISR 铁律
+
+1. **仅用 `*FromISR` 后缀 API**，禁止 `xSemaphoreGive`、`xQueueSend`、`vTaskDelay`。
+2. **必须**声明 `BaseType_t xHigherPriorityTaskWoken = pdFALSE`。
+3. **必须**在 ISR 末尾调用 `portYIELD_FROM_ISR(xHigherPriorityTaskWoken)`。
+4. ISR 内禁止：`printf`、`malloc`、`cJSON_Parse`、浮点运算（无 FPU 上下文保存时）。
+5. 音频任务优先级须高于 LVGL 与网络（见 SKILL.md 优先级表）。
+
+---
+
+## 数据投递到 Presenter
+
+音频任务 **禁止** 直接操作 UI。处理完的帧数据或识别结果须打包投递：
+
+```c
+typedef struct {
+    int16_t *samples;   /* 或识别文本指针 */
+    size_t count;
+} audio_evt_t;
+
+/* 在 audio_process_task 中 */
+audio_evt_t evt = { .samples = buf, .count = n };
+xQueueSend(s_audio_evt_queue, &evt, 0);  /* 不阻塞，丢帧优于积压 */
+```
+
+---
+
+## Agent 检查清单
+
+- [ ] 是否使用双缓冲（非单缓冲轮询）？
+- [ ] ISR 是否全部使用 `*FromISR` API + `portYIELD_FROM_ISR`？
+- [ ] 音频任务优先级是否高于 LVGL/网络？
+- [ ] 缓冲区是否 4 字节对齐？
+- [ ] 是否存在 ISR 内阻塞调用或内存分配？
+- [ ] 处理结果是否经 Queue 送 Presenter（非直接改 UI）？
