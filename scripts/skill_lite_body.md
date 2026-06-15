@@ -26,14 +26,14 @@
 
 ## 铁律索引
 
-细则 → [references/core_rules.md](references/core_rules.md)（范例见完整版 `examples/`，共享类型 `examples/app_mvp.h`）
+细则 → [references/core_rules.md](references/core_rules.md) · **C#.#** → [constraint_detail.md](references/constraint_detail.md)
 
-1. LVGL 后台禁止 `lv_obj_*` → [lvgl_thread_safety.txt](prompts/lvgl_thread_safety.txt)
-2. Queue 禁止 cJSON* / 栈指针 → [memory_ownership.txt](prompts/memory_ownership.txt) · 完整版 `queue_ownership_checker.py`
-3. cJSON 同函数 Delete → [cjson_safe_parse.txt](prompts/cjson_safe_parse.txt)
-4. ISR 仅 `*FromISR` → [audio_dma_pingpong.txt](prompts/audio_dma_pingpong.txt)
-5. `APP_TEST_MODE_*` 每模块 → [test_mode_macro.txt](prompts/test_mode_macro.txt)
-6. SDK 先问卷再裁剪 → [sdk_trim_prune.txt](prompts/sdk_trim_prune.txt)
+1. LVGL 后台禁止 `lv_obj_*`（C1.1–C1.7）→ [lvgl_thread_safety.txt](prompts/lvgl_thread_safety.txt)
+2. Queue 禁止 cJSON* / 栈指针（C2.1–C2.8）→ [memory_ownership.txt](prompts/memory_ownership.txt) · 完整版 `queue_ownership_checker.py`
+3. cJSON 同函数 Delete（C3.1–C3.6）→ [cjson_safe_parse.txt](prompts/cjson_safe_parse.txt)
+4. ISR 仅 `*FromISR`（C4.1–C4.7）→ [audio_dma_pingpong.txt](prompts/audio_dma_pingpong.txt)
+5. `APP_TEST_MODE_*` 每模块（C5.1–C5.3）→ [test_mode_macro.txt](prompts/test_mode_macro.txt)
+6. SDK 先问卷再裁剪（C6.1–C6.4）→ [sdk_trim_prune.txt](prompts/sdk_trim_prune.txt)
 
 <thinking>
 1. 选定 1 个 workflow
@@ -43,8 +43,9 @@
 </thinking>
 
 <rules>
+- L2+ 违规报告须引用 `C#.#`（见 constraint_detail.md）
 - L2 必须标注「Lite 人工审查已完成」
-- 禁止未问卷直接给 SDK 删除清单
+- 禁止未问卷直接给 SDK 删除清单（C6.1）
 </rules>
 
 ## 场景 Prompt 索引（按需加载）

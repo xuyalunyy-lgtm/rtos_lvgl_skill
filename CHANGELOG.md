@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.7.0 — 2026-06-15
+
+- 新增 `references/constraint_detail.md`：35 条细粒度约束 ID（C1.1–C6.4）+ P0/P1/P2 严重度 + 症状快查
+- L2/Crash 输出须引用 `C#.#`；`--validate-examples` 扩展至 C1/C4 good+bad（10 项）
+- `lite_manual_checklist.md`、`examples/README.md` 按约束 ID 重组
+
 ## 2.6.0 — 2026-06-15
 
 - 新增 `install_skill.ps1` / `install_skill.sh`（安装时排除 `.git`、`fw-AC79_AIoT_SDK`）

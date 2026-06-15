@@ -44,14 +44,16 @@ python tools/stack_calculator.py --describe "WSS TLS cJSON" --platform jl
 
 ## 六条硬性约束（摘要）
 
-| # | 主题 | 细则 |
-|---|------|------|
-| 1 | LVGL 线程安全 | 后台禁止 `lv_obj_*`；`lv_async_call` 或 mutex → [lvgl_thread_safety.txt](../prompts/lvgl_thread_safety.txt) |
-| 2 | payload 所有权 | cJSON 同函数 Delete；Queue payload Presenter free → [memory_ownership.txt](../prompts/memory_ownership.txt) · **`queue_ownership_checker.py`** |
-| 3 | cJSON | goto cleanup 模板 → [cjson_safe_parse.txt](../prompts/cjson_safe_parse.txt) |
-| 4 | 音频 DMA | ISR 仅 `*FromISR` → [audio_dma_pingpong.txt](../prompts/audio_dma_pingpong.txt) |
-| 5 | 测试宏 | 每模块 `APP_TEST_MODE_*` → [test_mode_macro.txt](../prompts/test_mode_macro.txt) |
-| 6 | SDK 裁剪 | 先问卷再动刀；JL/BK 先扫描 → [sdk_trim_prune.txt](../prompts/sdk_trim_prune.txt) |
+**细粒度 ID 矩阵（C1.1–C6.4）** → [constraint_detail.md](constraint_detail.md)（L2+ 违规报告须引用 `C#.#`）
+
+| # | 主题 | 细则 | 子约束数 |
+|---|------|------|----------|
+| 1 | LVGL 线程安全 | 后台禁止 `lv_obj_*`；`lv_async_call` 或 mutex → [lvgl_thread_safety.txt](../prompts/lvgl_thread_safety.txt) | 7 |
+| 2 | payload 所有权 | cJSON 同函数 Delete；Queue payload Presenter free → [memory_ownership.txt](../prompts/memory_ownership.txt) · **`queue_ownership_checker.py`** | 8 |
+| 3 | cJSON | goto cleanup 模板 → [cjson_safe_parse.txt](../prompts/cjson_safe_parse.txt) | 6 |
+| 4 | 音频 DMA | ISR 仅 `*FromISR` → [audio_dma_pingpong.txt](../prompts/audio_dma_pingpong.txt) | 7 |
+| 5 | 测试宏 | 每模块 `APP_TEST_MODE_*` → [test_mode_macro.txt](../prompts/test_mode_macro.txt) | 3 |
+| 6 | SDK 裁剪 | 先问卷再动刀；JL/BK 先扫描 → [sdk_trim_prune.txt](../prompts/sdk_trim_prune.txt) | 4 |
 
 ## 文件归属惯例
 

@@ -1,39 +1,41 @@
 # Lite 版 L2 人工审查清单（替代 tools/）
 
-Code Review 或 L3 校验时逐条核对。完成后输出：**「Lite 人工审查已完成」**。
+Code Review 或 L3 校验时逐条核对。违规项引用 `C#.#`（完整矩阵见完整版 `references/constraint_detail.md`）。完成后输出：**「Lite 人工审查已完成」**。
 
-## 堆栈设计
+## C1 — LVGL 线程安全
+
+- [ ] C1.1 非 View 文件无 `lv_obj_*` / `lv_label_*`
+- [ ] C1.2 跨任务刷新用 `lv_async_call` 或 mutex
+- [ ] C1.3 `lv_async_call` user_data 在回调内 free
+- [ ] C1.5 无持 LVGL 锁等 Queue / 网络
+
+## C2 — Queue 所有权
+
+- [ ] C2.1 无 `cJSON*` 进 Queue
+- [ ] C2.2 无栈指针进 Queue
+- [ ] C2.3 Presenter 统一 `vPortFree(payload)`
+- [ ] C2.4 Queue 满时 Model 释放 payload
+- [ ] C2.7 Queue 深度与背压已说明
+
+## C3 — cJSON
+
+- [ ] C3.1 每个 `cJSON_Parse` 有唯一 `cleanup:` 且 `cJSON_Delete`
+- [ ] C3.2 多出口用 `goto cleanup`
+- [ ] C3.3 进 Queue 前已 Delete，只传 plain buffer
+
+## C4 — ISR
+
+- [ ] C4.1 HAL_*Callback 内无阻塞 API，仅用 `*FromISR`
+- [ ] C4.2 有 `portYIELD_FROM_ISR`
+- [ ] C4.7 ISR 无 mutex
+
+## C5 — 测试宏
+
+- [ ] C5.1 每大模块有 `APP_TEST_MODE_*` 宏
+
+## 堆栈 / WSS / MVP
 
 - [ ] 相对优先级表已输出（见 [core_rules.md](core_rules.md)）
 - [ ] WSS 任务栈 ≥ 4096 bytes（含 TLS 取 6144–8192）
-- [ ] 计划用 `uxTaskGetStackHighWaterMark` 实测
-
-## cJSON 防泄漏
-
-- [ ] 每个 `cJSON_Parse` 有唯一 `cleanup:` 且 `cJSON_Delete`
-- [ ] 循环内 Parse 每次迭代都 Delete
-- [ ] Queue 只传 plain buffer，不传 `cJSON*`
-- [ ] Queue 满时 Model 释放 payload
-
-## LVGL 线程安全
-
-- [ ] 非 View 文件无 `lv_obj_*` / `lv_label_*`
-- [ ] 跨任务刷新用 `lv_async_call` 或 mutex
-
-## ISR 安全
-
-- [ ] HAL_*Callback / IRQHandler 内无 `vTaskDelay`、`portMAX_DELAY`
-- [ ] 仅用 `*FromISR` + `portYIELD_FROM_ISR`
-
-## MVP 分层
-
 - [ ] Model 不碰 UI；View 不碰网络/音频寄存器
-- [ ] Presenter 释放 Queue payload
-- [ ] Queue 深度与背压已说明
-- [ ] 每大模块有 `APP_TEST_MODE_*` 宏
-
-## Queue / 死锁
-
-- [ ] Queue 只传 heap plain buffer，不传 cJSON* / 栈指针（铁律 #2 → `queue_ownership_checker.py`）
 - [ ] SNTP 先于 TLS；重连指数退避
-- [ ] 无持 LVGL 锁等 Queue / 网络

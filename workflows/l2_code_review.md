@@ -10,7 +10,7 @@
 
 ## Step 1 — 读总纲
 
-读取 [references/core_rules.md](../references/core_rules.md) 六条硬性约束。
+读取 [references/core_rules.md](../references/core_rules.md) 六条硬性约束 + [constraint_detail.md](../references/constraint_detail.md)（违规报告引用 `C#.#`）。
 
 ## Step 2 — 反例对照
 
@@ -44,8 +44,8 @@ Python 不可用：标注「待本地补验」，改用手工核对 checklist。
 ## 结论
 通过 / 需修复（一句话）
 
-## 违规项（对照 Hard Constraints）
-- [ ] 项：文件:行 — 问题 — 修复建议（引用 good 范例模式）
+## 违规项（对照 constraint_detail `C#.#`）
+- C2.2 — file:line — 问题 — 修复建议（引用 good 范例模式）
 
 ## Checker 结果
 （粘贴 run_review 摘要或「未运行」）

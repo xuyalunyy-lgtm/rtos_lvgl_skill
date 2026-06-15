@@ -111,13 +111,16 @@ def run_validate_examples() -> int:
     """铁律范例约束：good_* 须通过，bad_* 须触发对应 checker 失败。"""
     examples = SKILL_ROOT / "examples"
     cases: list[tuple[str, Path, int, str]] = [
-        ("queue_ownership_checker.py", examples / "good_wss_json_parse.c", 0, "铁律#2 good"),
-        ("queue_ownership_checker.py", examples / "good_presenter_consumer.c", 0, "铁律#2 good"),
-        ("queue_ownership_checker.py", examples / "good_wss_reconnect.c", 0, "铁律#2 good"),
-        ("queue_ownership_checker.py", examples / "bad_queue_stack_pointer.c", 1, "铁律#2 bad"),
-        ("cjson_leak_checker.py", examples / "good_wss_json_parse.c", 0, "铁律#3 good"),
-        ("cjson_leak_checker.py", examples / "bad_cjson_leak.c", 1, "铁律#3 bad"),
-        ("lvgl_thread_checker.py", examples / "bad_lvgl_cross_thread.c", 1, "铁律#1 bad"),
+        ("queue_ownership_checker.py", examples / "good_wss_json_parse.c", 0, "C2 good"),
+        ("queue_ownership_checker.py", examples / "good_presenter_consumer.c", 0, "C2 good"),
+        ("queue_ownership_checker.py", examples / "good_wss_reconnect.c", 0, "C2 good"),
+        ("queue_ownership_checker.py", examples / "bad_queue_stack_pointer.c", 1, "C2.2 bad"),
+        ("cjson_leak_checker.py", examples / "good_wss_json_parse.c", 0, "C3 good"),
+        ("cjson_leak_checker.py", examples / "bad_cjson_leak.c", 1, "C3.1 bad"),
+        ("lvgl_thread_checker.py", examples / "good_mvp_pattern.c", 0, "C1 good"),
+        ("lvgl_thread_checker.py", examples / "good_presenter_consumer.c", 0, "C1 good"),
+        ("lvgl_thread_checker.py", examples / "bad_lvgl_cross_thread.c", 1, "C1.1 bad"),
+        ("isr_safety_checker.py", examples / "bad_isr_blocking.c", 1, "C4.1 bad"),
     ]
 
     print("=" * 60)

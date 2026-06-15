@@ -10,7 +10,7 @@
 
 ## Step 1 — 读总纲
 
-读取 [references/core_rules.md](../references/core_rules.md) 六条硬性约束。
+读取 [references/core_rules.md](../references/core_rules.md) 六条硬性约束 + [constraint_detail.md](../references/constraint_detail.md)（违规报告引用 `C#.#`）。
 
 ## Step 2 — 反例对照
 
@@ -27,6 +27,7 @@
 ## Step 3 — 人工审查（Lite）
 
 使用 [l2_code_review_lite.md](l2_code_review_lite.md)。
+
 ## Step 4 — 输出
 
 <output_format>
@@ -35,11 +36,11 @@
 ## 结论
 通过 / 需修复（一句话）
 
-## 违规项（对照 Hard Constraints）
-- [ ] 项：文件:行 — 问题 — 修复建议（引用 good 范例模式）
+## 违规项（对照 constraint_detail `C#.#`）
+- C2.2 — file:line — 问题 — 修复建议（引用 good 范例模式）
 
 ## Checker 结果
-（粘贴 run_review 摘要或「未运行」）
+Lite 人工审查（未运行 checker）
 
 ## 修复优先级
 P0 安全/崩溃 → P1 泄漏/死锁 → P2 风格

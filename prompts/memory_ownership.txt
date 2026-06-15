@@ -1,5 +1,7 @@
 # 内存与 payload 所有权专精
 
+> 约束 ID：C2.1–C2.8 → [constraint_detail.md](../references/constraint_detail.md)
+
 ## 铁律
 
 **谁分配，谁释放 — 除非通过 Queue 显式转移所有权。**

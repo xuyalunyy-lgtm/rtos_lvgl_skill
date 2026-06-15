@@ -1,5 +1,7 @@
 # LVGL 线程安全专精提示词
 
+> 约束 ID：C1.1–C1.7 → [constraint_detail.md](../references/constraint_detail.md)
+
 ## 铁律
 
 网络任务、音频任务、Presenter 后台逻辑 **绝对禁止** 直接调用任何 `lv_obj_*`、`lv_label_*`、`lv_bar_*` 等 LVGL API 修改界面。违反此规则将导致随机 HardFault、花屏、死锁。
