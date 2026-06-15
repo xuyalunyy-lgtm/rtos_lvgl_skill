@@ -166,7 +166,7 @@ static void lvgl_task(void *param)
 
 **规则**：
 - Designer 生成代码归属 **View 层**，不含业务逻辑。
-- 控件事件回调**只发消息**给 Presenter，禁止在回调中做网络请求或 `vTaskDelay`。
+- 控件事件回调**只发消息**给 Presenter（参照 `good_mvp_pattern.c`），禁止在回调中做网络请求或 `vTaskDelay`。
 - 跨任务刷新：优先 `lv_async_call()`；多任务访问 LVGL 须互斥保护。
 
 ### 摄像头 / LVGL 切换（BK7258 特有）

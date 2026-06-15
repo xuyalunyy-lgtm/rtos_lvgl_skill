@@ -18,6 +18,7 @@ import argparse
 import os
 import re
 import sys
+from pathlib import Path
 
 PLATFORMS = ("freertos", "esp32", "stm32", "jl", "bk")
 
@@ -106,6 +107,8 @@ PLATFORM_CTX = {
 TEST_CONFIG_TEMPLATE = """/**
  * @file app_test_config.h
  * @brief 测试模式宏 — 打开后只运行对应模块自测（见 prompts/test_mode_macro.txt）
+ *
+ * 多次 mvp_codegen 生成时：保留已有 #define，仅追加 APP_TEST_MODE_{module_upper}。
  */
 
 #ifndef APP_TEST_CONFIG_H
@@ -120,21 +123,23 @@ HEADER_TEMPLATE = """/**
  * @file {module_lower}_mvp.h
  * @brief {module_name} MVP — Android Handler 风格事件总线
  *
+ * 共享类型见 app_mvp.h（net_evt_t / app_mvp_ui_async_t 等）。
  * Model    → xQueueSend (sendMessage)
  * Presenter→ Looper 消费 (handleMessage)
  * View     → lv_async_call (runOnUiThread)
  *
- * payload: Model 分配 → Presenter vPortFree（见 prompts/memory_ownership.txt）
+ * payload: Model 分配 → Presenter {free}（见 prompts/memory_ownership.txt）
  */
 
 #ifndef {guard}_H
 #define {guard}_H
 
+#include "app_mvp.h"
+#include "app_test_config.h"
 #include "FreeRTOS.h"
 #include "queue.h"
 #include "semphr.h"
 #include "lvgl.h"
-#include "app_test_config.h"
 
 #ifdef __cplusplus
 extern "C" {{
@@ -305,11 +310,9 @@ VIEW_TEMPLATE = """/**
 
 static lv_obj_t *s_label = NULL;
 
-typedef struct {{ char text[64]; }} {module_lower}_ui_msg_t;
-
 static void async_cb(void *user_data)
 {{
-    {module_lower}_ui_msg_t *m = ({module_lower}_ui_msg_t *)user_data;
+    app_mvp_ui_async_t *m = (app_mvp_ui_async_t *)user_data;
     if (m == NULL) {{ return; }}
     if (s_label != NULL) {{ lv_label_set_text(s_label, m->text); }}
     {free}(m);
@@ -328,10 +331,10 @@ void {module_lower}_view_init(lv_obj_t *parent)
 void {module_lower}_view_post_text(const char *text)
 {{
     if (text == NULL) {{ return; }}
-    {module_lower}_ui_msg_t *m = {malloc_stub};
+    app_mvp_ui_async_t *m = {malloc_stub};
     if (m == NULL) {{ return; }}
-    strncpy(m->text, text, sizeof(m->text) - 1);
-    m->text[sizeof(m->text) - 1] = '\\0';
+    strncpy(m->text, text, APP_MVP_UI_TEXT_LEN - 1);
+    m->text[APP_MVP_UI_TEXT_LEN - 1] = '\\0';
     lv_async_call(async_cb, m);
 }}
 """
@@ -346,6 +349,13 @@ def sanitize_module_name(name: str) -> str:
 
 def to_upper_snake(name: str) -> str:
     return re.sub(r"([a-z])([A-Z])", r"\1_\2", name).upper()
+
+
+def load_app_mvp_h() -> str:
+    path = Path(__file__).resolve().parent.parent / "examples" / "app_mvp.h"
+    if not path.is_file():
+        raise FileNotFoundError(f"缺少 examples/app_mvp.h: {path}")
+    return path.read_text(encoding="utf-8")
 
 
 def build_task_create(platform: str, func: str, name: str, stack: int, prio: str,
@@ -367,9 +377,9 @@ def generate(module_name: str, platform: str) -> dict[str, str]:
     ml = mod.lower()
     mu = to_upper_snake(mod)
 
-    malloc_stub = f"({pc['malloc'].split('(')[0]})(sizeof({ml}_ui_msg_t))"
+    malloc_stub = f"({pc['malloc'].split('(')[0]})(sizeof(app_mvp_ui_async_t))"
     if platform == "esp32":
-        malloc_stub = f"({ml}_ui_msg_t *)heap_caps_malloc(sizeof({ml}_ui_msg_t), MALLOC_CAP_8BIT)"
+        malloc_stub = "(app_mvp_ui_async_t *)heap_caps_malloc(sizeof(app_mvp_ui_async_t), MALLOC_CAP_8BIT)"
         malloc_payload = "(char *)heap_caps_malloc(32, MALLOC_CAP_8BIT)"
     else:
         malloc_payload = f"(char *){pc['malloc'].split('(')[0]}(32)"
@@ -400,6 +410,7 @@ def generate(module_name: str, platform: str) -> dict[str, str]:
     model = model.replace("{malloc_stub}", malloc_payload)
 
     return {
+        "app_mvp.h": load_app_mvp_h(),
         "app_test_config.h": TEST_CONFIG_TEMPLATE.format(module_upper=mu, module_name=mod),
         f"{ml}_mvp.h": HEADER_TEMPLATE.format(**ctx),
         f"{ml}_model.c": model,
@@ -439,6 +450,7 @@ def main() -> int:
             print(f"\n{'=' * 60}\n// FILE: {fn}\n{'=' * 60}\n{content}")
 
     print(f"\n✅ 平台={args.platform}，栈单位: {note}")
+    print("   已生成 app_mvp.h + 模块 _mvp.h（共享类型见 examples/app_mvp.h）")
     print("   配对范例: examples/good_presenter_consumer.c")
     print("   多次生成请手动合并 app_test_config.h 中的 APP_TEST_MODE_* 宏")
     return 0

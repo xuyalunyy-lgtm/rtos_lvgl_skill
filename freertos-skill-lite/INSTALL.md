@@ -32,6 +32,8 @@ cp -r freertos-skill-lite ~/.cursor/skills/freertos-embedded-architect
 | `examples/` 正反范例 .c | Agent 按 prompt 内嵌规则生成代码 |
 | `tools/*.py` checker/codegen | Step 5 人工审查清单（见 SKILL.md） |
 
+维护者在完整版仓库根目录运行 `python scripts/sync_lite.py` 可同步 `prompts/` 与 `platforms/`（含 AC79 `jl.md`）。
+
 ## 授权
 
 见 [LICENSE](LICENSE)。禁止再分发、反编译或用于训练第三方模型。

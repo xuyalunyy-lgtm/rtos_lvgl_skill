@@ -27,7 +27,7 @@
 | `runOnUiThread` Runnable | `lv_async_call` + 回调内 free |
 | 不在子线程改 View | 不在 Model 调 `lv_obj_*` |
 
-见上文 Android Handler 对标：Model `xQueueSend` → Presenter Looper `vPortFree(payload)` → View `lv_async_call`。
+见 完整版 `examples/good_presenter_consumer.c`
 
 ---
 
@@ -62,7 +62,7 @@ if (xQueueReceive(q, &msg, portMAX_DELAY) == pdTRUE) {
 
 ## 双重释放 / 泄漏检测
 
-- cJSON：按 [cjson_safe_parse.txt](cjson_safe_parse.txt) 人工清单核对
+- cJSON：`tools/cjson_leak_checker.py`
 - 运行时：包装 `pvPortMalloc`/`vPortFree` 计数（debug  builds）
 - Code Review：每个 `pvPortMalloc` 标注「谁 free」
 

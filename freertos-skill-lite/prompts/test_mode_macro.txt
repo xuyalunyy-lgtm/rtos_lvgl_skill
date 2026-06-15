@@ -57,7 +57,7 @@ void app_main(void)
 #endif
 
 #if APP_TEST_MODE_PRESENTER
-    presenter_test_run();        /* 模拟 Queue 消息，见 SKILL.md MVP 闭环模式 */
+    presenter_test_run();        /* 模拟 Queue 消息，见 good_presenter_consumer.c */
     return;
 #endif
 
@@ -101,7 +101,7 @@ void network_test_run(void)
 ```
 
 ```c
-/* app_presenter.c — Presenter Looper 自测，见 SKILL.md */
+/* app_presenter.c — 配对 good_presenter_consumer.c */
 #if APP_TEST_MODE_PRESENTER
 /* APP_TEST_MODE_PRESENTER=1 时启用 presenter_self_test_task */
 #endif

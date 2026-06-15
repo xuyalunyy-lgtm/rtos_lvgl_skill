@@ -42,8 +42,15 @@ JL AC79 带屏音箱，从 SDK Demo 做需求驱动裁剪，设计 MVP 任务优
 在项目源码目录执行（Python 3.8+，无第三方依赖）：
 
 ```bash
-# 一键审查（推荐）
+# 一键审查（推荐；默认排除 bad_*.c 反例）
 python path/to/skill/tools/run_review.py --dir ./src --platform jl
+
+# checker 自测（CI / 本地验证工具链）
+python path/to/skill/tools/run_review.py --self-test
+
+# 同步 Lite 分发包（prompts/ + platforms/）
+python path/to/skill/scripts/sync_lite.py
+# Windows: .\scripts\sync_lite.ps1
 
 # 单项
 python path/to/skill/tools/stack_calculator.py --describe "WSS TLS cJSON" --platform esp32

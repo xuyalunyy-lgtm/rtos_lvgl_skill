@@ -22,7 +22,10 @@ WSS = WebSocket + TLS。mbedTLS 握手阶段会在栈和堆上分配大量临时
 | cJSON 解析树 | 0.5–4 KB | 与 JSON 大小正相关 |
 | **任务栈（握手瞬间）** | **≥ 4096 bytes，建议 6144–8192** | 必须实测 |
 
-Agent 设计 WSS 任务栈时，按 [SKILL.md](../SKILL.md) 堆栈表 + WSS/TLS 取 ≥4096 bytes（建议 6144–8192），并用 `uxTaskGetStackHighWaterMark()` 实测。
+Agent 设计 WSS 任务栈时，运行：
+```bash
+python tools/stack_calculator.py --describe "WSS TLS handshake cJSON" --platform esp32
+```
 
 ---
 

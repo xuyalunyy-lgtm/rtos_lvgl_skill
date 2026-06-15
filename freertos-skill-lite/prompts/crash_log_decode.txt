@@ -127,7 +127,7 @@ grep -i backtrace build/...
 
 **处理：**
 1. `uxTaskGetStackHighWaterMark(wss_task_hdl)` 测水位
-2. 对照 SKILL.md 堆栈表 + 25% 余量；用 `uxTaskGetStackHighWaterMark` 复核
+2. `python tools/stack_calculator.py --describe "..."`
 3. 检查任务内大局部数组（`char buf[8192]`）
 
 ---
@@ -144,7 +144,7 @@ grep -i backtrace build/...
 1. 列出所有 mutex：`g_lvgl_mutex`、网络锁、文件锁
 2. 检查加锁顺序是否一致（永远：网络锁 → LVGL 锁）
 3. 检查 ISR 中 `xSemaphoreTake(g_lvgl_mutex, portMAX_DELAY)`
-4. 按 SKILL.md Step 5：检查非 View 文件是否存在 `lv_obj_*` 直接调用
+4. 运行 `python tools/lvgl_thread_checker.py src/`
 
 ---
 
@@ -159,7 +159,7 @@ xtensa-esp32-elf-addr2line -pfiaC -e build/app.elf $PC
 arm-none-eabi-addr2line -pfiaC -e build/firmware.elf $PC
 
 # 3. 对照反例
-#    LoadProhibited + network_task → 检查跨线程 lv_obj_*（见 SKILL.md 反模式表）
+#    LoadProhibited + network_task → bad_lvgl_cross_thread.c
 #    STACK OVERFLOW + WssTask     → mbedtls_wss_memory.txt
 #    STKERR                       → 缩局部变量或增栈
 ```
@@ -186,6 +186,6 @@ arm-none-eabi-addr2line -pfiaC -e build/firmware.elf $PC
 [具体改法，拒绝打补丁]
 
 ## 验证
-- [ ] 修复后按 SKILL.md Step 5 人工审查清单复核
+- [ ] 修复后跑 isr_safety / lvgl_thread / cjson_leak checker
 - [ ] 栈水位复测
 ```
