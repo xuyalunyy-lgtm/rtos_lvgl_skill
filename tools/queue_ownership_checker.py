@@ -18,6 +18,8 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from checker_io import configure_stdout
+
 QUEUE_SEND = re.compile(
     r"\bxQueue(?:Send|SendToBack|SendFromISR|Overwrite)\s*\("
 )
@@ -225,6 +227,7 @@ def format_report(result: CheckResult) -> str:
 
 
 def main() -> int:
+    configure_stdout()
     parser = argparse.ArgumentParser(description="Queue payload 所有权审查（铁律 #2）")
     parser.add_argument("file", help="待检查的 .c/.h 文件路径")
     args = parser.parse_args()

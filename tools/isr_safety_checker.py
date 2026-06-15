@@ -17,6 +17,8 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from checker_io import configure_stdout
+
 # 仅匹配 ISR/HAL 回调的函数定义行，勿把任务内的 *FromISR 调用误判为 ISR
 ISR_FUNC_DEF = re.compile(
     r"^(?:static\s+)?(?:inline\s+)?(?:void|int|BaseType_t)\s+"
@@ -188,6 +190,7 @@ def collect_files(path: Path) -> list[Path]:
 
 
 def main() -> int:
+    configure_stdout()
     parser = argparse.ArgumentParser(description="ISR 阻塞 API 静态审查")
     parser.add_argument("path", nargs="?", help=".c/.h 文件或目录")
     parser.add_argument("--dir", "-d", help="扫描目录")

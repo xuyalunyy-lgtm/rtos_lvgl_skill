@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -18,6 +19,13 @@ from pathlib import Path
 TOOLS_DIR = Path(__file__).resolve().parent
 FIXTURES_DIR = TOOLS_DIR / "fixtures"
 SKILL_ROOT = TOOLS_DIR.parent
+
+
+def checker_env() -> dict[str, str]:
+    """Windows GBK 控制台下避免 checker emoji 输出触发 UnicodeEncodeError。"""
+    env = os.environ.copy()
+    env.setdefault("PYTHONIOENCODING", "utf-8")
+    return env
 
 
 def is_bad_example(path: Path) -> bool:
@@ -65,7 +73,14 @@ def run_cmd(label: str, argv: list[str]) -> int:
 
 def run_checker(script: str, checker_args: list[str]) -> int:
     argv = [sys.executable, str(TOOLS_DIR / script), *checker_args]
-    proc = subprocess.run(argv, cwd=SKILL_ROOT, capture_output=True, text=True)
+    proc = subprocess.run(
+        argv,
+        cwd=SKILL_ROOT,
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+        env=checker_env(),
+    )
     if proc.stdout:
         print(proc.stdout, end="")
     if proc.stderr:

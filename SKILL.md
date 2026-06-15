@@ -81,7 +81,7 @@ BK 编译：`bk_build.*` 与 SDK 同级 → [platforms/bk.md](platforms/bk.md)
 | 自测 | `python tools/run_review.py --self-test` |
 | **铁律范例约束** | `python tools/run_review.py --validate-examples` |
 | Lite 同步 | `python scripts/sync_lite.py`（含生成 Lite `SKILL.md`） |
-| **迭代验证** | `python scripts/skill_iterate.py --check --sync` |
+| **迭代验证** | `python scripts/skill_iterate.py --check --sync` · Windows：`.\scripts\skill_iterate.cmd -Sync` |
 | **安装到 Cursor** | `.\scripts\install_skill.ps1`（见 [INSTALL.md](INSTALL.md)） |
 | MVP 骨架 | `python tools/mvp_codegen_tool.py Module --platform jl -o ./generated` |
 

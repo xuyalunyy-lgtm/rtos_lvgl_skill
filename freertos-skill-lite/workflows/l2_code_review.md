@@ -27,7 +27,6 @@
 ## Step 3 — 人工审查（Lite）
 
 使用 [l2_code_review_lite.md](l2_code_review_lite.md)。
-
 ## Step 4 — 输出
 
 <output_format>
@@ -40,7 +39,7 @@
 - C2.2 — file:line — 问题 — 修复建议（引用 good 范例模式）
 
 ## Checker 结果
-Lite 人工审查（未运行 checker）
+（粘贴 run_review 摘要或「未运行」）
 
 ## 修复优先级
 P0 安全/崩溃 → P1 泄漏/死锁 → P2 风格

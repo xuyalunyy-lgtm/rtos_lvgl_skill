@@ -65,6 +65,16 @@ Skill 自我迭代闭环：
 python scripts/skill_iterate.py --check --sync
 ```
 
+Windows（无需 Python，元数据 + Lite 同步；checker 步骤跳过，依赖 CI）：
+
+```powershell
+# 若提示“禁止运行脚本”，用 .cmd 包装（无需改 ExecutionPolicy）：
+.\scripts\skill_iterate.cmd -Sync
+
+# 或单次 Bypass（将路径换成你的 skill 目录）：
+& "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File .\scripts\skill_iterate.ps1 -Sync
+```
+
 含铁律 #2：`queue_ownership_checker.py`（L2 一键审查已串联）。
 
 记录变更 → `references/iteration_log.md`、`CHANGELOG.md`；流程见 `workflows/self_iterate.md`。
@@ -72,6 +82,22 @@ python scripts/skill_iterate.py --check --sync
 ## 工具（L2 Review / L3 生成后校验）
 
 在项目源码目录执行（Python 3.8+，无第三方依赖）：
+
+**Windows 若 `python` 命令找不到**（已安装但未进 PATH）：
+
+```powershell
+# 方式 A：用 .cmd 包装（推荐，无需改 ExecutionPolicy）
+.\scripts\skill_iterate.cmd -Sync
+
+# 方式 A2：PowerShell 脚本（需 Bypass 或 RemoteSigned）
+.\scripts\skill_iterate.ps1 -Sync
+
+# 方式 B：把 Python 加入当前会话 PATH（按本机安装路径调整）
+$env:Path += ";$env:LOCALAPPDATA\Programs\Python\Python312;$env:LOCALAPPDATA\Programs\Python\Python312\Scripts"
+python --version
+
+# 方式 C：设置 → 应用 → 高级应用设置 → 应用执行别名 → 关闭 python.exe / python3.exe 商店别名
+```
 
 ```bash
 # 一键审查（推荐；默认排除 bad_*.c 反例）
@@ -83,7 +109,7 @@ python path/to/skill/tools/run_review.py --self-test
 # 同步 Lite 分发包（生成 SKILL.md + 同步 prompts/platforms/workflows/references）
 python path/to/skill/scripts/sync_lite.py
 # Windows（无需 Python）:
-.\scripts\sync_lite.ps1
+.\scripts\sync_lite.cmd
 
 # 单项
 python path/to/skill/tools/stack_calculator.py --describe "WSS TLS cJSON" --platform esp32

@@ -29,7 +29,7 @@
 | `runOnUiThread` Runnable | `lv_async_call` + 回调内 free |
 | 不在子线程改 View | 不在 Model 调 `lv_obj_*` |
 
-见 [good_presenter_consumer.c](../examples/good_presenter_consumer.c)
+见 完整版 `examples/good_presenter_consumer.c`
 
 ---
 

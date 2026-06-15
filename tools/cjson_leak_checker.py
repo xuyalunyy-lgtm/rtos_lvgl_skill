@@ -18,6 +18,8 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from checker_io import configure_stdout
+
 PARSE_PATTERNS = [
     re.compile(r"\bcJSON_ParseWithLength\s*\("),
     re.compile(r"\bcJSON_ParseWithOpts\s*\("),
@@ -51,12 +53,15 @@ class CheckResult:
 
 
 def find_function_at_line(lines: list[str], line_idx: int) -> str:
-    """向上搜索最近的函数定义。"""
+    """向上搜索最近的函数定义（支持指针返回类型）。"""
     func_pat = re.compile(
-        r"(?:static\s+)?(?:\w+\s+)+(\w+)\s*\([^;]*\)\s*$"
+        r"(?:static\s+)?(?:inline\s+)?[\w\s\*]+\s+(\w+)\s*\([^;]*\)\s*$"
     )
     for i in range(line_idx, -1, -1):
-        m = func_pat.search(lines[i])
+        stripped = lines[i].strip()
+        if stripped.startswith("#") or stripped.startswith("extern "):
+            continue
+        m = func_pat.search(stripped)
         if m:
             return m.group(1)
     return "global"
@@ -108,10 +113,58 @@ def analyze(content: str, filename: str = "<stdin>") -> CheckResult:
         for func, parse_count in func_parse.items():
             del_count = len(func_delete_lines.get(func, []))
             if del_count < parse_count:
-                result.warnings.append(
+                result.errors.append(
                     f"函数 '{func}()': {parse_count} 次 Parse，仅 {del_count} 次 Delete — "
                     f"请确认所有退出分支（含 early return / goto）都调用了 cJSON_Delete"
                 )
+
+        # Parse 之后、首次 Delete 之前的 return 视为泄漏路径
+        func_bodies: dict[str, list[tuple[int, str]]] = {}
+        current_func = "global"
+        func_pat = re.compile(
+            r"(?:static\s+)?(?:inline\s+)?[\w\s\*]+\s+(\w+)\s*\([^;]*\)\s*$"
+        )
+        for i, line in enumerate(lines):
+            stripped = line.strip()
+            if stripped.startswith("#") or stripped.startswith("extern "):
+                continue
+            m = func_pat.search(stripped)
+            if m:
+                current_func = m.group(1)
+            func_bodies.setdefault(current_func, []).append((i + 1, line))
+
+        for func in func_parse:
+            body_lines = func_bodies.get(func, [])
+            if not body_lines:
+                continue
+            parse_lines = [s.line_no for s in result.parse_sites if s.func_name == func]
+            delete_lines = func_delete_lines.get(func, [])
+            if not parse_lines:
+                continue
+            first_parse = min(parse_lines)
+            first_delete = min(delete_lines) if delete_lines else 10**9
+            for line_no, text in body_lines:
+                if line_no <= first_parse:
+                    continue
+                stripped = text.strip()
+                if stripped.startswith("//") or stripped.startswith("/*"):
+                    continue
+                if not re.search(r"\breturn\b", stripped) or line_no >= first_delete:
+                    continue
+                segment = "\n".join(
+                    t for ln, t in body_lines if first_parse < ln <= line_no
+                )
+                # Parse 失败直接 return（root 仍为 NULL）不算泄漏
+                if re.search(r"if\s*\(\s*root\s*==\s*NULL|if\s*\(\s*!\s*root", segment):
+                    if not re.search(
+                        r"cJSON_GetObjectItem|cJSON_IsString|cJSON_IsNumber|cJSON_IsObject",
+                        segment,
+                    ):
+                        continue
+                result.errors.append(
+                    f"函数 '{func}()': L{line_no} return 早于 cJSON_Delete — 疑似泄漏路径"
+                )
+                break
 
     # Create 对象也需要 Delete
     if result.create_count > 0 and result.delete_count < result.create_count:
@@ -191,6 +244,7 @@ def format_report(result: CheckResult) -> str:
 
 
 def main() -> int:
+    configure_stdout()
     parser = argparse.ArgumentParser(description="cJSON 静态泄漏审查")
     parser.add_argument("file", nargs="?", help="待检查的 .c/.h 文件路径")
     parser.add_argument("--stdin", action="store_true", help="从标准输入读取")

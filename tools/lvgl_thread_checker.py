@@ -17,6 +17,8 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from checker_io import configure_stdout
+
 LVGL_API_PATTERN = re.compile(
     r"\blv_(?:obj|label|btn|bar|img|list|table|chart|textarea|dropdown|roller|"
     r"slider|switch|checkbox|arc|line|canvas|msgbox|tileview|tabview|win|"
@@ -61,6 +63,8 @@ class CheckResult:
 
 def is_allowed_file(path: Path, extra_allow: str | None) -> bool:
     name = path.name
+    if name.startswith("bad_"):
+        return False
     if extra_allow and extra_allow.lower() in name.lower():
         return True
     return any(p.search(name) for p in ALLOWED_FILE_PATTERNS)
@@ -132,6 +136,7 @@ def format_report(all_hits: list[Hit], scanned: int) -> str:
 
 
 def main() -> int:
+    configure_stdout()
     parser = argparse.ArgumentParser(description="LVGL 跨线程调用审查")
     parser.add_argument("path", help=".c/.h 文件或源码目录")
     parser.add_argument("--allow", help="额外允许的文件名片段")

@@ -10,6 +10,7 @@ Skill 自我迭代验证闭环。
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import subprocess
 import sys
@@ -22,6 +23,12 @@ CHANGELOG = ROOT / "CHANGELOG.md"
 ITERATION_LOG = ROOT / "references" / "iteration_log.md"
 
 
+def checker_env() -> dict[str, str]:
+    env = os.environ.copy()
+    env.setdefault("PYTHONIOENCODING", "utf-8")
+    return env
+
+
 def read_version(path: Path) -> str | None:
     if not path.is_file():
         return None
@@ -32,7 +39,7 @@ def read_version(path: Path) -> str | None:
 
 def run(cmd: list[str], cwd: Path) -> int:
     print(" ", " ".join(cmd))
-    return subprocess.run(cmd, cwd=cwd).returncode
+    return subprocess.run(cmd, cwd=cwd, env=checker_env()).returncode
 
 
 def main() -> int:
