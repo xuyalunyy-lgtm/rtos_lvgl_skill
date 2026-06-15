@@ -82,7 +82,8 @@ python path/to/skill/tools/run_review.py --self-test
 
 # 同步 Lite 分发包（生成 SKILL.md + 同步 prompts/platforms/workflows/references）
 python path/to/skill/scripts/sync_lite.py
-# Windows: .\scripts\sync_lite.ps1
+# Windows（无需 Python）:
+.\scripts\sync_lite.ps1
 
 # 单项
 python path/to/skill/tools/stack_calculator.py --describe "WSS TLS cJSON" --platform esp32
