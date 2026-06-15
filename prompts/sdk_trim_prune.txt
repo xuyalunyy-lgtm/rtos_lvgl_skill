@@ -1,0 +1,145 @@
+# SDK 深度裁剪专精提示词
+
+## 铁律
+
+**在编写任何业务代码之前，必须先对原厂 SDK 做深度裁剪。**
+原厂 Demo/SDK 面向「全功能展示」，Flash/RAM/任务数/中断负载均远超量产需求。
+未裁剪直接开发 = 埋内存泄漏、栈溢出、实时性劣化、功耗超标。
+
+裁剪目标：**只保留 MVP 所需最小闭包**（硬件驱动 + RTOS + 业务依赖链），其余一律关闭或移除。
+
+---
+
+## 裁剪六步法（L3 新工程必走）
+
+### Step 0 — 需求闭包清单（先写清单，再动 SDK）
+
+列出产品**必须保留**的能力，格式：
+
+```
+[保留] WiFi STA + WSS (TLS)
+[保留] Mic PCM 16kHz + OPUS 编码
+[保留] LVGL v8 320x240 RGB565
+[保留] cJSON 解析
+[删除] 蓝牙 Classic / BLE 配网 Demo
+[删除] SD 卡 / U 盘 / FAT 播放
+[删除] 未使用的解码器 (MP3/AAC/FLAC...)
+[删除] 官方 Demo 页面 / 测试命令 / 串口 CLI
+[删除] 多余常驻 task_info_table 条目
+```
+
+**原则：清单外的一切，默认删除，而非默认保留。**
+
+### Step 1 — 配置层裁剪（Kconfig / menuconfig / app_config）
+
+优先通过**编译开关**关闭模块，而非直接删源码（便于 diff 和升级 SDK）：
+
+| 层 | 操作 |
+|----|------|
+| 协议栈 | 关 BLE/BT/MQTT/HTTP Server/OTA 等未用协议 |
+| 多媒体 | 关未用 codec（只留 OPUS 就关 MP3/AAC/...） |
+| 文件系统 | 无 SD/U盘则关 FAT/SDIO/USB Host |
+| LVGL | 关未用 widget、demo、font 子集，减 `LV_MEM_SIZE` |
+| 网络 | 缩 LwIP `MEM_SIZE`、连接数、PBUF 池；TLS 仅留必要 cipher |
+| RTOS | 减 `configMAX_PRIORITIES`、未用任务栈、关 trace/debug |
+
+每关一项 → **编译 → 冒烟测试**，禁止一次关十项后编译。
+
+### Step 2 — 任务 / 线程裁剪
+
+| 操作 | 说明 |
+|------|------|
+| 删 Demo 任务 | 官方 `demo_task`、`cli_task`、`file_browser_task` 等 |
+| 缩 task_info_table | 杰理：只留 app_core + 业务必需项 |
+| 合并低频任务 | 两个 1Hz 轮询任务合并为一个 |
+| 栈实测 | `uxTaskGetStackHighWaterMark` / SDK 等效 API，留 25% 余量后缩小 |
+
+### Step 3 — 源码 / 组件裁剪
+
+配置关不掉的大模块，再物理移除：
+
+```
+- 删未引用的 components/ 子目录
+- 从 CMakeLists / Makefile 移除源文件
+- 删 Demo 资源（图片/音频/字库 bin）
+- 删未用中断处理函数（避免 ISR 空转）
+```
+
+**禁止**：删了源码但 Kconfig 仍 `=y` → 链接错误或幽灵依赖。
+
+### Step 4 — 资源 / 内存裁剪
+
+| 项 | 裁剪手段 |
+|----|----------|
+| Flash | 自定义分区表，缩 app 分区；字库子集化；图片压缩 |
+| RAM | 缩 LVGL 显存、LwIP 池、TLS 会话缓存、音频 ring buffer |
+| 堆 | 统计 `pvPortMalloc` 峰值，设 `configTOTAL_HEAP_SIZE` 贴近实测 + 15% |
+| PSRAM | 仅 DMA/LVGL 帧缓冲放 PSRAM，其余放 internal |
+
+### Step 5 — 验证裁剪结果
+
+每次裁剪后记录：
+
+```markdown
+| 指标 | 裁剪前 | 裁剪后 | 目标 |
+|------|--------|--------|------|
+| Flash (app) | | | |
+| RAM (runtime heap 峰值) | | | |
+| 常驻任务数 | | | |
+| 启动时间 (ms) | | | |
+| LVGL 帧率 (fps) | | | |
+| WSS 握手成功率 | | | |
+```
+
+回归测试：**WiFi 连接 → WSS 握手 → 音频采集 → UI 刷新** 最小闭环必须 PASS。
+
+---
+
+## 裁剪优先级（RAM/Flash 紧张时）
+
+```
+1. 删未用 codec / 文件系统 / 蓝牙协议栈     ← Flash 收益最大
+2. 缩 LwIP + TLS 内存池                     ← RAM 收益最大
+3. 删 Demo 任务 + 缩栈                      ← 实时性 + RAM
+4. LVGL 字库/图片/控件子集化                ← Flash + RAM
+5. 关 debug log / trace / CLI               ← Flash + CPU
+6. 调 FreeRTOS tick / 合并低频任务          ← CPU + 功耗
+```
+
+---
+
+## 禁止事项
+
+```
+❌ 未裁剪直接在 Demo 工程上叠业务代码
+❌ 一次性删除大量模块后不编译验证
+❌ 裁剪时破坏 MVP 三层边界（把业务逻辑塞进 SDK 回调）
+❌ 关闭 configCHECK_FOR_STACK_OVERFLOW 来"解决"栈溢出
+❌ 为省 Flash 关掉 TLS 校验或 WSS 必需 cipher（安全风险）
+❌ 裁剪后未更新文档，团队不知哪些模块已移除
+```
+
+---
+
+## Agent 输出要求（SDK 裁剪任务）
+
+用户请求 SDK 初始化、工程搭建、Demo 改造时，**必须先输出**：
+
+1. **需求闭包清单**（保留/删除对照表）
+2. **平台专属裁剪项**（读 platforms/xxx.md 裁剪节）
+3. **分步裁剪计划**（每步关什么、预期省多少 Flash/RAM）
+4. **裁剪后验证清单**
+
+未给出闭包清单，**禁止**直接写业务代码。
+
+---
+
+## Agent 检查清单
+
+- [ ] 是否先输出需求闭包清单？
+- [ ] 是否优先 Kconfig/宏开关，再物理删源码？
+- [ ] 每步裁剪后是否要求编译 + 冒烟？
+- [ ] 是否删除/缩减 Demo 任务和 task_info_table 冗余项？
+- [ ] 是否实测栈水位和堆峰值后再缩栈/缩堆？
+- [ ] 是否记录裁剪前后 Flash/RAM 对比？
+- [ ] 裁剪是否保留 WSS/TLS/音频/LVGL 最小闭包？
