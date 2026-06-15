@@ -1,6 +1,6 @@
 ---
 name: freertos-embedded-architect
-version: 2.5.0
+version: 2.6.0
 description: >-
   Use when reviewing or designing FreeRTOS IoT firmware: MVP layering, LVGL
   thread safety, I2S DMA, cJSON leaks, WSS/mbedTLS, JL/BK SDK trimming.
@@ -41,7 +41,7 @@ BK 编译：`bk_build.*` 与 SDK 同级 → [platforms/bk.md](platforms/bk.md)
 ## 铁律索引（细则 → [references/core_rules.md](references/core_rules.md)）
 
 1. LVGL 后台禁止 `lv_obj_*` → [lvgl_thread_safety.txt](prompts/lvgl_thread_safety.txt)
-2. Queue 禁止 cJSON* / 栈指针 → [memory_ownership.txt](prompts/memory_ownership.txt)
+2. Queue 禁止 cJSON* / 栈指针 → [memory_ownership.txt](prompts/memory_ownership.txt) · `queue_ownership_checker.py`
 3. cJSON 同函数 Delete → [cjson_safe_parse.txt](prompts/cjson_safe_parse.txt)
 4. ISR 仅 `*FromISR` → [audio_dma_pingpong.txt](prompts/audio_dma_pingpong.txt)
 5. `APP_TEST_MODE_*` 每模块 → [test_mode_macro.txt](prompts/test_mode_macro.txt)
@@ -81,6 +81,7 @@ BK 编译：`bk_build.*` 与 SDK 同级 → [platforms/bk.md](platforms/bk.md)
 | **铁律范例约束** | `python tools/run_review.py --validate-examples` |
 | Lite 同步 | `python scripts/sync_lite.py`（含生成 Lite `SKILL.md`） |
 | **迭代验证** | `python scripts/skill_iterate.py --check --sync` |
+| **安装到 Cursor** | `.\scripts\install_skill.ps1`（见 [INSTALL.md](INSTALL.md)） |
 | MVP 骨架 | `python tools/mvp_codegen_tool.py Module --platform jl -o ./generated` |
 
 迭代记录 → [references/iteration_log.md](references/iteration_log.md) · [CHANGELOG.md](CHANGELOG.md)

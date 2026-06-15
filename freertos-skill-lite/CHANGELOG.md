@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.6.0 — 2026-06-15
+
+- 新增 `install_skill.ps1` / `install_skill.sh`（安装时排除 `.git`、`fw-AC79_AIoT_SDK`）
+- `debug_crash` / `l3_new_module` 症状→prompt 子路由表；BK 平台 SDK 版本记录表
+- L2 workflow 标明 `queue_ownership_checker`；`SKILL.md` 增加安装命令索引
+
 ## 2.5.0 — 2026-06-15
 
 - **铁律 #2 可执行化**：`queue_ownership_checker.py` + fixtures + `examples/bad_queue_stack_pointer.c`

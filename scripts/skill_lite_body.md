@@ -29,7 +29,7 @@
 细则 → [references/core_rules.md](references/core_rules.md)（范例见完整版 `examples/`，共享类型 `examples/app_mvp.h`）
 
 1. LVGL 后台禁止 `lv_obj_*` → [lvgl_thread_safety.txt](prompts/lvgl_thread_safety.txt)
-2. Queue 禁止 cJSON* / 栈指针 → [memory_ownership.txt](prompts/memory_ownership.txt)
+2. Queue 禁止 cJSON* / 栈指针 → [memory_ownership.txt](prompts/memory_ownership.txt) · 完整版 `queue_ownership_checker.py`
 3. cJSON 同函数 Delete → [cjson_safe_parse.txt](prompts/cjson_safe_parse.txt)
 4. ISR 仅 `*FromISR` → [audio_dma_pingpong.txt](prompts/audio_dma_pingpong.txt)
 5. `APP_TEST_MODE_*` 每模块 → [test_mode_macro.txt](prompts/test_mode_macro.txt)

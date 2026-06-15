@@ -32,6 +32,8 @@
 python tools/run_review.py --dir ./src --platform <esp32|stm32|jl|bk|freertos>
 ```
 
+含 `cjson_leak_checker`、`isr_safety_checker`、`lvgl_thread_checker`、**`queue_ownership_checker`（铁律 #2）**。
+
 Python 不可用：标注「待本地补验」，改用手工核对 checklist。
 
 ## Step 4 — 输出

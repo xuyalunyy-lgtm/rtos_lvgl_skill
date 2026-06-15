@@ -6,16 +6,28 @@
 
 ### 个人 Skill（推荐，全项目可用）
 
-**Windows**
+本机路径 `~/.cursor/skills/`，**不**走 Cursor 云账号；全项目 Agent 可加载。
+
+**Windows（推荐脚本，自动排除 `.git` / 本地 SDK 参考目录）**
 
 ```powershell
-Copy-Item -Recurse "C:\path\to\skill" "$env:USERPROFILE\.cursor\skills\freertos-embedded-architect"
+cd C:\path\to\skill
+.\scripts\install_skill.ps1
 ```
 
 **macOS / Linux**
 
 ```bash
-cp -r /path/to/skill ~/.cursor/skills/freertos-embedded-architect
+cd /path/to/skill
+chmod +x scripts/install_skill.sh
+./scripts/install_skill.sh
+```
+
+手动复制（须排除 `fw-AC79_AIoT_SDK/` 与 `.git/`）：
+
+```powershell
+# Windows — 勿用裸 Copy-Item -Recurse，会把本地 SDK 参考目录一并装进 skill
+.\scripts\install_skill.ps1
 ```
 
 ### 项目 Skill（团队共享）

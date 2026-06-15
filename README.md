@@ -16,6 +16,7 @@ workflows/            # L2/L3/Debug/自我迭代 编排
 references/           # core_rules、iteration_log、Lite 清单
 CHANGELOG.md          # 版本历史
 scripts/sync_lite.py  # 生成 Lite SKILL.md + 同步子目录
+scripts/install_skill.ps1  # 安装到 ~/.cursor/skills/（Windows）
 platforms/            # 平台专档
 prompts/              # 场景专链
 examples/             # Few-Shot + app_mvp.h + README 铁律索引

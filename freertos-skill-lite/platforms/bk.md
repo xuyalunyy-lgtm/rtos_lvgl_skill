@@ -6,6 +6,12 @@ Agent 确认目标平台为博通集成 BK 系列时读取本文件。
 
 SDK 框架：**Armino**（`bk_avdk` / `bk_avdk_smp`），文档：https://docs.bekencorp.com/
 
+| 项 | 值（扫描时记录） |
+|----|------------------|
+| 基线 repo | `bk_avdk_smp` + 目标 `projects/<solution>` |
+| 版本源 | solution `README` / `git tag` / `make bk7258` 编译日志 |
+| 维护要求 | Phase A 扫描后在本表填写实测 tag，禁止照搬未验证版本号 |
+
 ## SDK 全景扫描（裁剪前强制）
 
 **动刀裁剪之前，必须先整体扫描原厂 SDK**。BK 工程结构复杂（AP/CP 双核、多 repo），禁止未扫描直接删代码。

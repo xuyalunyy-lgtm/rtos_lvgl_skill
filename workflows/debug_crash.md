@@ -12,16 +12,18 @@
 
 读取 [crash_log_decode.txt](../prompts/crash_log_decode.txt) + 对应 `platforms/xxx.md` Crash/addr2line 节。
 
-## Step 2 — 症状路由
+## Step 2 — 症状路由（只加载下表对应 prompt + 反例）
 
-| 症状 | 下一步 |
-|------|--------|
-| STACK OVERFLOW / WssTask | [mbedtls_wss_memory.txt](../prompts/mbedtls_wss_memory.txt) + stack_calculator |
-| LoadProhibited + network/UI | [bad_lvgl_cross_thread.c](../examples/bad_lvgl_cross_thread.c) |
-| 界面 frozen | [deadlock_lock_order.txt](../prompts/deadlock_lock_order.txt) |
-| I2S 卡顿 | [bad_isr_blocking.c](../examples/bad_isr_blocking.c) |
-| cJSON / heap 降 | cjson_leak_checker |
-| TLS 握手 fail | SNTP、证书、cipher → mbedtls_wss_memory |
+| 症状 | 只加载 | 反例 / 工具 |
+|------|--------|-------------|
+| STACK OVERFLOW / WssTask | [mbedtls_wss_memory.txt](../prompts/mbedtls_wss_memory.txt) | `stack_calculator.py` |
+| Guru Meditation + network/UI | [lvgl_thread_safety.txt](../prompts/lvgl_thread_safety.txt) | [bad_lvgl_cross_thread.c](../examples/bad_lvgl_cross_thread.c) |
+| HardFault @ Presenter / 随机复现 | [memory_ownership.txt](../prompts/memory_ownership.txt) | [bad_queue_stack_pointer.c](../examples/bad_queue_stack_pointer.c) · `queue_ownership_checker.py` |
+| 界面 frozen | [deadlock_lock_order.txt](../prompts/deadlock_lock_order.txt) | — |
+| I2S 卡顿 / 爆音 | [audio_dma_pingpong.txt](../prompts/audio_dma_pingpong.txt) | [bad_isr_blocking.c](../examples/bad_isr_blocking.c) |
+| heap 持续下降 | [cjson_safe_parse.txt](../prompts/cjson_safe_parse.txt) | `cjson_leak_checker.py` |
+| TLS 握手 fail / 反复断线 | [mbedtls_wss_memory.txt](../prompts/mbedtls_wss_memory.txt) | [bad_wss_blocking.c](../examples/bad_wss_blocking.c) → [good_wss_reconnect.c](../examples/good_wss_reconnect.c) |
+| WDT / task watchdog | [deadlock_lock_order.txt](../prompts/deadlock_lock_order.txt) | 查持锁等 Queue |
 
 ## Step 3 — 验证（完整版）
 

@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# 安装 FreeRTOS Skill 到本机 Cursor（~/.cursor/skills/）
+# 用法: ./scripts/install_skill.sh
+#       ./scripts/install_skill.sh /path/to/skill
+
+set -euo pipefail
+
+SOURCE="${1:-$(cd "$(dirname "$0")/.." && pwd)}"
+DEST="${HOME}/.cursor/skills/freertos-embedded-architect"
+
+if [[ ! -f "${SOURCE}/SKILL.md" ]]; then
+  echo "错误: 未找到 ${SOURCE}/SKILL.md" >&2
+  exit 1
+fi
+
+mkdir -p "$(dirname "$DEST")"
+rm -rf "$DEST"
+mkdir -p "$DEST"
+
+rsync -a \
+  --exclude '.git' \
+  --exclude 'fw-AC79_AIoT_SDK' \
+  --exclude '__pycache__' \
+  --exclude '.pytest_cache' \
+  --exclude 'node_modules' \
+  "${SOURCE}/" "${DEST}/"
+
+VER=$(grep -m1 '^version:' "${DEST}/SKILL.md" | sed 's/version:[[:space:]]*//')
+echo "已安装: ${DEST}"
+echo "版本: ${VER}"
+echo "重启 Cursor 或新开 Agent 对话后生效。"
