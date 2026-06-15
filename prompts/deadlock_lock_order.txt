@@ -1,0 +1,105 @@
+# 死锁与锁顺序专精
+
+## 铁律
+
+1. **全局锁顺序固定**，全工程一致，写进架构文档
+2. **禁止**持锁等待 Queue / 网络 / TLS
+3. **禁止** ISR 获取 mutex
+4. LVGL：**优先 `lv_async_call`，mutex 为次选**
+
+---
+
+## 推荐锁层级（数字越小越先获取）
+
+```
+L0  (无锁)     ISR / Task Notification / Queue FromISR
+L1  s_model_mu  Model 内部短临界区（非必须则不用）
+L2  s_net_mu    网络状态（极少用；WSS 建议单 Task 无锁状态机）
+L3  g_lvgl_mutex  LVGL API 临界区
+```
+
+**规则：** 若同时需要 L1 + L3，必须先 L1 后 L3；**禁止**先 L3 后 L1。
+
+---
+
+## 典型死锁场景
+
+### 场景 A：Presenter 持 LVGL 锁等 Queue
+
+```c
+/* ❌ Presenter */
+xSemaphoreTake(g_lvgl_mutex, portMAX_DELAY);
+xQueueReceive(net_q, &msg, portMAX_DELAY);  /* Model 可能等 LVGL 锁 → 死锁 */
+```
+
+**修复：** Queue 先 receive，再 `lv_async_call` 刷新，全程不持 LVGL mutex。
+
+### 场景 B：WSS 回调与 LVGL 任务互锁
+
+```c
+/* ❌ WSS 任务 */
+xSemaphoreTake(g_lvgl_mutex, portMAX_DELAY);
+lv_label_set_text(...);
+
+/* ❌ LVGL 任务 */
+xSemaphoreTake(s_net_mu, portMAX_DELAY);
+lv_timer_handler();
+```
+
+**修复：** WSS 只 Queue；View 只 `lv_async_call`。
+
+### 场景 C：双 mutex 顺序不一致
+
+Task1: take(A) → take(B)
+Task2: take(B) → take(A)   /* 经典 AB-BA 死锁 */
+
+**修复：** 统一顺序或合并为一把锁 / 无锁 Queue。
+
+---
+
+## 看门狗与「假死」
+
+| 症状 | 可能原因 |
+|------|----------|
+| `task watchdog` / WDT reset | 高优先级任务占 CPU；低优先级 LVGL 饿死 |
+| 界面 frozen 但 WiFi 正常 | Presenter 阻塞在 `portMAX_DELAY` 等 Queue，Model 等 UI |
+| 偶发 HardFault | 非死锁，但持锁时栈溢出踩 mutex 结构 |
+
+排查：临时 `uxTaskGetStackHighWaterMark` + 记录各任务最后运行点；FreeRTOS `traceTASK_SWITCHED_IN`（若开启）。
+
+---
+
+## 与 Skill 反例对照
+
+| 反例 | 文件 |
+|------|------|
+| 跨线程 LVGL | [bad_lvgl_cross_thread.c](../examples/bad_lvgl_cross_thread.c) |
+| ISR 阻塞 | [bad_isr_blocking.c](../examples/bad_isr_blocking.c) |
+| WSS 回调阻塞 | [bad_wss_blocking.c](../examples/bad_wss_blocking.c) |
+
+---
+
+## Agent 输出模板（死锁诊断 L2）
+
+```markdown
+## 结论
+疑似 AB-BA / 持锁等 Queue / LVGL 与网络互锁
+
+## 涉及任务与锁
+- Task A 持有 … 等待 …
+- Task B 持有 … 等待 …
+
+## 修复（MVP 合规）
+1. WSS → Queue → Presenter → lv_async_call
+2. 删除跨层 mutex 或统一锁顺序
+3. 验证：压测 WSS 断连 + UI 连续点击
+```
+
+---
+
+## Agent 检查清单
+
+- [ ] 是否存在持 `g_lvgl_mutex` 阻塞等待？
+- [ ] Model 与 View 是否通过 Queue 解耦？
+- [ ] 全工程 mutex 获取顺序是否一致？
+- [ ] ISR 无 mutex / delay？

@@ -162,10 +162,60 @@ idf.py size-components  # 逐项对比
 ```
 main/
 ├── app_main.c              # 入口，创建任务
-├── network_wss_task.c      # Model — WSS
-├── app_presenter.c         # Presenter
-├── ui_view_manager.c       # View — LVGL
+├── include/app_mvp.h       # net_evt_t / ui_evt_t（见 examples/app_mvp.h）
+├── app_test_config.h       # APP_TEST_MODE_* 宏
+├── network_wss_task.c      # Model — WSS（esp_websocket_client 回调 → Queue）
+├── app_presenter.c         # Presenter — Looper
+├── ui_view_manager.c       # View — LVGL / lv_async_call
 └── audio_capture.c         # Model — I2S DMA
 components/
 └── my_board/               # 板级驱动
+sdkconfig / sdkconfig.defaults
+partitions.csv              # 按需自定义分区
+```
+
+## 编译与产物
+
+```bash
+idf.py set-target esp32s3    # 依芯片
+idf.py build
+idf.py flash monitor
+idf.py size                  # Flash/RAM 组件占比
+idf.py size-components
+```
+
+产物：`build/<project>.elf`、`build/<project>.map`
+
+## Crash 定位（addr2line）
+
+```bash
+# Guru Meditation Backtrace 中的 PC
+xtensa-esp32-elf-addr2line -pfiaC -e build/your_project.elf 0x400d1234
+
+# 多核 SoC 注意选对应 toolchain：xtensa-esp32s3-elf-addr2line 等
+```
+
+| 日志关键词 | 优先对照 |
+|-----------|----------|
+| `STACK OVERFLOW` + WssTask | [mbedtls_wss_memory.txt](../prompts/mbedtls_wss_memory.txt)、增大栈 |
+| `LoadProhibited` + network | [bad_lvgl_cross_thread.c](../examples/bad_lvgl_cross_thread.c) |
+| `task watchdog` | [deadlock_lock_order.txt](../prompts/deadlock_lock_order.txt) |
+| TLS 握手 fail | SNTP 未同步、证书、cipher 不匹配 |
+
+## MVP 集成要点（ESP-IDF 特有）
+
+1. **WSS 回调在 esp_event 任务** — 等同 Model 短路径：`parse → Queue`，禁止 `lv_obj_*`
+2. **Core 绑定**：WiFi/LwIP 默认 Core0；LVGL + 音频可绑 Core1，降低跨核竞态
+3. **堆**：TLS 握手峰值用 `heap_caps_get_minimum_free_size(MALLOC_CAP_8BIT)` 观测
+4. **事件总线**：见 [queue_event_bus.txt](../prompts/queue_event_bus.txt)
+5. **同步原语**：ISR 用 Notification/Queue FromISR — [freertos_sync_primitives.txt](../prompts/freertos_sync_primitives.txt)
+
+## 快速参考路径
+
+```
+WSS 组件:     components/esp_websocket_client/
+TLS:          components/mbedtls/
+LVGL port:    components/esp_lvgl_port/ 或 managed_components
+FreeRTOS:     components/freertos/
+menuconfig:   idf.py menuconfig
 ```

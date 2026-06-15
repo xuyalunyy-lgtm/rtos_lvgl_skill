@@ -163,16 +163,66 @@ MX_LWIP_Init()        → 无网络则整个不初始化
 ```
 Core/
 ├── Src/
+│   ├── main.c              # HAL_Init → osKernelStart
 │   ├── freertos.c          # CubeMX 生成，任务定义入口
-│   ├── app_presenter.c     # Presenter（用户添加）
-│   ├── network_wss_task.c  # Model — WSS
+│   ├── app_presenter.c     # Presenter — Looper
+│   ├── network_wss_task.c  # Model — WSS + mbedTLS
 │   ├── ui_view_manager.c   # View — LVGL
-│   └── audio_capture.c     # Model — I2S
+│   └── audio_capture.c     # Model — I2S DMA
 ├── Inc/
-│   └── app_mvp.h           # 跨层事件结构体
+│   ├── app_mvp.h           # net_evt_t / ui_evt_t（见 examples/app_mvp.h）
+│   └── app_test_config.h   # APP_TEST_MODE_*
 Middlewares/
 └── Third_Party/
     ├── FreeRTOS/
     ├── LwIP/
+    ├── mbedTLS/
     └── LVGL/
+```
+
+## 编译与产物
+
+```bash
+# CubeMX 生成 Makefile 工程
+make -j$(nproc)
+
+# 或 CMake / IAR / Keil 依工程类型
+```
+
+产物：`build/firmware.elf`、`build/firmware.map`（路径因工程而异）
+
+## Crash 定位（addr2line / map）
+
+```bash
+# HardFault 日志中的 PC
+arm-none-eabi-addr2line -pfiaC -e build/firmware.elf 0x08001234
+
+# .map 按 size 排序找大模块
+arm-none-eabi-nm --print-size --size-sort build/firmware.elf | tail -20
+```
+
+| 日志关键词 | 优先对照 |
+|-----------|----------|
+| HardFault @ WssTask | 栈 words 不足 — [mbedtls_wss_memory.txt](../prompts/mbedtls_wss_memory.txt) |
+| `configASSERT` + malloc | 增大 `configTOTAL_HEAP_SIZE` / LwIP `MEM_SIZE` |
+| I2S 回调卡死 | [bad_isr_blocking.c](../examples/bad_isr_blocking.c) |
+| 界面 frozen | [deadlock_lock_order.txt](../prompts/deadlock_lock_order.txt) |
+
+## MVP 集成要点（STM32 特有）
+
+1. **栈单位**：`xTaskCreate` 用 **words**（1536 words = 6144 bytes）；`osThreadNew` 用 **bytes** — 输出时必须标注
+2. **WSS 栈**：mbedTLS 握手 `usStackDepth` ≥ 1536 words，建议实测水位
+3. **LwIP 与 FreeRTOS 共堆**：WSS + cJSON + LVGL 并存时 `configTOTAL_HEAP_SIZE` ≥ 32KB 常见
+4. **D-Cache**：F4/F7/H7 DMA 缓冲 Non-Cacheable 或手动 clean/invalidate
+5. **事件总线**：[queue_event_bus.txt](../prompts/queue_event_bus.txt)
+6. **HAL 回调 = ISR 上下文**：仅 `*FromISR` — [freertos_sync_primitives.txt](../prompts/freertos_sync_primitives.txt)
+
+## 快速参考路径
+
+```
+FreeRTOSConfig.h:     Core/Inc/FreeRTOSConfig.h
+lwipopts.h:           LWIP/Target/lwipopts.h
+mbedtls_config.h:     Middlewares/Third_Party/mbedTLS/include/mbedtls_config.h
+lv_conf.h:            Middlewares/Third_Party/LVGL/lv_conf.h
+stm32xx_hal_conf.h:   Core/Inc/stm32xx_hal_conf.h
 ```

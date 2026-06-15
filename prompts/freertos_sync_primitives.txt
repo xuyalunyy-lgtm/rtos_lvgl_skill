@@ -1,0 +1,62 @@
+# FreeRTOS 同步原语选型专精
+
+## 原则
+
+**能用 Task Notification 就不用 Semaphore；能用 Semaphore 就不用 Mutex；EventGroup 仅多条件 AND 等待。**
+
+ISR 上下文**仅** `*FromISR` API + `portYIELD_FROM_ISR`。
+
+---
+
+## 选型表
+
+| 场景 | 推荐 | 禁止 |
+|------|------|------|
+| ISR → 单消费者 Task（音频半满/全满） | `xTaskNotifyFromISR` | mutex、`vTaskDelay` |
+| ISR → 多消费者 / 结构化消息 | `xQueueSendFromISR`（深度≥2） | 全局 flag 无内存屏障 |
+| Model → Presenter 业务事件 | `xQueueSend` / `xQueueReceive` | 裸 `volatile` 共享 struct |
+| 保护 LVGL API 临界区 | `g_lvgl_mutex` 或 **不用锁**（`lv_async_call`） | 持锁调网络 / TLS |
+| 资源计数（缓冲池） | Counting Semaphore | Binary Semaphore 当计数 |
+| 等多事件同时就绪 | EventGroup（位掩码） | 轮询 + delay 猜状态 |
+| 一次性同步（初始化完成） | Task Notification / Binary Semaphore | busy-wait |
+
+---
+
+## Task Notification（音频 Mic 推荐）
+
+见 [audio_dma_pingpong.txt](audio_dma_pingpong.txt) 方案 A。
+
+- 轻量、无 Queue 拷贝开销
+- 仅适合 **单 Task Handle** 订阅
+- ISR 用 `eSetBits` 区分 half/full buffer
+
+---
+
+## Queue vs Stream Buffer
+
+| 原语 | 数据 | 典型用途 |
+|------|------|----------|
+| Queue | 固定 size 消息（struct 拷贝） | MVP 事件总线 |
+| Stream Buffer | 字节流 | UART/SPI 字节流 |
+| Message Buffer | 带长度前缀字节流 | 可变长协议帧 |
+
+MVP **业务事件用 Queue**；裸 PCM 字节流可用 Stream Buffer，但 Presenter 仍建议 framed struct。
+
+---
+
+## Mutex 与死锁
+
+- 锁顺序全局固定：**`g_lvgl_mutex` 最后获取**（若必须用锁）
+- **禁止**持 `g_lvgl_mutex` 调 `xQueueSend(..., portMAX_DELAY)`
+- **禁止** ISR 中 `xSemaphoreTake(mutex, ...)`
+
+详见 [deadlock_lock_order.txt](deadlock_lock_order.txt)。
+
+---
+
+## Agent 检查清单
+
+- [ ] ISR 无阻塞 API？
+- [ ] MVP 事件走 Queue 而非全局变量？
+- [ ] LVGL 优先 async 而非跨任务 mutex？
+- [ ] Notification 仅单消费者？
