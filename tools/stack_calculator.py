@@ -47,8 +47,17 @@ PRESET_PROFILES: dict[str, int] = {
     "idle": 128,
 }
 
+# 平台加成 (words)
+PLATFORM_BONUS: dict[str, tuple[int, str]] = {
+    "esp32": (256, "ESP-IDF TLS/WiFi 额外开销"),
+    "stm32": (128, "STM32 LwIP+mbedTLS 手动集成"),
+    "jl": (192, "杰理 audio_server + WiFi 共存"),
+    "bk": (256, "BK7258 AP/CP SMP 通信开销"),
+    "freertos": (0, "通用 FreeRTOS"),
+}
 
-def estimate_from_description(description: str) -> tuple[int, list[str]]:
+
+def estimate_from_description(description: str, platform: str | None = None) -> tuple[int, list[str]]:
     """根据自然语言描述估算堆栈深度 (words)。"""
     total = BASE_STACK_WORDS
     reasons: list[str] = [f"基础开销: {BASE_STACK_WORDS} words"]
@@ -58,6 +67,12 @@ def estimate_from_description(description: str) -> tuple[int, list[str]]:
             total += weight
             sign = "+" if weight >= 0 else ""
             reasons.append(f"{sign}{weight} words — {label}")
+
+    if platform and platform in PLATFORM_BONUS:
+        bonus, label = PLATFORM_BONUS[platform]
+        if bonus:
+            total += bonus
+            reasons.append(f"+{bonus} words — {label}")
 
     # 安全余量 25%，向上取整到 64 words
     total = int(total * 1.25)
@@ -101,6 +116,13 @@ def main() -> int:
         choices=[16, 32, 64],
         help="平台字长 (默认 32)",
     )
+    parser.add_argument(
+        "--platform", "-p",
+        type=str,
+        choices=list(PLATFORM_BONUS.keys()),
+        default=None,
+        help="平台: esp32, stm32, jl, bk, freertos",
+    )
     args = parser.parse_args()
 
     if not args.describe and not args.tasks:
@@ -112,9 +134,11 @@ def main() -> int:
     print("=" * 60)
 
     if args.describe:
-        words, reasons = estimate_from_description(args.describe)
+        words, reasons = estimate_from_description(args.describe, args.platform)
         bytes_val = words_to_bytes(words, args.bits)
         print(f"\n描述: {args.describe}")
+        if args.platform:
+            print(f"平台: {args.platform}")
         print(f"\n推荐 usStackDepth: {words} words ({bytes_val} bytes @ {args.bits}-bit)")
         print("\n估算明细:")
         for r in reasons:

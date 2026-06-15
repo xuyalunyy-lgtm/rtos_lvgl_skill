@@ -185,6 +185,8 @@ def format_report(result: CheckResult) -> str:
     else:
         lines.append("❌ 未通过：请修复后重新运行本工具。")
 
+    lines.append("")
+    lines.append("ℹ️  本工具为静态启发式辅助，可能有误报/漏报，不能替代 Code Review。")
     return "\n".join(lines)
 
 

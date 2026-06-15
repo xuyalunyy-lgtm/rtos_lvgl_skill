@@ -117,6 +117,8 @@ CONFIG_ESP_SYSTEM_EVENT_TASK_STACK_SIZE=4096
 
 ## SDK 深度裁剪（ESP-IDF）
 
+> **以下仅为候选项**，须在产品需求问卷确认「不需要」后再关闭；禁止未询问用户直接套用。
+
 ### 配置入口
 
 ```bash

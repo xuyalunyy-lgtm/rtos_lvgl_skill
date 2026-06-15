@@ -1,0 +1,153 @@
+# 测试模式宏管理专精
+
+## 铁律
+
+**每个大的功能模块必须提供独立的测试模式宏。**
+打开测试宏后，**只运行该模块的测试代码**，不启动完整产品流程，便于隔离调试。
+
+低功耗策略由**用户自行设计**，Skill 不提供固定低功耗方案，仅在有需求时协助 review 用户方案。
+
+---
+
+## 宏命名规范
+
+```c
+/* app_test_config.h — 集中管理，默认全关 */
+
+#ifndef APP_TEST_CONFIG_H
+#define APP_TEST_CONFIG_H
+
+/* 0=正常产品模式，1=仅运行对应模块自测 */
+#define APP_TEST_MODE_NETWORK     0   /* WSS / WiFi */
+#define APP_TEST_MODE_AUDIO       0   /* I2S / audio_server / AVDK */
+#define APP_TEST_MODE_LVGL        0   /* UI 刷新 */
+#define APP_TEST_MODE_PRESENTER   0   /* Presenter Looper */
+#define APP_TEST_MODE_JSON        0   /* cJSON 解析 */
+
+#endif
+```
+
+命名规则：`APP_TEST_MODE_<MODULE>`，全大写，模块名与 MVP 分层对应。
+
+---
+
+## app_main 入口分支（产品 vs 测试）
+
+```c
+#include "app_test_config.h"
+
+void app_main(void)
+{
+    /* 公共最小初始化：时钟、日志、堆 */
+    platform_bsp_init();
+
+#if APP_TEST_MODE_NETWORK
+    network_test_run();          /* 只测 WSS 连接+收发 */
+    return;
+#endif
+
+#if APP_TEST_MODE_AUDIO
+    audio_test_run();            /* 只测 Mic 采集或 playback */
+    return;
+#endif
+
+#if APP_TEST_MODE_LVGL
+    lvgl_test_run();             /* 只测 UI 刷新帧率 */
+    return;
+#endif
+
+#if APP_TEST_MODE_PRESENTER
+    presenter_test_run();        /* 模拟 Queue 消息，见 good_presenter_consumer.c */
+    return;
+#endif
+
+#if APP_TEST_MODE_JSON
+    json_parse_test_run();       /* 只测 cJSON 用例 */
+    return;
+#endif
+
+    /* ── 正常产品模式 ── */
+    app_product_init();
+}
+```
+
+**规则：**
+- 测试分支 `return` 或 `vTaskDelete`，勿 fall-through 到产品逻辑
+- 同一时刻**建议只开一个**测试宏；若多开，须在文档注明组合含义
+- 量产固件编译：`app_test_config.h` 全部置 0，或由 CI 检查
+
+---
+
+## 模块内自测函数模板
+
+```c
+/* network_wss_task.c */
+#if APP_TEST_MODE_NETWORK
+
+void network_test_run(void)
+{
+    /* 1. 只初始化网络栈 */
+    wifi_init_sta();
+    network_wss_task_start();
+
+    /* 2. 可选：定时发送 ping 帧 */
+    /* 3. 不启动 LVGL / 音频 */
+    for (;;) {
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+}
+
+#endif
+```
+
+```c
+/* app_presenter.c — 配对 good_presenter_consumer.c */
+#if APP_TEST_MODE_PRESENTER
+/* APP_TEST_MODE_PRESENTER=1 时启用 presenter_self_test_task */
+#endif
+```
+
+---
+
+## Kconfig / Makefile 集成（可选）
+
+```
+# ESP-IDF sdkconfig.defaults
+CONFIG_APP_TEST_MODE_NETWORK=y   # 仅 CI nightly 使用
+```
+
+```makefile
+# 杰理 Makefile
+CFLAGS += -DAPP_TEST_MODE_AUDIO=1
+```
+
+---
+
+## CI 建议
+
+```bash
+# 各模块独立编译冒烟（不烧录全产品）
+idf.py -DAPP_TEST_MODE_JSON=1 build
+make bk7258 TEST_MODE=network
+```
+
+---
+
+## Agent 生成代码时
+
+新增任何 Model/Presenter/View 大模块，必须同时输出：
+1. `APP_TEST_MODE_<MODULE>` 宏定义
+2. `<module>_test_run()` 或 `#if` 自测入口
+3. 自测范围说明（测什么、不测什么）
+
+**禁止**用注释掉代码代替测试宏。
+
+---
+
+## 检查清单
+
+- [ ] 每个大模块有独立 `APP_TEST_MODE_*`？
+- [ ] 测试模式不启动无关模块？
+- [ ] app_main 测试分支有明确 return？
+- [ ] 量产配置全部宏为 0？
+- [ ] 低功耗由用户设计，Agent 不强行插入 sleep 策略？

@@ -6,6 +6,33 @@ Agent 确认目标平台为杰理（JL / Jieli）系列时读取本文件。
 
 SDK 文档：https://doc.zh-jieli.com/
 
+## SDK 全景扫描（裁剪前强制）
+
+**动刀裁剪之前，必须先整体扫描原厂 SDK**，输出模块地图。详见 [prompts/sdk_trim_prune.txt](../prompts/sdk_trim_prune.txt)。
+
+```
+Phase A — 只读扫描
+  ├── 列出 apps/ 下所有子工程及 Makefile 入口
+  ├── 导出 task_info_table[] 全部条目
+  ├── 记录 app_config.h / board_config.h 所有 =1 宏
+  ├── 编译 Demo 一次，记录 Flash/RAM 基线
+  └── 绘制：WiFi → 网络 → audio_server → LVGL 依赖链
+
+Phase B — 询问用户完整产品需求（无固定裁剪清单）
+  └── 生成「需求 ↔ 模块」对照表
+
+Phase C — 按需求裁剪，每步编译冒烟
+```
+
+扫描输出模板：
+
+```markdown
+| SDK 模块 | 路径 | 基线状态 | 用户需求 | 处置 |
+|----------|------|----------|----------|------|
+| audio_server | apps/audio | 开 | 要 OPUS | 保留，关 MP3 |
+| bt_task | apps/bt | 开 | 不要 BT | 关宏+删任务 |
+```
+
 ## 关键差异速览
 
 | 项目 | 杰理 SDK 惯例 | 注意 |
@@ -163,6 +190,8 @@ static void net_event_callback(void *priv, int event, void *data)
 | 内存越来越紧 | 动态 `thread_fork` 频繁创建销毁；cJSON 未 Delete |
 
 ## SDK 深度裁剪（杰理 SDK）
+
+> **以下仅为候选项**，须在产品需求问卷确认「不需要」后再关闭；禁止未询问用户直接套用。
 
 ### 配置入口
 

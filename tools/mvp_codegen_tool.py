@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 """
-MVP 架构代码骨架生成器。
+MVP 架构代码骨架生成器（与 Skill 对齐）。
 
-根据业务模块名称，输出 Model 任务、Presenter 消息队列、View 加锁刷新函数模板。
+- Android Handler/Looper 风格 Presenter
+- 统一事件总线与 payload 所有权
+- 每模块 APP_TEST_MODE_* 测试宏
+- --platform: freertos | esp32 | stm32 | jl | bk
 
 用法:
-    python tools/mvp_codegen_tool.py Audio
-    python tools/mvp_codegen_tool.py Network --output-dir ./generated
+    python tools/mvp_codegen_tool.py Network --platform jl -o ./generated
+    python tools/mvp_codegen_tool.py Audio --platform bk
 """
 
 from __future__ import annotations
@@ -16,14 +19,112 @@ import os
 import re
 import sys
 
+PLATFORMS = ("freertos", "esp32", "stm32", "jl", "bk")
+
+PLATFORM_CTX = {
+    "freertos": {
+        "task_include": '#include "FreeRTOS.h"\n#include "task.h"',
+        "delay_ms": "vTaskDelay(pdMS_TO_TICKS({ms}))",
+        "task_create": """        BaseType_t ret = xTaskCreate(
+            {func}, "{name}",
+            {stack}, {parm},
+            {prio}, {hdl}
+        );
+        configASSERT(ret == pdPASS);""",
+        "malloc": "pvPortMalloc",
+        "free": "vPortFree",
+        "stack_unit_note": "words (FreeRTOS xTaskCreate)",
+        "default_stack": 1024,
+        "default_prio": "tskIDLE_PRIORITY + 3",
+        "pres_prio": "tskIDLE_PRIORITY + 2",
+    },
+    "esp32": {
+        "task_include": '#include "freertos/FreeRTOS.h"\n#include "freertos/task.h"',
+        "delay_ms": "vTaskDelay(pdMS_TO_TICKS({ms}))",
+        "task_create": """        BaseType_t ret = xTaskCreate(
+            {func}, "{name}",
+            {stack}, {parm},
+            {prio}, {hdl}
+        );
+        configASSERT(ret == pdPASS);""",
+        "malloc": "heap_caps_malloc(size, MALLOC_CAP_8BIT)",
+        "free": "heap_caps_free",
+        "stack_unit_note": "words (ESP-IDF xTaskCreate)",
+        "default_stack": 4096,
+        "default_prio": "(configMAX_PRIORITIES - 3)",
+        "pres_prio": "(configMAX_PRIORITIES - 7)",
+    },
+    "stm32": {
+        "task_include": '#include "cmsis_os.h"\n#include "FreeRTOS.h"\n#include "task.h"',
+        "delay_ms": "osDelay({ms})",
+        "task_create": """        const osThreadAttr_t attr = {{
+            .name = "{name}",
+            .stack_size = {stack} * 4,
+            .priority = (osPriority_t){prio},
+        }};
+        *{hdl} = osThreadNew({func}, {parm}, &attr);
+        configASSERT(*{hdl} != NULL);""",
+        "malloc": "pvPortMalloc",
+        "free": "vPortFree",
+        "stack_unit_note": "words for xTaskCreate; bytes for osThreadNew (stack*4)",
+        "default_stack": 1536,
+        "default_prio": "osPriorityNormal",
+        "pres_prio": "osPriorityBelowNormal",
+    },
+    "jl": {
+        "task_include": '#include "system/os/os_api.h"',
+        "delay_ms": "thread_delay_ms({ms})",
+        "task_create": """        int pid = 0;
+        int ret = thread_fork("{name}", {prio}, {stack}, 0, &pid, {func}, {parm});
+        configASSERT(ret == 0);
+        (void)pid;""",
+        "malloc": "malloc",
+        "free": "free",
+        "stack_unit_note": "words (杰理 thread_fork)",
+        "default_stack": 1024,
+        "default_prio": "6",
+        "pres_prio": "3",
+    },
+    "bk": {
+        "task_include": '#include "FreeRTOS.h"\n#include "task.h"',
+        "delay_ms": "vTaskDelay(pdMS_TO_TICKS({ms}))",
+        "task_create": """        BaseType_t ret = xTaskCreate(
+            {func}, "{name}",
+            {stack}, {parm},
+            {prio}, {hdl}
+        );
+        configASSERT(ret == pdPASS);""",
+        "malloc": "pvPortMalloc",
+        "free": "vPortFree",
+        "stack_unit_note": "bytes (BK7258 xTaskCreate，以 SDK 为准)",
+        "default_stack": 4096,
+        "default_prio": "(configMAX_PRIORITIES - 5)",
+        "pres_prio": "(configMAX_PRIORITIES - 7)",
+    },
+}
+
+TEST_CONFIG_TEMPLATE = """/**
+ * @file app_test_config.h
+ * @brief 测试模式宏 — 打开后只运行对应模块自测（见 prompts/test_mode_macro.txt）
+ */
+
+#ifndef APP_TEST_CONFIG_H
+#define APP_TEST_CONFIG_H
+
+#define APP_TEST_MODE_{module_upper}    0   /* 1=仅测 {module_name} 模块 */
+
+#endif /* APP_TEST_CONFIG_H */
+"""
+
 HEADER_TEMPLATE = """/**
  * @file {module_lower}_mvp.h
- * @brief {module_name} MVP 模块 — 头文件
+ * @brief {module_name} MVP — Android Handler 风格事件总线
  *
- * 架构约束:
- *   - View:    仅 LVGL 控件与线程安全刷新
- *   - Presenter: 状态机，经 Queue 收发事件
- *   - Model:   后台任务，禁止直接操作 UI
+ * Model    → xQueueSend (sendMessage)
+ * Presenter→ Looper 消费 (handleMessage)
+ * View     → lv_async_call (runOnUiThread)
+ *
+ * payload: Model 分配 → Presenter vPortFree（见 prompts/memory_ownership.txt）
  */
 
 #ifndef {guard}_H
@@ -33,12 +134,11 @@ HEADER_TEMPLATE = """/**
 #include "queue.h"
 #include "semphr.h"
 #include "lvgl.h"
+#include "app_test_config.h"
 
 #ifdef __cplusplus
 extern "C" {{
 #endif
-
-/* ── 事件类型 ─────────────────────────────────────────── */
 
 typedef enum {{
     {module_upper}_EVT_NONE = 0,
@@ -49,25 +149,23 @@ typedef enum {{
 
 typedef struct {{
     {module_lower}_evt_type_t type;
-    void *payload;          /* Presenter 负责释放 */
+    void *payload;          /* Model 分配，Presenter 释放；禁止传 cJSON* */
     size_t payload_len;
 }} {module_lower}_evt_t;
 
-/* ── View 接口 (仅 UI 任务或加锁调用) ─────────────────── */
-
 void {module_lower}_view_init(lv_obj_t *parent);
-void {module_lower}_view_update_label(const char *text);
-void {module_lower}_view_set_state(int state);
+void {module_lower}_view_post_text(const char *text);   /* runOnUiThread */
 
-/* ── Presenter 接口 ───────────────────────────────────── */
+void {module_lower}_presenter_start(void);
+void {module_lower}_presenter_handle(const {module_lower}_evt_t *evt);
 
-void {module_lower}_presenter_init(void);
-void {module_lower}_presenter_on_event(const {module_lower}_evt_t *evt);
+void {module_lower}_model_start(void);
+bool {module_lower}_model_emit({module_lower}_evt_type_t type, void *payload, size_t len);
+QueueHandle_t {module_lower}_model_queue(void);
 
-/* ── Model 接口 ───────────────────────────────────────── */
-
-void {module_lower}_model_task_start(void);
-QueueHandle_t {module_lower}_model_get_evt_queue(void);
+#if APP_TEST_MODE_{module_upper}
+void {module_lower}_test_run(void);
+#endif
 
 #ifdef __cplusplus
 }}
@@ -78,225 +176,163 @@ QueueHandle_t {module_lower}_model_get_evt_queue(void);
 
 MODEL_TEMPLATE = """/**
  * @file {module_lower}_model.c
- * @brief {module_name} Model 层 — 后台数据采集/网络任务
+ * @brief {module_name} Model — 后台任务，禁止 lv_obj_*
  */
 
 #include "{module_lower}_mvp.h"
+{task_include}
 #include <string.h>
 
-#define {module_upper}_MODEL_STACK   (1024)
-#define {module_upper}_MODEL_PRIO    (tskIDLE_PRIORITY + 3)
-#define {module_upper}_QUEUE_LEN     (8)
+#define {module_upper}_STACK   ({default_stack})
+#define {module_upper}_PRIO    ({default_prio})
+#define {module_upper}_QLEN    (8)
 
-static QueueHandle_t s_{module_lower}_evt_queue = NULL;
-static TaskHandle_t  s_{module_lower}_task_hdl  = NULL;
+static QueueHandle_t s_q = NULL;
 
-static void {module_lower}_model_task(void *arg)
+bool {module_lower}_model_emit({module_lower}_evt_type_t type, void *payload, size_t len)
 {{
-    (void)arg;
+    if (s_q == NULL) {{
+        if (payload != NULL) {{ {free}(payload); }}
+        return false;
+    }}
+    {module_lower}_evt_t evt = {{ .type = type, .payload = payload, .payload_len = len }};
+    if (xQueueSend(s_q, &evt, pdMS_TO_TICKS(50)) != pdTRUE) {{
+        if (payload != NULL) {{ {free}(payload); }}
+        return false;
+    }}
+    return true;
+}}
 
+static void {module_lower}_model_task(void *parm)
+{{
+    (void)parm;
     for (;;) {{
-        /* TODO: 采集数据 / 网络接收 */
-
-        {module_lower}_evt_t evt = {{
-            .type = {module_upper}_EVT_DATA_READY,
-            .payload = NULL,
-            .payload_len = 0,
-        }};
-
-        if (s_{module_lower}_evt_queue != NULL) {{
-            if (xQueueSend(s_{module_lower}_evt_queue, &evt, pdMS_TO_TICKS(100)) != pdTRUE) {{
-                /* 队列满，丢弃或降采样 */
-            }}
-        }}
+        /* TODO: 硬件/网络采集 */
+        {delay_10}
     }}
 }}
 
-void {module_lower}_model_task_start(void)
+void {module_lower}_model_start(void)
 {{
-    if (s_{module_lower}_evt_queue == NULL) {{
-        s_{module_lower}_evt_queue = xQueueCreate({module_upper}_QUEUE_LEN, sizeof({module_lower}_evt_t));
-        configASSERT(s_{module_lower}_evt_queue != NULL);
+    if (s_q == NULL) {{
+        s_q = xQueueCreate({module_upper}_QLEN, sizeof({module_lower}_evt_t));
+        configASSERT(s_q != NULL);
     }}
-
-    if (s_{module_lower}_task_hdl == NULL) {{
-        BaseType_t ret = xTaskCreate(
-            {module_lower}_model_task,
-            "{module_name}Model",
-            {module_upper}_MODEL_STACK,
-            NULL,
-            {module_upper}_MODEL_PRIO,
-            &s_{module_lower}_task_hdl
-        );
-        configASSERT(ret == pdPASS);
-    }}
+#if !APP_TEST_MODE_{module_upper}
+    static TaskHandle_t hdl = NULL;
+{task_create_model}
+#endif
 }}
 
-QueueHandle_t {module_lower}_model_get_evt_queue(void)
+QueueHandle_t {module_lower}_model_queue(void) {{ return s_q; }}
+
+#if APP_TEST_MODE_{module_upper}
+void {module_lower}_test_run(void)
 {{
-    return s_{module_lower}_evt_queue;
+    {module_lower}_model_start();
+    /* 自测：模拟 emit，不启完整产品 */
+    char *p = {malloc_stub};
+    if (p != NULL) {{
+        strcpy(p, "{module_name} test");
+        {module_lower}_model_emit({module_upper}_EVT_DATA_READY, p, strlen(p));
+    }}
+    {module_lower}_presenter_start();
 }}
+#endif
 """
 
 PRESENTER_TEMPLATE = """/**
  * @file {module_lower}_presenter.c
- * @brief {module_name} Presenter 层 — 状态机与事件路由
+ * @brief {module_name} Presenter — Looper 线程 (handleMessage)
  */
 
 #include "{module_lower}_mvp.h"
+{task_include}
 
-#define {module_upper}_PRES_STACK  (512)
-#define {module_upper}_PRES_PRIO   (tskIDLE_PRIORITY + 2)
+#define {module_upper}_PRES_STACK ({default_stack} / 2)
+#define {module_upper}_PRES_PRIO ({pres_prio})
 
-static TaskHandle_t s_{module_lower}_pres_task = NULL;
-
-static void {module_lower}_presenter_task(void *arg)
+static void {module_lower}_presenter_looper(void *parm)
 {{
-    QueueHandle_t q = {module_lower}_model_get_evt_queue();
+    (void)parm;
+    QueueHandle_t q = {module_lower}_model_queue();
     configASSERT(q != NULL);
-
     {module_lower}_evt_t evt;
 
     for (;;) {{
         if (xQueueReceive(q, &evt, portMAX_DELAY) == pdTRUE) {{
-            {module_lower}_presenter_on_event(&evt);
-
-            /* Presenter 拥有 payload 生命周期 */
+            {module_lower}_presenter_handle(&evt);
             if (evt.payload != NULL) {{
-                vPortFree(evt.payload);
+                {free}(evt.payload);
                 evt.payload = NULL;
             }}
         }}
     }}
 }}
 
-void {module_lower}_presenter_on_event(const {module_lower}_evt_t *evt)
+void {module_lower}_presenter_handle(const {module_lower}_evt_t *evt)
 {{
-    if (evt == NULL) {{
-        return;
-    }}
-
+    if (evt == NULL) {{ return; }}
     switch (evt->type) {{
     case {module_upper}_EVT_DATA_READY:
-        /* 业务处理完成后，调用 View 刷新（View 内部加锁） */
-        {module_lower}_view_set_state(1);
+        if (evt->payload != NULL) {{
+            {module_lower}_view_post_text((const char *)evt->payload);
+        }}
         break;
-
     case {module_upper}_EVT_ERROR:
-        {module_lower}_view_update_label("Error");
+        {module_lower}_view_post_text("Error");
         break;
-
     default:
         break;
     }}
 }}
 
-void {module_lower}_presenter_init(void)
+void {module_lower}_presenter_start(void)
 {{
-    {module_lower}_model_task_start();
-
-    if (s_{module_lower}_pres_task == NULL) {{
-        BaseType_t ret = xTaskCreate(
-            {module_lower}_presenter_task,
-            "{module_name}Pres",
-            {module_upper}_PRES_STACK,
-            NULL,
-            {module_upper}_PRES_PRIO,
-            &s_{module_lower}_pres_task
-        );
-        configASSERT(ret == pdPASS);
-    }}
+    {module_lower}_model_start();
+    static TaskHandle_t hdl = NULL;
+{task_create_pres}
 }}
 """
 
 VIEW_TEMPLATE = """/**
  * @file {module_lower}_view.c
- * @brief {module_name} View 层 — LVGL 控件与线程安全刷新
- *
- * ⚠️ 所有 lv_obj_* 调用必须经 lvgl_lock() 保护，或使用 lv_async_call()。
+ * @brief {module_name} View — lv_async_call 刷新 (runOnUiThread)
  */
 
 #include "{module_lower}_mvp.h"
+#include <string.h>
 
-extern SemaphoreHandle_t g_lvgl_mutex;  /* 全局 LVGL 互斥锁，在 ui_init.c 创建 */
+static lv_obj_t *s_label = NULL;
 
-static lv_obj_t *s_{module_lower}_label = NULL;
+typedef struct {{ char text[64]; }} {module_lower}_ui_msg_t;
 
-/* ── 内部：加锁封装 ───────────────────────────────────── */
-
-static void lvgl_lock(void)
+static void async_cb(void *user_data)
 {{
-    if (g_lvgl_mutex != NULL) {{
-        xSemaphoreTake(g_lvgl_mutex, portMAX_DELAY);
-    }}
+    {module_lower}_ui_msg_t *m = ({module_lower}_ui_msg_t *)user_data;
+    if (m == NULL) {{ return; }}
+    if (s_label != NULL) {{ lv_label_set_text(s_label, m->text); }}
+    {free}(m);
 }}
-
-static void lvgl_unlock(void)
-{{
-    if (g_lvgl_mutex != NULL) {{
-        xSemaphoreGive(g_lvgl_mutex);
-    }}
-}}
-
-/* ── 异步刷新回调 (lv_async_call 投递) ────────────────── */
-
-typedef struct {{
-    char text[64];
-}} {module_lower}_async_label_t;
-
-static void async_update_label_cb(void *user_data)
-{{
-    {module_lower}_async_label_t *data = ({module_lower}_async_label_t *)user_data;
-    if (data == NULL || s_{module_lower}_label == NULL) {{
-        if (data != NULL) {{
-            vPortFree(data);
-        }}
-        return;
-    }}
-
-    lv_label_set_text(s_{module_lower}_label, data->text);
-    vPortFree(data);
-}}
-
-/* ── 公开 View 接口 ───────────────────────────────────── */
 
 void {module_lower}_view_init(lv_obj_t *parent)
 {{
-    if (parent == NULL) {{
-        return;
+    if (parent == NULL) {{ return; }}
+    s_label = lv_label_create(parent);
+    if (s_label != NULL) {{
+        lv_label_set_text(s_label, "{module_name}");
+        lv_obj_center(s_label);
     }}
-
-    lvgl_lock();
-    s_{module_lower}_label = lv_label_create(parent);
-    if (s_{module_lower}_label != NULL) {{
-        lv_label_set_text(s_{module_lower}_label, "{module_name}");
-        lv_obj_center(s_{module_lower}_label);
-    }}
-    lvgl_unlock();
 }}
 
-void {module_lower}_view_update_label(const char *text)
+void {module_lower}_view_post_text(const char *text)
 {{
-    if (text == NULL) {{
-        return;
-    }}
-
-    /* 从任意任务安全调用：异步投递到 UI 线程 */
-    {module_lower}_async_label_t *data = pvPortMalloc(sizeof({module_lower}_async_label_t));
-    if (data == NULL) {{
-        return;
-    }}
-    strncpy(data->text, text, sizeof(data->text) - 1);
-    data->text[sizeof(data->text) - 1] = '\\0';
-
-    lv_async_call(async_update_label_cb, data);
-}}
-
-void {module_lower}_view_set_state(int state)
-{{
-    char buf[32];
-    snprintf(buf, sizeof(buf), "{module_name}: state=%d", state);
-    {module_lower}_view_update_label(buf);
+    if (text == NULL) {{ return; }}
+    {module_lower}_ui_msg_t *m = {malloc_stub};
+    if (m == NULL) {{ return; }}
+    strncpy(m->text, text, sizeof(m->text) - 1);
+    m->text[sizeof(m->text) - 1] = '\\0';
+    lv_async_call(async_cb, m);
 }}
 """
 
@@ -309,57 +345,102 @@ def sanitize_module_name(name: str) -> str:
 
 
 def to_upper_snake(name: str) -> str:
-    s = re.sub(r"([a-z])([A-Z])", r"\1_\2", name)
-    return s.upper()
+    return re.sub(r"([a-z])([A-Z])", r"\1_\2", name).upper()
 
 
-def generate(module_name: str) -> dict[str, str]:
+def build_task_create(platform: str, func: str, name: str, stack: int, prio: str,
+                      parm: str, hdl: str) -> str:
+    tpl = PLATFORM_CTX[platform]["task_create"]
+    if platform == "stm32":
+        return tpl.format(func=func, name=name, stack=stack, prio=prio, parm=parm, hdl=hdl)
+    if platform == "jl":
+        return tpl.format(func=func, name=name, stack=stack, prio=prio, parm=parm)
+    return tpl.format(func=func, name=name, stack=stack, prio=prio, parm=parm, hdl=hdl)
+
+
+def generate(module_name: str, platform: str) -> dict[str, str]:
+    if platform not in PLATFORM_CTX:
+        raise ValueError(f"未知平台: {platform}")
+
     mod = sanitize_module_name(module_name)
+    pc = PLATFORM_CTX[platform]
+    ml = mod.lower()
+    mu = to_upper_snake(mod)
+
+    malloc_stub = f"({pc['malloc'].split('(')[0]})(sizeof({ml}_ui_msg_t))"
+    if platform == "esp32":
+        malloc_stub = f"({ml}_ui_msg_t *)heap_caps_malloc(sizeof({ml}_ui_msg_t), MALLOC_CAP_8BIT)"
+        malloc_payload = "(char *)heap_caps_malloc(32, MALLOC_CAP_8BIT)"
+    else:
+        malloc_payload = f"(char *){pc['malloc'].split('(')[0]}(32)"
+
     ctx = {
         "module_name": mod,
-        "module_lower": mod.lower(),
-        "module_upper": to_upper_snake(mod),
-        "guard": to_upper_snake(mod) + "_MVP",
+        "module_lower": ml,
+        "module_upper": mu,
+        "guard": mu + "_MVP",
+        "task_include": pc["task_include"],
+        "delay_10": pc["delay_ms"].format(ms=10),
+        "free": pc["free"],
+        "default_stack": pc["default_stack"],
+        "default_prio": pc["default_prio"],
+        "pres_prio": pc["pres_prio"],
+        "malloc_stub": malloc_stub,
+        "task_create_model": build_task_create(
+            platform, f"{ml}_model_task", f"{mod}Model",
+            pc["default_stack"], pc["default_prio"], "NULL", "&hdl",
+        ),
+        "task_create_pres": build_task_create(
+            platform, f"{ml}_presenter_looper", f"{mod}Looper",
+            pc["default_stack"] // 2, pc["pres_prio"], "NULL", "&hdl",
+        ),
     }
+
+    model = MODEL_TEMPLATE.format(**ctx)
+    model = model.replace("{malloc_stub}", malloc_payload)
+
     return {
-        f"{ctx['module_lower']}_mvp.h": HEADER_TEMPLATE.format(**ctx),
-        f"{ctx['module_lower']}_model.c": MODEL_TEMPLATE.format(**ctx),
-        f"{ctx['module_lower']}_presenter.c": PRESENTER_TEMPLATE.format(**ctx),
-        f"{ctx['module_lower']}_view.c": VIEW_TEMPLATE.format(**ctx),
+        "app_test_config.h": TEST_CONFIG_TEMPLATE.format(module_upper=mu, module_name=mod),
+        f"{ml}_mvp.h": HEADER_TEMPLATE.format(**ctx),
+        f"{ml}_model.c": model,
+        f"{ml}_presenter.c": PRESENTER_TEMPLATE.format(**ctx),
+        f"{ml}_view.c": VIEW_TEMPLATE.format(**ctx),
     }
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="MVP 架构代码骨架生成器")
-    parser.add_argument("module", help="业务模块名，如 Audio, Network")
+    parser = argparse.ArgumentParser(description="MVP 骨架生成器（Skill 对齐版）")
+    parser.add_argument("module", help="模块名，如 Network, Audio")
     parser.add_argument(
-        "--output-dir", "-o",
-        default=None,
-        help="输出目录（默认打印到 stdout）",
+        "--platform", "-p",
+        choices=PLATFORMS,
+        default="freertos",
+        help="目标平台 (default: freertos)",
     )
+    parser.add_argument("--output-dir", "-o", default=None)
     args = parser.parse_args()
 
     try:
-        files = generate(args.module)
+        files = generate(args.module, args.platform)
     except ValueError as e:
         print(f"错误: {e}", file=sys.stderr)
         return 1
 
+    note = PLATFORM_CTX[args.platform]["stack_unit_note"]
     if args.output_dir:
         os.makedirs(args.output_dir, exist_ok=True)
-        for filename, content in files.items():
-            path = os.path.join(args.output_dir, filename)
+        for fn, content in files.items():
+            path = os.path.join(args.output_dir, fn)
             with open(path, "w", encoding="utf-8", newline="\n") as f:
                 f.write(content)
             print(f"已生成: {path}")
     else:
-        for filename, content in files.items():
-            print(f"\n{'=' * 60}")
-            print(f"// FILE: {filename}")
-            print(f"{'=' * 60}")
-            print(content)
+        for fn, content in files.items():
+            print(f"\n{'=' * 60}\n// FILE: {fn}\n{'=' * 60}\n{content}")
 
-    print(f"\n✅ 共生成 {len(files)} 个文件。请根据实际平台调整 STACK/PRIORITY。")
+    print(f"\n✅ 平台={args.platform}，栈单位: {note}")
+    print("   配对范例: examples/good_presenter_consumer.c")
+    print("   多次生成请手动合并 app_test_config.h 中的 APP_TEST_MODE_* 宏")
     return 0
 
 

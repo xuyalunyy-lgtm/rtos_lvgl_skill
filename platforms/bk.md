@@ -6,6 +6,29 @@ Agent 确认目标平台为博通集成 BK 系列时读取本文件。
 
 SDK 框架：**Armino**（`bk_avdk` / `bk_avdk_smp`），文档：https://docs.bekencorp.com/
 
+## SDK 全景扫描（裁剪前强制）
+
+**动刀裁剪之前，必须先整体扫描原厂 SDK**。BK 工程结构复杂（AP/CP 双核、多 repo），禁止未扫描直接删代码。
+
+```
+Phase A — 只读扫描
+  ├── clone bk_avdk_smp + 目标 solution repo
+  ├── 列出 projects/ 与 ap/ cp/ 目录职责
+  ├── 导出 projects/<app>/config/bk7258/config 全部 CONFIG_*
+  ├── make bk7258 编译基线，记录 Flash/RAM
+  ├── 列出 AP 侧 xTaskCreate / 官方 init 顺序
+  └── 确认 CP 侧 WiFi 组件边界（用户通常只改 ap/）
+
+Phase B — 询问用户完整产品需求
+  └── 需求驱动裁剪表（非固定模板）
+
+Phase C — 从 projects/ 最小 Demo fork 新工程，按需求裁剪
+```
+
+**推荐**：选最接近产品的最小 Demo（如 `lvgl/widgets`），copy 为新工程后再裁，勿在 `beken_genie` 全量工程上直接删。
+
+扫描输出模板见 [prompts/sdk_trim_prune.txt](../prompts/sdk_trim_prune.txt)。
+
 ## 关键差异速览
 
 | 项目 | Armino SDK 惯例 | 注意 |
@@ -37,6 +60,36 @@ cd ~/armino/bk_solution_ai/projects/beken_genie
 export SDK_DIR=~/armino/bk_avdk_smp
 make bk7258
 ```
+
+## 编译脚本（与 SDK 同级目录）
+
+Skill 提供 **`bk_build.sh`** / **`bk_build.ps1`**，放置在与 `bk_avdk_smp` **同级**的工作区根目录：
+
+```
+~/armino/                      ← 工作区根（脚本放这里）
+├── bk_avdk_smp/               ← SDK
+├── bk_solution_ai/            ← 可选方案仓
+├── bk_build.sh                ← Linux / WSL / Docker
+├── bk_build.ps1               ← Windows
+└── bk_build.env.example       ← 复制为 bk_build.env 配置默认工程
+```
+
+```bash
+# Linux / WSL
+chmod +x bk_build.sh
+./bk_build.sh build -p bk_solution_ai/projects/beken_genie
+./bk_build.sh clean  -p lvgl/widgets
+./bk_build.sh rebuild
+```
+
+```powershell
+# Windows（方案仓工程优先走 dbuild.ps1）
+.\bk_build.ps1 build -Project bk_solution_ai\projects\beken_genie
+.\bk_build.ps1 clean
+.\bk_build.ps1 rebuild -Soc bk7258
+```
+
+脚本自动探测同级 `bk_avdk_smp` / `bk_avdk`；外部工程自动设置 `SDK_DIR`；SDK 内 Demo 使用 `make bk7258 PROJECT=xxx`。
 
 ## 推荐任务优先级（BK7258 参考）
 
@@ -179,6 +232,8 @@ CONFIG_WIFI_ENABLE=y
 工程级配置在 `projects/<name>/config/bk7258/config` 覆盖芯片默认。
 
 ## SDK 深度裁剪（Armino / BK7258）
+
+> **以下仅为候选项**，须在产品需求问卷确认「不需要」后再关闭；禁止未询问用户直接套用。
 
 ### 配置入口
 

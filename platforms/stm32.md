@@ -126,6 +126,8 @@ void HAL_I2S_RxCpltCallback(I2S_HandleTypeDef *hi2s)
 
 ## SDK 深度裁剪（STM32 + CubeMX）
 
+> **以下仅为候选项**，须在产品需求问卷确认「不需要」后再关闭；禁止未询问用户直接套用。
+
 ### 配置入口
 
 - CubeMX `.ioc` → 取消未用 IP（USB/SDIO/CAN/ETH 等）
