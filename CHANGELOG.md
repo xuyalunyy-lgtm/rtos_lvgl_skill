@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.25.0 — 2026-06-16
+
+- **新增 C11.5 checker**：`tools/function_length_checker.py`（单函数 >80 行检测）
+- **集成**：`run_review.py` 新增 `--skip-func-length` 选项
+- **skill_structure.md** 工具目录增加 C11.5 函数长度检查
+- **新增**：`scripts/bump_version.py` 版本号批量更新工具
+
 ## 2.24.0 — 2026-06-16
 
 - **精简**：iteration_log 旧条目（v2.4–v2.15）归档至 `iteration_log_archive_2026Q2.md`

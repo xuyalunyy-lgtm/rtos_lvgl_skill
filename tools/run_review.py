@@ -208,6 +208,7 @@ def main() -> int:
     parser.add_argument("--skip-voice", action="store_true")
     parser.add_argument("--skip-logging", action="store_true")
     parser.add_argument("--skip-return-check", action="store_true")
+    parser.add_argument("--skip-func-length", action="store_true")
     parser.add_argument(
         "--validate-examples",
         action="store_true",
@@ -363,6 +364,20 @@ def main() -> int:
         exit_code = max(exit_code, rc)
     elif not args.skip_return_check:
         print("\n[skip] return_check_checker: 无 .c 文件")
+
+    if not args.skip_func_length and c_files:
+        fl_argv: list[str] = []
+        if args.dir:
+            fl_argv.extend(["--dir", args.dir])
+        else:
+            fl_argv.extend(str(f) for f in c_files)
+        rc = run_cmd(
+            "function_length_checker",
+            [sys.executable, str(TOOLS_DIR / "function_length_checker.py"), *fl_argv],
+        )
+        exit_code = max(exit_code, rc)
+    elif not args.skip_func_length:
+        print("\n[skip] function_length_checker: 无 .c 文件")
 
     if not c_files and args.dir:
         print("\n[warn] 排除 bad_*.c 后无可审查文件")
