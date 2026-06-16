@@ -1,18 +1,19 @@
 ---
 name: freertos-embedded-architect
-version: 2.27.0
+version: 2.28.0
 description: >-
   审查与设计 FreeRTOS 物联网固件：MVP 分层、LVGL 线程安全、I2S/DMA、cJSON 泄漏、
   WSS/mbedTLS、内存优化、启动/WDT、SDK 裁剪、密钥安全、语音 ASR/Uplink、
-  编码规范、错误处理、状态机、日志规范、任务优先级、定时器管理。
+  编码规范、错误处理、状态机、日志规范、任务优先级、定时器管理、多核 IPC、
+  软硬联调、IO 口规划。
   Use when user mentions: 死机, 崩溃, 花屏, 卡顿, HardFault, 栈溢出, stack overflow,
   Guru Meditation, code review, 审查, SDK裁剪, 裁剪, 死代码, 新增模块, 修Bug,
   WSS, cJSON, DMA, I2S, 录音失效, ASR, uplink, 唤醒, AEC, use-after-free,
   ESP32, STM32, JL, AC79, BK, Armino, 带屏音箱, 语音网关, embedded C, freertos,
   状态机, 线程安全, 优先级反转, 定时器, 日志, 错误处理, goto cleanup,
+  多核, IPC, mailbox, 跨核, 三核, 双核,
+  IO口, GPIO, 引脚, 引脚复用, 硬件联调, bring-up, 外设接线, 原理图,
   git commit, 提交, commit message.
-  Reviews FreeRTOS IoT firmware with C1-C16 constraints; lazy-load constraint_index
-  + 1 platform + 1-3 prompts.
 ---
 
 # FreeRTOS 嵌入式架构专家（Lite 版）
@@ -36,6 +37,7 @@ description: >-
 | SDK 改造 / 裁剪 | [l3_sdk_trim.md](workflows/l3_sdk_trim.md) | L3 |
 | 新增模块 | [l3_new_module.md](workflows/l3_new_module.md) | L3 |
 | Bug / Crash | [debug_crash.md](workflows/debug_crash.md) | L2–L3 |
+| **软硬联调 / IO 口规划** | [hw_sw_cocodebug.md](workflows/hw_sw_cocodebug.md) | L2 |
 | **Skill 自我迭代** | [self_iterate.md](workflows/self_iterate.md) | L3 |
 
 **平台**：[esp32](platforms/esp32.md) | [stm32](platforms/stm32.md) | [jl](platforms/jl.md) | [bk](platforms/bk.md)

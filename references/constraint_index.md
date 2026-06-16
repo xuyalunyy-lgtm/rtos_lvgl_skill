@@ -139,6 +139,6 @@
 
 ## 症状 → ID（Crash 用）
 
-完整症状→约束 ID 表 → [constraint_detail.md](constraint_detail.md) 末尾。
+→ [debug_crash.md](../workflows/debug_crash.md) Step 2 症状路由表（与 `constraint_detail.md` 末尾同步）。
 
 Prompt 深细节按需 1–3 个 → [skill_structure.md](skill_structure.md) 场景表。

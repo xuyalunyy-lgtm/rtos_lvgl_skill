@@ -16,13 +16,38 @@ Agent 在 L2/L3 或 workflow 要求时读取本文件。L1 概念问答可跳过
 | **跑通为止** | 持续实现 → 编译 → 修错，直至 **用户指定功能完成** 且 **工程编译通过** |
 | **编译** | 命令以 `platforms/xxx.md` 为准；编译失败则读日志、修复、重编，**禁止**留半成品让用户收尾 |
 | **铁律仍生效** | 改动须满足 C1–C10；L2+ 可跑 `run_review.py` 自检 |
+| **改动范围声明** | L3 开始前输出「计划改动文件清单」，用户确认后执行 |
+| **编译重试上限** | 最多 **5 次**编译失败后暂停，输出错误摘要请用户介入 |
+| **不可触碰清单** | 用户可标记 `.gitignore`、`partitions.csv`、`sdkconfig` 等为只读；Agent 禁止修改 |
+| **回滚点** | L3 任务开始前建议 `git stash` 或创建临时分支 |
+| **配置文件独立** | 新项目**禁止**直接复制/复用/修改已有项目的配置文件；只能参考格式结构，**严格按用户输入编写全新配置** |
 | **须询问用户** | 大规模删 SDK 模块（超 C6 问卷范围）、git push/force、改仓库 secrets、需求根本歧义 |
 | **Git 提交** | 用户要求 commit 时读 [git_commit_style.md](git_commit_style.md)；标题中文 + `type(scope):`；提交前 `git log` 对齐仓库风格 |
 | **不适用** | L2 纯 Code Review；用户写明「只审查/只给方案不改代码」 |
 
 **完成定义：** 功能按需求可演示或逻辑闭环 + 目标工程 **0 error 编译**（warning 可登记，P0 须修）。
 
----
+### L3 安全围栏（防 Agent 失控）
+
+| 围栏 | 触发条件 | Agent 行为 |
+|------|----------|-----------|
+| **编译重试上限** | 同一编译错误连续失败 **≥5 次** | 暂停，输出错误摘要 + 已尝试方案，请用户介入 |
+| **改动范围锁定** | L3 开始前 | 输出「计划改动文件清单」，用户确认后才执行；超出范围须追加确认 |
+| **不可触碰文件** | 用户声明或 `.skill-readonly` | 禁止修改（即使 Agent 认为「应该改」） |
+| **Git 回滚点** | L3 开始前（建议） | `git stash` 或创建 `skill/l3-<desc>` 临时分支 |
+
+---</parameter>
+</parameter>
+</replace_in_file>
+
+<read_file>
+<path>references/core_rules.md</path>
+<task_progress>
+- [x] L3 safety guardrails in core_rules.md
+- [ ] Update CHANGELOG.md with all changes
+- [ ] Validate examples coverage update
+- [ ] Final review of all changes
+</task_progress>
 
 ```
 音频/DMA ISR > WSS/网络长连接 > LVGL 刷新 > Presenter > Model 后台

@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.28.0 — 2026-06-16
+
+- **新增 workflow `hw_sw_cocodebug.md`**：软硬联调 / IO 口规划，强制用户填写完整 IO 口用途表，反复核对引脚复用/电气约束/外设冲突
+- **L3 安全围栏**：`core_rules.md` 新增编译重试上限（≥5 次暂停）、改动范围锁定、不可触碰文件清单、Git 回滚点
+- **Token 效率优化**：`constraint_index.md` 症状表精简为单行引用（指向 `debug_crash.md` Step 2），消除重复维护
+- **SKILL.md**：description 触发词新增 IO 口/GPIO/引脚复用/硬件联调/bring-up/原理图；快速路由表新增软硬联调行
+- **联动更新**：`skill_structure.md`、`workflows/README.md` 新增 `hw_sw_cocodebug` 条目
+
 ## 2.27.0 — 2026-06-16
 
 - **esp32.md 大幅增强**：新增 TOC 目录导航、芯片差异表（ESP32/S3/C6/H2）、双核架构与绑核策略、PSRAM/堆管理、看门狗配置详解、NVS 状态持久化、WiFi 配网流程、安全启动/Flash 加密/OTA 安全

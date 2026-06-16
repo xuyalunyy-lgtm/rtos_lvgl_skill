@@ -12,6 +12,7 @@
 | [debug_crash.md](debug_crash.md) | L2–L3 | HardFault / 死机 / WDT / frozen |
 | [l3_sdk_trim.md](l3_sdk_trim.md) | L3 | SDK 改造 / 需求驱动裁剪 |
 | [l3_new_module.md](l3_new_module.md) | L3 | 新模块 / 多任务 / MVP 设计 |
+| [hw_sw_cocodebug.md](hw_sw_cocodebug.md) | L2 | 硬件联调 / IO 口分配 / GPIO 冲突 / bring-up |
 | [self_iterate.md](self_iterate.md) | L3 | Skill 维护 / 自我迭代 |
 
 ## 标准加载顺序（L2+）

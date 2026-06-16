@@ -1,6 +1,6 @@
 # FreeRTOS Embedded Architect Skill
 
-Cursor Agent Skill：FreeRTOS 物联网固件架构（MVP 分层、LVGL 线程安全、I2S DMA、cJSON 防泄漏、WSS/mbedTLS、SDK 裁剪、错误处理、状态机、日志规范、任务优先级、定时器管理）。约束体系 C1–C16。
+Cursor Agent Skill：FreeRTOS 物联网固件架构（MVP 分层、LVGL 线程安全、I2S DMA、cJSON 防泄漏、WSS/mbedTLS、SDK 裁剪、错误处理、状态机、日志规范、任务优先级、定时器管理、多核 IPC、软硬联调 IO 口规划）。约束体系 C1–C17。
 
 ## 快速开始
 
