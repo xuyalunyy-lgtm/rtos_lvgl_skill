@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.13.0 — 2026-06-15
+
+- description 优化（中文 + Use when 触发词）；Cursor Rule 模板
+
 ## 2.12.0 — 2026-06-15
 
 - Claude Code 适配：`constraint_index.md`、`claude_code.md`、懒加载 workflow 指引

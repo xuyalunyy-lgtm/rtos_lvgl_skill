@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.13.0 — 2026-06-15
+
+- 优化 `SKILL.md` description：中文触发词 + `Use when` 句式，提升 DeepSeek 等模型命中率
+- 新增 `templates/cursor-rule.embedded.mdc`；INSTALL 增加命中率三层兜底说明
+
 ## 2.12.0 — 2026-06-15
 
 - Claude Code 适配：`constraint_index.md`（L2 省 token）、`claude_code.md`、安装脚本、CLAUDE/.claudeignore 模板

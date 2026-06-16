@@ -81,6 +81,16 @@ Workflow 索引 → [workflows/README.md](../workflows/README.md)
 | 工具优先 | `run_review.py` 代替读 checker 源码 |
 | 项目索引 | 固件仓 `CLAUDE.md` <500 token + `.claudeignore` |
 
+## Cursor 命中率（DeepSeek 等）
+
+固件仓 Rule 模板 → [templates/cursor-rule.embedded.mdc](../templates/cursor-rule.embedded.mdc) · 说明 → [INSTALL.md](../INSTALL.md)
+
+| 原则 | 说明 |
+|------|------|
+| description | 中文 + `Use when` 触发词（SKILL frontmatter） |
+| 项目 Rule | `globs: **/*.{c,h}` 编辑 C 时强制 Read skill |
+| 显式点名 | `@freertos-embedded-architect` |
+
 ## 工具目录（完整版 · workflow 内调用）
 
 | 用途 | 命令 |

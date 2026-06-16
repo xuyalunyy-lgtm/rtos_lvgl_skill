@@ -39,6 +39,39 @@ cp -r /path/to/skill .cursor/skills/freertos-embedded-architect
 
 重启 Cursor 或新开 Agent 对话。
 
+### 提高命中率（DeepSeek / 弱路由模型）
+
+Skill 自动发现依赖 `SKILL.md` 的 **description** 与用户话术匹配；DeepSeek 等模型路由较弱时，建议 **三层兜底**：
+
+| 层级 | 做法 | 命中率 |
+|------|------|--------|
+| 1 | 固件仓 `.cursor/rules/` + [cursor-rule 模板](templates/cursor-rule.embedded.mdc) | 编辑 `.c/.h` 时自动 Read skill |
+| 2 | 固件仓 `.cursor/skills/` 项目级 skill（见上） | 比仅个人 skill 更稳 |
+| 3 | 对话 `@freertos-embedded-architect` 或「按 freertos skill …」 | 100% |
+
+**安装 Cursor Rule（固件工程根目录）：**
+
+```powershell
+# Windows
+New-Item -ItemType Directory -Force -Path .cursor\rules | Out-Null
+Copy-Item C:\path\to\skill\templates\cursor-rule.embedded.mdc .cursor\rules\freertos-embedded.mdc
+```
+
+```bash
+# macOS / Linux
+mkdir -p .cursor/rules
+cp /path/to/skill/templates/cursor-rule.embedded.mdc .cursor/rules/freertos-embedded.mdc
+```
+
+Rule 使用 `globs: **/*.{c,h}`，打开/编辑 C 源文件时触发，不要求 `alwaysApply: true`。
+
+**更新 skill 后务必重装**（否则本机仍是旧版 description）：
+
+```powershell
+cd C:\path\to\skill
+.\scripts\install_skill.ps1
+```
+
 ## 触发示例
 
 ```
