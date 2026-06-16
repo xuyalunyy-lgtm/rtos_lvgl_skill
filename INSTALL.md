@@ -127,6 +127,18 @@ python path/to/skill/tools/mvp_codegen_tool.py Network --platform bk -o ./genera
 
 若只需规则与 prompt、不需要范例与脚本，使用 [freertos-skill-lite/INSTALL.md](freertos-skill-lite/INSTALL.md)。
 
+## Claude Code
+
+```powershell
+.\scripts\install_claude_code.ps1
+# 可选：同时生成固件工程 CLAUDE.md / .claudeignore
+.\scripts\install_claude_code.ps1 -ProjectRoot C:\path\to\firmware
+```
+
+- Skill → `~/.claude/skills/freertos-embedded-architect/`，invoke `/freertos-embedded-architect`
+- 省 token 指南 → [references/claude_code.md](references/claude_code.md)
+- 项目模板 → [templates/CLAUDE.embedded.md](templates/CLAUDE.embedded.md)
+
 | 完整版 | Lite 版 |
 |--------|---------|
 | `examples/` + `tools/` | 无，Step 5 用 SKILL.md 人工清单 |

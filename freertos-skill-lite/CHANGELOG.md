@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.12.0 — 2026-06-15
+
+- Claude Code 适配：`constraint_index.md`、`claude_code.md`、懒加载 workflow 指引
+
 ## 2.11.0 — 2026-06-15
 
 - 自主实施模式：L3 全权改代码至编译通过，无需逐步确认

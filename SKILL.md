@@ -1,10 +1,11 @@
 ---
 name: freertos-embedded-architect
-version: 2.11.0
+version: 2.12.0
 description: >-
   Use when reviewing or designing FreeRTOS IoT firmware: MVP layering, LVGL
   thread safety, I2S DMA, cJSON leaks, WSS/mbedTLS, memory optimization,
-  boot/WDT lifecycle, JL/BK SDK trimming.
+  boot/WDT lifecycle, JL/BK SDK trimming. Claude Code: lazy-load via
+  constraint_index + 1 platform + 1-3 prompts.
   Trigger on: HardFault, Guru Meditation, stack overflow, WSS reconnect,
   lv_async_call, code review, sdk trim, skill update, skill iterate,
   AC79, BK7258, embedded C.
@@ -26,6 +27,8 @@ description: >-
 
 BK 编译：`bk_build.*` 与 SDK 同级 → [platforms/bk.md](platforms/bk.md)
 
+**Claude Code：** [references/claude_code.md](references/claude_code.md) · 安装 `scripts/install_claude_code.*` · 项目 [templates/CLAUDE.embedded.md](templates/CLAUDE.embedded.md)
+
 ## 快速路由
 
 | 用户意图 | Workflow | 级别 |
@@ -41,7 +44,7 @@ BK 编译：`bk_build.*` 与 SDK 同级 → [platforms/bk.md](platforms/bk.md)
 
 ## 铁律索引
 
-细则 → [core_rules.md](references/core_rules.md) · **C#.#** → [constraint_detail.md](references/constraint_detail.md)
+细则 → [core_rules.md](references/core_rules.md) · **C#.#** 速查 → [constraint_index.md](references/constraint_index.md) · 完整 → [constraint_detail.md](references/constraint_detail.md)
 
 | # | 主题 | Prompt |
 |---|------|--------|
@@ -58,9 +61,10 @@ Prompt / 工具 / 范例全表 → [skill_structure.md](references/skill_structu
 
 <thinking>
 1. L1/L2/L3 → 选定唯一 workflow（见 workflows/README.md）
-2. L2+ 读 core_rules + constraint_detail
-3. 1 个 platform + 1–3 个 scene prompt（禁止全加载 prompts/）
-4. L2+ 完整版跑 run_review；L1 跳过工具
+2. L2+ 读 core_rules + **constraint_index.md**（非 constraint_detail 全文，除非要正例列）
+3. 1 个 platform + 1–3 个 scene prompt（**禁止** Glob/Read 整个 prompts/）
+4. L2+ 完整版跑 run_review；用 Grep/Read 单文件读 examples
+5. Claude Code：见 claude_code.md；项目 CLAUDE.md 保持 <500 token
 </thinking>
 
 <rules>

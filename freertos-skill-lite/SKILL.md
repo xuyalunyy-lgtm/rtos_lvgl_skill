@@ -1,10 +1,11 @@
 ---
 name: freertos-embedded-architect
-version: 2.11.0
+version: 2.12.0
 description: >-
   Use when reviewing or designing FreeRTOS IoT firmware: MVP layering, LVGL
   thread safety, I2S DMA, cJSON leaks, WSS/mbedTLS, memory optimization,
-  boot/WDT lifecycle, JL/BK SDK trimming.
+  boot/WDT lifecycle, JL/BK SDK trimming. Claude Code: lazy-load via
+  constraint_index + 1 platform + 1-3 prompts.
   Trigger on: HardFault, Guru Meditation, stack overflow, WSS reconnect,
   lv_async_call, code review, sdk trim, skill update, skill iterate,
   AC79, BK7258, embedded C.
@@ -55,7 +56,7 @@ Prompt 全表 → [skill_structure.md](references/skill_structure.md)
 
 <thinking>
 1. 选定 1 个 workflow（见 workflows/README.md）
-2. L2+ 读 core_rules + constraint_detail
+2. L2+ 读 core_rules + constraint_index（detail 按需）
 3. 1 个 platform + 1–3 prompt，禁止全加载
 4. L2 完成 lite_manual_checklist
 </thinking>

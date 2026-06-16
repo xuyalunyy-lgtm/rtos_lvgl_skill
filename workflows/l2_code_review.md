@@ -10,7 +10,7 @@
 
 ## Step 1 — 读总纲
 
-读取 [references/core_rules.md](../references/core_rules.md) + [constraint_detail.md](../references/constraint_detail.md)（违规报告引用 `C#.#`）。Prompt 选型 → [skill_structure.md](../references/skill_structure.md)
+读取 [references/core_rules.md](../references/core_rules.md) + [constraint_index.md](../references/constraint_index.md)（违规报告引用 `C#.#`；需正例/checker 列时再读 [constraint_detail.md](../references/constraint_detail.md)）。Prompt 选型 → [skill_structure.md](../references/skill_structure.md)
 
 ## Step 2 — 反例对照
 

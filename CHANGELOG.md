@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.12.0 — 2026-06-15
+
+- Claude Code 适配：`constraint_index.md`（L2 省 token）、`claude_code.md`、安装脚本、CLAUDE/.claudeignore 模板
+- L2 默认读 constraint_index，detail 按需；workflow 懒加载指引
+
 ## 2.11.0 — 2026-06-15
 
 - 新增 **自主实施模式**：L3 实现类任务 Agent 全权改代码、无需逐步确认，直至功能完成且编译通过

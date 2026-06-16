@@ -1,0 +1,27 @@
+# Claude Code — 嵌入式工程忽略（复制为项目根 .claudeignore）
+# 减少 SDK/build 进 context 的 token
+
+**/build/
+**/Build/
+**/.git/
+**/node_modules/
+
+# 本地完整 SDK（参考用，勿索引）
+**/fw-AC79_AIoT_SDK/
+**/bk_idk*/
+**/bk_avdk*/
+**/bk_avdk_smp/
+**/ESP-IDF/
+**/esp-idf/
+
+# 二进制与生成物
+**/*.o
+**/*.a
+**/*.bin
+**/*.elf
+**/*.map
+**/*.hex
+
+# IDE
+**/.vscode/
+**/.idea/

@@ -16,7 +16,9 @@
 ## 标准加载顺序（L2+）
 
 1. `references/core_rules.md`
-2. `references/constraint_detail.md`（违规报告引用 `C#.#`）
+2. `references/constraint_index.md`（**默认**；完整矩阵见 `constraint_detail.md`）
 3. `platforms/xxx.md`（1 个）
 4. workflow 指定的 1–3 个 `prompts/*.txt`
-5. 完整版：相关 `examples/` + `tools/run_review.py`
+5. 完整版：`tools/run_review.py`；范例 **Grep/Read 单文件**，勿批量读 examples/
+
+**Claude Code 省 token** → [claude_code.md](../references/claude_code.md)

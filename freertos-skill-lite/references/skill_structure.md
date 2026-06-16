@@ -7,7 +7,7 @@ Agent 维护 skill 或不确定「该读哪个文件」时读取本文件。**L1
 ```
 L0 控制平面   SKILL.md              意图路由 · 铁律索引 · rules（禁止膨胀）
 L1 编排       workflows/*.md        选定 1 个 workflow，按 Step 顺序执行
-L2 总纲       references/           core_rules · constraint_detail · 本文件
+L2 总纲       references/           core_rules · constraint_index · 本文件
 L3 场景       prompts/*.txt         workflow 指定 1–3 个，禁止全加载
      平台     platforms/*.md        workflow Step 1 加载 1 个
 L4 可执行     examples/ · tools/    完整版 L2+；Lite 无此层
@@ -24,6 +24,8 @@ L4 可执行     examples/ · tools/    完整版 L2+；Lite 无此层
 | `SKILL.md` | 控制平面（<100 行） | 人工 | 自动生成 |
 | `workflows/` | 步骤编排、输出模板 | 人工 | 同步 + patch |
 | `references/` | 总纲、约束矩阵、结构、日志 | 人工 | 同步 |
+| `references/constraint_index.md` | C#.# 速查（L2 默认，省 token） | 人工 | 同步 |
+| `references/claude_code.md` | Claude Code 懒加载指南 | 人工 | 同步 |
 | `prompts/` | 场景专链（深细节） | 人工 | 同步 |
 | `platforms/` | 芯片/SDK 事实 | 人工 | 同步 |
 | `examples/` | good/bad 范例、`app_mvp.h` | 人工 + checker | **无** |
@@ -38,7 +40,7 @@ L4 可执行     examples/ · tools/    完整版 L2+；Lite 无此层
 | Workflow | L2 必读 | L3 按需（1–3） | L4 完整版 |
 |----------|---------|----------------|-----------|
 | L1 无 | — | — | — |
-| [l2_code_review](../workflows/l2_code_review.md) | core_rules + constraint_detail | 嫌疑场景 prompt | run_review + examples 反例 |
+| [l2_code_review](../workflows/l2_code_review.md) | core_rules + **constraint_index** | 嫌疑场景 prompt | run_review + 单文件 example |
 | [debug_crash](../workflows/debug_crash.md) | constraint_detail 症状表 | 症状对应 prompt | run_review + 反例 |
 | [l3_sdk_trim](../workflows/l3_sdk_trim.md) | core_rules | sdk_trim_prune | — |
 | [l3_new_module](../workflows/l3_new_module.md) | core_rules | 模块表 prompt | mvp_codegen / good_* |
@@ -64,9 +66,20 @@ Workflow 索引 → [workflows/README.md](../workflows/README.md)
 | Crash | 日志解读 | [crash_log_decode.txt](../prompts/crash_log_decode.txt) |
 | 同步 | FreeRTOS 原语 | [freertos_sync_primitives.txt](../prompts/freertos_sync_primitives.txt) |
 
-约束 ID 细则 → [constraint_detail.md](constraint_detail.md)
+约束 ID 细则 → [constraint_detail.md](constraint_detail.md) · L2 速查 → [constraint_index.md](constraint_index.md)
 
 ---
+
+## Claude Code（省 token）
+
+安装 → [claude_code.md](claude_code.md) · 项目模板 → [templates/CLAUDE.embedded.md](../templates/CLAUDE.embedded.md)
+
+| 原则 | 说明 |
+|------|------|
+| 懒加载 | 仅 workflow 指定文件；禁 Glob prompts/ |
+| L2 默认 | `constraint_index.md` 替代 detail 全文 |
+| 工具优先 | `run_review.py` 代替读 checker 源码 |
+| 项目索引 | 固件仓 `CLAUDE.md` <500 token + `.claudeignore` |
 
 ## 工具目录（完整版 · workflow 内调用）
 
@@ -78,6 +91,7 @@ Workflow 索引 → [workflows/README.md](../workflows/README.md)
 | Lite 同步 | `python scripts/sync_lite.py` · Windows：`.\scripts\sync_lite.cmd` |
 | 迭代验证 | `python scripts/skill_iterate.py --check --sync` · Windows：`.\scripts\skill_iterate.cmd -Sync` |
 | 安装 Cursor | `.\scripts\install_skill.ps1`（见 [INSTALL.md](../INSTALL.md)） |
+| 安装 Claude Code | `.\scripts\install_claude_code.ps1`（见 [claude_code.md](claude_code.md)） |
 | MVP 骨架 | `python tools/mvp_codegen_tool.py Module --platform jl -o ./generated` |
 
 Checker 与 C#.# 映射 → 完整版 `examples/README.md`
