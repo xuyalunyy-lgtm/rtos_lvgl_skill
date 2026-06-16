@@ -80,6 +80,56 @@
 | C10.5 | 1 | session generation 防 stale 回调 |
 | C10.6 | 2 | playback slot/handle 勿 hardcode |
 
+## C11 编码规范
+| ID | P | 一句话 |
+|----|---|--------|
+| C11.1 | 2 | 文件名 `模块_功能.c/h`，禁止中文/空格 |
+| C11.2 | 2 | 函数名 `模块_动作_对象()`，≤30 字符 |
+| C11.3 | 2 | 宏全大写 `MODULE_FEATURE_VALUE` |
+| C11.4 | 2 | 结构体名 `模块_xxx_t` |
+| C11.5 | 1 | 单函数 ≤80 行，超限须拆分 |
+| C11.6 | 2 | 每个 .c/.h 须有模块说明文件头注释 |
+
+## C12 错误处理
+| ID | P | 一句话 |
+|----|---|--------|
+| C12.1 | 0 | FreeRTOS API 返回值必须检查 |
+| C12.2 | 0 | malloc 失败须有 fallback，禁止 NULL 解引用 |
+| C12.3 | 1 | 统一错误码枚举，禁 magic number 返回 |
+| C12.4 | 0 | 多资源函数用 goto cleanup 统一释放 |
+| C12.5 | 1 | configASSERT 仅用于不可恢复错误 |
+
+## C13 状态机
+| ID | P | 一句话 |
+|----|---|--------|
+| C13.1 | 1 | 长生命周期任务须有显式 enum state |
+| C13.2 | 2 | >5 状态须有转换表注释 |
+| C13.3 | 1 | switch-default 处理非法状态（log + reset） |
+| C13.4 | 2 | 需断电恢复的状态持久化到 NVS/Flash |
+
+## C14 日志规范
+| ID | P | 一句话 |
+|----|---|--------|
+| C14.1 | 1 | 分级日志 + TAG，禁止裸 printf |
+| C14.2 | 2 | 日志级别可 Kconfig 配置 |
+| C14.3 | 0 | ISR/DMA/LVGL timer 内禁止日志 |
+| C14.4 | 1 | 日志禁止打印密码/token 明文 |
+| C14.5 | 1 | HardFault handler 须采集 PC/LR/寄存器 |
+
+## C15 任务优先级与通信
+| ID | P | 一句话 |
+|----|---|--------|
+| C15.1 | 1 | 相邻任务优先级差 ≥2 |
+| C15.2 | 1 | 共享资源用 mutex（优先级继承），禁 binary semaphore |
+| C15.3 | 2 | 禁止运行时 vTaskPrioritySet（需文档说明） |
+
+## C16 定时器管理
+| ID | P | 一句话 |
+|----|---|--------|
+| C16.1 | 0 | 软件定时器回调禁止阻塞（daemon 共享） |
+| C16.2 | 1 | 动态创建 timer 须有 stop + delete 路径 |
+| C16.3 | 2 | 周期 pdTRUE / 单次 pdFALSE 须区分 |
+
 ## 症状 → ID（Crash 用）
 
 完整症状→约束 ID 表 → [constraint_detail.md](constraint_detail.md) 末尾。

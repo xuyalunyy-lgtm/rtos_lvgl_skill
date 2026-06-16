@@ -67,6 +67,12 @@ Workflow 索引 → [workflows/README.md](../workflows/README.md)
 | C8 | 启动 / WDT / 阻塞 | [boot_wdt_lifecycle.txt](../prompts/boot_wdt_lifecycle.txt) |
 | C9 | 密钥 / 凭证 | [secrets_kconfig.txt](../prompts/secrets_kconfig.txt) |
 | C10 | 语音 / ASR / Uplink | [voice_asr_uplink.txt](../prompts/voice_asr_uplink.txt) |
+| C11 | 编码规范 | [coding_style.txt](../prompts/coding_style.txt) |
+| C12 | 错误处理 | [error_handling.txt](../prompts/error_handling.txt) |
+| C13 | 状态机 | [state_machine_patterns.txt](../prompts/state_machine_patterns.txt) |
+| C14 | 日志规范 | [logging_debug.txt](../prompts/logging_debug.txt) |
+| C15 | 优先级与通信 | [inter_task_communication.txt](../prompts/inter_task_communication.txt) |
+| C16 | 定时器管理 | [timer_management.txt](../prompts/timer_management.txt) |
 | 网络 | WSS / mbedTLS / 栈 | [mbedtls_wss_memory.txt](../prompts/mbedtls_wss_memory.txt) |
 | Crash | 日志解读 | [crash_log_decode.txt](../prompts/crash_log_decode.txt) |
 | 同步 | FreeRTOS 原语 | [freertos_sync_primitives.txt](../prompts/freertos_sync_primitives.txt) |

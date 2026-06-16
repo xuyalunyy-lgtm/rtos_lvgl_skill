@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.21.0 — 2026-06-16
+
+- **新增 C11–C16 约束域**：编码规范、错误处理、状态机、日志规范、优先级与通信、定时器管理
+- 新增 6 个场景 prompt：`coding_style.txt`、`error_handling.txt`、`state_machine_patterns.txt`、`logging_debug.txt`、`inter_task_communication.txt`、`timer_management.txt`
+- `constraint_index.md` / `core_rules.md` / `SKILL.md` / `skill_structure.md` 全面联动更新
+- description 触发词新增：状态机、线程安全、优先级反转、定时器、日志、错误处理、goto cleanup
+- Skill 从「防崩溃」扩展为「嵌入式 RTOS 开发全生命周期规范体系」（C1–C16）
+
 ## 2.20.0 — 2026-06-16
 
 - **C10 反例**：新增 `examples/bad_prompt_no_detach.c`（C10.1 未 detach / C10.2 无 AEC settle / C10.5 无 generation 过滤）
