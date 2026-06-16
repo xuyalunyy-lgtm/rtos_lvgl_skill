@@ -42,9 +42,9 @@ python tools/stack_calculator.py --describe "WSS TLS cJSON" --platform jl
 
 共享类型：`examples/app_mvp.h`（与 `mvp_codegen` 输出一致）；Queue 设计 → [queue_event_bus.txt](../prompts/queue_event_bus.txt)
 
-## 六条硬性约束（摘要）
+## 七条硬性约束（摘要）
 
-**细粒度 ID 矩阵（C1.1–C6.4）** → [constraint_detail.md](constraint_detail.md)（L2+ 违规报告须引用 `C#.#`）
+**细粒度 ID 矩阵（C1.1–C7.9）** → [constraint_detail.md](constraint_detail.md)（L2+ 违规报告须引用 `C#.#`）
 
 | # | 主题 | 细则 | 子约束数 |
 |---|------|------|----------|
@@ -54,6 +54,7 @@ python tools/stack_calculator.py --describe "WSS TLS cJSON" --platform jl
 | 4 | 音频 DMA | ISR 仅 `*FromISR` → [audio_dma_pingpong.txt](../prompts/audio_dma_pingpong.txt) | 7 |
 | 5 | 测试宏 | 每模块 `APP_TEST_MODE_*` → [test_mode_macro.txt](../prompts/test_mode_macro.txt) | 3 |
 | 6 | SDK 裁剪 | 先问卷再动刀；JL/BK 先扫描 → [sdk_trim_prune.txt](../prompts/sdk_trim_prune.txt) | 4 |
+| 7 | 内存分配优化 | 先量后改；缩池顺序 → [memory_alloc_optimize.txt](../prompts/memory_alloc_optimize.txt) | 9 |
 
 ## 文件归属惯例
 

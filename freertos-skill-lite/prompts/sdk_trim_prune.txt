@@ -63,7 +63,7 @@ Phase B — 需求映射
 Phase C — 按需求裁剪（无固定顺序，依依赖链）
   ├── 先关叶子模块（Demo UI、CLI、未用 codec）
   ├── 再关独立协议（BT、MQTT...）
-  └── 最后缩内存池和任务栈
+  └── 最后缩内存池和任务栈（细则 → memory_alloc_optimize.txt C7.2/C7.6）
 
 Phase D — 每步验证
   └── 编译 + 最小闭环冒烟

@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.9.0 — 2026-06-15
+
+- 新增 **C7 内存分配与优化**（C7.1–C7.9）：先量后改、缩池顺序、栈/堆/池分层、TLS 唯一栈
+- 新增 `prompts/memory_alloc_optimize.txt`；workflow / 症状表 / Lite checklist 联动
+
 ## 2.8.0 — 2026-06-15
 
 - **结构迭代**：新增 `references/skill_structure.md`（L0–L4 四层加载模型）与 `workflows/README.md`

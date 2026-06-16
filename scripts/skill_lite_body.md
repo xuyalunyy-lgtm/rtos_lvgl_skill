@@ -36,6 +36,7 @@
 | 4 | ISR（C4） | [audio_dma_pingpong.txt](prompts/audio_dma_pingpong.txt) |
 | 5 | 测试宏（C5） | [test_mode_macro.txt](prompts/test_mode_macro.txt) |
 | 6 | SDK（C6） | [sdk_trim_prune.txt](prompts/sdk_trim_prune.txt) |
+| 7 | 内存（C7） | [memory_alloc_optimize.txt](prompts/memory_alloc_optimize.txt) |
 
 Prompt 全表 → [skill_structure.md](references/skill_structure.md)
 

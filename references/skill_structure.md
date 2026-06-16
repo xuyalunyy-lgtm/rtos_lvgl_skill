@@ -58,6 +58,7 @@ Workflow 索引 → [workflows/README.md](../workflows/README.md)
 | C4 | 音频 DMA / ISR | [audio_dma_pingpong.txt](../prompts/audio_dma_pingpong.txt) |
 | C5 | 测试宏 | [test_mode_macro.txt](../prompts/test_mode_macro.txt) |
 | C6 | SDK 裁剪 | [sdk_trim_prune.txt](../prompts/sdk_trim_prune.txt) |
+| C7 | 内存分配优化 | [memory_alloc_optimize.txt](../prompts/memory_alloc_optimize.txt) |
 | 网络 | WSS / mbedTLS / 栈 | [mbedtls_wss_memory.txt](../prompts/mbedtls_wss_memory.txt) |
 | Crash | 日志解读 | [crash_log_decode.txt](../prompts/crash_log_decode.txt) |
 | 同步 | FreeRTOS 原语 | [freertos_sync_primitives.txt](../prompts/freertos_sync_primitives.txt) |

@@ -21,6 +21,7 @@
 - JL/BK：**强制** Phase A 模块地图
 - 输出需求驱动裁剪表（非固定删除清单）
 - 每步验证：编译 / 冒烟 / `idf.py size` 或 map 对比
+- 内存缩池顺序 → [memory_alloc_optimize.txt](../prompts/memory_alloc_optimize.txt)（C7.2、C7.6）
 
 ## Step 4 — 输出
 

@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.9.0 — 2026-06-15
+
+- 新增 C7 内存分配与优化约束（C7.1–C7.9）与 `memory_alloc_optimize.txt`
+
 ## 2.8.0 — 2026-06-15
 
 - 新增 `references/skill_structure.md`（L0–L4 四层加载模型）与 `workflows/README.md`

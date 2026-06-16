@@ -33,6 +33,15 @@ Code Review 或 L3 校验时逐条核对。违规项引用 `C#.#`（完整矩阵
 
 - [ ] C5.1 每大模块有 `APP_TEST_MODE_*` 宏
 
+## C7 — 内存分配优化
+
+- [ ] C7.1 缩池/缩栈前有基线或标注「未实测」
+- [ ] C7.2 先修泄漏(C2/C3)再缩池，顺序正确
+- [ ] C7.3 无大 buffer / JSON 树压栈
+- [ ] C7.5 WSS 栈 ≥ 4096 bytes（TLS 建议 6144–8192）
+- [ ] C7.6 缩 LwIP/TLS/LVGL 池后有 WiFi+WSS 冒烟说明
+- [ ] C7.9 重连指数退避，无 tight loop 握手
+
 ## 堆栈 / WSS / MVP
 
 - [ ] 相对优先级表已输出（见 [core_rules.md](core_rules.md)）

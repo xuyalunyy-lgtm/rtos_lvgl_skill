@@ -16,12 +16,13 @@
 
 | 症状 | 优先 ID | 只加载 | 反例 / 工具 |
 |------|---------|--------|-------------|
-| STACK OVERFLOW / WssTask | C4.5 | [mbedtls_wss_memory.txt](../prompts/mbedtls_wss_memory.txt) | `stack_calculator.py` |
+| STACK OVERFLOW / WssTask | C4.5, **C7.5** | [mbedtls_wss_memory.txt](../prompts/mbedtls_wss_memory.txt) · [memory_alloc_optimize.txt](../prompts/memory_alloc_optimize.txt) | `stack_calculator.py` |
 | Guru Meditation + network/UI | C1.1, C1.5 | [lvgl_thread_safety.txt](../prompts/lvgl_thread_safety.txt) | [bad_lvgl_cross_thread.c](../examples/bad_lvgl_cross_thread.c) |
 | HardFault @ Presenter / 随机复现 | C2.1, C2.2 | [memory_ownership.txt](../prompts/memory_ownership.txt) | [bad_queue_stack_pointer.c](../examples/bad_queue_stack_pointer.c) · `queue_ownership_checker.py` |
 | 界面 frozen | C1.5, C1.6, C2.7 | [deadlock_lock_order.txt](../prompts/deadlock_lock_order.txt) | — |
 | I2S 卡顿 / 爆音 | C4.1–C4.4 | [audio_dma_pingpong.txt](../prompts/audio_dma_pingpong.txt) | [bad_isr_blocking.c](../examples/bad_isr_blocking.c) |
-| heap 持续下降 | C3.1–C3.5 | [cjson_safe_parse.txt](../prompts/cjson_safe_parse.txt) | `cjson_leak_checker.py` |
+| heap 持续下降 | C3.1–C3.5, **C7.2** | [cjson_safe_parse.txt](../prompts/cjson_safe_parse.txt) · [memory_alloc_optimize.txt](../prompts/memory_alloc_optimize.txt) | `cjson_leak_checker.py` |
+| 缩池 / 关模块后异常 | **C7.6** | [memory_alloc_optimize.txt](../prompts/memory_alloc_optimize.txt) | — |
 | TLS 握手 fail / 反复断线 | C1.5 | [mbedtls_wss_memory.txt](../prompts/mbedtls_wss_memory.txt) | [bad_wss_blocking.c](../examples/bad_wss_blocking.c) → [good_wss_reconnect.c](../examples/good_wss_reconnect.c) |
 | WDT / task watchdog | C1.5, C4.7 | [deadlock_lock_order.txt](../prompts/deadlock_lock_order.txt) | 查持锁等 Queue |
 

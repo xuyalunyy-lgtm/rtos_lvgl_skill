@@ -22,7 +22,7 @@
 | **Queue 栈指针/cJSON*** | 完整版 `examples/bad_queue_stack_pointer.c` |
 | WSS 栈/重连 | 完整版 `examples/bad_wss_blocking.c` → 正例 完整版 `examples/good_wss_reconnect.c` |
 
-按需深读：[lvgl_thread_safety.txt](../prompts/lvgl_thread_safety.txt)、[memory_ownership.txt](../prompts/memory_ownership.txt)、[deadlock_lock_order.txt](../prompts/deadlock_lock_order.txt)
+按需深读：[lvgl_thread_safety.txt](../prompts/lvgl_thread_safety.txt)、[memory_ownership.txt](../prompts/memory_ownership.txt)、[deadlock_lock_order.txt](../prompts/deadlock_lock_order.txt)、[memory_alloc_optimize.txt](../prompts/memory_alloc_optimize.txt)（堆/栈/缩池嫌疑）
 
 ## Step 3 — 人工审查（Lite）
 
