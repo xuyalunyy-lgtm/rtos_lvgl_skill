@@ -28,15 +28,7 @@ def checker_env() -> dict[str, str]:
     return env
 
 
-def _safe_print(text: str, file=None) -> None:
-    """Print with UTF-8 fallback for Windows GBK consoles."""
-    try:
-        print(text, end="", file=file)
-    except UnicodeEncodeError:
-        # Reconfigure the target stream to utf-8 and retry
-        stream = file or sys.stdout
-        stream.reconfigure(encoding="utf-8", errors="replace")
-        print(text, end="", file=file)
+from checker_io import safe_print as _safe_print  # noqa: E402
 
 
 def is_bad_example(path: Path) -> bool:

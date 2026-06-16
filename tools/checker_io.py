@@ -11,3 +11,16 @@ def configure_stdout() -> None:
                 stream.reconfigure(encoding="utf-8", errors="replace")
             except Exception:
                 pass
+
+
+def safe_print(text: str, file=None) -> None:
+    """Print with UTF-8 fallback for Windows GBK consoles."""
+    stream = file or sys.stdout
+    try:
+        print(text, end="", file=stream)
+    except UnicodeEncodeError:
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
+            print(text, end="", file=stream)
+        else:
+            raise

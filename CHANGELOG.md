@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.24.0 — 2026-06-16
+
+- **精简**：iteration_log 旧条目（v2.4–v2.15）归档至 `iteration_log_archive_2026Q2.md`
+- **统一**：run_review.py GBK 处理改为使用 checker_io.safe_print（消除重复代码）
+- **checker_io.py**：增加 `safe_print()` 函数，5 个 checker + run_review 共用
+
 ## 2.23.0 — 2026-06-16
 
 - **新增 C17 多核 IPC**：`prompts/multi_core_ipc.txt`（跨核通信、IPC mailbox、硬件信号量）
