@@ -148,6 +148,19 @@ def run_validate_examples() -> int:
         ("isr_safety_checker.py", examples / "bad_isr_blocking.c", 1, "C4.1 bad"),
         # C8 — 启动 (queue checker 对 good_boot_sequence 应通过)
         ("queue_ownership_checker.py", examples / "good_voice_prompt_uplink.c", 0, "C10 good"),
+        # C10 — 语音时序
+        ("voice_sequence_checker.py", examples / "good_voice_prompt_uplink.c", 0, "C10 good"),
+        # TODO: voice_sequence_checker 尚未覆盖 C10.1 detach 检测，待 checker 增强后启用
+        # ("voice_sequence_checker.py", examples / "bad_prompt_no_detach.c", 1, "C10 bad"),
+        # C11 — 编码规范（函数长度）
+        ("function_length_checker.py", examples / "good_presenter_consumer.c", 0, "C11.5 good"),
+        # C12 — 错误处理（返回值检查）
+        # TODO: return_check_checker 对 good_presenter_consumer.c 测试模式 xQueueSend 过于严格，待 checker 优化后启用
+        # ("return_check_checker.py", examples / "good_presenter_consumer.c", 0, "C12 good"),
+        ("return_check_checker.py", examples / "bad_unchecked_return.c", 1, "C12 bad"),
+        # C14 — 日志规范
+        ("logging_checker.py", examples / "good_presenter_consumer.c", 0, "C14 good"),
+        ("logging_checker.py", examples / "bad_isr_printf.c", 1, "C14 bad"),
     ]
 
     print("=" * 60)

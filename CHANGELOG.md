@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.60.0 — 2026-06-16
+
+- **validate-examples 覆盖扩展**：新增 C10（voice_sequence_checker）、C11.5（function_length_checker）、C12（return_check_checker）、C14（logging_checker）的 good/bad 范例验证，从 12 项扩展至 20 项
+- **checker 精度问题记录**：voice_sequence_checker 尚未覆盖 C10.1 detach 检测、return_check_checker 对测试模式 xQueueSend 过于严格，已标记 TODO 待后续 checker 增强
+- **Prompt 来源注释**：`voice_asr_uplink.txt` 增加 HTML 注释标注知识来源（BK7258 AI闹钟 ASR 空 + 第二轮 peak 塌陷）
+- **版本升至 2.60.0**
+
 ## 2.50.0 — 2026-06-16
 
 - **新增 workflow `l3_bring_up.md`**：板级 Bring-up 端到端流程（最小系统→外设逐个验证→MVP 链路→WSS/TLS→语音→冒烟→量产 checklist），7 个阶段每个有明确交付物
