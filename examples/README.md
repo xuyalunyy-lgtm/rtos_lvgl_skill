@@ -58,6 +58,22 @@ Cache 一致性细则 → [audio_dma_pingpong.txt](../prompts/audio_dma_pingpong
 | ✅ | [good_boot_sequence.c](good_boot_sequence.c) | C8.1, C8.6 | 人工 |
 | ✅ | [good_wss_reconnect.c](good_wss_reconnect.c) | C8.5, C7.9, C8.2 | 人工 |
 
+## C12 — 错误处理
+
+| | 文件 | ID | Checker |
+|---|------|-----|---------|
+| ❌ | [bad_unchecked_return.c](bad_unchecked_return.c) | C12.1, C12.2, C12.4, C12.5 | `return_check_checker.py`（规划中） |
+
+深细节 → [error_handling.txt](../prompts/error_handling.txt)
+
+## C14 — 日志规范
+
+| | 文件 | ID | Checker |
+|---|------|-----|---------|
+| ❌ | [bad_isr_printf.c](bad_isr_printf.c) | C14.1, C14.3, C14.4 | `logging_checker.py`（规划中） |
+
+深细节 → [logging_debug.txt](../prompts/logging_debug.txt)
+
 ## MVP 分层闭环
 
 | | 文件 |

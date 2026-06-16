@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.22.0 — 2026-06-16
+
+- **C12 反例**：新增 `examples/bad_unchecked_return.c`（未检查 xTaskCreate 返回值 + NULL 解引用 + early return 不释放资源）
+- **C14 反例**：新增 `examples/bad_isr_printf.c`（ISR 中 printf + 裸 printf + 明文打印 token）
+- **C12 checker**：新增 `tools/return_check_checker.py`（xTaskCreate/pvPortMalloc 返回值未检查）；集成至 `run_review.py`
+- **C14 checker**：新增 `tools/logging_checker.py`（裸 printf + ISR 日志）；集成至 `run_review.py`
+- **constraint_detail.md**：补充 C11–C16 完整约束矩阵（正例/反例/checker）
+- **l2_code_review.md**：Step 2 反例对照表增加 C12/C14/C11 prompt 引用
+- **examples/README.md**：增加 C12/C14 范例索引
+- **skill_structure.md**：工具目录增加 logging_checker / return_check_checker
+- **Lite**：版本同步 2.22.0，description 更新
+
 ## 2.21.0 — 2026-06-16
 
 - **新增 C11–C16 约束域**：编码规范、错误处理、状态机、日志规范、优先级与通信、定时器管理

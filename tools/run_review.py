@@ -203,6 +203,8 @@ def main() -> int:
     parser.add_argument("--skip-lvgl", action="store_true")
     parser.add_argument("--skip-queue", action="store_true")
     parser.add_argument("--skip-voice", action="store_true")
+    parser.add_argument("--skip-logging", action="store_true")
+    parser.add_argument("--skip-return-check", action="store_true")
     parser.add_argument(
         "--validate-examples",
         action="store_true",
@@ -330,6 +332,34 @@ def main() -> int:
         exit_code = max(exit_code, rc)
     elif not args.skip_voice:
         print("\n[skip] voice_sequence_checker: 无 .c 文件")
+
+    if not args.skip_logging and c_files:
+        logging_argv: list[str] = []
+        if args.dir:
+            logging_argv.extend(["--dir", args.dir])
+        else:
+            logging_argv.extend(str(f) for f in c_files)
+        rc = run_cmd(
+            "logging_checker",
+            [sys.executable, str(TOOLS_DIR / "logging_checker.py"), *logging_argv],
+        )
+        exit_code = max(exit_code, rc)
+    elif not args.skip_logging:
+        print("\n[skip] logging_checker: 无 .c 文件")
+
+    if not args.skip_return_check and c_files:
+        rc_argv: list[str] = []
+        if args.dir:
+            rc_argv.extend(["--dir", args.dir])
+        else:
+            rc_argv.extend(str(f) for f in c_files)
+        rc = run_cmd(
+            "return_check_checker",
+            [sys.executable, str(TOOLS_DIR / "return_check_checker.py"), *rc_argv],
+        )
+        exit_code = max(exit_code, rc)
+    elif not args.skip_return_check:
+        print("\n[skip] return_check_checker: 无 .c 文件")
 
     if not c_files and args.dir:
         print("\n[warn] 排除 bad_*.c 后无可审查文件")

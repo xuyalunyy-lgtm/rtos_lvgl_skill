@@ -115,6 +115,8 @@ Workflow 索引 → [workflows/README.md](../workflows/README.md)
 | 安装 Claude Code | `.\scripts\install_claude_code.ps1`（见 [claude_code.md](claude_code.md)） |
 | C10 语音时序 | `python tools/voice_sequence_checker.py --dir src/` |
 | 链接检查 | `python tools/check_links.py` |
+| C14 日志检查 | `python tools/logging_checker.py --dir src/` |
+| C12 返回值检查 | `python tools/return_check_checker.py --dir src/` |
 | MVP 骨架 | `python tools/mvp_codegen_tool.py Module --platform jl -o ./generated` |
 
 Checker 与 C#.# 映射 → [examples/README.md](../examples/README.md)

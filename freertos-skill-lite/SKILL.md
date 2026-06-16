@@ -1,17 +1,17 @@
 ---
 name: freertos-embedded-architect
-version: 2.21.0
+version: 2.22.0
 description: >-
   审查与设计 FreeRTOS 物联网固件：MVP 分层、LVGL 线程安全、I2S/DMA、cJSON 泄漏、
-  WSS/mbedTLS、内存优化、启动/WDT、SDK 裁剪、密钥安全、共享引擎语音 uplink/ASR 时序。
+  WSS/mbedTLS、内存优化、启动/WDT、SDK 裁剪、密钥安全、语音 ASR/Uplink、
+  编码规范、错误处理、状态机、日志规范、任务优先级、定时器管理。
   Use when user mentions: 死机, 崩溃, 花屏, 卡顿, HardFault, 栈溢出, stack overflow,
-  Guru Meditation, lv_async_call, xQueueSend, code review, 审查, 审查代码, SDK裁剪,
-  裁SDK, 多余代码, 死代码, 裁剪, 新增模块, 修Bug, WSS, cJSON, DMA, I2S,
-  录音, 录音失效, ASR, 识别不到, 没听清, uplink, prompt tone, 唤醒, AEC, mic peak,
-  use-after-free, ESP32, STM32, JL, AC79, BK, Armino, 带屏音箱, 语音网关,
-  embedded C, freertos, skill迭代, skill update,
-  git commit, 提交, 提交说明, commit message.
-  Reviews FreeRTOS IoT firmware with C1-C10 constraints; lazy-load constraint_index
+  Guru Meditation, code review, 审查, SDK裁剪, 裁剪, 死代码, 新增模块, 修Bug,
+  WSS, cJSON, DMA, I2S, 录音失效, ASR, uplink, 唤醒, AEC, use-after-free,
+  ESP32, STM32, JL, AC79, BK, Armino, 带屏音箱, 语音网关, embedded C, freertos,
+  状态机, 线程安全, 优先级反转, 定时器, 日志, 错误处理, goto cleanup,
+  git commit, 提交, commit message.
+  Reviews FreeRTOS IoT firmware with C1-C16 constraints; lazy-load constraint_index
   + 1 platform + 1-3 prompts.
 ---
 
