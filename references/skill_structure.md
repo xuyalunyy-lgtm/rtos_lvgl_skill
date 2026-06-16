@@ -107,6 +107,8 @@ Workflow 索引 → [workflows/README.md](../workflows/README.md)
 | 迭代验证 | `python scripts/skill_iterate.py --check --sync` · Windows：`.\scripts\skill_iterate.cmd -Sync` |
 | 安装 Cursor | `.\scripts\install_skill.ps1`（见 [INSTALL.md](../INSTALL.md)） |
 | 安装 Claude Code | `.\scripts\install_claude_code.ps1`（见 [claude_code.md](claude_code.md)） |
+| C10 语音时序 | `python tools/voice_sequence_checker.py --dir src/` |
+| 链接检查 | `python tools/check_links.py` |
 | MVP 骨架 | `python tools/mvp_codegen_tool.py Module --platform jl -o ./generated` |
 
 Checker 与 C#.# 映射 → [examples/README.md](../examples/README.md)

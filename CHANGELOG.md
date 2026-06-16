@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.20.0 — 2026-06-16
+
+- **C10 反例**：新增 `examples/bad_prompt_no_detach.c`（C10.1 未 detach / C10.2 无 AEC settle / C10.5 无 generation 过滤）
+- **C10 checker**：新增 `tools/voice_sequence_checker.py`（C10.1/C10.2/C10.5 启发式检查）；集成至 `run_review.py --skip-voice`
+- **链接检查**：新增 `tools/check_links.py`（扫描 .md 相对链接有效性）
+- **validate-examples 扩展**：覆盖 C2/C8/C10 good 范例（`good_boot_sequence.c` / `good_voice_prompt_uplink.c`）
+- **Lite 补齐**：`freertos-skill-lite/SKILL.md` 铁律表增加 C9/C10
+- **症状表去重**：`constraint_index.md` 症状表改为引用 `constraint_detail.md`，消除重复维护
+- **description 精简**：SKILL.md 触发词去重（去掉 `审查代码`/`裁SDK`/`skill迭代` 等冗余）
+
 ## 2.19.0 — 2026-06-16
 
 - **通用化**：C10 / `voice_asr_uplink.txt` 去除产品 API 名（VSM/duer/port），改用 session/playback_slot 抽象

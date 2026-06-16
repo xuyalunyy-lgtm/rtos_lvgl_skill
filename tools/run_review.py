@@ -128,16 +128,23 @@ def run_validate_examples() -> int:
     """铁律范例约束：good_* 须通过，bad_* 须触发对应 checker 失败。"""
     examples = SKILL_ROOT / "examples"
     cases: list[tuple[str, Path, int, str]] = [
-        ("queue_ownership_checker.py", examples / "good_wss_json_parse.c", 0, "C2 good"),
-        ("queue_ownership_checker.py", examples / "good_presenter_consumer.c", 0, "C2 good"),
-        ("queue_ownership_checker.py", examples / "good_wss_reconnect.c", 0, "C2 good"),
-        ("queue_ownership_checker.py", examples / "bad_queue_stack_pointer.c", 1, "C2.2 bad"),
-        ("cjson_leak_checker.py", examples / "good_wss_json_parse.c", 0, "C3 good"),
-        ("cjson_leak_checker.py", examples / "bad_cjson_leak.c", 1, "C3.1 bad"),
+        # C1 — LVGL
         ("lvgl_thread_checker.py", examples / "good_mvp_pattern.c", 0, "C1 good"),
         ("lvgl_thread_checker.py", examples / "good_presenter_consumer.c", 0, "C1 good"),
         ("lvgl_thread_checker.py", examples / "bad_lvgl_cross_thread.c", 1, "C1.1 bad"),
+        # C2 — Queue
+        ("queue_ownership_checker.py", examples / "good_wss_json_parse.c", 0, "C2 good"),
+        ("queue_ownership_checker.py", examples / "good_presenter_consumer.c", 0, "C2 good"),
+        ("queue_ownership_checker.py", examples / "good_wss_reconnect.c", 0, "C2 good"),
+        ("queue_ownership_checker.py", examples / "good_boot_sequence.c", 0, "C2/C8 good"),
+        ("queue_ownership_checker.py", examples / "bad_queue_stack_pointer.c", 1, "C2.2 bad"),
+        # C3 — cJSON
+        ("cjson_leak_checker.py", examples / "good_wss_json_parse.c", 0, "C3 good"),
+        ("cjson_leak_checker.py", examples / "bad_cjson_leak.c", 1, "C3.1 bad"),
+        # C4 — ISR
         ("isr_safety_checker.py", examples / "bad_isr_blocking.c", 1, "C4.1 bad"),
+        # C8 — 启动 (queue checker 对 good_boot_sequence 应通过)
+        ("queue_ownership_checker.py", examples / "good_voice_prompt_uplink.c", 0, "C10 good"),
     ]
 
     print("=" * 60)
@@ -195,6 +202,7 @@ def main() -> int:
     parser.add_argument("--skip-isr", action="store_true")
     parser.add_argument("--skip-lvgl", action="store_true")
     parser.add_argument("--skip-queue", action="store_true")
+    parser.add_argument("--skip-voice", action="store_true")
     parser.add_argument(
         "--validate-examples",
         action="store_true",
@@ -308,6 +316,20 @@ def main() -> int:
             exit_code = max(exit_code, rc)
     elif not args.skip_queue:
         print("\n[skip] queue_ownership_checker: 无 .c 文件")
+
+    if not args.skip_voice and c_files:
+        voice_argv: list[str] = []
+        if args.dir:
+            voice_argv.extend(["--dir", args.dir])
+        else:
+            voice_argv.extend(str(f) for f in c_files)
+        rc = run_cmd(
+            "voice_sequence_checker",
+            [sys.executable, str(TOOLS_DIR / "voice_sequence_checker.py"), *voice_argv],
+        )
+        exit_code = max(exit_code, rc)
+    elif not args.skip_voice:
+        print("\n[skip] voice_sequence_checker: 无 .c 文件")
 
     if not c_files and args.dir:
         print("\n[warn] 排除 bad_*.c 后无可审查文件")

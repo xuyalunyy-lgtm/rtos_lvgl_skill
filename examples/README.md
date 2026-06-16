@@ -45,6 +45,7 @@ Cache 一致性细则 → [audio_dma_pingpong.txt](../prompts/audio_dma_pingpong
 
 | | 文件 | ID | Checker |
 |---|------|-----|---------|
+| ❌ | [bad_prompt_no_detach.c](bad_prompt_no_detach.c) | C10.1, C10.2, C10.5 | 人工 |
 | ✅ | [good_voice_prompt_uplink.c](good_voice_prompt_uplink.c) detach + settle + session generation | C10.1–C10.6 | 人工 |
 
 深细节 → [voice_asr_uplink.txt](../prompts/voice_asr_uplink.txt)
@@ -71,7 +72,7 @@ Cache 一致性细则 → [audio_dma_pingpong.txt](../prompts/audio_dma_pingpong
 # checker fixtures 自测
 python tools/run_review.py --self-test
 
-# 铁律 C1–C4 范例 good/bad 约束
+# 铁律 C1–C4 + C10 范例 good/bad 约束
 python tools/run_review.py --validate-examples
 
 # 审查用户源码（含 queue 所有权）

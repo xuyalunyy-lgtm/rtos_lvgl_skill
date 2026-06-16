@@ -81,17 +81,7 @@
 | C10.6 | 2 | playback slot/handle 勿 hardcode |
 
 ## 症状 → ID（Crash 用）
-| 症状 | ID |
-|------|-----|
-| 跨线程 LVGL | C1.1 |
-| 野指针/Queue | C2.1–C2.3 |
-| cJSON 泄漏 | C3.1 |
-| ISR 卡死 | C4.1–C4.3 |
-| STACK OVERFLOW WSS | C7.5, C4.5 |
-| WDT | C8.3–C8.6, C1.5 |
-| heap 下降 | C3.*, C7.2 |
-| 明文密钥入库 | C9.1, C9.2 |
-| ASR 空 / 录音失效 | C10.1–C10.5 |
-| 第二轮麦幅塌陷 | C10.1, C10.2 |
+
+完整症状→约束 ID 表 → [constraint_detail.md](constraint_detail.md) 末尾。
 
 Prompt 深细节按需 1–3 个 → [skill_structure.md](skill_structure.md) 场景表。

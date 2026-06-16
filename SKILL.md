@@ -1,16 +1,14 @@
 ---
 name: freertos-embedded-architect
-version: 2.19.0
+version: 2.20.0
 description: >-
   审查与设计 FreeRTOS 物联网固件：MVP 分层、LVGL 线程安全、I2S/DMA、cJSON 泄漏、
-  WSS/mbedTLS、内存优化、启动/WDT、SDK 裁剪、密钥安全、共享引擎语音 uplink/ASR 时序。
+  WSS/mbedTLS、内存优化、启动/WDT、SDK 裁剪、密钥安全、语音 uplink/ASR 时序。
   Use when user mentions: 死机, 崩溃, 花屏, 卡顿, HardFault, 栈溢出, stack overflow,
-  Guru Meditation, lv_async_call, xQueueSend, code review, 审查, 审查代码, SDK裁剪,
-  裁SDK, 多余代码, 死代码, 裁剪, 新增模块, 修Bug, WSS, cJSON, DMA, I2S,
-  录音, 录音失效, ASR, 识别不到, 没听清, uplink, prompt tone, 唤醒, AEC, mic peak,
-  use-after-free, ESP32, STM32, JL, AC79, BK, Armino, 带屏音箱, 语音网关,
-  embedded C, freertos, skill迭代, skill update,
-  git commit, 提交, 提交说明, commit message.
+  Guru Meditation, code review, 审查, SDK裁剪, 裁剪, 死代码, 新增模块, 修Bug,
+  WSS, cJSON, DMA, I2S, 录音失效, ASR, uplink, 唤醒, AEC, use-after-free,
+  ESP32, STM32, JL, AC79, BK, Armino, 带屏音箱, 语音网关, embedded C, freertos,
+  git commit, 提交, commit message.
   Reviews FreeRTOS IoT firmware with C1-C10 constraints; lazy-load constraint_index
   + 1 platform + 1-3 prompts.
 ---

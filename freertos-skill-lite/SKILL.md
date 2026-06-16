@@ -1,6 +1,6 @@
 ---
 name: freertos-embedded-architect
-version: 2.19.0
+version: 2.20.0
 description: >-
   审查与设计 FreeRTOS 物联网固件：MVP 分层、LVGL 线程安全、I2S/DMA、cJSON 泄漏、
   WSS/mbedTLS、内存优化、启动/WDT、SDK 裁剪、密钥安全、共享引擎语音 uplink/ASR 时序。
@@ -54,6 +54,8 @@ description: >-
 | 6 | SDK（C6） | [sdk_trim_prune.txt](prompts/sdk_trim_prune.txt) |
 | 7 | 内存（C7） | [memory_alloc_optimize.txt](prompts/memory_alloc_optimize.txt) |
 | 8 | 启动/WDT（C8） | [boot_wdt_lifecycle.txt](prompts/boot_wdt_lifecycle.txt) |
+| 9 | 密钥/凭证（C9） | [secrets_kconfig.txt](prompts/secrets_kconfig.txt) |
+| 10 | 语音/ASR/Uplink（C10） | [voice_asr_uplink.txt](prompts/voice_asr_uplink.txt) |
 
 Prompt 全表 → [skill_structure.md](references/skill_structure.md)
 
