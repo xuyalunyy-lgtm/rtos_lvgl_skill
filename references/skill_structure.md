@@ -80,6 +80,9 @@ Workflow 索引 → [workflows/README.md](../workflows/README.md)
 | 网络 | WSS / mbedTLS / 栈 | [mbedtls_wss_memory.txt](../prompts/mbedtls_wss_memory.txt) |
 | Crash | 日志解读 | [crash_log_decode.txt](../prompts/crash_log_decode.txt) |
 | 同步 | FreeRTOS 原语 | [freertos_sync_primitives.txt](../prompts/freertos_sync_primitives.txt) |
+| C18 | 外设驱动安全 | [peripheral_driver_safety.txt](../prompts/peripheral_driver_safety.txt) |
+| C19 | Flash/NVS 安全 | [flash_nvs_safety.txt](../prompts/flash_nvs_safety.txt) |
+| C20 | 网络韧性 | [network_resilience.txt](../prompts/network_resilience.txt) |
 
 约束 ID 细则 → [constraint_detail.md](constraint_detail.md) · L2 速查 → [constraint_index.md](constraint_index.md)
 

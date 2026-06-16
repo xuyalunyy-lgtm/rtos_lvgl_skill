@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.90.0 — 2026-06-16
+
+- **新增 3 个约束域（C18–C20）**：外设驱动安全、Flash/NVS 安全、网络韧性，总计新增 16 条规则
+- **C18 外设驱动安全**（6 条）：GPIO 方向配置、I2C 地址来源、SPI 模式匹配、DMA 通道冲突、ADC 引脚配置、PWM 频率分辨率互斥
+- **C19 Flash/NVS 安全**（5 条）：NVS commit 返回值、Flash 擦写读冲突、OTA 回滚验证、分区表一致性、磨损均衡
+- **C20 网络韧性**（5 条）：WiFi/WSS 指数退避、网络操作超时、DNS 失败处理、TLS 错误区分、断线降级策略
+- **新增 3 个场景 prompt**：`peripheral_driver_safety.txt`、`flash_nvs_safety.txt`、`network_resilience.txt`
+- **约束体系扩展至 20 个域、96+ 条规则**
+- **联动更新**：constraint_detail / constraint_index / skill_structure / SKILL.md / Lite 全量同步
+
 ## 2.80.0 — 2026-06-16
 
 - **多产品线适配框架**：新增 `product_profiles/` 目录，4 个芯片平台 JSON profile（ESP32/STM32/JL/BK），每个含必选约束、可选约束、功能特性、常见坑点、栈大小建议
