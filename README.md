@@ -1,6 +1,6 @@
 # FreeRTOS Embedded Architect Skill
 
-Cursor Agent Skill：FreeRTOS 物联网固件架构（MVP 分层、LVGL 线程安全、I2S DMA、cJSON 防泄漏、WSS/mbedTLS、JL/BK SDK 需求驱动裁剪）。
+Cursor Agent Skill：FreeRTOS 物联网固件架构（MVP 分层、LVGL 线程安全、I2S DMA、cJSON 防泄漏、WSS/mbedTLS、SDK 裁剪、错误处理、状态机、日志规范、任务优先级、定时器管理）。约束体系 C1–C16。
 
 ## 快速开始
 
@@ -36,5 +36,8 @@ L4  examples/ + tools/       完整版专有
 |------|------|
 | 正例 WSS Model | [examples/good_wss_json_parse.c](examples/good_wss_json_parse.c) |
 | 正例 Presenter | [examples/good_presenter_consumer.c](examples/good_presenter_consumer.c) |
+| 正例 语音 Uplink | [examples/good_voice_prompt_uplink.c](examples/good_voice_prompt_uplink.c) |
 | 反例 WSS 栈/重连 | [examples/bad_wss_blocking.c](examples/bad_wss_blocking.c) |
+| 反例 C12 返回值 | [examples/bad_unchecked_return.c](examples/bad_unchecked_return.c) |
+| 反例 C14 日志 | [examples/bad_isr_printf.c](examples/bad_isr_printf.c) |
 | 共享类型 | [examples/app_mvp.h](examples/app_mvp.h) |

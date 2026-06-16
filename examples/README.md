@@ -62,7 +62,7 @@ Cache 一致性细则 → [audio_dma_pingpong.txt](../prompts/audio_dma_pingpong
 
 | | 文件 | ID | Checker |
 |---|------|-----|---------|
-| ❌ | [bad_unchecked_return.c](bad_unchecked_return.c) | C12.1, C12.2, C12.4, C12.5 | `return_check_checker.py`（规划中） |
+| ❌ | [bad_unchecked_return.c](bad_unchecked_return.c) | C12.1, C12.2, C12.4, C12.5 | `return_check_checker.py` |
 
 深细节 → [error_handling.txt](../prompts/error_handling.txt)
 
@@ -70,7 +70,7 @@ Cache 一致性细则 → [audio_dma_pingpong.txt](../prompts/audio_dma_pingpong
 
 | | 文件 | ID | Checker |
 |---|------|-----|---------|
-| ❌ | [bad_isr_printf.c](bad_isr_printf.c) | C14.1, C14.3, C14.4 | `logging_checker.py`（规划中） |
+| ❌ | [bad_isr_printf.c](bad_isr_printf.c) | C14.1, C14.3, C14.4 | `logging_checker.py` |
 
 深细节 → [logging_debug.txt](../prompts/logging_debug.txt)
 

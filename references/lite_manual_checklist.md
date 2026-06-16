@@ -49,6 +49,52 @@ Code Review 或 L3 校验时逐条核对。违规项引用 `C#.#`（完整矩阵
 - [ ] C8.3 Presenter 无 portMAX_DELAY 等 Queue
 - [ ] C8.5 重连幂等，无重复 xTaskCreate 同模块
 
+## C9 — 密钥/凭证
+
+- [ ] C9.1 入库 config 无非空 SECRET/TOKEN/PASSWORD
+- [ ] C9.2 Git remote 无内嵌凭证
+- [ ] C9.3 日志不打印密码/token 明文
+- [ ] C9.4 secrets 文件在 .gitignore
+
+## C10 — 语音/ASR/Uplink
+
+- [ ] C10.1 prompt/TTS stop + FINISHED 双路径 detach
+- [ ] C10.2 开 uplink 前 AEC settle + mic ready
+- [ ] C10.5 有 session generation 过滤 stale 回调
+
+## C11 — 编码规范
+
+- [ ] C11.1 文件名 `模块_功能.c/h`
+- [ ] C11.5 单函数 ≤80 行
+- [ ] C11.6 每个 .c/.h 有文件头注释
+
+## C12 — 错误处理
+
+- [ ] C12.1 FreeRTOS API 返回值已检查
+- [ ] C12.2 pvPortMalloc 失败路径不 NULL 解引用
+- [ ] C12.4 多资源函数用 goto cleanup
+
+## C13 — 状态机
+
+- [ ] C13.1 长生命周期任务有 enum state
+- [ ] C13.3 switch-default 处理非法状态
+
+## C14 — 日志规范
+
+- [ ] C14.1 无裸 printf，用 LOG_* + TAG
+- [ ] C14.3 ISR/DMA/LVGL timer 内无日志
+- [ ] C14.4 日志不打印密码/token 明文
+
+## C15 — 优先级与通信
+
+- [ ] C15.1 相邻任务优先级差 ≥2
+- [ ] C15.2 共享资源用 mutex（非 binary semaphore）
+
+## C16 — 定时器管理
+
+- [ ] C16.1 timer 回调无阻塞操作
+- [ ] C16.2 动态 timer 有 stop + delete 路径
+
 ## 堆栈 / WSS / MVP
 
 - [ ] 相对优先级表已输出（见 [core_rules.md](core_rules.md)）

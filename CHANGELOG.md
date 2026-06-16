@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.22.1 — 2026-06-16
+
+- **一致性修复**：lite_manual_checklist.md 补齐 C9–C16 检查项
+- **README.md 更新**：描述反映 C11-C16；关键范例表增加 C12/C14 反例与 C10 正例
+- **症状表扩展**：constraint_detail.md 症状→约束ID 增加 C12/C14/C16（NULL解引用、日志洪水、timer卡死）
+- **examples/README.md**：C12/C14 checker 标注从"规划中"改为实际 checker 名
+- **SKILL.md / Lite**：版本同步 2.22.1
+
 ## 2.22.0 — 2026-06-16
 
 - **C12 反例**：新增 `examples/bad_unchecked_return.c`（未检查 xTaskCreate 返回值 + NULL 解引用 + early return 不释放资源）
