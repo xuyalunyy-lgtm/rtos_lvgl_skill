@@ -277,6 +277,7 @@ def main() -> int:
     parser.add_argument("file", nargs="?", help="待检查的 .c/.h 文件路径")
     parser.add_argument("--stdin", action="store_true", help="从标准输入读取")
     parser.add_argument("--json", action="store_true", help="输出 JSON 格式（CI 集成）")
+    parser.add_argument("--fix-suggest", action="store_true", help="输出修复建议代码骨架")
     args = parser.parse_args()
 
     if args.stdin:
@@ -296,6 +297,8 @@ def main() -> int:
     if args.json:
         from checker_io import output_json
         output_json(format_report_json(result))
+    elif args.fix_suggest:
+        print(format_fix_suggest(result, content))
     else:
         print(format_report(result))
     return 1 if result.errors else 0
