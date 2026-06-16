@@ -1,5 +1,15 @@
 # Changelog
 
+## 3.1.0 — 2026-06-16
+
+- **自动约束发现工具**：新增 `tools/constraint_discovery.py`，14 条发现规则扫描用户项目高频违规模式，自动建议新增约束
+- **发现规则覆盖**：栈溢出（sprintf/strcpy）、竞态（共享全局变量）、整数溢出（malloc乘法）、资源泄漏（句柄未保存/信号量未销毁）、硬编码IP/URL、FreeRTOS特定（portMAX_DELAY/vTaskDelay）、平台特定（heap_caps_malloc）、TODO清理、结构体对齐、防御性编程
+- **输出模式**：文本报告 / `--json`（CI集成）/ `--report proposal.md`（Markdown提案文档）
+- **约束提案**：命中≥3次的 anti-pattern 自动生成约束新增提案（含优先级/频率/修复建议）
+- **已验证**：examples 目录扫描发现 23 个命中，2 个约束提案（共享变量保护、vTaskDelay in ISR）
+- **skill_structure.md** 工具目录新增约束发现工具条目
+- **版本升至 3.1.0**
+
 ## 3.0.0 — 2026-06-16
 
 - **约束知识图谱**：新增 `references/constraint_graph.md`，20 个约束域 96+ 条规则之间的**依赖、冲突、联动**关系网络，含 Mermaid 可视化图

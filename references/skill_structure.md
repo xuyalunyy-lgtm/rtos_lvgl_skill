@@ -139,6 +139,7 @@ Agent 在 L3 开始前**推荐**加载产品 profile：自动获取必选约束�
 | C12 返回值检查 | `python tools/return_check_checker.py --dir src/` |
 | C11.5 函数长度 | `python tools/function_length_checker.py --dir src/` |
 | MVP 骨架 | `python tools/mvp_codegen_tool.py Module --platform jl -o ./generated` |
+| 自动约束发现 | `python tools/constraint_discovery.py --dir src/` · `--report proposal.md` · `--json` |
 
 Checker 与 C#.# 映射 → [examples/README.md](../examples/README.md)
 
