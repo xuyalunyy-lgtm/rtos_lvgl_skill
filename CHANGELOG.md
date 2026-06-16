@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.27.0 — 2026-06-16
+
+- **esp32.md 大幅增强**：新增 TOC 目录导航、芯片差异表（ESP32/S3/C6/H2）、双核架构与绑核策略、PSRAM/堆管理、看门狗配置详解、NVS 状态持久化、WiFi 配网流程、安全启动/Flash 加密/OTA 安全
+- 文件从 235 行扩展至 ~350 行，涵盖 ESP-IDF 全生命周期开发规范
+
 ## 2.26.0 — 2026-06-16
 
 - **C17 一致性补全**：constraint_index.md / constraint_detail.md / core_rules.md / lite_manual_checklist.md 全部补齐 C17 多核 IPC 约束
