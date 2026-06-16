@@ -246,11 +246,37 @@ def format_report(result: CheckResult) -> str:
     return "\n".join(lines)
 
 
+def format_report_json(result: CheckResult) -> dict:
+    """输出 JSON 格式（CI 集成）。"""
+    violations = []
+    for e in result.errors:
+        violations.append({"severity": "error", "rule": "C3", "message": e})
+    for w in result.warnings:
+        violations.append({"severity": "warning", "rule": "C3", "message": w})
+    return {
+        "checker": "cjson_leak_checker",
+        "file": result.file,
+        "summary": {
+            "parse_sites": len(result.parse_sites),
+            "delete_count": result.delete_count,
+            "create_count": result.create_count,
+            "errors": len(result.errors),
+            "warnings": len(result.warnings),
+        },
+        "parse_sites": [
+            {"line": s.line_no, "func": s.func_name, "text": s.line_text[:120]}
+            for s in result.parse_sites
+        ],
+        "violations": violations,
+    }
+
+
 def main() -> int:
     configure_stdout()
     parser = argparse.ArgumentParser(description="cJSON 静态泄漏审查")
     parser.add_argument("file", nargs="?", help="待检查的 .c/.h 文件路径")
     parser.add_argument("--stdin", action="store_true", help="从标准输入读取")
+    parser.add_argument("--json", action="store_true", help="输出 JSON 格式（CI 集成）")
     args = parser.parse_args()
 
     if args.stdin:
@@ -267,7 +293,11 @@ def main() -> int:
         parser.print_help()
         return 1
 
-    print(format_report(result))
+    if args.json:
+        from checker_io import output_json
+        output_json(format_report_json(result))
+    else:
+        print(format_report(result))
     return 1 if result.errors else 0
 
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.70.0 — 2026-06-16
+
+- **Checker `--json` 输出**：`checker_io.py` 新增 `output_json()` 共享函数；`cjson_leak_checker.py` 首个支持 `--json` 的 checker，输出结构化 JSON（violations/summary/parse_sites）；`run_review.py` 新增 `--json` 参数
+- **CI 集成就绪**：JSON 输出格式兼容 GitHub Actions annotations / SonarQube / 任意 CI 解析器
+- **版本升至 2.70.0**
+
 ## 2.60.0 — 2026-06-16
 
 - **validate-examples 覆盖扩展**：新增 C10（voice_sequence_checker）、C11.5（function_length_checker）、C12（return_check_checker）、C14（logging_checker）的 good/bad 范例验证，从 12 项扩展至 20 项

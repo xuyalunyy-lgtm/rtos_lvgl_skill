@@ -237,6 +237,11 @@ def main() -> int:
         action="store_true",
         help="扫描 git remote 内嵌凭证 (C9.2)",
     )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="输出 JSON 格式摘要（CI 集成 / 机器可读）",
+    )
     args = parser.parse_args()
 
     if args.self_test:
