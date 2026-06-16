@@ -95,6 +95,12 @@ Code Review 或 L3 校验时逐条核对。违规项引用 `C#.#`（完整矩阵
 - [ ] C16.1 timer 回调无阻塞操作
 - [ ] C16.2 动态 timer 有 stop + delete 路径
 
+## C17 — 多核 IPC
+
+- [ ] C17.1 无跨核直接共享全局变量（无 IPC/mailbox）
+- [ ] C17.2 无不同 FreeRTOS 实例间的 xQueueSend
+- [ ] C17.3 共享内存访问有硬件信号量保护
+
 ## 堆栈 / WSS / MVP
 
 - [ ] 相对优先级表已输出（见 [core_rules.md](core_rules.md)）

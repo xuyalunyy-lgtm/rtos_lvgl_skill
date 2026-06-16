@@ -130,6 +130,13 @@
 | C16.2 | 1 | 动态创建 timer 须有 stop + delete 路径 |
 | C16.3 | 2 | 周期 pdTRUE / 单次 pdFALSE 须区分 |
 
+## C17 多核 IPC
+| ID | P | 一句话 |
+|----|---|--------|
+| C17.1 | 0 | 跨核通信禁止直接共享全局变量（须 IPC/mailbox） |
+| C17.2 | 0 | 不同 FreeRTOS 实例间禁 xQueueSend（须平台 IPC API） |
+| C17.3 | 1 | 核间同步用硬件信号量，禁跨核 mutex |
+
 ## 症状 → ID（Crash 用）
 
 完整症状→约束 ID 表 → [constraint_detail.md](constraint_detail.md) 末尾。

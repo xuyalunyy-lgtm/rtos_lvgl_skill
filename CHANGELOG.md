@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.26.0 — 2026-06-16
+
+- **C17 一致性补全**：constraint_index.md / constraint_detail.md / core_rules.md / lite_manual_checklist.md 全部补齐 C17 多核 IPC 约束
+- **constraint_detail.md**：新增 C17 完整约束矩阵（C17.1–C17.3）+ 症状表增加跨核数据竞争
+
 ## 2.25.0 — 2026-06-16
 
 - **新增 C11.5 checker**：`tools/function_length_checker.py`（单函数 >80 行检测）

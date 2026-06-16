@@ -79,7 +79,8 @@ python tools/stack_calculator.py --describe "WSS TLS cJSON" --platform jl
 | 13 | 状态机 | enum state/转换表/非法状态 → [state_machine_patterns.txt](../prompts/state_machine_patterns.txt) | 4 |
 | 14 | 日志规范 | 分级日志/TAG/脱敏/崩溃现场 → [logging_debug.txt](../prompts/logging_debug.txt) | 5 |
 | 15 | 优先级与通信 | 优先级差/优先级反转/通信选择 → [inter_task_communication.txt](../prompts/inter_task_communication.txt) | 3 |
-| 16 | 定时器管理 | 回调禁阻塞/lifecycle/周期vs单次 → [timer_management.txt](../prompts/timer_management.txt) | 3 |
+| 16 | 定时器管理 | 回调禁阻塞/lifecycle/周期vs单次 |
+| 17 | 多核 IPC | 跨核通信/mailbox/硬件信号量 → [timer_management.txt](../prompts/timer_management.txt) | 3 |
 
 ## 文件归属惯例
 
