@@ -84,7 +84,7 @@ Workflow 索引 → [workflows/README.md](../workflows/README.md)
 | C19 | Flash/NVS 安全 | [flash_nvs_safety.txt](../prompts/flash_nvs_safety.txt) |
 | C20 | 网络韧性 | [network_resilience.txt](../prompts/network_resilience.txt) |
 
-约束 ID 细则 → [constraint_detail.md](constraint_detail.md) · L2 速查 → [constraint_index.md](constraint_index.md)
+约束 ID 细则 → [constraint_detail.md](constraint_detail.md) · L2 速查 → [constraint_index.md](constraint_index.md) · **知识图谱** → [constraint_graph.md](constraint_graph.md)
 
 ---
 

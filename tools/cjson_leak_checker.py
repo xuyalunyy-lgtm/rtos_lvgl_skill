@@ -299,7 +299,3 @@ def main() -> int:
     else:
         print(format_report(result))
     return 1 if result.errors else 0
-
-
-if __name__ == "__main__":
-    sys.exit(main())
