@@ -1,6 +1,6 @@
 # Local chip SDK (reference only, do not commit)
 fw-AC79_AIoT_SDK/
-
+bk_idk-release-v2.2.1/
 # Python
 __pycache__/
 *.py[cod]

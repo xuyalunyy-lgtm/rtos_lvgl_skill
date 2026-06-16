@@ -2,28 +2,112 @@
 
 Agent 确认目标平台为博通集成 BK 系列时读取本文件。
 
-适用芯片：BK7258（主流 AIoT/带屏）、BK7251、BK7231/BK7236（WiFi 模组）等。
+**本专档基线 SDK：** `bk_idk-release-v2.2.1`（Armino IDK，Tag 格式 `v2.2.1.x`）
 
-SDK 框架：**Armino**（`bk_avdk` / `bk_avdk_smp`），文档：https://docs.bekencorp.com/
-
-| 项 | 值（扫描时记录） |
-|----|------------------|
-| 基线 repo | `bk_avdk_smp` + 目标 `projects/<solution>` |
-| 版本源 | solution `README` / `git tag` / `make bk7258` 编译日志 |
+| 项 | 值 |
+|----|-----|
+| 基线 repo | `bk_idk`（Armino 生态基础 SDK） |
+| 版本源 | SDK 根目录 `README.md` / `git tag` / 编译日志 `APP_VERSION` |
+| 官方文档 | https://docs.bekencorp.com/（芯片文档在 `docs/bk7239/`、`docs/bk7236n/`） |
+| 烧录工具 | https://dl.bekencorp.com/tools/flash/（BKFIL） |
 | 维护要求 | Phase A 扫描后在本表填写实测 tag，禁止照搬未验证版本号 |
+
+适用芯片：**BK7258**（三核 AIoT/带屏主流）、BK7236/BK7236N、BK7239、BK7234 等 2022 年后芯片。BK7231/BK7251 等旧芯片**不在** Armino 支持范围。
+
+---
+
+## Armino 生态分层
+
+```
+bk_idk                    ← 基础 IDK（RTOS、WiFi、BT、驱动、LwIP、mbedTLS）
+  └── bk_avdk / bk_avdk_smp   ← 多媒体扩展（LVGL、AVDK、摄像头、AP/CP 工程结构）
+        └── bk_solution_ai / bk_solution_dashboard   ← 行业方案（beken_genie、scooter 等）
+```
+
+| 场景 | 使用哪个 SDK | 典型工程 |
+|------|-------------|---------|
+| WiFi IoT / 模组 / 安全启动 | **bk_idk** | `projects/app`、`projects/security/*` |
+| 带屏 / 摄像头 / 语音 AI | **bk_avdk_smp** + 方案仓 | `lvgl/widgets`、`bk_solution_ai/projects/beken_genie` |
+| SDK 裁剪起点 | 按产品选**最小**工程 fork | bk_idk 用 `app`；带屏用 `lvgl/widgets` |
+
+**Agent 判断规则：** 用户工程含 `ap/`、`cp/` 目录或 LVGL/AVDK → 读本文「AVDK 扩展层」章节；纯 WiFi/模组 → 以 bk_idk 结构为准。
+
+---
+
+## SDK 目录地图（Phase A 扫描 · bk_idk v2.2.1）
+
+```
+bk_idk/
+├── Makefile                     # 入口 → tools/build_tools/build_files/build_main.mk
+├── dbuild.sh / dbuild.ps1       # Docker 编译（Windows 推荐）
+├── components/                  # 可裁剪组件（见下表）
+├── middleware/
+│   ├── soc/                     # 芯片 defconfig + 链接脚本
+│   │   ├── bk7258/              # CPU0 主核
+│   │   ├── bk7258_cp1/          # CPU1 固件
+│   │   └── bk7258_cp2/          # CPU2 固件
+│   ├── driver/                  # HAL / 外设驱动
+│   ├── arch/                    # CM33 架构
+│   └── boards/                  # 板级校准等
+├── projects/
+│   ├── app/                     # 默认工程（main/app_main.c）
+│   ├── security/                # 安全启动 Demo（xip / secureboot / overwrite）
+│   └── properties_libs/         # 预编译属性库
+├── docs/                        # 在线文档源（bk7239/、bk7236n/）
+├── include/                     # 公共头（components/、os/、driver/）
+├── properties/                  # 内部预编译库 / bootloader
+└── tools/
+    ├── build_tools/             # armino 构建系统、menuconfig
+    └── env_tools/               # 环境脚本、BKFIL、分区工具、bk_py_libs
+```
+
+### middleware/soc 支持的构建目标
+
+| defconfig | 说明 |
+|-----------|------|
+| `bk7234` | 单核 WiFi 6 |
+| `bk7236` | 单核，默认 fallback SoC |
+| `bk7236n` | BK7236 衍生 |
+| `bk7239` | WiFi 6 + BLE 5.4 + TrustEngine |
+| `bk7258` | 三核 SMP 主核（CPU0） |
+| `bk7258_cp1` | BK7258 CPU1 固件 |
+| `bk7258_cp2` | BK7258 CPU2 固件 |
+
+BK7258 编译 `make bk7258` 时，`projects/app/pj_config.mk` 会自动预构建 `bk7258_cp1`、`bk7258_cp2`（`SUPPORT_TRIPLE_CORE=true`）。
+
+### components/ 模块地图（裁剪参考）
+
+| 类别 | 组件 | 未用时 |
+|------|------|--------|
+| RTOS | `bk_rtos`、`os_source` | 不可关 |
+| 启动 | `bk_init`、`bk_startup`、`bk_system` | 不可关 |
+| 网络 | `bk_wifi`、`bk_netif`、`lwip_intf_v2_1` | 无 WiFi 可评估关 WiFi 相关 |
+| 协议 | `bk_httpc`、`bk_https`、`bk_websocket`、`webclient`、`http` | 按协议需求 |
+| TLS | `mbedtls`、`psa_mbedtls`、`wolfssl` | 保留一个栈 |
+| 蓝牙 | `bk_bluetooth` | 无 BLE 关 `CONFIG_BLE` |
+| CLI | `bk_cli`、`at`、`at_server` | 量产关 `CONFIG_CLI` |
+| OTA | `bk_ota`、`ota`、`https_ota` | 无 OTA 可关 |
+| 存储 | `easy_flash`、`fatfs`、`littlefs`、`flashdb` | 按需求 |
+| USB | `bk_usb` | 无 USB 关 |
+| 安全 | `bk_trustengine`、`security`、`tfm`、`mcuboot` | 按安全方案 |
+| 调试 | `coredump`、`cm_backtrace`（via Kconfig） | 量产可关 |
+| Demo | `demos` | 不编入工程 |
+
+---
 
 ## SDK 全景扫描（裁剪前强制）
 
-**动刀裁剪之前，必须先整体扫描原厂 SDK**。BK 工程结构复杂（AP/CP 双核、多 repo），禁止未扫描直接删代码。
+**动刀裁剪之前，必须先整体扫描原厂 SDK**。BK 工程可能跨多个 repo（bk_idk + avdk + solution），禁止未扫描直接删代码。
 
 ```
 Phase A — 只读扫描
-  ├── clone bk_avdk_smp + 目标 solution repo
-  ├── 列出 projects/ 与 ap/ cp/ 目录职责
-  ├── 导出 projects/<app>/config/bk7258/config 全部 CONFIG_*
-  ├── make bk7258 编译基线，记录 Flash/RAM
-  ├── 列出 AP 侧 xTaskCreate / 官方 init 顺序
-  └── 确认 CP 侧 WiFi 组件边界（用户通常只改 ap/）
+  ├── 确认 SDK 层级（bk_idk / bk_avdk_smp / solution）
+  ├── git tag / README 记录版本
+  ├── 列出 projects/ 与（若有）ap/ cp/ 目录职责
+  ├── 导出 projects/<app>/config/<soc>/config 全部 CONFIG_*
+  ├── make bk7258 编译基线，记录 Flash/RAM / all-app.bin 大小
+  ├── 列出 xTaskCreate / rtos_create_thread 与官方 init 顺序（bk_init 链）
+  └── BK7258：确认 CPU0/1/2 分工与 mailbox IPC 边界
 
 Phase B — 询问用户完整产品需求
   └── 需求驱动裁剪表（非固定模板）
@@ -31,35 +115,205 @@ Phase B — 询问用户完整产品需求
 Phase C — 从 projects/ 最小 Demo fork 新工程，按需求裁剪
 ```
 
-**推荐**：选最接近产品的最小 Demo（如 `lvgl/widgets`），copy 为新工程后再裁，勿在 `beken_genie` 全量工程上直接删。
-
 扫描输出模板见 [prompts/sdk_trim_prune.txt](../prompts/sdk_trim_prune.txt)。
+
+---
+
+## 环境部署与编译
+
+### Linux（推荐本地编译）
+
+```bash
+# 环境脚本（Ubuntu ≥20.04 / Debian ≥11）
+tools/env_tools/setup/armino_env_setup.sh
+
+# SDK 根目录
+make bk7258                              # 默认 projects/app
+make bk7258 PROJECT=security/xip         # 指定工程
+make menuconfig                          # Kconfig 交互配置
+make cleanbk7258                         # 清理单 SoC
+make build                               # 快速重编上次 SoC
+```
+
+也可在工程目录执行（`projects/app/Makefile` 自动定位 SDK）：
+
+```bash
+cd projects/app && make bk7258
+```
+
+### Windows
+
+- **推荐：** Docker + 根目录 `dbuild.ps1`（镜像 `bekencorp/armino-idk`）
+- **Git clone 注意：** 须 `core.symlinks=true`、`core.autocrlf=false`，管理员权限 clone（见官方 get-started）
+- 本地裸编译仅官方支持 Linux；Windows 裸 make 易缺工具链
+
+```powershell
+.\dbuild.ps1 make bk7258
+.\dbuild.ps1 make bk7258 PROJECT=app
+```
+
+### 编译产物
+
+```
+build/app/bk7258/all-app.bin     # 常规烧录文件
+# 安全工程首次烧录：先 bootloader.bin，再 all-app.bin
+```
+
+### Skill 编译脚本（跨 repo 工作区）
+
+Skill 提供 **`bk_build.sh`** / **`bk_build.ps1`**，放置在与 SDK **同级**的工作区根目录：
+
+```
+~/armino/
+├── bk_idk/ 或 bk_avdk_smp/    ← SDK
+├── bk_solution_ai/            ← 可选方案仓
+├── bk_build.sh / bk_build.ps1
+└── bk_build.env.example       ← 复制为 bk_build.env 配置默认工程
+```
+
+脚本自动探测 `bk_avdk_smp` / `bk_avdk` / 可设 `BK_SDK_DIR`；外部方案仓自动设置 `SDK_DIR`。
+
+---
+
+## 配置体系
+
+**优先级（高 → 低）：**
+
+```
+projects/<app>/config/<soc>/config     # 工程级 override
+  > middleware/soc/<soc>/<soc>.defconfig   # 芯片默认
+  > components/*/Kconfig               # 组件 Kconfig 默认值
+```
+
+BK7258 三核各有独立 defconfig：`bk7258`、`bk7258_cp1`、`bk7258_cp2`。
+
+### 常用 Kconfig（bk_idk）
+
+```
+CONFIG_FREERTOS_CHECK_STACKOVERFLOW=y
+CONFIG_CLI=y / n                    # 量产关 CLI
+CONFIG_BLE=y / n
+CONFIG_LWIP_V2_1=y
+CONFIG_MEM_DEBUG=y                  # 调试期开，量产关
+CONFIG_APP_MAIN_TASK_PRIO=4
+CONFIG_APP_MAIN_TASK_STACK_SIZE=4096
+```
+
+---
 
 ## 关键差异速览
 
-| 项目 | Armino SDK 惯例 | 注意 |
-|------|----------------|------|
-| 内核 | FreeRTOS（SMP 多核，BK7258） | AP/CP 双核分工，WiFi 协议栈多在 CP 侧 |
-| 编译 | `make bk7258 PROJECT=<path>` | Linux 为主，Windows 可用 `dbuild.ps1` |
-| 配置 | Kconfig + `bk7258.defconfig` | 工程 config 可 override 芯片默认配置 |
-| 任务优先级 | FreeRTOS 标准，**数字越大越高**（config 依 SDK 版本） | 以 `FreeRTOSConfig.h` 为准 |
-| 网络 | 内置 WiFi + LwIP | WSS/HTTP 走 SDK 网络组件 |
-| UI | LVGL + **BEKEN LVGL UI Designer** | 导出代码在 `beken_generated/` |
-| 多媒体 | AVDK 音视频框架（BK7258） | 摄像头/UVC/LCD 切换场景常见 |
+| 项目 | Armino / bk_idk 惯例 | 注意 |
+|------|---------------------|------|
+| 内核 | FreeRTOS v10（BK7258 可选 SMP） | `components/bk_rtos/freertos/FreeRTOSConfig.h` |
+| 线程 API | **`rtos_create_thread()`** 栈单位 **bytes** | 见 `include/os/os.h` 注释；优先于裸 `xTaskCreate` |
+| 优先级 | `configMAX_PRIORITIES=10`，**数字越大越高** | 0–9；Timer 任务占 9 |
+| 入口 | `main()` → `bk_init()` → `user_app_main()` | 在 `rtos_set_user_app_entry()` 注册 |
+| 编译 | `make bk7258` | 默认工程 `projects/app` |
+| 多核 | BK7258 三核 + mailbox | cp1/cp2 预编译；用户主逻辑在 CPU0 |
+| 网络 | `bk_wifi` + `bk_netif` + LwIP 2.1 | 事件：`components/event.h` |
+| 日志/CLI | `bk_cli` / shell | 串口 DL_UART0 |
 
-## SDK 仓库结构
+---
+
+## 应用入口与任务模板（bk_idk）
+
+```c
+/* projects/app/main/app_main.c — 官方入口模式 */
+#include "bk_private/bk_init.h"
+#include <components/system.h>
+#include <os/os.h>
+
+void user_app_main(void)
+{
+    /* 在此创建业务任务 */
+}
+
+int main(void)
+{
+#if (CONFIG_SYS_CPU0)
+    rtos_set_user_app_entry((beken_thread_function_t)user_app_main);
+#endif
+    bk_init();   /* WiFi/BT/CLI/驱动初始化链 */
+    return 0;
+}
+```
+
+### Model 层任务（WSS / 网络）
+
+```c
+#include <os/os.h>
+
+#define WSS_TASK_PRIO    7    /* configMAX_PRIORITIES=10，数字越大越高 */
+
+void network_wss_task_start(void)
+{
+    beken_thread_t th = NULL;
+    bk_err_t ret = rtos_create_thread(
+        &th,
+        WSS_TASK_PRIO,
+        "wss",
+        wss_task_entry,
+        4096,                 /* bytes — os.h 明确标注 */
+        NULL
+    );
+    BK_ASSERT(kNoErr == ret);
+}
+
+static void wss_task_entry(beken_thread_arg_t param)
+{
+    (void)param;
+    for (;;) {
+        /* 网络接收 — 禁止 lv_obj_* */
+        rtos_delay_milliseconds(10);
+    }
+}
+```
+
+**栈单位：** `rtos_create_thread` / `rtos_create_sram_thread` 的 `stack_size` 为 **bytes**（`include/os/os.h`）。若使用底层 `xTaskCreate`，须核对当前 SDK 是否封装为 words。
+
+### 推荐任务优先级（BK7258 参考）
+
+```c
+/* configMAX_PRIORITIES=10；Timer=9 已被占用 */
+#define AUDIO_TASK_PRIO      8
+#define WSS_TASK_PRIO        7
+#define LVGL_TASK_PRIO       5
+#define PRESENTER_TASK_PRIO  4
+```
+
+输出优先级表时**同时给出相对顺序和 SDK 配置依据**。WiFi 协议栈任务由 SDK 预置，用户任务勿占 priority 9。
+
+---
+
+## BK7258 三核架构
 
 ```
-bk_avdk_smp/                 # 主 SDK（RTOS、驱动、WiFi、LVGL）
-├── projects/                # 官方 Demo（lvgl/86box, lvgl/widgets 等）
-├── middleware/              # 中间件
-└── components/              # 组件
-
-bk_solution_ai/              # AI 方案（beken_genie, volc_rtc）
-bk_solution_dashboard/       # 仪表盘方案（scooter 等）
+CPU0 (bk7258)      — 主应用、WiFi 控制面、用户任务
+CPU1 (bk7258_cp1)  — 协处理器固件（media/WiFi 数据面等，依 Kconfig）
+CPU2 (bk7258_cp2)  — 协处理器固件
+IPC                — CONFIG_MAILBOX=y / MAILBOX_V2_0
 ```
 
-AI/行业方案通过 `SDK_DIR` 指向 `bk_avdk_smp` 编译：
+- 用户业务代码通常在 **CPU0**（`CONFIG_SYS_CPU0`）的 `user_app_main` 中启动。
+- CP 固件由 SDK 预构建，**勿随意改 cp 侧**除非明确分工需求。
+- PSRAM 堆：各核 `CONFIG_PSRAM_HEAP_BASE/SIZE` 须协调（见官方 memory_perf 文档）。
+
+---
+
+## AVDK 扩展层（bk_avdk_smp + 方案仓）
+
+带屏 / 摄像头 / 语音 AI 产品使用 **`bk_avdk_smp`**，工程结构变为 AP/CP 分离：
+
+```
+bk_avdk_smp/
+├── projects/                # lvgl/widgets, lvgl/camera, lvgl/86box 等
+├── middleware/
+└── components/              # LVGL、media、display
+
+bk_solution_ai/              # beken_genie, volc_rtc
+bk_solution_dashboard/       # scooter 等
+```
 
 ```bash
 cd ~/armino/bk_solution_ai/projects/beken_genie
@@ -67,125 +321,62 @@ export SDK_DIR=~/armino/bk_avdk_smp
 make bk7258
 ```
 
-## 编译脚本（与 SDK 同级目录）
-
-Skill 提供 **`bk_build.sh`** / **`bk_build.ps1`**，放置在与 `bk_avdk_smp` **同级**的工作区根目录：
+### 工程目录（AVDK 典型）
 
 ```
-~/armino/                      ← 工作区根（脚本放这里）
-├── bk_avdk_smp/               ← SDK
-├── bk_solution_ai/            ← 可选方案仓
-├── bk_build.sh                ← Linux / WSL / Docker
-├── bk_build.ps1               ← Windows
-└── bk_build.env.example       ← 复制为 bk_build.env 配置默认工程
+projects/<your_app>/
+├── ap/                           # AP 侧应用（用户主战场）
+│   ├── main.c
+│   ├── network_wss_task.c        # Model
+│   ├── app_presenter.c           # Presenter
+│   ├── lvgl/lvgl_app_ui.c        # LVGL 任务
+│   ├── beken_generated/        # Designer 导出（View）
+│   └── CMakeLists.txt
+├── cp/                           # CP 侧（通常不改）
+└── config/bk7258/
 ```
 
-```bash
-# Linux / WSL
-chmod +x bk_build.sh
-./bk_build.sh build -p bk_solution_ai/projects/beken_genie
-./bk_build.sh clean  -p lvgl/widgets
-./bk_build.sh rebuild
-```
-
-```powershell
-# Windows（方案仓工程优先走 dbuild.ps1）
-.\bk_build.ps1 build -Project bk_solution_ai\projects\beken_genie
-.\bk_build.ps1 clean
-.\bk_build.ps1 rebuild -Soc bk7258
-```
-
-脚本自动探测同级 `bk_avdk_smp` / `bk_avdk`；外部工程自动设置 `SDK_DIR`；SDK 内 Demo 使用 `make bk7258 PROJECT=xxx`。
-
-## 推荐任务优先级（BK7258 参考）
+### LVGL 集成（BK7258 带屏）
 
 ```c
-/* BK7258 SMP — 以 SDK FreeRTOSConfig.h 为准；大数高优先级写法示例 */
-#define AUDIO_TASK_PRIO      (configMAX_PRIORITIES - 1)
-#define WSS_TASK_PRIO        (configMAX_PRIORITIES - 3)
-#define LVGL_TASK_PRIO       (configMAX_PRIORITIES - 5)
-#define PRESENTER_TASK_PRIO  (configMAX_PRIORITIES - 7)
-```
-
-输出优先级表时**同时给出相对顺序和 SDK 配置依据**。BK7258 AP/CP 双核场景下，WiFi 协议栈任务由 SDK 预置，用户任务跑在 AP 侧，**勿与协议栈任务抢最高优先级**。
-
-## 任务创建模板
-
-```c
-#include "FreeRTOS.h"
-#include "task.h"
-
-/* Model — WSS 网络任务 */
-void network_wss_task_start(void)
-{
-    BaseType_t ret = xTaskCreate(
-        wss_task_entry,
-        "wss",
-        4096,                    /* bytes 或 words 以 SDK 宏为准，BK7258 常用 bytes */
-        NULL,
-        WSS_TASK_PRIO,
-        NULL
-    );
-    configASSERT(ret == pdPASS);
-}
-
-static void wss_task_entry(void *param)
-{
-    (void)param;
-    for (;;) {
-        /* 网络接收 — 禁止 lv_obj_* */
-        vTaskDelay(pdMS_TO_TICKS(10));
-    }
-}
-```
-
-**栈单位陷阱**：不同 Beken SDK 版本 `xTaskCreate` 栈参数可能是 bytes 或 words，必须以当前工程 `FreeRTOSConfig.h` 和官方 Demo 为准，代码注释中标注单位。
-
-## LVGL 集成（BK7258 核心场景）
-
-### 标准 LVGL 任务
-
-```c
-/* projects/xxx/ap/lvgl/lvgl_app_ui.c */
 static void lvgl_task(void *param)
 {
     (void)param;
     lv_init();
     lv_port_disp_init();
     lv_port_indev_init();
-
-    beken_ui_init();   /* Designer 生成的初始化，仅 View 层调用 */
+    beken_ui_init();   /* BEKEN LVGL UI Designer 生成，仅 View 层 */
 
     for (;;) {
         lv_timer_handler();
-        vTaskDelay(pdMS_TO_TICKS(5));
+        rtos_delay_milliseconds(5);
     }
 }
 ```
 
-### BEKEN LVGL UI Designer 工作流
+**BEKEN LVGL UI Designer 工作流：**
+1. Designer 拖拽 → 导出 C 到 `beken_generated/`
+2. 复制到工程 `ap/`，改 `CMakeLists.txt`
+3. `lvgl_app_ui.c` 中 `beken_ui_init()` 替换手写页面
 
-1. 用 Designer 拖拽设计界面 → 导出 C 代码到 `beken_generated/`
-2. 将 `beken_generated/` 复制到工程 `ap/` 目录
-3. 修改 `CMakeLists.txt` 加入生成源文件
-4. 在 `lvgl_app_ui.c` 用 `beken_ui_init()` 替换手写页面初始化
+**规则：** Designer 代码仅 View；事件回调只发消息给 Presenter；跨任务刷新用 `lv_async_call()`。
 
-**规则**：
-- Designer 生成代码归属 **View 层**，不含业务逻辑。
-- 控件事件回调**只发消息**给 Presenter（参照 `good_mvp_pattern.c`），禁止在回调中做网络请求或 `vTaskDelay`。
-- 跨任务刷新：优先 `lv_async_call()`；多任务访问 LVGL 须互斥保护。
-
-### 摄像头 / LVGL 切换（BK7258 特有）
-
-部分工程（如 `lvgl/camera`）在 UVC 摄像头画面与 LVGL UI 间切换：
+### 摄像头 / LVGL 切换
 
 ```bash
-# 串口命令切换（Demo 参考）
-lvcam_open    # 显示摄像头
+lvcam_open    # UVC 摄像头
 lvcam_close   # 恢复 LVGL UI
 ```
 
-切换时须确保 LVGL 任务已释放显示资源，避免 DMA 与 LVGL 帧缓冲冲突。
+切换时须释放显示资源，避免 DMA 与 LVGL 帧缓冲冲突。
+
+### 音频 / 多媒体（AVDK）
+
+- 录音/播放走 AVDK media API（`media_app`、`audio_interface` 等，以 SDK 版本为准）
+- 音频回调在 media 任务上下文 — **禁止直接改 UI**
+- 高实时场景须确认 AP/CP/CPU1 核分工
+
+---
 
 ## 网络 / WSS（Model 层）
 
@@ -210,121 +401,83 @@ static void wss_event_handler(int event, void *data)
 ```
 
 - TLS/WSS 握手栈开销大，任务栈建议 ≥ 4096 bytes。
-- WiFi 连接由 SDK `wifi` 组件管理，Model 层监听事件而非直接调底层寄存器。
-- 解析后的数据打包 `net_evt_t` 投 Queue，Presenter 调 `view_xxx()` 刷新。
+- WiFi 连接走 `bk_wifi` + `event` 组件，Model 层监听 `EVENT_WIFI_*` 而非直接调寄存器。
+- 解析后打包 `net_evt_t` 投 Queue，Presenter 调 `view_xxx()` 刷新。
 
-## 音频 / 多媒体（AVDK）
+---
 
-BK7258 AVDK 提供音视频 pipeline，不同于杰理 `audio_server` 或 STM32 裸 I2S：
-
-- 录音/播放走 AVDK media API（`media_app`、`audio_interface` 等，以 SDK 版本为准）。
-- 音频回调在 media 任务上下文 — **禁止直接改 UI**。
-- DMA 缓冲由 AVDK 管理；用户层处理 PCM 帧或编码流，结果送 Presenter Queue。
-- 高实时场景须确认 AP/CP 核分工，避免 media 任务与 WiFi 抢占。
-
-## Kconfig / 关键配置
-
-```
-# 栈溢出检测
-CONFIG_FREERTOS_CHECK_STACKOVERFLOW=y
-
-# LVGL 显存与色深
-CONFIG_LV_COLOR_DEPTH=16
-
-# WiFi
-CONFIG_WIFI_ENABLE=y
-```
-
-工程级配置在 `projects/<name>/config/bk7258/config` 覆盖芯片默认。
-
-## SDK 深度裁剪（Armino / BK7258）
+## SDK 深度裁剪
 
 > **以下仅为候选项**，须在产品需求问卷确认「不需要」后再关闭；禁止未询问用户直接套用。
 
 ### 配置入口
 
 ```bash
-# 工程级 Kconfig
-projects/<your_app>/config/bk7258/config
-
-# 芯片默认
-middleware/soc/bk7258/bk7258.defconfig
+projects/<your_app>/config/bk7258/config          # 工程级
+middleware/soc/bk7258/bk7258.defconfig            # 芯片默认
 ```
 
 ### 优先关闭项
 
-| 类别 | Kconfig / 配置 | 未用时关闭 |
-|------|---------------|-----------|
-| 蓝牙 | `CONFIG_BT` | 无 BLE 则关 |
-| 未用 Demo 工程 | `projects/` | 不编译无关 demo，只 fork 目标工程 |
-| AVDK 摄像头 | media config | 无 UVC 则关 `CONFIG_UVC` 等 |
-| LVGL demo | LVGL config | 关 benchmark/widgets demo，缩 `LV_MEM_SIZE` |
-| LwIP | lwip config | 缩 `MEM_SIZE`、连接数 |
-| CLI/调试 | debug config | 关串口 CLI、多余 log level |
-| CP 侧组件 | cp/ 目录 | 不修改 CP，但通过 Kconfig 关 AP 侧不需要的 IPC 通道 |
+| 类别 | Kconfig | 未用时 |
+|------|---------|--------|
+| 蓝牙 | `CONFIG_BLE` / `CONFIG_BT` | 无 BLE |
+| CLI/调试 | `CONFIG_CLI`、`CONFIG_MEM_DEBUG` | 量产 |
+| AT 指令 | `CONFIG_AT` | 非模组 |
+| Demo/测试 | `CONFIG_DEMO_TEST`、各 `*_TEST` | 始终 |
+| 未用协议 | `CONFIG_OTA_HTTP` 等 | 按需求 |
+| LwIP 池 | lwip Kconfig | 缩 `MEM_SIZE`、连接数 |
+| AVDK 摄像头 | `CONFIG_UVC` 等 | 无摄像头 |
+| LVGL demo | `LV_MEM_SIZE` | 缩显存 |
 
 ### 工程选择（裁剪第一步）
 
-**不要**在完整 `bk_solution_ai` 上直接开发。正确流程：
+**不要**在完整 `bk_solution_ai/beken_genie` 上直接删。正确流程：
 
 ```
-1. 选最贴近产品的最小 Demo（如 lvgl/widgets 或 beken_genie 子集）
+1. 选最贴近产品的最小 Demo（bk_idk 用 app；带屏用 lvgl/widgets）
 2. copy 为新工程目录
-3. 删 ap/ 下未用模块源文件
-4. 改 CMakeLists.txt 移除 REQUIRES 依赖
-5. Kconfig 逐项关未用功能
+3. 删未用源文件 + 改 CMakeLists REQUIRES
+4. Kconfig 逐项关未用功能
+5. beken_generated 删未用页面/字库子集化
 ```
 
-### beken_generated 裁剪
-
-- Designer 导出后删未用页面/组件 `.c/.h`
-- 字库子集化，只保留 UI 实际用到的字符
-- 图片转 indexed / 压缩，删原始大图
-
-### BK 裁剪验证
+### 裁剪验证
 
 ```bash
 make bk7258
-# 查看 build 输出 size 信息；或用 map 文件分析
+# build/app/bk7258/ 查看 map / size
+# 运行时：xPortGetMinimumEverFreeHeapSize()
+# BK7258：每步缩 LwIP 后测 WiFi + WSS
 ```
 
-- AP 堆峰值：FreeRTOS `xPortGetMinimumEverFreeHeapSize()`
-- 确认 CP 侧 WiFi 正常后再缩 AP 侧 LwIP 池（逐步减，每步测 WSS）
+---
 
 ## 常见 Crash / 异常定位
 
-| 现象 | Beken 特有原因 |
-|------|---------------|
-| 编译找不到 SDK | 未设 `SDK_DIR` 指向 `bk_avdk_smp` 根目录 |
-| LVGL 不显示 | `beken_ui_init()` 未调用；Designer 文件未加入 CMakeLists |
-| 摄像头与 UI 冲突 | UVC 与 LVGL 同时占用显示通路，须按 Demo 切换 |
-| WiFi 连上但 WSS 失败 | SNTP 未同步；证书配置；LwIP 内存不足 |
-| 系统随机重启 | 栈溢出（查 `uxTaskGetStackHighWaterMark`）；ISR 阻塞 |
-| AP/CP 通信异常 | 核间消息队列满；用户任务抢占协议栈 |
+| 现象 | 原因 |
+|------|------|
+| 编译找不到 SDK | 方案仓未设 `SDK_DIR`；或不在 SDK 根 / projects 子目录执行 make |
+| Windows clone 失败 | 软链接 / CRLF — 见 get-started  git config |
+| 线程栈溢出 | `rtos_create_thread` 栈不足；查 `uxTaskGetStackHighWaterMark` |
+| WiFi 连上 WSS 失败 | SNTP 未同步；证书；LwIP `MEM_SIZE` 不足 |
+| LVGL 不显示（AVDK） | `beken_ui_init()` 未调；Designer 文件未入 CMakeLists |
+| 摄像头与 UI 冲突 | UVC 与 LVGL 争显示通路 |
+| 系统随机重启 | 栈溢出；ISR 阻塞；看 `cm_backtrace` dump |
+| 多核异常 | mailbox 队列满；PSRAM 堆配置冲突 |
 
-## 文件归属惯例（BK7258 工程）
+调试工具：https://dl.bekencorp.com/tools/Debug_tool/BK7258-debug.zip
 
-```
-projects/<your_app>/
-├── ap/                           # AP 侧应用（用户主战场）
-│   ├── main.c                    # 入口，创建任务
-│   ├── network_wss_task.c        # Model — WSS
-│   ├── app_presenter.c           # Presenter
-│   ├── lvgl/
-│   │   ├── lvgl_app_ui.c         # LVGL 任务 + View 初始化
-│   │   └── ui_view_manager.c     # View 刷新接口
-│   ├── beken_generated/          # Designer 导出（View 层）
-│   └── CMakeLists.txt
-├── cp/                           # CP 侧（通常不改）
-└── config/bk7258/                # 工程配置
-```
+---
 
-## 与其他平台的差异提醒
+## 与其他平台的差异
 
 | 对比项 | BK 博通集成 | 杰理 JL | ESP32 |
 |--------|------------|---------|-------|
-| SDK 名 | Armino (bk_avdk_smp) | AC79 AIoT SDK | ESP-IDF |
-| UI 工具 | BEKEN LVGL UI Designer | 第三方/UI 手写 | Squareline / 手写 |
-| 多核 | AP/CP SMP（BK7258） | 部分双核 DSP | 双核 Xtensa |
-| 编译 | `make bk7258` | Makefile/CodeBlocks | `idf.py build` |
+| 基础 SDK | bk_idk (Armino) | AC79 AIoT SDK | ESP-IDF |
+| 多媒体 SDK | bk_avdk_smp | — | — |
+| UI 工具 | BEKEN LVGL UI Designer | 第三方/UI 手写 | Squareline |
+| 多核 | BK7258 三核 + mailbox | 部分 DSP 核 | 双核 Xtensa |
+| 线程 API | `rtos_create_thread`（bytes） | `thread_fork` | `xTaskCreate` |
+| 编译 | `make bk7258` | `make ac791n_xxx` | `idf.py build` |
 | 音频 | AVDK media pipeline | audio_server | I2S driver |
