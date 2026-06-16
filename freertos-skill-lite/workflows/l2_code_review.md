@@ -10,7 +10,7 @@
 
 ## Step 1 — 读总纲
 
-读取 [references/core_rules.md](../references/core_rules.md) 六条硬性约束 + [constraint_detail.md](../references/constraint_detail.md)（违规报告引用 `C#.#`）。
+读取 [references/core_rules.md](../references/core_rules.md) + [constraint_detail.md](../references/constraint_detail.md)（违规报告引用 `C#.#`）。Prompt 选型 → [skill_structure.md](../references/skill_structure.md)
 
 ## Step 2 — 反例对照
 

@@ -1,6 +1,6 @@
 # MVP 与 FreeRTOS 总纲（按需加载）
 
-Agent 在 L2/L3 或 workflow 要求时读取本文件。L1 概念问答可跳过。
+Agent 在 L2/L3 或 workflow 要求时读取本文件。L1 概念问答可跳过。Skill 文件结构 → [skill_structure.md](skill_structure.md)
 
 ## 角色 (Persona)
 

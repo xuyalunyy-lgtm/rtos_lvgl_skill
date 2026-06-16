@@ -1,6 +1,6 @@
 ---
 name: freertos-embedded-architect
-version: 2.7.0
+version: 2.8.0
 description: >-
   Use when reviewing or designing FreeRTOS IoT firmware: MVP layering, LVGL
   thread safety, I2S DMA, cJSON leaks, WSS/mbedTLS, JL/BK SDK trimming.
@@ -12,7 +12,7 @@ description: >-
 
 # FreeRTOS 嵌入式架构专家
 
-> **控制平面**：判定意图 → 加载 **1 个** [workflow](workflows/) → 按需加载 prompt/platform。**禁止**一次加载全部 `prompts/`。
+> **控制平面**：判定意图 → 加载 **1 个** [workflow](workflows/) → 按需 L2–L3。**结构** → [skill_structure.md](references/skill_structure.md)
 
 ## 职责边界
 
@@ -36,53 +36,34 @@ BK 编译：`bk_build.*` 与 SDK 同级 → [platforms/bk.md](platforms/bk.md)
 | Bug / Crash / 死机 | [debug_crash.md](workflows/debug_crash.md) | L2–L3 |
 | **Skill 维护 / 自我迭代** | [self_iterate.md](workflows/self_iterate.md) | L3 |
 
-**平台**（workflow 内 Step 1 加载其一）：[esp32](platforms/esp32.md) | [stm32](platforms/stm32.md) | [jl](platforms/jl.md)（AC79/WL82/AC791N）| [bk](platforms/bk.md)
+**平台**（workflow Step 1 加载其一）：[esp32](platforms/esp32.md) | [stm32](platforms/stm32.md) | [jl](platforms/jl.md) | [bk](platforms/bk.md)
 
-## 铁律索引（细则 → [references/core_rules.md](references/core_rules.md) · **C#.#** → [constraint_detail.md](references/constraint_detail.md)）
+## 铁律索引
 
-1. LVGL 后台禁止 `lv_obj_*`（C1.1–C1.7）→ [lvgl_thread_safety.txt](prompts/lvgl_thread_safety.txt)
-2. Queue 禁止 cJSON* / 栈指针（C2.1–C2.8）→ [memory_ownership.txt](prompts/memory_ownership.txt) · `queue_ownership_checker.py`
-3. cJSON 同函数 Delete（C3.1–C3.6）→ [cjson_safe_parse.txt](prompts/cjson_safe_parse.txt)
-4. ISR 仅 `*FromISR`（C4.1–C4.7）→ [audio_dma_pingpong.txt](prompts/audio_dma_pingpong.txt)
-5. `APP_TEST_MODE_*` 每模块（C5.1–C5.3）→ [test_mode_macro.txt](prompts/test_mode_macro.txt)
-6. SDK 先问卷再裁剪（C6.1–C6.4）→ [sdk_trim_prune.txt](prompts/sdk_trim_prune.txt)
+细则 → [core_rules.md](references/core_rules.md) · **C#.#** → [constraint_detail.md](references/constraint_detail.md)
+
+| # | 主题 | Prompt |
+|---|------|--------|
+| 1 | LVGL（C1） | [lvgl_thread_safety.txt](prompts/lvgl_thread_safety.txt) |
+| 2 | Queue 所有权（C2） | [memory_ownership.txt](prompts/memory_ownership.txt) |
+| 3 | cJSON（C3） | [cjson_safe_parse.txt](prompts/cjson_safe_parse.txt) |
+| 4 | ISR/DMA（C4） | [audio_dma_pingpong.txt](prompts/audio_dma_pingpong.txt) |
+| 5 | 测试宏（C5） | [test_mode_macro.txt](prompts/test_mode_macro.txt) |
+| 6 | SDK 裁剪（C6） | [sdk_trim_prune.txt](prompts/sdk_trim_prune.txt) |
+
+Prompt / 工具 / 范例全表 → [skill_structure.md](references/skill_structure.md)
 
 <thinking>
-1. 判定 L1/L2/L3 → 选定唯一 workflow
-2. 确认平台 → 读 1 个 platforms/xxx.md
-3. 按 workflow 加载 1–3 个 scene prompt（非全部）
+1. L1/L2/L3 → 选定唯一 workflow（见 workflows/README.md）
+2. L2+ 读 core_rules + constraint_detail
+3. 1 个 platform + 1–3 个 scene prompt（禁止全加载 prompts/）
 4. L2+ 完整版跑 run_review；L1 跳过工具
 </thinking>
 
 <rules>
-- L2+ 违规报告须引用 `C#.#`（见 constraint_detail.md），P0 须附修复范例
-- 禁止跨平台照搬优先级数值
-- 禁止未问卷直接给 SDK 删除清单（C6.1）
-- Checker 为启发式辅助，不能替代人工 review
-- Shell 仅运行 `python tools/*.py`，不读 `.env`，不执行 flash/产线命令
+- L2+ 违规报告须引用 `C#.#`，P0 须附修复范例
+- 禁止跨平台照搬优先级数值；禁止未问卷给 SDK 删除清单（C6.1）
+- Checker 为启发式辅助；Shell 仅 `python tools/*.py` / `scripts/*.py|cmd`
 </rules>
 
-## 场景 Prompt 索引（按需加载）
-
-| 场景 | 文件 |
-|------|------|
-| SDK 裁剪 | [sdk_trim_prune.txt](prompts/sdk_trim_prune.txt) |
-| LVGL 线程 / v8v9 | [lvgl_thread_safety.txt](prompts/lvgl_thread_safety.txt) · [lvgl_v8_v9_diff.txt](prompts/lvgl_v8_v9_diff.txt) |
-| 音频 DMA | [audio_dma_pingpong.txt](prompts/audio_dma_pingpong.txt) |
-| cJSON / WSS | [cjson_safe_parse.txt](prompts/cjson_safe_parse.txt) · [mbedtls_wss_memory.txt](prompts/mbedtls_wss_memory.txt) |
-| Crash | [crash_log_decode.txt](prompts/crash_log_decode.txt) |
-| Queue / 同步 / 死锁 | [queue_event_bus.txt](prompts/queue_event_bus.txt) · [freertos_sync_primitives.txt](prompts/freertos_sync_primitives.txt) · [deadlock_lock_order.txt](prompts/deadlock_lock_order.txt) |
-
-## 工具（完整版 · workflow 内调用）
-
-| 用途 | 命令 |
-|------|------|
-| 一键 L2 | `python tools/run_review.py --dir src/ --platform xxx` |
-| 自测 | `python tools/run_review.py --self-test` |
-| **铁律范例约束** | `python tools/run_review.py --validate-examples` |
-| Lite 同步 | `python scripts/sync_lite.py`（含生成 Lite `SKILL.md`） |
-| **迭代验证** | `python scripts/skill_iterate.py --check --sync` · Windows：`.\scripts\skill_iterate.cmd -Sync` |
-| **安装到 Cursor** | `.\scripts\install_skill.ps1`（见 [INSTALL.md](INSTALL.md)） |
-| MVP 骨架 | `python tools/mvp_codegen_tool.py Module --platform jl -o ./generated` |
-
-迭代记录 → [references/iteration_log.md](references/iteration_log.md) · [CHANGELOG.md](CHANGELOG.md)
+迭代 → [iteration_log.md](references/iteration_log.md) · [CHANGELOG.md](CHANGELOG.md)

@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.8.0 — 2026-06-15
+
+- **结构迭代**：新增 `references/skill_structure.md`（L0–L4 四层加载模型）与 `workflows/README.md`
+- `SKILL.md` 瘦身为纯控制平面（<70 行）；Prompt/工具/catalog 下沉至 skill_structure
+- README 四层结构图；self_iterate 增加结构维护层；`.gitignore` 排除 `__pycache__`
+
 ## 2.7.0 — 2026-06-15
 
 - 新增 `references/constraint_detail.md`：35 条细粒度约束 ID（C1.1–C6.4）+ P0/P1/P2 严重度 + 症状快查

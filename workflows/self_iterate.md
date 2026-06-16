@@ -4,7 +4,7 @@
 
 <thinking>
 1. 明确迭代**来源**与**影响范围**（单文件最小改动）
-2. 改哪一层：SKILL / workflow / prompt / platform / example / tool / reference
+2. 改哪一层：SKILL / workflow / reference / prompt / platform / example / tool（见 [skill_structure.md](../references/skill_structure.md)「改哪一层」）
 3. 改完必须走验证闭环，禁止只改文档不验证
 </thinking>
 
@@ -23,6 +23,7 @@
 
 | 变更类型 | 改哪里 | 同步要求 |
 |----------|--------|----------|
+| **Skill 结构** | `references/skill_structure.md`、`workflows/README.md` | 更新 README.md；SKILL 保持 <100 行 |
 | 铁律 / 优先级 | `references/core_rules.md` | 细粒度 ID → `references/constraint_detail.md` |
 | 平台事实 | `platforms/xxx.md` | JL/BK 标注 SDK tag |
 | 场景专链 | `prompts/xxx.txt` | 检查 workflow 是否引用 |
@@ -47,6 +48,7 @@ python tools/run_review.py --self-test
 python tools/run_review.py --validate-examples
 python scripts/skill_iterate.py --check
 python scripts/sync_lite.py
+# Windows: .\scripts\skill_iterate.cmd -Sync
 ```
 
 | 检查项 | 通过标准 |
