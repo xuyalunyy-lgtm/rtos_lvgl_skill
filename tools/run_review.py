@@ -28,6 +28,17 @@ def checker_env() -> dict[str, str]:
     return env
 
 
+def _safe_print(text: str, file=None) -> None:
+    """Print with UTF-8 fallback for Windows GBK consoles."""
+    try:
+        print(text, end="", file=file)
+    except UnicodeEncodeError:
+        # Reconfigure the target stream to utf-8 and retry
+        stream = file or sys.stdout
+        stream.reconfigure(encoding="utf-8", errors="replace")
+        print(text, end="", file=file)
+
+
 def is_bad_example(path: Path) -> bool:
     return path.name.startswith("bad_")
 
@@ -82,9 +93,9 @@ def run_checker(script: str, checker_args: list[str]) -> int:
         env=checker_env(),
     )
     if proc.stdout:
-        print(proc.stdout, end="")
+        _safe_print(proc.stdout)
     if proc.stderr:
-        print(proc.stderr, end="", file=sys.stderr)
+        _safe_print(proc.stderr, file=sys.stderr)
     return proc.returncode
 
 

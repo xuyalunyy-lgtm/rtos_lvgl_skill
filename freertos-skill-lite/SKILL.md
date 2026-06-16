@@ -1,6 +1,6 @@
 ---
 name: freertos-embedded-architect
-version: 2.22.1
+version: 2.23.0
 description: >-
   审查与设计 FreeRTOS 物联网固件：MVP 分层、LVGL 线程安全、I2S/DMA、cJSON 泄漏、
   WSS/mbedTLS、内存优化、启动/WDT、SDK 裁剪、密钥安全、语音 ASR/Uplink、
@@ -62,6 +62,7 @@ description: >-
 | 14 | 日志规范（C14） | [logging_debug.txt](prompts/logging_debug.txt) |
 | 15 | 优先级与通信（C15） | [inter_task_communication.txt](prompts/inter_task_communication.txt) |
 | 16 | 定时器管理（C16） | [timer_management.txt](prompts/timer_management.txt) |
+| 17 | 多核 IPC（C17） | [multi_core_ipc.txt](prompts/multi_core_ipc.txt) |
 
 Prompt 全表 → [skill_structure.md](references/skill_structure.md)
 

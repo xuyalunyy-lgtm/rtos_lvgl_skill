@@ -1,17 +1,18 @@
 ---
 name: freertos-embedded-architect
-version: 2.22.1
+version: 2.23.0
 description: >-
   审查与设计 FreeRTOS 物联网固件：MVP 分层、LVGL 线程安全、I2S/DMA、cJSON 泄漏、
   WSS/mbedTLS、内存优化、启动/WDT、SDK 裁剪、密钥安全、语音 ASR/Uplink、
-  编码规范、错误处理、状态机、日志规范、任务优先级、定时器管理。
+  编码规范、错误处理、状态机、日志规范、任务优先级、定时器管理、多核 IPC。
   Use when user mentions: 死机, 崩溃, 花屏, 卡顿, HardFault, 栈溢出, stack overflow,
   Guru Meditation, code review, 审查, SDK裁剪, 裁剪, 死代码, 新增模块, 修Bug,
   WSS, cJSON, DMA, I2S, 录音失效, ASR, uplink, 唤醒, AEC, use-after-free,
   ESP32, STM32, JL, AC79, BK, Armino, 带屏音箱, 语音网关, embedded C, freertos,
   状态机, 线程安全, 优先级反转, 定时器, 日志, 错误处理, goto cleanup,
+  多核, IPC, mailbox, 跨核, 三核, 双核,
   git commit, 提交, commit message.
-  Reviews FreeRTOS IoT firmware with C1-C16 constraints; lazy-load constraint_index
+  Reviews FreeRTOS IoT firmware with C1-C17 constraints; lazy-load constraint_index
   + 1 platform + 1-3 prompts.
 ---
 
@@ -70,6 +71,7 @@ description: >-
 | 14 | 日志规范（C14） | [logging_debug.txt](prompts/logging_debug.txt) |
 | 15 | 优先级与通信（C15） | [inter_task_communication.txt](prompts/inter_task_communication.txt) |
 | 16 | 定时器管理（C16） | [timer_management.txt](prompts/timer_management.txt) |
+| 17 | 多核 IPC（C17） | [multi_core_ipc.txt](prompts/multi_core_ipc.txt) |
 
 Prompt / 工具 / 范例全表 → [skill_structure.md](references/skill_structure.md)
 

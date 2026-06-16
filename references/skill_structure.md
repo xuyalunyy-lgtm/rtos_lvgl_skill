@@ -73,6 +73,7 @@ Workflow 索引 → [workflows/README.md](../workflows/README.md)
 | C14 | 日志规范 | [logging_debug.txt](../prompts/logging_debug.txt) |
 | C15 | 优先级与通信 | [inter_task_communication.txt](../prompts/inter_task_communication.txt) |
 | C16 | 定时器管理 | [timer_management.txt](../prompts/timer_management.txt) |
+| C17 | 多核 IPC | [multi_core_ipc.txt](../prompts/multi_core_ipc.txt) |
 | 网络 | WSS / mbedTLS / 栈 | [mbedtls_wss_memory.txt](../prompts/mbedtls_wss_memory.txt) |
 | Crash | 日志解读 | [crash_log_decode.txt](../prompts/crash_log_decode.txt) |
 | 同步 | FreeRTOS 原语 | [freertos_sync_primitives.txt](../prompts/freertos_sync_primitives.txt) |

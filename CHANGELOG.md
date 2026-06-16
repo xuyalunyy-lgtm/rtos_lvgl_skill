@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.23.0 — 2026-06-16
+
+- **新增 C17 多核 IPC**：`prompts/multi_core_ipc.txt`（跨核通信、IPC mailbox、硬件信号量）
+- **platforms/bk.md 加 TOC**：636 行文件增加 15 节目录导航
+- `SKILL.md` / `skill_structure.md` / `constraint_index.md` 联动更新
+- description 触发词新增：多核、IPC、mailbox、跨核、三核、双核
+
 ## 2.22.1 — 2026-06-16
 
 - **一致性修复**：lite_manual_checklist.md 补齐 C9–C16 检查项
