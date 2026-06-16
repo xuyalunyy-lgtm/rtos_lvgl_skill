@@ -46,6 +46,8 @@ L4 可执行     examples/ · tools/    完整版 L2+；Lite 无此层
 | [l3_sdk_trim](../workflows/l3_sdk_trim.md) | core_rules | sdk_trim_prune | — |
 | [l3_new_module](../workflows/l3_new_module.md) | core_rules | 模块表 prompt | mvp_codegen / good_* |
 | [hw_sw_cocodebug](../workflows/hw_sw_cocodebug.md) | core_rules（C8 初始化顺序） | 平台引脚复用 | — |
+| [l3_bring_up](../workflows/l3_bring_up.md) | core_rules + hw_sw_cocodebug IO 表 | boot_wdt_lifecycle + audio_dma_pingpong | run_review + good_boot_sequence |
+| [l2_memory_analysis](../workflows/l2_memory_analysis.md) | core_rules + constraint_index | memory_alloc_optimize + cjson_safe_parse | run_review + stack_calculator |
 | [self_iterate](../workflows/self_iterate.md) | **本文件** + iteration_log | 受影响层 prompt | skill_iterate |
 
 用户要求 **git commit / 提交** → 读 [git_commit_style.md](git_commit_style.md)（无需单独 workflow）

@@ -1,6 +1,6 @@
 ---
 name: freertos-embedded-architect
-version: 2.28.0
+version: 2.50.0
 description: >-
   审查与设计 FreeRTOS 物联网固件：MVP 分层、LVGL 线程安全、I2S/DMA、cJSON 泄漏、
   WSS/mbedTLS、内存优化、启动/WDT、SDK 裁剪、密钥安全、语音 ASR/Uplink、
@@ -46,6 +46,8 @@ description: >-
 | 新增模块 / 多任务 | [l3_new_module.md](workflows/l3_new_module.md) | L3 |
 | Bug / Crash / 死机 | [debug_crash.md](workflows/debug_crash.md) | L2–L3 |
 | **软硬联调 / IO 口规划** | [hw_sw_cocodebug.md](workflows/hw_sw_cocodebug.md) | L2 |
+| **板级 Bring-up** | [l3_bring_up.md](workflows/l3_bring_up.md) | L3 |
+| **内存专项分析** | [l2_memory_analysis.md](workflows/l2_memory_analysis.md) | L2 |
 | **Skill 维护 / 自我迭代** | [self_iterate.md](workflows/self_iterate.md) | L3 |
 
 **平台**（workflow Step 1 加载其一）：[esp32](platforms/esp32.md) | [stm32](platforms/stm32.md) | [jl](platforms/jl.md) | [bk](platforms/bk.md)

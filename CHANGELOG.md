@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.50.0 — 2026-06-16
+
+- **新增 workflow `l3_bring_up.md`**：板级 Bring-up 端到端流程（最小系统→外设逐个验证→MVP 链路→WSS/TLS→语音→冒烟→量产 checklist），7 个阶段每个有明确交付物
+- **新增 workflow `l2_memory_analysis.md`**：内存专项分析（基线采集→泄漏排查→模块关闭→堆/池优化→栈优化→冒烟），强制 C7.1 无基线不给建议
+- **约束冲突矩阵**：`constraint_detail.md` 新增 10 个典型冲突场景的权衡方案（init 同步 vs C8.6、LVGL 锁序 vs SDK 锁序、WSS 栈 vs 内存受限等）
+- **联动更新**：SKILL.md/workflows/README/skill_structure 新增 bring_up + memory_analysis 路由；版本升至 2.50.0
+
 ## 2.28.0 — 2026-06-16
 
 - **新增 workflow `hw_sw_cocodebug.md`**：软硬联调 / IO 口规划，强制用户填写完整 IO 口用途表，反复核对引脚复用/电气约束/外设冲突
