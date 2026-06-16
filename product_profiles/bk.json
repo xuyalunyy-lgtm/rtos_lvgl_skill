@@ -18,18 +18,42 @@
   },
   "task_priority_style": "higher_is_higher",
   "common_pitfalls": [
-    "AVDK 多 port 音频架构（onboard_speaker_stream），非标准 I2S",
-    "BEKEN_NO_WAIT 超时宏（非 portMAX_DELAY）",
-    "vc_start / voicechat 生命周期竞态（WSS 断线后异步 reconnect HardFault）",
-    "双核 FreeRTOS 独立实例，跨核通信须 IPC（C17），禁 xQueueSend",
-    "littlefs 表情资源 / SARADC gpio busy"
+    "AVDK 多 port 音频架构（onboard_speaker_stream），非标准 I2S，播放/采集共用 engine",
+    "BEKEN_NO_WAIT 超时宏（非 portMAX_DELAY），Queue/Semaphore 超时须用此宏",
+    "vc_start / voicechat 生命周期竞态：WSS 断线后异步 reconnect 可能触发 HardFault",
+    "双核 FreeRTOS 独立实例，跨核通信须 IPC（C17），xQueueSend 仅限同核",
+    "littlefs 表情资源占用 Flash 分区，SDK 裁剪时注意分区表",
+    "SARADC 引脚与 GPIO 复用，使用 ADC 时该引脚不可做普通 GPIO",
+    "BK7258 的 mbedTLS 为 SDK 内置版本，cipher suite 配置路径与 ESP32 不同",
+    "bk_printer 产品的打印 mutex 需与音频互斥，避免并发 SPI 访问",
+    "app_event 桥接模式：Model 层通过 app_event 分发，非标准 xQueue",
+    "SDK 的 thread_create 栈单位为 bytes（非 words），注意换算"
   ],
   "stack_recommendations": {
-    "wss_tls": {"min_bytes": 4096, "recommended_bytes": 6144},
-    "lvgl": {"min_bytes": 4096, "recommended_bytes": 8192},
-    "audio": {"min_bytes": 2048, "recommended_bytes": 4096},
-    "presenter": {"min_bytes": 2048, "recommended_bytes": 3072},
-    "main": {"min_bytes": 2048, "recommended_bytes": 3072}
+    "wss_tls": {"min_bytes": 4096, "recommended_bytes": 6144, "note": "BK7258 TLS 握手峰值适中"},
+    "lvgl": {"min_bytes": 4096, "recommended_bytes": 8192, "note": "带屏产品大屏 UI 需 8192"},
+    "audio": {"min_bytes": 2048, "recommended_bytes": 4096, "note": "AVDK 多 port 音频"},
+    "presenter": {"min_bytes": 2048, "recommended_bytes": 3072, "note": "app_event 桥接分发"},
+    "main": {"min_bytes": 2048, "recommended_bytes": 3072, "note": "main 任务初始化 AVDK"}
   },
-  "strictness": "strict"
+  "strictness": "strict",
+  "key_sdk_config": {
+    "BK_RTOS_STACK_SIZE": "默认值视 SDK 版本",
+    "CONFIG_MBEDTLS": "SDK 内置 mbedTLS，cipher 在 bk_config 中配置",
+    "CONFIG_FREERTOS_HZ": "1000（tick=1ms）",
+    "CONFIG_SPIRAM": "按产品启用 PSRAM",
+    "LWIP_TCP_MSS": "建议 1024（缩内存）"
+  },
+  "build_commands": {
+    "build": "make bk7258（具体目标视 SDK 版本）",
+    "flash": "BK 烧录工具 / UART 下载",
+    "crash_decode": "查看 SDK crash dump 中的 PC/LR 寄存器值 + addr2line"
+  },
+  "pinmux_notes": {
+    "P6_P7": "UART0 调试串口（默认）",
+    "P14_P15": "I2S0（音频，AVDK 多 port 架构）",
+    "P16_P17": "SPI0（LCD / Flash）",
+    "P20_P21": "I2C0（传感器 / OLED）",
+    "P24": "SARADC（模拟输入，不可做 GPIO）"
+  }
 }

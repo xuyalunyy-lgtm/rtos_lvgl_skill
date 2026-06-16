@@ -18,18 +18,41 @@
   },
   "task_priority_style": "higher_is_higher",
   "common_pitfalls": [
-    "audio_server enc/dec 事件需先解码再播放",
-    "thread_fork / thread_kill 线程管理 API（非标准 FreeRTOS）",
-    "栈单位需查 thread_fork 文档（部分 API 为 bytes）",
-    "SDK 模块裁剪须先扫描模块地图（C6.2）",
-    "AC79 带屏产品需关注 LCD DMA 与音频 DMA 竞争"
+    "audio_server enc/dec 事件需先解码再播放，AUDIO_SERVER_EVENT_END 后再开麦",
+    "thread_fork / thread_kill 线程管理 API（非标准 FreeRTOS），注意栈单位",
+    "栈单位需查 thread_fork 文档（部分 API 为 bytes，部分为 words）",
+    "SDK 模块裁剪须先扫描模块地图（C6.2），标注 SDK tag/版本",
+    "AC79 带屏产品需关注 LCD DMA 与音频 DMA 竞争（同一总线带宽）",
+    "WL82 单核版无跨核问题，但资源更紧张（Flash/RAM 小于 AC79）",
+    "JL SDK 的 cJSON 为定制版，cJSON_Parse 行为可能与上游不同",
+    "audio_server 的播放和采集共用同一实例时，需严格串行化",
+    "SDK 的 WiFi 驱动内部有 mutex，不可在 ISR 中调用任何 WiFi API",
+    "LVGL 刷新任务建议与音频任务同核（避免跨核 Queue 延迟）"
   ],
   "stack_recommendations": {
-    "wss_tls": {"min_bytes": 4096, "recommended_bytes": 6144},
-    "lvgl": {"min_bytes": 4096, "recommended_bytes": 8192},
-    "audio": {"min_bytes": 2048, "recommended_bytes": 4096},
-    "presenter": {"min_bytes": 2048, "recommended_bytes": 3072},
-    "main": {"min_bytes": 2048, "recommended_bytes": 3072}
+    "wss_tls": {"min_bytes": 4096, "recommended_bytes": 6144, "note": "JL 平台 TLS 握手适中"},
+    "lvgl": {"min_bytes": 4096, "recommended_bytes": 8192, "note": "带屏产品大屏 UI 需 8192"},
+    "audio": {"min_bytes": 2048, "recommended_bytes": 4096, "note": "audio_server + AEC"},
+    "presenter": {"min_bytes": 2048, "recommended_bytes": 3072, "note": "事件分发简单"},
+    "main": {"min_bytes": 2048, "recommended_bytes": 3072, "note": "main 任务需初始化 audio_server"}
   },
-  "strictness": "strict"
+  "strictness": "strict",
+  "key_sdk_config": {
+    "THREAD_FORK_STACK_SIZE": "按需，建议 4096+",
+    "AUDIO_SERVER_ENC_BUF_SIZE": "按音频格式调整",
+    "WIFI_TASK_STACK_SIZE": "≥2048",
+    "MALLOC_MEM_SIZE": "按产品 Flash 大小调整",
+    "LV_USE_DRAW_SW": "y（软件渲染）"
+  },
+  "build_commands": {
+    "build": "make ac791n_demo_wifi（具体目标视 SDK 版本）",
+    "flash": "JLink 或 JL USB 工具",
+    "crash_decode": "查看 SDK crash dump 中的 PC/LR 寄存器值"
+  },
+  "pinmux_notes": {
+    "PA0_PA1": "UART0 调试串口（默认）",
+    "PB0_PB1": "I2S0（音频）",
+    "PC0_PC3": "SPI0（LCD / Flash）",
+    "PD0_PD7": "SDIO（SD 卡 / WiFi）"
+  }
 }
