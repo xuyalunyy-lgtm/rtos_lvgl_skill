@@ -1,6 +1,6 @@
 ---
 name: freertos-embedded-architect
-version: 2.10.0
+version: 2.11.0
 description: >-
   Use when reviewing or designing FreeRTOS IoT firmware: MVP layering, LVGL
   thread safety, I2S DMA, cJSON leaks, WSS/mbedTLS, memory optimization,
@@ -61,6 +61,7 @@ Prompt 全表 → [skill_structure.md](references/skill_structure.md)
 </thinking>
 
 <rules>
+- **L3 实现/修 Bug：全权改代码、无需逐步确认，直至功能完成且编译通过**（见 core_rules）
 - L2+ 违规报告须引用 `C#.#`
 - L2 必须标注「Lite 人工审查已完成」
 - 禁止未问卷直接给 SDK 删除清单（C6.1）

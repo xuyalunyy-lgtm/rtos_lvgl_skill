@@ -6,6 +6,7 @@
 1. 先日志后改代码
 2. 提取 PC/LR/Backtrace → addr2line
 3. 对照反例与 scene prompt
+4. 若用户要求修复：**自主实施模式** — 改代码至编译通过，无需逐步确认
 </thinking>
 
 ## Step 1 — 日志解读
@@ -26,12 +27,13 @@
 | TLS 握手 fail / 反复断线 | C1.5 | [mbedtls_wss_memory.txt](../prompts/mbedtls_wss_memory.txt) | [bad_wss_blocking.c](../examples/bad_wss_blocking.c) → [good_wss_reconnect.c](../examples/good_wss_reconnect.c) |
 | WDT / task watchdog | **C8.3–C8.6**, C1.5, C4.7 | [boot_wdt_lifecycle.txt](../prompts/boot_wdt_lifecycle.txt) · [deadlock_lock_order.txt](../prompts/deadlock_lock_order.txt) | [bad_wss_blocking.c](../examples/bad_wss_blocking.c) |
 
-## Step 3 — 验证（完整版）
+## Step 3 — 修复与验证（完整版）
 
-对相关源文件：
+**自主实施（默认）：** 按 [core_rules.md](../references/core_rules.md) 自主实施模式修改源码，编译至通过。
 
 ```bash
 python tools/run_review.py --dir ./src --platform xxx
+# 编译 — 见 platforms/xxx.md
 ```
 
 ## Step 4 — 输出
