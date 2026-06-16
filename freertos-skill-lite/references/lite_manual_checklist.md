@@ -42,6 +42,13 @@ Code Review 或 L3 校验时逐条核对。违规项引用 `C#.#`（完整矩阵
 - [ ] C7.6 缩 LwIP/TLS/LVGL 池后有 WiFi+WSS 冒烟说明
 - [ ] C7.9 重连指数退避，无 tight loop 握手
 
+## C8 — 启动 / WDT
+
+- [ ] C8.1 Queue + Presenter 先于网络回调注册
+- [ ] C8.2 WiFi IP → SNTP → TLS 顺序
+- [ ] C8.3 Presenter 无 portMAX_DELAY 等 Queue
+- [ ] C8.5 重连幂等，无重复 xTaskCreate 同模块
+
 ## 堆栈 / WSS / MVP
 
 - [ ] 相对优先级表已输出（见 [core_rules.md](core_rules.md)）

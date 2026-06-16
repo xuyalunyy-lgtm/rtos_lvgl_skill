@@ -42,19 +42,20 @@ python tools/stack_calculator.py --describe "WSS TLS cJSON" --platform jl
 
 共享类型：`examples/app_mvp.h`（与 `mvp_codegen` 输出一致）；Queue 设计 → [queue_event_bus.txt](../prompts/queue_event_bus.txt)
 
-## 七条硬性约束（摘要）
+## 八条硬性约束（摘要）
 
-**细粒度 ID 矩阵（C1.1–C7.9）** → [constraint_detail.md](constraint_detail.md)（L2+ 违规报告须引用 `C#.#`）
+**细粒度 ID 矩阵（C1.1–C8.6）** → [constraint_detail.md](constraint_detail.md)（L2+ 违规报告须引用 `C#.#`）
 
 | # | 主题 | 细则 | 子约束数 |
 |---|------|------|----------|
 | 1 | LVGL 线程安全 | 后台禁止 `lv_obj_*`；`lv_async_call` 或 mutex → [lvgl_thread_safety.txt](../prompts/lvgl_thread_safety.txt) | 7 |
 | 2 | payload 所有权 | cJSON 同函数 Delete；Queue payload Presenter free → [memory_ownership.txt](../prompts/memory_ownership.txt) · **`queue_ownership_checker.py`** | 8 |
 | 3 | cJSON | goto cleanup 模板 → [cjson_safe_parse.txt](../prompts/cjson_safe_parse.txt) | 6 |
-| 4 | 音频 DMA | ISR 仅 `*FromISR` → [audio_dma_pingpong.txt](../prompts/audio_dma_pingpong.txt) | 7 |
+| 4 | 音频 DMA | ISR 仅 `*FromISR`；Cache 一致性 → [audio_dma_pingpong.txt](../prompts/audio_dma_pingpong.txt) | 8 |
 | 5 | 测试宏 | 每模块 `APP_TEST_MODE_*` → [test_mode_macro.txt](../prompts/test_mode_macro.txt) | 3 |
 | 6 | SDK 裁剪 | 先问卷再动刀；JL/BK 先扫描 → [sdk_trim_prune.txt](../prompts/sdk_trim_prune.txt) | 4 |
 | 7 | 内存分配优化 | 先量后改；缩池顺序 → [memory_alloc_optimize.txt](../prompts/memory_alloc_optimize.txt) | 9 |
+| 8 | 启动 / WDT | Queue 先于回调；有限 timeout → [boot_wdt_lifecycle.txt](../prompts/boot_wdt_lifecycle.txt) | 6 |
 
 ## 文件归属惯例
 
@@ -70,17 +71,17 @@ app_test_config.h       → APP_TEST_MODE_*
 
 | 类型 | 文件 |
 |------|------|
-| 正例 WSS Model | [good_wss_json_parse.c](../examples/good_wss_json_parse.c) |
-| 正例 WSS 重连 | [good_wss_reconnect.c](../examples/good_wss_reconnect.c) |
-| 正例 Presenter | [good_presenter_consumer.c](../examples/good_presenter_consumer.c) |
-| 正例 View | [good_mvp_pattern.c](../examples/good_mvp_pattern.c) |
-| 反例 LVGL | [bad_lvgl_cross_thread.c](../examples/bad_lvgl_cross_thread.c) |
-| 反例 ISR | [bad_isr_blocking.c](../examples/bad_isr_blocking.c) |
-| 反例 cJSON | [bad_cjson_leak.c](../examples/bad_cjson_leak.c) |
-| 反例 Queue | [bad_queue_stack_pointer.c](../examples/bad_queue_stack_pointer.c) |
-| 反例 WSS | [bad_wss_blocking.c](../examples/bad_wss_blocking.c) |
+| 正例 WSS Model | 完整版 `examples/good_wss_json_parse.c` |
+| 正例 WSS 重连 | 完整版 `examples/good_wss_reconnect.c` |
+| 正例 Presenter | 完整版 `examples/good_presenter_consumer.c` |
+| 正例 View | 完整版 `examples/good_mvp_pattern.c` |
+| 反例 LVGL | 完整版 `examples/bad_lvgl_cross_thread.c` |
+| 反例 ISR | 完整版 `examples/bad_isr_blocking.c` |
+| 反例 cJSON | 完整版 `examples/bad_cjson_leak.c` |
+| 反例 Queue | 完整版 `examples/bad_queue_stack_pointer.c` |
+| 反例 WSS | 完整版 `examples/bad_wss_blocking.c` |
 
-索引与 checker 命令 → [examples/README.md](../examples/README.md)
+索引与 checker 命令 → 完整版 `examples/README.md`
 
 ## L3 输出模板
 

@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.10.0 — 2026-06-15
+
+- 新增 C8 启动/WDT 约束与 `boot_wdt_lifecycle.txt`；C4.8 DMA Cache
+
 ## 2.9.0 — 2026-06-15
 
 - 新增 C7 内存分配与优化约束（C7.1–C7.9）与 `memory_alloc_optimize.txt`

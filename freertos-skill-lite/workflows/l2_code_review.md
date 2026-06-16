@@ -20,9 +20,9 @@
 | ISR 阻塞 | 完整版 `examples/bad_isr_blocking.c` |
 | cJSON 泄漏 | 完整版 `examples/bad_cjson_leak.c` |
 | **Queue 栈指针/cJSON*** | 完整版 `examples/bad_queue_stack_pointer.c` |
-| WSS 栈/重连 | 完整版 `examples/bad_wss_blocking.c` → 正例 完整版 `examples/good_wss_reconnect.c` |
+| WSS 栈/重连/init 顺序 | 完整版 `examples/bad_wss_blocking.c` → 完整版 `examples/good_wss_reconnect.c` · 完整版 `examples/good_boot_sequence.c` |
 
-按需深读：[lvgl_thread_safety.txt](../prompts/lvgl_thread_safety.txt)、[memory_ownership.txt](../prompts/memory_ownership.txt)、[deadlock_lock_order.txt](../prompts/deadlock_lock_order.txt)、[memory_alloc_optimize.txt](../prompts/memory_alloc_optimize.txt)（堆/栈/缩池嫌疑）
+按需深读：[lvgl_thread_safety.txt](../prompts/lvgl_thread_safety.txt)、[memory_ownership.txt](../prompts/memory_ownership.txt)、[deadlock_lock_order.txt](../prompts/deadlock_lock_order.txt)、[memory_alloc_optimize.txt](../prompts/memory_alloc_optimize.txt)（堆/栈/缩池嫌疑）、[boot_wdt_lifecycle.txt](../prompts/boot_wdt_lifecycle.txt)（init/WDT/portMAX_DELAY）
 
 ## Step 3 — 人工审查（Lite）
 

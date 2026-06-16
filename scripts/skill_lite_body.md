@@ -37,6 +37,7 @@
 | 5 | 测试宏（C5） | [test_mode_macro.txt](prompts/test_mode_macro.txt) |
 | 6 | SDK（C6） | [sdk_trim_prune.txt](prompts/sdk_trim_prune.txt) |
 | 7 | 内存（C7） | [memory_alloc_optimize.txt](prompts/memory_alloc_optimize.txt) |
+| 8 | 启动/WDT（C8） | [boot_wdt_lifecycle.txt](prompts/boot_wdt_lifecycle.txt) |
 
 Prompt 全表 → [skill_structure.md](references/skill_structure.md)
 

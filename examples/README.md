@@ -39,6 +39,16 @@ L2 Code Review 时按嫌疑加载对应文件；违规报告引用 `C#.#`（见 
 |---|------|-----|---------|
 | ❌ | [bad_isr_blocking.c](bad_isr_blocking.c) | C4.1, C4.3 | `isr_safety_checker.py` |
 
+Cache 一致性细则 → [audio_dma_pingpong.txt](../prompts/audio_dma_pingpong.txt) **C4.8**
+
+## C8 — 启动 / WDT / 阻塞
+
+| | 文件 | ID | Checker |
+|---|------|-----|---------|
+| ❌ | [bad_wss_blocking.c](bad_wss_blocking.c) | C8.2, C8.4, C8.6, C7.5 | 人工 |
+| ✅ | [good_boot_sequence.c](good_boot_sequence.c) | C8.1, C8.6 | 人工 |
+| ✅ | [good_wss_reconnect.c](good_wss_reconnect.c) | C8.5, C7.9, C8.2 | 人工 |
+
 ## MVP 分层闭环
 
 | | 文件 |

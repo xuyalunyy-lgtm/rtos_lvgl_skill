@@ -27,6 +27,7 @@
 
 | 模块 | Prompt | 正例 |
 |------|--------|------|
+| 启动编排 | [boot_wdt_lifecycle.txt](../prompts/boot_wdt_lifecycle.txt) | 完整版 `examples/good_boot_sequence.c` |
 | 网络/WSS | [mbedtls_wss_memory.txt](../prompts/mbedtls_wss_memory.txt) + [queue_event_bus.txt](../prompts/queue_event_bus.txt) | 完整版 `examples/good_wss_json_parse.c` |
 | WSS 重连 | [mbedtls_wss_memory.txt](../prompts/mbedtls_wss_memory.txt)（SNTP + 退避） | 完整版 `examples/good_wss_reconnect.c` |
 | UI | [lvgl_thread_safety.txt](../prompts/lvgl_thread_safety.txt) | 完整版 `examples/good_mvp_pattern.c` |

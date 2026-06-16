@@ -1,10 +1,10 @@
 ---
 name: freertos-embedded-architect
-version: 2.9.0
+version: 2.10.0
 description: >-
   Use when reviewing or designing FreeRTOS IoT firmware: MVP layering, LVGL
   thread safety, I2S DMA, cJSON leaks, WSS/mbedTLS, memory optimization,
-  JL/BK SDK trimming.
+  boot/WDT lifecycle, JL/BK SDK trimming.
   Trigger on: HardFault, Guru Meditation, stack overflow, WSS reconnect,
   lv_async_call, code review, sdk trim, skill update, skill iterate,
   AC79, BK7258, embedded C.
@@ -49,6 +49,7 @@ description: >-
 | 5 | 测试宏（C5） | [test_mode_macro.txt](prompts/test_mode_macro.txt) |
 | 6 | SDK（C6） | [sdk_trim_prune.txt](prompts/sdk_trim_prune.txt) |
 | 7 | 内存（C7） | [memory_alloc_optimize.txt](prompts/memory_alloc_optimize.txt) |
+| 8 | 启动/WDT（C8） | [boot_wdt_lifecycle.txt](prompts/boot_wdt_lifecycle.txt) |
 
 Prompt 全表 → [skill_structure.md](references/skill_structure.md)
 

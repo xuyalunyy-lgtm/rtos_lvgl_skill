@@ -1,0 +1,107 @@
+# 启动顺序 / 阻塞 / 看门狗 / 生命周期专精（C8）
+
+> 约束 ID：C8.1–C8.6 → [constraint_detail.md](../references/constraint_detail.md)
+
+## 铁律
+
+**先建消费链路，再开生产者；有阻塞就必须有超时或 WDT 策略。**
+
+---
+
+## 推荐启动顺序（MVP 带屏 + WSS）
+
+```
+1. 硬件 / SDK 基础 init（bk_init / esp_netif / HAL）
+2. 创建 Queue、启动 Presenter Looper（空转可，但 Queue 必须存在）
+3. 启动 LVGL 任务（View 层就绪）
+4. 注册 WiFi 事件回调（回调内只 Queue，不做重活）
+5. 启动 WiFi / 等 IP
+6. SNTP 同步（若走 TLS）
+7. 创建 WSS / Model 网络任务（栈按 C7.5 实测）
+8. 使能音频 / 其他 Model（按优先级 C4.5）
+```
+
+**禁止：** 步骤 4–7 在 Presenter Queue 未创建时就开始 Parse JSON 并 `xQueueSend`。
+
+---
+
+## 阻塞与超时（C8.3–C8.4）
+
+| 位置 | 规则 |
+|------|------|
+| Presenter `xQueueReceive` | 用有限 timeout（如 100–500ms）+ 循环；**禁止**默认 `portMAX_DELAY` |
+| Model `xQueueSend` | 非阻塞或短 timeout；失败须释放 payload（C2.4） |
+| LVGL 任务 | `lv_timer_handler()` 前后仅固定 `vTaskDelay(5)`；**禁止**网络 recv、TLS、持 mutex 等 Queue |
+| SDK 网络回调 | 仅拷贝 + Queue / Notify；**禁止** `vTaskDelay`、`cJSON_Parse` 大树 |
+
+```c
+/* Presenter — 有限等待，便于 WDT 与其他任务调度 */
+for (;;) {
+    net_evt_t msg;
+    if (xQueueReceive(s_net_q, &msg, pdMS_TO_TICKS(200)) == pdTRUE) {
+        presenter_handle(&msg);
+        if (msg.payload) vPortFree(msg.payload);
+    }
+    /* 可选：喂狗 esp_task_wdt_reset() / 平台等价 API */
+}
+```
+
+---
+
+## 看门狗（WDT）常见触发
+
+| 症状 | 根因 | 约束 |
+|------|------|------|
+| Task WDT @ Presenter | `portMAX_DELAY` 等 Queue，Model 等 LVGL | C8.3, C1.5 |
+| Task WDT @ WSS | 回调里解析 + delay | C8.4, C4.3 |
+| Task WDT @ LVGL | `lv_timer_handler` 内阻塞 draw/flash | C8.4 |
+| IWDT / 系统 WDT | init 里 TLS 握手阻塞 | C8.6 |
+| 界面 frozen 但 ping 通 | 死锁非 WDT，见 [deadlock_lock_order.txt](deadlock_lock_order.txt) | C1.6 |
+
+长耗时操作（TLS 握手、OTA 校验、大文件读）须在**独立任务**中，且 init 路径只做「创建任务」，不做「等握手完成」。
+
+---
+
+## 重连 / 幂等（C8.5）
+
+```c
+/* ❌ 每次断线都 xTaskCreate — 任务泄漏 + 双 WSS */
+static void on_wifi_up_bad(void) {
+    xTaskCreate(wss_task, "wss", 4096, NULL, 7, NULL);
+}
+
+/* ✅ 单任务 + 状态机 / 事件通知 */
+static TaskHandle_t s_wss_task;
+static void on_wifi_up_good(void) {
+    if (s_wss_task == NULL) {
+        xTaskCreate(wss_task, "wss", 6144, NULL, 7, &s_wss_task);
+    } else {
+        xTaskNotify(s_wss_task, NET_EVT_RECONNECT, eSetBits);
+    }
+}
+```
+
+- 断线：`wss_disconnect()` + 状态机 `DISCONNECTED`，**禁止** tight loop 握手（C7.9）
+- 重连：指数退避在 WSS 任务内执行，见 完整版 `examples/good_wss_reconnect.c`
+
+---
+
+## init 路径禁区（C8.6）
+
+**main / app_main / user_app_main 中禁止：**
+
+- TLS/WSS 同步握手并等待完成
+- 大 JSON / 证书链 Parse
+- 链式 `vTaskDelay` 超过平台 WDT 阈值（ESP task_wdt 默认 5s 量级）
+- 创建 Presenter 之前就注册会投 Queue 的回调
+
+---
+
+## Agent 检查清单
+
+- [ ] C8.1 Queue + Presenter 先于网络回调？
+- [ ] C8.2 WiFi IP → SNTP → TLS 顺序正确？
+- [ ] C8.3 Presenter 无 `portMAX_DELAY` 等 Queue？
+- [ ] C8.4 LVGL 循环无阻塞 IO？
+- [ ] C8.5 重连幂等，无重复 Create 同任务？
+- [ ] C8.6 init 无长阻塞 TLS/大 Parse？

@@ -180,11 +180,36 @@ xQueueSend(s_audio_evt_queue, &evt, 0);  /* 不阻塞，丢帧优于积压 */
 
 ---
 
+## Cache 一致性（C4.8 · ESP32 / STM32 等）
+
+DMA 与 CPU 不共享同一视图时，须维护 cache：
+
+| 方向 | 操作 |
+|------|------|
+| DMA 写 → CPU 读（Mic RX） | CPU 读前 **invalidate** 该缓冲范围 |
+| CPU 写 → DMA 读（Spk TX） | DMA 启动前 **clean** 该缓冲范围 |
+
+```c
+/* ESP32 示例 — 以 IDF API 为准 */
+#include "esp_cache.h"
+void audio_on_dma_rx_complete(int16_t *buf, size_t byte_len)
+{
+    esp_cache_msync(buf, byte_len, ESP_CACHE_MSYNC_FLAG_INVALIDATE);
+    /* 再读 samples */
+}
+```
+
+- 缓冲须放在 DMA 可访问区域（ESP: `MALLOC_CAP_DMA`；STM32: 非 DTCM 冲突区 — 查 `platforms/xxx.md`）
+- 无 cache 的 MCU（部分 BK/JL 路径）可跳过，但须满足 **4 字节对齐**（C4.4）
+
+---
+
 ## Agent 检查清单
 
 - [ ] 是否使用双缓冲（非单缓冲轮询）？
 - [ ] ISR 是否全部使用 `*FromISR` API + `portYIELD_FROM_ISR`？
 - [ ] 音频任务优先级是否高于 LVGL/网络？
 - [ ] 缓冲区是否 4 字节对齐？
+- [ ] Cache SoC 上 DMA 前后 invalidate/clean 正确（C4.8）？
 - [ ] 是否存在 ISR 内阻塞调用或内存分配？
 - [ ] 处理结果是否经 Queue 送 Presenter（非直接改 UI）？
