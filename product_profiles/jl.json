@@ -1,0 +1,35 @@
+{
+  "name": "JL 杰理 / AC79 / WL82",
+  "platform": "jl",
+  "description": "杰理科技 AC79/WL82/AC791N 系列，WiFi+BLE 双核 RISC-V，audio_server 架构",
+  "required_constraints": ["C1", "C2", "C3", "C4", "C6", "C7", "C8", "C9", "C10", "C11", "C12", "C14", "C15"],
+  "optional_constraints": ["C5", "C13", "C16", "C17"],
+  "excluded_constraints": [],
+  "features": {
+    "wifi": true,
+    "ble": true,
+    "lvgl": true,
+    "i2s_audio": true,
+    "wss_tls": true,
+    "voice_asr": true,
+    "dual_core": true,
+    "psram": true,
+    "ota": true
+  },
+  "task_priority_style": "higher_is_higher",
+  "common_pitfalls": [
+    "audio_server enc/dec 事件需先解码再播放",
+    "thread_fork / thread_kill 线程管理 API（非标准 FreeRTOS）",
+    "栈单位需查 thread_fork 文档（部分 API 为 bytes）",
+    "SDK 模块裁剪须先扫描模块地图（C6.2）",
+    "AC79 带屏产品需关注 LCD DMA 与音频 DMA 竞争"
+  ],
+  "stack_recommendations": {
+    "wss_tls": {"min_bytes": 4096, "recommended_bytes": 6144},
+    "lvgl": {"min_bytes": 4096, "recommended_bytes": 8192},
+    "audio": {"min_bytes": 2048, "recommended_bytes": 4096},
+    "presenter": {"min_bytes": 2048, "recommended_bytes": 3072},
+    "main": {"min_bytes": 2048, "recommended_bytes": 3072}
+  },
+  "strictness": "strict"
+}

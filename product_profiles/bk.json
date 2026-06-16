@@ -1,0 +1,35 @@
+{
+  "name": "BK 博通集成 / BK7258 / Armino",
+  "platform": "bk",
+  "description": "博通集成 BK7258/BK7231 系列，WiFi+BLE 双核 RISC-V，AVDK 多 port 音频架构",
+  "required_constraints": ["C1", "C2", "C3", "C4", "C6", "C7", "C8", "C9", "C10", "C11", "C12", "C14", "C15", "C17"],
+  "optional_constraints": ["C5", "C13", "C16"],
+  "excluded_constraints": [],
+  "features": {
+    "wifi": true,
+    "ble": true,
+    "lvgl": true,
+    "i2s_audio": true,
+    "wss_tls": true,
+    "voice_asr": true,
+    "dual_core": true,
+    "psram": true,
+    "ota": true
+  },
+  "task_priority_style": "higher_is_higher",
+  "common_pitfalls": [
+    "AVDK 多 port 音频架构（onboard_speaker_stream），非标准 I2S",
+    "BEKEN_NO_WAIT 超时宏（非 portMAX_DELAY）",
+    "vc_start / voicechat 生命周期竞态（WSS 断线后异步 reconnect HardFault）",
+    "双核 FreeRTOS 独立实例，跨核通信须 IPC（C17），禁 xQueueSend",
+    "littlefs 表情资源 / SARADC gpio busy"
+  ],
+  "stack_recommendations": {
+    "wss_tls": {"min_bytes": 4096, "recommended_bytes": 6144},
+    "lvgl": {"min_bytes": 4096, "recommended_bytes": 8192},
+    "audio": {"min_bytes": 2048, "recommended_bytes": 4096},
+    "presenter": {"min_bytes": 2048, "recommended_bytes": 3072},
+    "main": {"min_bytes": 2048, "recommended_bytes": 3072}
+  },
+  "strictness": "strict"
+}

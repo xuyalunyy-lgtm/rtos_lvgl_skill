@@ -1,0 +1,34 @@
+{
+  "name": "STM32 / CubeMX HAL",
+  "platform": "stm32",
+  "description": "意法半导体 STM32 系列（F4/F7/H7），Cortex-M 单核，FreeRTOS 原生",
+  "required_constraints": ["C2", "C3", "C4", "C7", "C8", "C9", "C11", "C12", "C14", "C15"],
+  "optional_constraints": ["C1", "C5", "C6", "C10", "C13", "C16", "C17"],
+  "excluded_constraints": [],
+  "features": {
+    "wifi": false,
+    "ble": false,
+    "lvgl": true,
+    "i2s_audio": true,
+    "wss_tls": true,
+    "voice_asr": false,
+    "dual_core": false,
+    "psram": false,
+    "ota": false
+  },
+  "task_priority_style": "lower_is_higher",
+  "common_pitfalls": [
+    "原生 FreeRTOS 数字越小优先级越高（与 ESP32/JL/BK 相反）",
+    "HAL 回调（HAL_I2S_RxCpltCallback 等）在 ISR 上下文，仅 FromISR API",
+    "D-Cache 一致性：DMA 缓冲须在 SRAM 且 4 字节对齐",
+    "栈单位为 words（4 bytes/word），xTaskCreate 参数注意换算"
+  ],
+  "stack_recommendations": {
+    "wss_tls": {"min_bytes": 4096, "recommended_bytes": 8192},
+    "lvgl": {"min_bytes": 4096, "recommended_bytes": 8192},
+    "audio": {"min_bytes": 2048, "recommended_bytes": 4096},
+    "presenter": {"min_bytes": 2048, "recommended_bytes": 3072},
+    "main": {"min_bytes": 1024, "recommended_bytes": 2048}
+  },
+  "strictness": "strict"
+}

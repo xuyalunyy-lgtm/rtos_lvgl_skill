@@ -1,0 +1,34 @@
+{
+  "name": "ESP32 / ESP-IDF",
+  "platform": "esp32",
+  "description": "乐鑫 ESP32 系列（ESP32/S3/S2/C3/C6/H2），WiFi+BLE 双核 Xtensa/RISC-V",
+  "required_constraints": ["C1", "C2", "C3", "C4", "C7", "C8", "C9", "C11", "C12", "C14", "C15"],
+  "optional_constraints": ["C5", "C6", "C10", "C13", "C16", "C17"],
+  "excluded_constraints": [],
+  "features": {
+    "wifi": true,
+    "ble": true,
+    "lvgl": true,
+    "i2s_audio": true,
+    "wss_tls": true,
+    "voice_asr": false,
+    "dual_core": true,
+    "psram": true,
+    "ota": true
+  },
+  "task_priority_style": "higher_is_higher",
+  "common_pitfalls": [
+    "Core 0 WiFi/LwIP 协议栈不可抢占",
+    "PSRAM DMA 限制（SPI DMA 不支持 PSRAM）",
+    "Task WDT 默认监控 esp_timer + main",
+    "esp_websocket_client 回调在 esp_event 任务上下文（非 UI 线程）"
+  ],
+  "stack_recommendations": {
+    "wss_tls": {"min_bytes": 6144, "recommended_bytes": 8192},
+    "lvgl": {"min_bytes": 4096, "recommended_bytes": 8192},
+    "audio": {"min_bytes": 2048, "recommended_bytes": 4096},
+    "presenter": {"min_bytes": 2048, "recommended_bytes": 3072},
+    "main": {"min_bytes": 3584, "recommended_bytes": 4096}
+  },
+  "strictness": "standard"
+}

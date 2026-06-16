@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.80.0 — 2026-06-16
+
+- **多产品线适配框架**：新增 `product_profiles/` 目录，4 个芯片平台 JSON profile（ESP32/STM32/JL/BK），每个含必选约束、可选约束、功能特性、常见坑点、栈大小建议
+- **新增 `tools/product_profile.py`**：产品线加载工具，支持 `--json`/`--features`/`--stack`/`--list` 输出
+- **skill_structure.md** 新增产品线 Profile 章节，Agent L3 开始前推荐加载对应 profile
+- **版本升至 2.80.0**
+
 ## 2.70.0 — 2026-06-16
 
 - **Checker `--json` 输出**：`checker_io.py` 新增 `output_json()` 共享函数；`cjson_leak_checker.py` 首个支持 `--json` 的 checker，输出结构化 JSON（violations/summary/parse_sites）；`run_review.py` 新增 `--json` 参数

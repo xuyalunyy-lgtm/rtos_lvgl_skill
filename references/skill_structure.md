@@ -106,6 +106,19 @@ Workflow 索引 → [workflows/README.md](../workflows/README.md)
 | 项目 Rule | `globs: **/*.{c,h}` 编辑 C 时强制 Read skill |
 | 显式点名 | `@freertos-embedded-architect` |
 
+## 产品线 Profile（`product_profiles/`）
+
+| 平台 | 文件 | 必选约束 | 特性 |
+|------|------|----------|------|
+| ESP32 | `esp32.json` | C1-C4,C7-C9,C11-C12,C14-C15 | WiFi+BLE+LVGL+I2S, 双核, PSRAM |
+| STM32 | `stm32.json` | C2-C4,C7-C9,C11-C12,C14-C15 | LVGL+I2S+TLS, 单核 Cortex-M |
+| JL | `jl.json` | C1-C4,C6-C15 | WiFi+BLE+LVGL+I2S+语音, 双核 RISC-V |
+| BK | `bk.json` | C1-C4,C6-C15,C17 | WiFi+BLE+LVGL+AVDK音频+语音, 双核 IPC |
+
+加载方式：`python tools/product_profile.py <platform>` · `--json` · `--stack <task>`
+
+Agent 在 L3 开始前**推荐**加载产品 profile：自动获取必选约束、栈建议、常见坑点。
+
 ## 工具目录（完整版 · workflow 内调用）
 
 | 用途 | 命令 |
