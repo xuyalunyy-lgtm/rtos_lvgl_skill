@@ -234,7 +234,7 @@ Presenter Looper（等待 Queue）
 
 ---
 
-## 阶段 5 — 语音 / 音频验证（若有）
+## 阶段 5 — 语音 / 音频 / 音视频验证（若有）
 
 ### 5.1 I2S / DMA 验证
 
@@ -263,6 +263,19 @@ Presenter Looper（等待 Queue）
 - [ ] TTS 播放正常
 ```
 
+### 5.3 音视频同步验证（若有 camera / video preview）
+
+```markdown
+## 音视频同步验证
+
+- [ ] audio clock / I2S DMA timestamp 作为 master clock（C25.1）
+- [ ] audio/video frame 带 pts、seq、duration/sample_count、owner（C25.2）
+- [ ] video queue 有界，满时 drop-oldest，不阻塞 audio hot path（C25.3）
+- [ ] camera/display per-frame 路径无 malloc/free/printf/重日志（C25.4）
+- [ ] camera/LCD/DMA callback 只 notify/enqueue，不直接跑 UI/codec/network/json（C25.5）
+- [ ] 记录 av_drift_ms、dropped_frames、late_frames、audio_underrun/overrun（C25.6）
+```
+
 ---
 
 ## 阶段 6 — 闭环冒烟 + 量产 checklist
@@ -274,6 +287,7 @@ Presenter Looper（等待 Queue）
 
 - [ ] 上电 → 连 WiFi → WSS 连接 → 等待唤醒
 - [ ] 唤醒 → 语音交互 → ASR 返回 → TTS 播放
+- [ ] camera/video preview 音画同步，无持续 drift / dropped_frames 激增（若有）
 - [ ] 连续 10 轮语音交互无异常
 - [ ] 堆水位无持续下降（无泄漏）
 - [ ] 无 WDT 复位

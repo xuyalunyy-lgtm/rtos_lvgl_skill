@@ -49,6 +49,7 @@ REQUIRED_PROMPTS = [
     "low_power_management.txt",
     "lcd_display_driver.txt",
     "peripheral_shutdown_safety.txt",
+    "av_pipeline_sync.txt",
 ]
 
 REQUIRED_WORKFLOWS = [

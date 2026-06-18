@@ -87,10 +87,11 @@ Workflow 索引 → [workflows/README.md](../workflows/README.md)
 | C21 | 低功耗管理 | [low_power_management.txt](../prompts/low_power_management.txt) |
 | C23 | 显示驱动 | [lcd_display_driver.txt](../prompts/lcd_display_driver.txt) |
 | C24 | 外设关闭安全 | [peripheral_shutdown_safety.txt](../prompts/peripheral_shutdown_safety.txt) |
+| C25 | 音视频管线 / A/V Sync | [av_pipeline_sync.txt](../prompts/av_pipeline_sync.txt) |
 
 约束 ID 细则 → [constraint_detail.md](constraint_detail.md) · L2 速查 → [constraint_index.md](constraint_index.md) · **知识图谱** → [constraint_graph.md](constraint_graph.md)
 
-> C1–C24，23 个约束域，125 条规则。
+> C1–C25，24 个约束域，131 条规则。
 
 ---
 
@@ -119,10 +120,10 @@ Workflow 索引 → [workflows/README.md](../workflows/README.md)
 
 | 平台 | 文件 | 必选约束 | 特性 |
 |------|------|----------|------|
-| ESP32 | `esp32.json` | C1-C4,C7-C9,C11-C12,C14-C15 | WiFi+BLE+LVGL+I2S, 双核, PSRAM |
-| STM32 | `stm32.json` | C2-C4,C7-C9,C11-C12,C14-C15 | LVGL+I2S+TLS, 单核 Cortex-M |
-| JL | `jl.json` | C1-C4,C6-C15 | WiFi+BLE+LVGL+I2S+语音, 双核 RISC-V |
-| BK | `bk.json` | C1-C4,C6-C15,C17 | WiFi+BLE+LVGL+AVDK音频+语音, 双核 IPC |
+| ESP32 | `esp32.json` | C1-C4,C7-C9,C11-C12,C14-C15,C23,C25 | WiFi+BLE+LVGL+I2S+Camera, 双核, PSRAM |
+| STM32 | `stm32.json` | C2-C4,C7-C9,C11-C12,C14-C15,C23 | LVGL+I2S+TLS, 单核 Cortex-M |
+| JL | `jl.json` | C1-C4,C6-C15,C23,C25 | WiFi+BLE+LVGL+I2S+语音/视频, 双核 RISC-V |
+| BK | `bk.json` | C1-C4,C6-C15,C17,C23,C25 | WiFi+BLE+LVGL+AVDK音频+语音/视频, 双核 IPC |
 
 加载方式：`python tools/product_profile.py <platform>` · `--json` · `--stack <task>`
 
@@ -145,6 +146,7 @@ Agent 在 L3 开始前**推荐**加载产品 profile：自动获取必选约束�
 | C20 网络韧性 | `python tools/network_resilience_checker.py --dir src/` |
 | C21 低功耗 | `python tools/low_power_checker.py --dir src/` |
 | C23 显示驱动 | `python tools/display_driver_checker.py --dir src/` |
+| C25 音视频管线 | `python tools/av_pipeline_checker.py --dir src/` |
 | C13 状态机 | `python tools/state_machine_checker.py --dir src/` |
 | C14.4 日志脱敏 | `python tools/log_desensitize_checker.py --dir src/` |
 | C16 定时器 | `python tools/timer_checker.py --dir src/` |

@@ -101,6 +101,15 @@ Code Review 或 L3 校验时逐条核对。违规项引用 `C#.#`（完整矩阵
 - [ ] C17.2 无不同 FreeRTOS 实例间的 xQueueSend
 - [ ] C17.3 共享内存访问有硬件信号量保护
 
+## C25 — 音视频管线 / A/V Sync
+
+- [ ] C25.1 以 audio clock / I2S DMA timestamp / audio PTS 为 A/V master clock
+- [ ] C25.2 audio/video frame 有 pts/timestamp、seq、duration/sample_count、owner
+- [ ] C25.3 队列有界，视频可丢帧，音频高优先级路径不阻塞
+- [ ] C25.4 per-frame 热路径无 malloc/free/printf/重日志
+- [ ] C25.5 camera/LCD/DMA callback 不直接跑 UI/codec/network/json
+- [ ] C25.6 有 drift/drop/late/underrun/overrun 遥测计数
+
 ## 堆栈 / WSS / MVP
 
 - [ ] 相对优先级表已输出（见 [core_rules.md](core_rules.md)）

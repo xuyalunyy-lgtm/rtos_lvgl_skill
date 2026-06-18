@@ -1,5 +1,14 @@
 # Changelog
 
+## 4.8.0 — 2026-06-18
+
+- **新增 C25 音视频管线 / A/V Sync**：覆盖 audio clock master、音视频帧 PTS/seq、bounded queue 背压、per-frame 热路径、camera/LCD/DMA callback 隔离、drift/drop/underrun 遥测
+- **新增 prompt**：`prompts/av_pipeline_sync.txt`，用于 camera preview、视频帧队列、lip-sync drift、视频掉帧、音频爆音与 UI 卡顿共振场景
+- **新增 checker**：`tools/av_pipeline_checker.py`，并接入 `run_review.py --validate-examples` 与默认审查链（可用 `--skip-av` 跳过）
+- **新增范例**：`good_av_pipeline_sync.c` / `bad_av_pipeline_blocking.c`，验证 audio master clock、PTS/seq、有界队列、callback 隔离与热路径禁分配
+- **全链路同步**：SKILL 控制平面、core_rules、constraint_index/detail/graph、skill_structure、debug_crash、l3_new_module、Lite checklist、product profiles 全部补齐 C25
+- **版本升至 4.8.0**
+
 ## 4.7.3 — 2026-06-18
 
 - **C10 voice checker 增强**：`voice_sequence_checker.py` 改为函数路径级检查，分别验证 prompt stop 与 playback FINISHED 回调是否真正 detach playback

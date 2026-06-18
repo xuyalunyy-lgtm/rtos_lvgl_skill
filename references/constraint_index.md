@@ -193,6 +193,16 @@
 | C24.4 | 1 | 外设 stop 前须等待 DMA/任务 idle |
 | C24.5 | 0 | 电机停止后必须关闭加热/VH/电源门控 |
 
+## C25 音视频管线 / A/V Sync
+| ID | P | 一句话 |
+|----|---|--------|
+| C25.1 | 0 | 以 audio clock / I2S DMA timestamp 为 A/V master clock |
+| C25.2 | 0 | audio/video frame 必须有 pts/timestamp、seq、duration/sample_count、owner |
+| C25.3 | 1 | 队列有界，视频可丢帧，音频高优先级路径不阻塞 |
+| C25.4 | 1 | per-frame 热路径禁止 malloc/free/printf/重日志 |
+| C25.5 | 0 | camera/LCD/DMA callback 只 notify/enqueue，不跑 UI/codec/network/json |
+| C25.6 | 2 | 保留 drift/drop/late/underrun/overrun 遥测计数 |
+
 ## 症状 → ID（Crash 用）
 
 → [debug_crash.md](../workflows/debug_crash.md) Step 2 症状路由表（与 `constraint_detail.md` 末尾同步）。

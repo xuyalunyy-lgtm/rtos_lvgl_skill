@@ -50,6 +50,7 @@ python tools/run_review.py --dir <产品仓>/components --platform <esp32|jl|bk|
 - Demo TODO（深睡 hack、临时 recover）是否阻塞量产
 - LVGL 桥接是否走 `lv_async_call` / 平台 UI 队列 API（BK: `lvgl_port_lock`；JL: 消息队列；ESP: `esp_lvgl_port`）
 - **语音产品**：prompt/TTS 后 uplink 时序 → [voice_asr_uplink.txt](../prompts/voice_asr_uplink.txt)（C10）
+- **带屏音视频产品**：camera/video preview、音画同步、掉帧/爆音 → [av_pipeline_sync.txt](../prompts/av_pipeline_sync.txt)（C25）
 - **产品层死代码（C6.5）** — 见 Step 4b
 
 ## Step 4b — 产品层裁剪 spot-check（C6.5）

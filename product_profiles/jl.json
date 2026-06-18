@@ -2,7 +2,7 @@
   "name": "JL 杰理 / AC79 / WL82",
   "platform": "jl",
   "description": "杰理科技 AC79/WL82/AC791N 系列，WiFi+BLE 双核 RISC-V，audio_server 架构",
-  "required_constraints": ["C1", "C2", "C3", "C4", "C6", "C7", "C8", "C9", "C10", "C11", "C12", "C14", "C15"],
+  "required_constraints": ["C1", "C2", "C3", "C4", "C6", "C7", "C8", "C9", "C10", "C11", "C12", "C14", "C15", "C23", "C25"],
   "optional_constraints": ["C5", "C13", "C16", "C17"],
   "excluded_constraints": [],
   "features": {
@@ -12,6 +12,9 @@
     "i2s_audio": true,
     "wss_tls": true,
     "voice_asr": true,
+    "camera": true,
+    "video_preview": true,
+    "av_sync": true,
     "dual_core": true,
     "psram": true,
     "ota": true
@@ -33,6 +36,7 @@
     "wss_tls": {"min_bytes": 4096, "recommended_bytes": 6144, "note": "JL 平台 TLS 握手适中"},
     "lvgl": {"min_bytes": 4096, "recommended_bytes": 8192, "note": "带屏产品大屏 UI 需 8192"},
     "audio": {"min_bytes": 2048, "recommended_bytes": 4096, "note": "audio_server + AEC"},
+    "av_sync": {"min_bytes": 3072, "recommended_bytes": 6144, "note": "audio_server clock master + LCD preview"},
     "presenter": {"min_bytes": 2048, "recommended_bytes": 3072, "note": "事件分发简单"},
     "main": {"min_bytes": 2048, "recommended_bytes": 3072, "note": "main 任务需初始化 audio_server"}
   },

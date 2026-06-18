@@ -45,10 +45,19 @@ Cache 一致性细则 → [audio_dma_pingpong.txt](../prompts/audio_dma_pingpong
 
 | | 文件 | ID | Checker |
 |---|------|-----|---------|
-| ❌ | [bad_prompt_no_detach.c](bad_prompt_no_detach.c) | C10.1, C10.2, C10.5 | 人工 |
-| ✅ | [good_voice_prompt_uplink.c](good_voice_prompt_uplink.c) detach + settle + session generation | C10.1–C10.6 | 人工 |
+| ❌ | [bad_prompt_no_detach.c](bad_prompt_no_detach.c) | C10.1, C10.2, C10.5 | `voice_sequence_checker.py` |
+| ✅ | [good_voice_prompt_uplink.c](good_voice_prompt_uplink.c) detach + settle + session generation | C10.1–C10.6 | `voice_sequence_checker.py` |
 
 深细节 → [voice_asr_uplink.txt](../prompts/voice_asr_uplink.txt)
+
+## C25 — 音视频管线 / A/V Sync
+
+| | 文件 | ID | Checker |
+|---|------|-----|---------|
+| ❌ | [bad_av_pipeline_blocking.c](bad_av_pipeline_blocking.c) | C25.1–C25.5 | `av_pipeline_checker.py` |
+| ✅ | [good_av_pipeline_sync.c](good_av_pipeline_sync.c) audio clock master + PTS/seq + bounded queue | C25.1–C25.6 | `av_pipeline_checker.py` |
+
+深细节 → [av_pipeline_sync.txt](../prompts/av_pipeline_sync.txt)
 
 ## C8 — 启动 / WDT / 阻塞
 
@@ -128,7 +137,7 @@ Cache 一致性细则 → [audio_dma_pingpong.txt](../prompts/audio_dma_pingpong
 # checker fixtures 自测
 python tools/run_review.py --self-test
 
-# 铁律 C1–C4 + C10 范例 good/bad 约束
+# 铁律 C1–C4 + C10 + C25 范例 good/bad 约束
 python tools/run_review.py --validate-examples
 
 # 审查用户源码（含 queue 所有权）

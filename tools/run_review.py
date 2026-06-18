@@ -151,6 +151,9 @@ def run_validate_examples() -> int:
         # C10 — 语音时序
         ("voice_sequence_checker.py", examples / "good_voice_prompt_uplink.c", 0, "C10 good"),
         ("voice_sequence_checker.py", examples / "bad_prompt_no_detach.c", 1, "C10 bad"),
+        # C25 — 音视频管线 / A/V sync
+        ("av_pipeline_checker.py", examples / "good_av_pipeline_sync.c", 0, "C25 good"),
+        ("av_pipeline_checker.py", examples / "bad_av_pipeline_blocking.c", 1, "C25 bad"),
         # C11 — 编码规范（函数长度）
         ("function_length_checker.py", examples / "good_presenter_consumer.c", 0, "C11.5 good"),
         # C12 — 错误处理（返回值检查）
@@ -218,6 +221,7 @@ def main() -> int:
     parser.add_argument("--skip-lvgl", action="store_true")
     parser.add_argument("--skip-queue", action="store_true")
     parser.add_argument("--skip-voice", action="store_true")
+    parser.add_argument("--skip-av", action="store_true")
     parser.add_argument("--skip-logging", action="store_true")
     parser.add_argument("--skip-return-check", action="store_true")
     parser.add_argument("--skip-func-length", action="store_true")
@@ -353,6 +357,20 @@ def main() -> int:
         exit_code = max(exit_code, rc)
     elif not args.skip_voice:
         print("\n[skip] voice_sequence_checker: 无 .c 文件")
+
+    if not args.skip_av and c_files:
+        av_argv: list[str] = []
+        if args.dir:
+            av_argv.extend(["--dir", args.dir])
+        else:
+            av_argv.extend(str(f) for f in c_files)
+        rc = run_cmd(
+            "av_pipeline_checker",
+            [sys.executable, str(TOOLS_DIR / "av_pipeline_checker.py"), *av_argv],
+        )
+        exit_code = max(exit_code, rc)
+    elif not args.skip_av:
+        print("\n[skip] av_pipeline_checker: 无 .c 文件")
 
     if not args.skip_logging and c_files:
         logging_argv: list[str] = []

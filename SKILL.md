@@ -1,12 +1,12 @@
 ---
 name: freertos-embedded-architect
 metadata:
-  version: 4.7.3
+  version: 4.8.0
 description: >-
   审查与设计 FreeRTOS 物联网固件：MVP 分层、LVGL 线程安全、I2S/DMA、cJSON 泄漏、
   WSS/mbedTLS、内存优化、启动/WDT、SDK 裁剪、密钥安全、语音 ASR/Uplink、
   编码规范、错误处理、状态机、日志规范、任务优先级、定时器管理、多核 IPC、
-  软硬联调、IO 口规划、低功耗管理、显示驱动安全。
+  软硬联调、IO 口规划、低功耗管理、显示驱动安全、音视频管线、A/V sync、Camera/视频帧同步。
   Use when user mentions: 死机, 崩溃, 花屏, 卡顿, HardFault, 栈溢出, stack overflow,
   Guru Meditation, code review, 审查, SDK裁剪, 裁剪, 死代码, 新增模块, 修Bug,
   WSS, cJSON, DMA, I2S, 录音失效, ASR, uplink, 唤醒, AEC, use-after-free,
@@ -16,6 +16,7 @@ description: >-
   IO口, GPIO, 引脚, 引脚复用, 硬件联调, bring-up, 外设接线, 原理图,
   低功耗, 睡眠, 深度睡眠, 唤醒源, tickless, 功耗, 电池, battery, deep sleep, low power,
   显示, LCD, OLED, 背光, 帧率, 撕裂, tearing, VSync, 帧缓冲, frame buffer, display driver,
+  camera, video, preview, A/V sync, av sync, lip-sync, 音视频同步, 音画不同步, 视频卡顿, 掉帧,
   git commit, 提交, commit message.
 ---
 
@@ -28,7 +29,7 @@ description: >-
 | ✅ Skill 负责 | ❌ 不纳入 Skill |
 |--------------|----------------|
 | FreeRTOS 多任务 / MVP 架构设计与审查 | 字库、图片资源生成 |
-| LVGL 线程安全、I2S/DMA、WSS/cJSON | 低功耗策略设计（仅 review 用户方案） |
+| LVGL 线程安全、I2S/DMA、音视频管线、WSS/cJSON | 低功耗策略设计（仅 review 用户方案） |
 | JL/BK/ESP32/STM32 SDK 需求驱动裁剪 | OTA、产测、CI、通用编译脚本 |
 | `tools/` checker 与 MVP codegen | LVGL PC 模拟器 / Designer 搭建 |
 
@@ -85,6 +86,7 @@ description: >-
 | 21 | 低功耗管理（C21） | [low_power_management.txt](prompts/low_power_management.txt) |
 | 23 | 显示驱动（C23） | [lcd_display_driver.txt](prompts/lcd_display_driver.txt) |
 | 24 | 外设关闭（C24） | [peripheral_shutdown_safety.txt](prompts/peripheral_shutdown_safety.txt) |
+| 25 | 音视频管线（C25） | [av_pipeline_sync.txt](prompts/av_pipeline_sync.txt) |
 
 Prompt / 工具 / 范例全表 → [skill_structure.md](references/skill_structure.md)
 

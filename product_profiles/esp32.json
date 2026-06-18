@@ -2,7 +2,7 @@
   "name": "ESP32 / ESP-IDF",
   "platform": "esp32",
   "description": "乐鑫 ESP32 系列（ESP32/S3/S2/C3/C6/H2），WiFi+BLE 双核 Xtensa/RISC-V",
-  "required_constraints": ["C1", "C2", "C3", "C4", "C7", "C8", "C9", "C11", "C12", "C14", "C15"],
+  "required_constraints": ["C1", "C2", "C3", "C4", "C7", "C8", "C9", "C11", "C12", "C14", "C15", "C23", "C25"],
   "optional_constraints": ["C5", "C6", "C10", "C13", "C16", "C17"],
   "excluded_constraints": [],
   "features": {
@@ -12,6 +12,9 @@
     "i2s_audio": true,
     "wss_tls": true,
     "voice_asr": false,
+    "camera": true,
+    "video_preview": true,
+    "av_sync": true,
     "dual_core": true,
     "psram": true,
     "ota": true
@@ -33,6 +36,7 @@
     "wss_tls": {"min_bytes": 6144, "recommended_bytes": 8192, "note": "mbedTLS 握手峰值高，ESP-IDF 5.x 建议 ≥6144"},
     "lvgl": {"min_bytes": 4096, "recommended_bytes": 8192, "note": "大屏/复杂 UI 需 8192"},
     "audio": {"min_bytes": 2048, "recommended_bytes": 4096, "note": "I2S + esp-sr AEC"},
+    "av_sync": {"min_bytes": 3072, "recommended_bytes": 6144, "note": "audio clock master + camera/video frame queue"},
     "presenter": {"min_bytes": 2048, "recommended_bytes": 3072, "note": "逻辑简单，2048 够用"},
     "main": {"min_bytes": 3584, "recommended_bytes": 4096, "note": "CONFIG_ESP_MAIN_TASK_STACK_SIZE"}
   },

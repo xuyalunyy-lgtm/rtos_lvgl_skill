@@ -4,7 +4,7 @@
 
 <thinking>
 1. 确认目标平台（ESP32/STM32/JL/BK）
-2. 识别涉及模块：网络 / LVGL / 音频 / cJSON
+2. 识别涉及模块：网络 / LVGL / 音频 / 音视频管线 / cJSON
 3. 仅加载与本审查相关的 scene prompt（勿加载全部 prompts/）
 </thinking>
 
@@ -22,7 +22,7 @@
 | **Queue 栈指针/cJSON*** | [bad_queue_stack_pointer.c](../examples/bad_queue_stack_pointer.c) |
 | WSS 栈/重连/init 顺序 | [bad_wss_blocking.c](../examples/bad_wss_blocking.c) → [good_wss_reconnect.c](../examples/good_wss_reconnect.c) · [good_boot_sequence.c](../examples/good_boot_sequence.c) |
 
-按需深读：[lvgl_thread_safety.txt](../prompts/lvgl_thread_safety.txt)、[memory_ownership.txt](../prompts/memory_ownership.txt)、[deadlock_lock_order.txt](../prompts/deadlock_lock_order.txt)、[memory_alloc_optimize.txt](../prompts/memory_alloc_optimize.txt)（堆/栈/缩池嫌疑）、[boot_wdt_lifecycle.txt](../prompts/boot_wdt_lifecycle.txt)（init/WDT/portMAX_DELAY）、[voice_asr_uplink.txt](../prompts/voice_asr_uplink.txt)（`*prompt*` / `*voice*` / `*capture*` / `*uplink*` / ASR 空 — 平台 API 见 `platforms/xxx.md`）、[error_handling.txt](../prompts/error_handling.txt)（未检查返回值 / NULL 解引用）、[logging_debug.txt](../prompts/logging_debug.txt)（裸 printf / ISR 日志 / 脱敏）、[coding_style.txt](../prompts/coding_style.txt)（函数 >80 行 / 命名不规范）
+按需深读：[lvgl_thread_safety.txt](../prompts/lvgl_thread_safety.txt)、[memory_ownership.txt](../prompts/memory_ownership.txt)、[deadlock_lock_order.txt](../prompts/deadlock_lock_order.txt)、[memory_alloc_optimize.txt](../prompts/memory_alloc_optimize.txt)（堆/栈/缩池嫌疑）、[boot_wdt_lifecycle.txt](../prompts/boot_wdt_lifecycle.txt)（init/WDT/portMAX_DELAY）、[voice_asr_uplink.txt](../prompts/voice_asr_uplink.txt)（`*prompt*` / `*voice*` / `*capture*` / `*uplink*` / ASR 空 — 平台 API 见 `platforms/xxx.md`）、[av_pipeline_sync.txt](../prompts/av_pipeline_sync.txt)（`camera` / `video` / `preview` / 音画不同步 / 掉帧 / lip-sync）、[error_handling.txt](../prompts/error_handling.txt)（未检查返回值 / NULL 解引用）、[logging_debug.txt](../prompts/logging_debug.txt)（裸 printf / ISR 日志 / 脱敏）、[coding_style.txt](../prompts/coding_style.txt)（函数 >80 行 / 命名不规范）
 
 ## Step 3 — 自动化 checker（完整版）
 
