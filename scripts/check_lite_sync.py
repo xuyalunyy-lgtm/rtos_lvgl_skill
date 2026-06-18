@@ -17,11 +17,12 @@ import re
 import sys
 from pathlib import Path
 
+import sync_lite
+
 # Root directory
 ROOT = Path(__file__).parent.parent
 FULL_DIR = ROOT
 LITE_DIR = ROOT / "freertos-skill-lite"
-EXAMPLE_LINK_RE = re.compile(r"\[([^\]]+)\]\(\.\./examples/([^)]+)\)")
 
 # Files that MUST exist in lite
 REQUIRED_PROMPTS = [
@@ -187,11 +188,47 @@ def check_prompt_content_sync() -> list[dict]:
     return issues
 
 
+def check_workflow_content_sync() -> list[dict]:
+    """Check if generated Lite workflow files have diverged."""
+    issues = []
+    workflows_dir = FULL_DIR / "workflows"
+    for full_path in sorted(workflows_dir.glob("*.md")):
+        lite_path = LITE_DIR / "workflows" / full_path.name
+        if not lite_path.exists():
+            continue
+
+        try:
+            full_text = expected_lite_text(full_path)
+        except ValueError as e:
+            issues.append({
+                "type": "workflow_patch_failed",
+                "file": f"workflows/{full_path.name}",
+                "detail": str(e),
+                "fix": "manual",
+            })
+            continue
+
+        lite_text = lite_path.read_text(encoding="utf-8")
+        if full_text.strip() != lite_text.strip():
+            issues.append({
+                "type": "workflow_diverged",
+                "file": f"workflows/{full_path.name}",
+                "fix": "copy",
+            })
+    return issues
+
+
 def expected_lite_text(src: Path) -> str:
     """Return the text expected after sync_lite.py's Lite transformations."""
     text = src.read_text(encoding="utf-8")
-    if "prompts" in src.parts:
-        text = EXAMPLE_LINK_RE.sub(r"完整版 `examples/\2`", text)
+    if src.suffix.lower() in (".md", ".txt"):
+        text = sync_lite.patch_lite_examples(text)
+        try:
+            rel = src.relative_to(FULL_DIR / "workflows")
+        except ValueError:
+            pass
+        else:
+            text = sync_lite.patch_lite_workflow(text, rel)
     return text
 
 
@@ -251,6 +288,7 @@ def main() -> int:
     all_issues.extend(check_references())
     all_issues.extend(check_version_sync())
     all_issues.extend(check_prompt_content_sync())
+    all_issues.extend(check_workflow_content_sync())
 
     if not all_issues:
         print("✅ Lite 版本与完整版完全同步")

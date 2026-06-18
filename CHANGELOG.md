@@ -1,5 +1,14 @@
 # Changelog
 
+## 4.7.2 — 2026-06-18
+
+- **Lite workflow 同步修复**：更新 `l3_new_module.md` 与 `debug_crash.md` 的 Lite patch 规则，匹配当前 workflow 标题与段落结构
+- **Lite 工具依赖清理**：生成的 Lite `l3_new_module.md` 不再保留 `tools/`、`mvp_codegen`、`run_review` 依赖；改为编译闭环 + 人工 checklist
+- **同步硬闸**：`sync_lite.py` 与 `sync_lite.ps1` 在必需 workflow patch 匹配失败时直接报错，避免静默生成错误 Lite 产物
+- **同步检查加固**：`check_lite_sync.py` 复用 `sync_lite.py` 的转换逻辑，比对 Lite workflow 生成内容
+- **PowerShell 校验恢复**：`sync_lite.ps1 -DryRun` 不再出现 workflow patch skipped 警告
+- **版本升至 4.7.2**
+
 ## 4.7.1 — 2026-06-18
 
 - **C3 cJSON checker 修复**：补齐 `cjson_leak_checker.py` CLI 入口，修复原脚本运行后无输出且误返回成功的问题

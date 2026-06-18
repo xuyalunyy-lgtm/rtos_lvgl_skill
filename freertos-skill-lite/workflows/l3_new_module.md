@@ -35,37 +35,19 @@
 | JSON | [cjson_safe_parse.txt](../prompts/cjson_safe_parse.txt) | 完整版 `examples/good_wss_json_parse.c` |
 | Presenter | [memory_ownership.txt](../prompts/memory_ownership.txt) | 完整版 `examples/good_presenter_consumer.c` |
 
-## Step 3 — 代码生成与落地（自主实施）
+## Step 3 — 代码生成与落地（Lite）
 
-**默认：** [core_rules.md](../references/core_rules.md) **自主实施模式** — 全权改工程文件，无需逐步确认。
+**默认：** [core_rules.md](../references/core_rules.md) **自主实施模式** — 按 scene prompt 手写骨架，直接写入用户工程。
 
-**方式 A — 范例对齐：** 参照 完整版 `examples/good_wss_json_parse.c` 等三件套，直接写入用户工程。
-
-**方式 B — codegen：**
-
-```bash
-python tools/mvp_codegen_tool.py <Module> --platform <jl|bk|esp32|stm32> -o ./generated
-```
-
-输出含 `app_mvp.h`；多次生成须**手动合并** `app_test_config.h` 中 `APP_TEST_MODE_*`。
+**Lite 限制：** 无 `examples/`、`tools/`、`mvp_codegen`、`run_review`；按 [lite_manual_checklist.md](../references/lite_manual_checklist.md) 完成人工审查。
 
 ## Step 4 — 编译闭环（必做）
 
 按 `platforms/xxx.md` 执行编译；失败则修错重编，直至 **0 error**。
 
-```bash
-# 示例 — 以平台专档为准
-make bk7258          # BK
-idf.py build         # ESP32
-make ac791n_demo_wifi  # JL
-```
+## Step 5 — 人工校验（Lite）
 
-## Step 5 — 工具校验
-
-```bash
-python tools/stack_calculator.py --describe "..." --platform xxx
-python tools/run_review.py --dir ./src --platform xxx
-```
+执行 [lite_manual_checklist.md](../references/lite_manual_checklist.md)，并按已加载 prompt 手工核对 C1/C2/C3/C4 等约束。
 
 ## Step 6 — 输出
 

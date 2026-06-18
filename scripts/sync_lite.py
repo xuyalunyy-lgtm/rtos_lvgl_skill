@@ -29,16 +29,24 @@ EXAMPLE_LINK_RE = re.compile(r"\[([^\]]+)\]\(\.\./examples/([^)]+)\)")
 LITE_WORKFLOW_REPLACEMENTS: list[tuple[str, str, str]] = [
     (
         "l3_new_module.md",
-        r"## Step 3 — 代码生成\n\n\*\*方式 A.*?(?=## Step 5)",
-        "## Step 3 — 代码生成（Lite）\n\n"
-        "按 [core_rules.md](../references/core_rules.md) 与 scene prompt 手写骨架；"
-        "无 `examples/` 与 `mvp_codegen`/`run_review`。\n\n",
+        r"## Step 3 — 代码生成与落地（自主实施）\n\n.*?(?=## Step 6)",
+        "## Step 3 — 代码生成与落地（Lite）\n\n"
+        "**默认：** [core_rules.md](../references/core_rules.md) **自主实施模式** — "
+        "按 scene prompt 手写骨架，直接写入用户工程。\n\n"
+        "**Lite 限制：** 无 `examples/`、`tools/`、`mvp_codegen`、`run_review`；"
+        "按 [lite_manual_checklist.md](../references/lite_manual_checklist.md) 完成人工审查。\n\n"
+        "## Step 4 — 编译闭环（必做）\n\n"
+        "按 `platforms/xxx.md` 执行编译；失败则修错重编，直至 **0 error**。\n\n"
+        "## Step 5 — 人工校验（Lite）\n\n"
+        "执行 [lite_manual_checklist.md](../references/lite_manual_checklist.md)，"
+        "并按已加载 prompt 手工核对 C1/C2/C3/C4 等约束。\n\n",
     ),
     (
         "debug_crash.md",
-        r"## Step 3 — 验证（完整版）\n\n.*?(?=## Step 4)",
-        "## Step 3 — 验证（Lite）\n\n"
-        "执行 [lite_manual_checklist.md](../references/lite_manual_checklist.md)。\n\n",
+        r"## Step 3 — 修复与验证（完整版）\n\n.*?(?=## Step 4)",
+        "## Step 3 — 修复与验证（Lite）\n\n"
+        "按 [core_rules.md](../references/core_rules.md) 自主实施模式修改源码，编译至通过。\n"
+        "执行 [lite_manual_checklist.md](../references/lite_manual_checklist.md) 完成人工审查。\n\n",
     ),
     (
         "self_iterate.md",
@@ -65,8 +73,9 @@ def patch_lite_workflow(content: str, rel: Path) -> str:
     for name, pattern, repl in LITE_WORKFLOW_REPLACEMENTS:
         if rel.name == name:
             content, n = re.subn(pattern, repl, content, count=1, flags=re.DOTALL)
-            if n:
-                break
+            if not n:
+                raise ValueError(f"workflow patch no match: {rel}")
+            break
     return content
 
 
@@ -166,6 +175,9 @@ def main() -> int:
             except FileNotFoundError as e:
                 print(f"  跳过: {e}")
                 continue
+            except ValueError as e:
+                print(f"  错误: {e}", file=sys.stderr)
+                return 1
             for line in actions:
                 print(f"  {line}")
             total += len(actions)

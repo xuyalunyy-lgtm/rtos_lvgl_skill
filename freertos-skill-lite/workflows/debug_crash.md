@@ -31,14 +31,10 @@
 | 录音失效 / ASR 空 / 「没听清」 | **C10.1–C10.5** | [voice_asr_uplink.txt](../prompts/voice_asr_uplink.txt) | 完整版 `examples/good_voice_prompt_uplink.c` |
 | 唤醒叮后第二轮麦幅骤降 | **C10.1, C10.2** | [voice_asr_uplink.txt](../prompts/voice_asr_uplink.txt) | — |
 
-## Step 3 — 修复与验证（完整版）
+## Step 3 — 修复与验证（Lite）
 
-**自主实施（默认）：** 按 [core_rules.md](../references/core_rules.md) 自主实施模式修改源码，编译至通过。
-
-```bash
-python tools/run_review.py --dir ./src --platform xxx
-# 编译 — 见 platforms/xxx.md
-```
+按 [core_rules.md](../references/core_rules.md) 自主实施模式修改源码，编译至通过。
+执行 [lite_manual_checklist.md](../references/lite_manual_checklist.md) 完成人工审查。
 
 ## Step 4 — 输出
 

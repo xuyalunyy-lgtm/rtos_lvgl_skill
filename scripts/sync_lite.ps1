@@ -72,7 +72,7 @@ function Patch-LiteWorkflow([string]$Content, [string]$FileName) {
         $pattern = Read-Pattern $rule.Pattern
         $repl = Read-Patch $rule.Patch
         if (-not [regex]::IsMatch($Content, $pattern)) {
-            Write-Warning "Workflow patch skipped (no match): $FileName"
+            throw "Workflow patch no match: $FileName"
         }
         else {
             $Content = [regex]::Replace($Content, $pattern, $repl + "`n", 1)
@@ -149,7 +149,15 @@ if (-not $SkillOnly) {
             foreach ($line in $actions) { Write-Host "  $line" }
             $total += $actions.Count
         }
-        catch { Write-Host "  skip: $_" }
+        catch {
+            $msg = $_.Exception.Message
+            if ($msg -like "Source directory not found:*") {
+                Write-Host "  skip: $msg"
+                continue
+            }
+            Write-Host "  error: $msg"
+            exit 1
+        }
     }
 }
 
