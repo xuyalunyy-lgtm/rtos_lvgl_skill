@@ -1,0 +1,90 @@
+#!/usr/bin/env python3
+"""
+Central registry for run_review.py.
+
+Add a checker here first, then wire only unusual behavior in run_review.py.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
+class CheckerSpec:
+    name: str
+    script: str
+    skip_arg: str
+    mode: str
+    domains: tuple[str, ...]
+    note: str = ""
+
+    @property
+    def skip_attr(self) -> str:
+        return f"skip_{self.skip_arg.replace('-', '_')}"
+
+
+@dataclass(frozen=True)
+class CheckerCase:
+    script: str
+    path: str
+    expected: int
+    label: str
+
+
+DEFAULT_CHECKERS: tuple[CheckerSpec, ...] = (
+    CheckerSpec("cjson_leak_checker", "cjson_leak_checker.py", "cjson", "per-file", ("C3",)),
+    CheckerSpec("isr_safety_checker", "isr_safety_checker.py", "isr", "per-file", ("C4",)),
+    CheckerSpec("lvgl_thread_checker", "lvgl_thread_checker.py", "lvgl", "per-file", ("C1",)),
+    CheckerSpec("queue_ownership_checker", "queue_ownership_checker.py", "queue", "per-file", ("C2",)),
+    CheckerSpec("voice_sequence_checker", "voice_sequence_checker.py", "voice", "batch", ("C10",)),
+    CheckerSpec("av_pipeline_checker", "av_pipeline_checker.py", "av", "batch", ("C25",)),
+    CheckerSpec("media_format_checker", "media_format_checker.py", "media-format", "batch", ("C26",)),
+    CheckerSpec("av_clock_jitter_checker", "av_clock_jitter_checker.py", "av-clock", "batch", ("C27",)),
+    CheckerSpec("logging_checker", "logging_checker.py", "logging", "batch", ("C14",)),
+    CheckerSpec("return_check_checker", "return_check_checker.py", "return-check", "batch", ("C12",)),
+    CheckerSpec("function_length_checker", "function_length_checker.py", "func-length", "batch", ("C11.5",)),
+)
+
+
+SELF_TEST_CASES: tuple[CheckerCase, ...] = (
+    CheckerCase("cjson_leak_checker.py", "fixtures/good_cjson.c", 0, "cjson good"),
+    CheckerCase("cjson_leak_checker.py", "fixtures/bad_cjson.c", 1, "cjson bad"),
+    CheckerCase("isr_safety_checker.py", "fixtures/good_isr.c", 0, "isr good"),
+    CheckerCase("isr_safety_checker.py", "fixtures/bad_isr.c", 1, "isr bad"),
+    CheckerCase("lvgl_thread_checker.py", "fixtures/ui_view_good.c", 0, "lvgl good"),
+    CheckerCase("lvgl_thread_checker.py", "fixtures/network_wss_bad.c", 1, "lvgl bad"),
+    CheckerCase("queue_ownership_checker.py", "fixtures/good_queue_heap.c", 0, "queue good"),
+    CheckerCase("queue_ownership_checker.py", "fixtures/bad_queue_stack.c", 1, "queue bad"),
+    CheckerCase("secret_scan_checker.py", "fixtures/good_config_secrets", 0, "secret good"),
+    CheckerCase("secret_scan_checker.py", "fixtures/bad_config_secrets", 1, "secret bad"),
+)
+
+
+VALIDATE_EXAMPLE_CASES: tuple[CheckerCase, ...] = (
+    CheckerCase("lvgl_thread_checker.py", "examples/good_mvp_pattern.c", 0, "C1 good"),
+    CheckerCase("lvgl_thread_checker.py", "examples/good_presenter_consumer.c", 0, "C1 good"),
+    CheckerCase("lvgl_thread_checker.py", "examples/bad_lvgl_cross_thread.c", 1, "C1.1 bad"),
+    CheckerCase("queue_ownership_checker.py", "examples/good_wss_json_parse.c", 0, "C2 good"),
+    CheckerCase("queue_ownership_checker.py", "examples/good_presenter_consumer.c", 0, "C2 good"),
+    CheckerCase("queue_ownership_checker.py", "examples/good_wss_reconnect.c", 0, "C2 good"),
+    CheckerCase("queue_ownership_checker.py", "examples/good_boot_sequence.c", 0, "C2/C8 good"),
+    CheckerCase("queue_ownership_checker.py", "examples/bad_queue_stack_pointer.c", 1, "C2.2 bad"),
+    CheckerCase("cjson_leak_checker.py", "examples/good_wss_json_parse.c", 0, "C3 good"),
+    CheckerCase("cjson_leak_checker.py", "examples/bad_cjson_leak.c", 1, "C3.1 bad"),
+    CheckerCase("isr_safety_checker.py", "examples/bad_isr_blocking.c", 1, "C4.1 bad"),
+    CheckerCase("queue_ownership_checker.py", "examples/good_voice_prompt_uplink.c", 0, "C10 good"),
+    CheckerCase("voice_sequence_checker.py", "examples/good_voice_prompt_uplink.c", 0, "C10 good"),
+    CheckerCase("voice_sequence_checker.py", "examples/bad_prompt_no_detach.c", 1, "C10 bad"),
+    CheckerCase("av_pipeline_checker.py", "examples/good_av_pipeline_sync.c", 0, "C25 good"),
+    CheckerCase("av_pipeline_checker.py", "examples/bad_av_pipeline_blocking.c", 1, "C25 bad"),
+    CheckerCase("media_format_checker.py", "examples/good_media_format_contract.c", 0, "C26 good"),
+    CheckerCase("media_format_checker.py", "examples/bad_media_format_mismatch.c", 1, "C26 bad"),
+    CheckerCase("av_clock_jitter_checker.py", "examples/good_av_clock_jitter.c", 0, "C27 good"),
+    CheckerCase("av_clock_jitter_checker.py", "examples/bad_av_clock_jitter.c", 1, "C27 bad"),
+    CheckerCase("function_length_checker.py", "examples/good_presenter_consumer.c", 0, "C11.5 good"),
+    # TODO: return_check_checker 对 good_presenter_consumer.c 测试模式 xQueueSend 过于严格，待优化后启用。
+    CheckerCase("return_check_checker.py", "examples/bad_unchecked_return.c", 1, "C12 bad"),
+    CheckerCase("logging_checker.py", "examples/good_presenter_consumer.c", 0, "C14 good"),
+    CheckerCase("logging_checker.py", "examples/bad_isr_printf.c", 1, "C14 bad"),
+)

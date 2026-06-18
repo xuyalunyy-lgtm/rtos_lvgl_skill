@@ -29,7 +29,7 @@
 | 场景专链 | `prompts/xxx.txt` | 检查 workflow 是否引用 |
 | 编排步骤 | `workflows/xxx.md` | 检查 SKILL 路由表 |
 | 范例 / 类型 | `examples/`、`app_mvp.h` | 对齐 mvp_codegen |
-| Checker 规则 | `tools/*.py` | **必须**更新 fixtures |
+| Checker 规则 | `tools/*.py` + `tools/checker_registry.py` | **必须**更新 fixtures / validate-examples case |
 | 控制平面 | `SKILL.md` | 保持 <100 行；路由不膨胀 |
 | Lite 分发 | 运行 `sync_lite.py` | 禁止手改 Lite 正文 |
 
@@ -47,6 +47,7 @@
 ```bash
 python tools/run_review.py --self-test
 python tools/run_review.py --validate-examples
+python tools/run_review.py --list-checkers
 python scripts/skill_iterate.py --check
 python scripts/sync_lite.py
 # Windows: .\scripts\skill_iterate.cmd -Sync
@@ -56,6 +57,7 @@ python scripts/sync_lite.py
 |--------|----------|
 | fixtures 自测 | exit 0 |
 | **铁律范例约束** | `--validate-examples` exit 0 |
+| checker registry | `skill_iterate.py --check` 内置审计通过 |
 | SKILL version | frontmatter 含 `metadata.version` |
 | Lite 同步 | `freertos-skill-lite/SKILL.md` 版本与完整版一致 |
 | sync dry-run | `sync_lite.py --dry-run` exit 0 |

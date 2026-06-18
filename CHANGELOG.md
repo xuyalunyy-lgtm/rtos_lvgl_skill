@@ -1,5 +1,14 @@
 # Changelog
 
+## 4.11.0 — 2026-06-18
+
+- **大重构：checker 管线注册表化**：新增 `tools/checker_registry.py`，集中管理默认 checker、`--skip-*` 参数、self-test fixtures 与 validate-examples case
+- **run_review.py 数据驱动化**：默认审查链从硬编码分支改为 registry 循环，新增 `--list-checkers`，新增 checker 时只需先改注册表
+- **过滤语义修复**：batch checker 统一使用 `collect_c_files()` 后的文件列表，`--dir` 模式下不再绕过 `bad_*.c` 过滤
+- **验证闭环硬化**：`scripts/skill_iterate.py --check` 新增 checker registry 审计，检查脚本、case、skip 参数和 mode 合法性
+- **日志可读性改进**：`run_cmd()` 统一 UTF-8 环境并 flush 标题，减少 Windows 控制台下输出交错和编码问题
+- **版本升至 4.11.0**
+
 ## 4.10.0 — 2026-06-18
 
 - **新增 C27 音视频时钟漂移 / jitter buffer**：覆盖 master clock、单调 PTS、有界水位、drift ppm 限幅、late/drop/repeat、underrun/overrun 与遥测

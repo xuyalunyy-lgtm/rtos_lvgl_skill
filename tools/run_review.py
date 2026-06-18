@@ -17,7 +17,6 @@ import sys
 from pathlib import Path
 
 TOOLS_DIR = Path(__file__).resolve().parent
-FIXTURES_DIR = TOOLS_DIR / "fixtures"
 SKILL_ROOT = TOOLS_DIR.parent
 
 
@@ -29,6 +28,13 @@ def checker_env() -> dict[str, str]:
 
 
 from checker_io import safe_print as _safe_print  # noqa: E402
+from checker_registry import (  # noqa: E402
+    DEFAULT_CHECKERS,
+    SELF_TEST_CASES,
+    VALIDATE_EXAMPLE_CASES,
+    CheckerCase,
+    CheckerSpec,
+)
 
 
 def is_bad_example(path: Path) -> bool:
@@ -68,9 +74,9 @@ def collect_c_files(
 
 
 def run_cmd(label: str, argv: list[str]) -> int:
-    print(f"\n{'=' * 60}\n[{label}]\n{'=' * 60}")
-    print(" ", " ".join(str(a) for a in argv))
-    proc = subprocess.run(argv, cwd=SKILL_ROOT)
+    print(f"\n{'=' * 60}\n[{label}]\n{'=' * 60}", flush=True)
+    print(" ", " ".join(str(a) for a in argv), flush=True)
+    proc = subprocess.run(argv, cwd=SKILL_ROOT, env=checker_env())
     return proc.returncode
 
 
@@ -91,110 +97,82 @@ def run_checker(script: str, checker_args: list[str]) -> int:
     return proc.returncode
 
 
-def run_self_test() -> int:
-    cases = [
-        ("cjson_leak_checker.py", [str(FIXTURES_DIR / "good_cjson.c")], 0),
-        ("cjson_leak_checker.py", [str(FIXTURES_DIR / "bad_cjson.c")], 1),
-        ("isr_safety_checker.py", [str(FIXTURES_DIR / "good_isr.c")], 0),
-        ("isr_safety_checker.py", [str(FIXTURES_DIR / "bad_isr.c")], 1),
-        ("lvgl_thread_checker.py", [str(FIXTURES_DIR / "ui_view_good.c")], 0),
-        ("lvgl_thread_checker.py", [str(FIXTURES_DIR / "network_wss_bad.c")], 1),
-        ("queue_ownership_checker.py", [str(FIXTURES_DIR / "good_queue_heap.c")], 0),
-        ("queue_ownership_checker.py", [str(FIXTURES_DIR / "bad_queue_stack.c")], 1),
-        ("secret_scan_checker.py", [str(FIXTURES_DIR / "good_config_secrets")], 0),
-        ("secret_scan_checker.py", [str(FIXTURES_DIR / "bad_config_secrets")], 1),
-    ]
+def run_checker_case(case: CheckerCase, base_dir: Path) -> bool:
+    path = base_dir / case.path
+    if not path.is_file():
+        print(f"[FAIL] 缺少测试文件: {path}")
+        return False
 
+    rc = run_checker(case.script, [str(path)])
+    ok = rc == case.expected
+    status = "PASS" if ok else "FAIL"
+    print(f"[{status}] {case.label}: {case.script} {path.name} → exit {rc} (期望 {case.expected})")
+    return ok
+
+
+def run_case_group(title: str, cases: tuple[CheckerCase, ...], base_dir: Path) -> int:
     print("=" * 60)
-    print("run_review.py — checker fixtures 自测")
+    print(title)
     print("=" * 60)
 
     failed = 0
-    for script, cargs, expected in cases:
-        rc = run_checker(script, cargs)
-        ok = rc == expected
-        status = "PASS" if ok else "FAIL"
-        print(f"[{status}] {script} {' '.join(cargs)} → exit {rc} (期望 {expected})")
-        if not ok:
+    for case in cases:
+        if not run_checker_case(case, base_dir):
             failed += 1
 
     print(f"\n{'=' * 60}")
     if failed == 0:
-        print("Self-test: 全部通过")
+        print(f"{title.split(' — ')[-1]}: 全部通过")
     else:
-        print(f"Self-test: {failed} 项失败")
+        print(f"{title.split(' — ')[-1]}: {failed} 项失败")
     print(f"{'=' * 60}\n")
     return 1 if failed else 0
+
+
+def run_self_test() -> int:
+    return run_case_group("run_review.py — checker fixtures 自测", SELF_TEST_CASES, TOOLS_DIR)
 
 
 def run_validate_examples() -> int:
     """铁律范例约束：good_* 须通过，bad_* 须触发对应 checker 失败。"""
-    examples = SKILL_ROOT / "examples"
-    cases: list[tuple[str, Path, int, str]] = [
-        # C1 — LVGL
-        ("lvgl_thread_checker.py", examples / "good_mvp_pattern.c", 0, "C1 good"),
-        ("lvgl_thread_checker.py", examples / "good_presenter_consumer.c", 0, "C1 good"),
-        ("lvgl_thread_checker.py", examples / "bad_lvgl_cross_thread.c", 1, "C1.1 bad"),
-        # C2 — Queue
-        ("queue_ownership_checker.py", examples / "good_wss_json_parse.c", 0, "C2 good"),
-        ("queue_ownership_checker.py", examples / "good_presenter_consumer.c", 0, "C2 good"),
-        ("queue_ownership_checker.py", examples / "good_wss_reconnect.c", 0, "C2 good"),
-        ("queue_ownership_checker.py", examples / "good_boot_sequence.c", 0, "C2/C8 good"),
-        ("queue_ownership_checker.py", examples / "bad_queue_stack_pointer.c", 1, "C2.2 bad"),
-        # C3 — cJSON
-        ("cjson_leak_checker.py", examples / "good_wss_json_parse.c", 0, "C3 good"),
-        ("cjson_leak_checker.py", examples / "bad_cjson_leak.c", 1, "C3.1 bad"),
-        # C4 — ISR
-        ("isr_safety_checker.py", examples / "bad_isr_blocking.c", 1, "C4.1 bad"),
-        # C8 — 启动 (queue checker 对 good_boot_sequence 应通过)
-        ("queue_ownership_checker.py", examples / "good_voice_prompt_uplink.c", 0, "C10 good"),
-        # C10 — 语音时序
-        ("voice_sequence_checker.py", examples / "good_voice_prompt_uplink.c", 0, "C10 good"),
-        ("voice_sequence_checker.py", examples / "bad_prompt_no_detach.c", 1, "C10 bad"),
-        # C25 — 音视频管线 / A/V sync
-        ("av_pipeline_checker.py", examples / "good_av_pipeline_sync.c", 0, "C25 good"),
-        ("av_pipeline_checker.py", examples / "bad_av_pipeline_blocking.c", 1, "C25 bad"),
-        # C26 — 编解码 / 媒体格式一致性
-        ("media_format_checker.py", examples / "good_media_format_contract.c", 0, "C26 good"),
-        ("media_format_checker.py", examples / "bad_media_format_mismatch.c", 1, "C26 bad"),
-        # C27 — 音视频时钟漂移 / jitter buffer
-        ("av_clock_jitter_checker.py", examples / "good_av_clock_jitter.c", 0, "C27 good"),
-        ("av_clock_jitter_checker.py", examples / "bad_av_clock_jitter.c", 1, "C27 bad"),
-        # C11 — 编码规范（函数长度）
-        ("function_length_checker.py", examples / "good_presenter_consumer.c", 0, "C11.5 good"),
-        # C12 — 错误处理（返回值检查）
-        # TODO: return_check_checker 对 good_presenter_consumer.c 测试模式 xQueueSend 过于严格，待 checker 优化后启用
-        # ("return_check_checker.py", examples / "good_presenter_consumer.c", 0, "C12 good"),
-        ("return_check_checker.py", examples / "bad_unchecked_return.c", 1, "C12 bad"),
-        # C14 — 日志规范
-        ("logging_checker.py", examples / "good_presenter_consumer.c", 0, "C14 good"),
-        ("logging_checker.py", examples / "bad_isr_printf.c", 1, "C14 bad"),
-    ]
+    return run_case_group("run_review.py — examples/ 铁律约束验证", VALIDATE_EXAMPLE_CASES, SKILL_ROOT)
 
-    print("=" * 60)
-    print("run_review.py — examples/ 铁律约束验证")
-    print("=" * 60)
 
-    failed = 0
-    for script, path, expected, label in cases:
-        if not path.is_file():
-            print(f"[FAIL] 缺少范例: {path}")
-            failed += 1
+def list_checkers() -> int:
+    print("默认 checker 管线:")
+    for spec in DEFAULT_CHECKERS:
+        domains = ",".join(spec.domains)
+        print(f"  --skip-{spec.skip_arg:<14} {spec.name:<28} {spec.mode:<8} {domains}")
+    print("\n特殊项: --skip-stack 跳过 stack_calculator；--scan-secrets / --git-remotes 单独启用 C9 扫描")
+    return 0
+
+
+def checker_argv(spec: CheckerSpec, c_files: list[Path]) -> list[str]:
+    argv = [sys.executable, str(TOOLS_DIR / spec.script)]
+    argv.extend(str(f) for f in c_files)
+    return argv
+
+
+def run_registered_checkers(args: argparse.Namespace, c_files: list[Path]) -> int:
+    exit_code = 0
+    for spec in DEFAULT_CHECKERS:
+        if getattr(args, spec.skip_attr):
             continue
-        rc = run_checker(script, [str(path)])
-        ok = rc == expected
-        status = "PASS" if ok else "FAIL"
-        print(f"[{status}] {label}: {script} {path.name} → exit {rc} (期望 {expected})")
-        if not ok:
-            failed += 1
+        if not c_files:
+            print(f"\n[skip] {spec.name}: 无 .c 文件")
+            continue
 
-    print(f"\n{'=' * 60}")
-    if failed == 0:
-        print("Validate-examples: 全部通过")
-    else:
-        print(f"Validate-examples: {failed} 项失败")
-    print(f"{'=' * 60}\n")
-    return 1 if failed else 0
+        if spec.mode == "per-file":
+            for f in c_files:
+                rc = run_cmd(spec.name, [sys.executable, str(TOOLS_DIR / spec.script), str(f)])
+                exit_code = max(exit_code, rc)
+        elif spec.mode == "batch":
+            rc = run_cmd(spec.name, checker_argv(spec, c_files))
+            exit_code = max(exit_code, rc)
+        else:
+            print(f"[warn] 未知 checker mode: {spec.name} mode={spec.mode}")
+            exit_code = max(exit_code, 1)
+    return exit_code
 
 
 def main() -> int:
@@ -221,18 +199,18 @@ def main() -> int:
         action="store_true",
         help="运行 tools/fixtures/ 自测并退出",
     )
+    parser.add_argument(
+        "--list-checkers",
+        action="store_true",
+        help="列出默认 checker 管线并退出",
+    )
     parser.add_argument("--skip-stack", action="store_true")
-    parser.add_argument("--skip-cjson", action="store_true")
-    parser.add_argument("--skip-isr", action="store_true")
-    parser.add_argument("--skip-lvgl", action="store_true")
-    parser.add_argument("--skip-queue", action="store_true")
-    parser.add_argument("--skip-voice", action="store_true")
-    parser.add_argument("--skip-av", action="store_true")
-    parser.add_argument("--skip-media-format", action="store_true")
-    parser.add_argument("--skip-av-clock", action="store_true")
-    parser.add_argument("--skip-logging", action="store_true")
-    parser.add_argument("--skip-return-check", action="store_true")
-    parser.add_argument("--skip-func-length", action="store_true")
+    for spec in DEFAULT_CHECKERS:
+        parser.add_argument(
+            f"--skip-{spec.skip_arg}",
+            action="store_true",
+            help=f"跳过 {spec.name} ({','.join(spec.domains)})",
+        )
     parser.add_argument(
         "--validate-examples",
         action="store_true",
@@ -254,6 +232,9 @@ def main() -> int:
         help="输出 JSON 格式摘要（CI 集成 / 机器可读）",
     )
     args = parser.parse_args()
+
+    if args.list_checkers:
+        return list_checkers()
 
     if args.self_test:
         return run_self_test()
@@ -283,8 +264,6 @@ def main() -> int:
             return exit_code
 
     c_files = collect_c_files(args.files, args.dir, include_bad=args.include_bad)
-    review_root = args.dir or (str(c_files[0].parent) if c_files else ".")
-
     skipped_bad = 0
     if args.dir and not args.include_bad:
         root = Path(args.dir)
@@ -308,147 +287,7 @@ def main() -> int:
         )
         exit_code = max(exit_code, rc)
 
-    if not args.skip_cjson and c_files:
-        for f in c_files:
-            rc = run_cmd(
-                "cjson_leak_checker",
-                [sys.executable, str(TOOLS_DIR / "cjson_leak_checker.py"), str(f)],
-            )
-            exit_code = max(exit_code, rc)
-    elif not args.skip_cjson:
-        print("\n[skip] cjson_leak_checker: 无 .c 文件")
-
-    if not args.skip_isr and c_files:
-        for f in c_files:
-            rc = run_cmd(
-                "isr_safety_checker",
-                [sys.executable, str(TOOLS_DIR / "isr_safety_checker.py"), str(f)],
-            )
-            exit_code = max(exit_code, rc)
-    elif not args.skip_isr:
-        print("\n[skip] isr_safety_checker: 无 .c 文件")
-
-    if not args.skip_lvgl and c_files:
-        for f in c_files:
-            rc = run_cmd(
-                "lvgl_thread_checker",
-                [sys.executable, str(TOOLS_DIR / "lvgl_thread_checker.py"), str(f)],
-            )
-            exit_code = max(exit_code, rc)
-    elif not args.skip_lvgl:
-        print("\n[skip] lvgl_thread_checker: 无 .c 文件")
-
-    if not args.skip_queue and c_files:
-        for f in c_files:
-            rc = run_cmd(
-                "queue_ownership_checker",
-                [
-                    sys.executable,
-                    str(TOOLS_DIR / "queue_ownership_checker.py"),
-                    str(f),
-                ],
-            )
-            exit_code = max(exit_code, rc)
-    elif not args.skip_queue:
-        print("\n[skip] queue_ownership_checker: 无 .c 文件")
-
-    if not args.skip_voice and c_files:
-        voice_argv: list[str] = []
-        if args.dir:
-            voice_argv.extend(["--dir", args.dir])
-        else:
-            voice_argv.extend(str(f) for f in c_files)
-        rc = run_cmd(
-            "voice_sequence_checker",
-            [sys.executable, str(TOOLS_DIR / "voice_sequence_checker.py"), *voice_argv],
-        )
-        exit_code = max(exit_code, rc)
-    elif not args.skip_voice:
-        print("\n[skip] voice_sequence_checker: 无 .c 文件")
-
-    if not args.skip_av and c_files:
-        av_argv: list[str] = []
-        if args.dir:
-            av_argv.extend(["--dir", args.dir])
-        else:
-            av_argv.extend(str(f) for f in c_files)
-        rc = run_cmd(
-            "av_pipeline_checker",
-            [sys.executable, str(TOOLS_DIR / "av_pipeline_checker.py"), *av_argv],
-        )
-        exit_code = max(exit_code, rc)
-    elif not args.skip_av:
-        print("\n[skip] av_pipeline_checker: 无 .c 文件")
-
-    if not args.skip_media_format and c_files:
-        media_argv: list[str] = []
-        if args.dir:
-            media_argv.extend(["--dir", args.dir])
-        else:
-            media_argv.extend(str(f) for f in c_files)
-        rc = run_cmd(
-            "media_format_checker",
-            [sys.executable, str(TOOLS_DIR / "media_format_checker.py"), *media_argv],
-        )
-        exit_code = max(exit_code, rc)
-    elif not args.skip_media_format:
-        print("\n[skip] media_format_checker: 无 .c 文件")
-
-    if not args.skip_av_clock and c_files:
-        av_clock_argv: list[str] = []
-        if args.dir:
-            av_clock_argv.extend(["--dir", args.dir])
-        else:
-            av_clock_argv.extend(str(f) for f in c_files)
-        rc = run_cmd(
-            "av_clock_jitter_checker",
-            [sys.executable, str(TOOLS_DIR / "av_clock_jitter_checker.py"), *av_clock_argv],
-        )
-        exit_code = max(exit_code, rc)
-    elif not args.skip_av_clock:
-        print("\n[skip] av_clock_jitter_checker: 无 .c 文件")
-
-    if not args.skip_logging and c_files:
-        logging_argv: list[str] = []
-        if args.dir:
-            logging_argv.extend(["--dir", args.dir])
-        else:
-            logging_argv.extend(str(f) for f in c_files)
-        rc = run_cmd(
-            "logging_checker",
-            [sys.executable, str(TOOLS_DIR / "logging_checker.py"), *logging_argv],
-        )
-        exit_code = max(exit_code, rc)
-    elif not args.skip_logging:
-        print("\n[skip] logging_checker: 无 .c 文件")
-
-    if not args.skip_return_check and c_files:
-        rc_argv: list[str] = []
-        if args.dir:
-            rc_argv.extend(["--dir", args.dir])
-        else:
-            rc_argv.extend(str(f) for f in c_files)
-        rc = run_cmd(
-            "return_check_checker",
-            [sys.executable, str(TOOLS_DIR / "return_check_checker.py"), *rc_argv],
-        )
-        exit_code = max(exit_code, rc)
-    elif not args.skip_return_check:
-        print("\n[skip] return_check_checker: 无 .c 文件")
-
-    if not args.skip_func_length and c_files:
-        fl_argv: list[str] = []
-        if args.dir:
-            fl_argv.extend(["--dir", args.dir])
-        else:
-            fl_argv.extend(str(f) for f in c_files)
-        rc = run_cmd(
-            "function_length_checker",
-            [sys.executable, str(TOOLS_DIR / "function_length_checker.py"), *fl_argv],
-        )
-        exit_code = max(exit_code, rc)
-    elif not args.skip_func_length:
-        print("\n[skip] function_length_checker: 无 .c 文件")
+    exit_code = max(exit_code, run_registered_checkers(args, c_files))
 
     if not c_files and args.dir:
         print("\n[warn] 排除 bad_*.c 后无可审查文件")

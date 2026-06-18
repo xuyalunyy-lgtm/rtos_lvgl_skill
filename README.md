@@ -26,9 +26,18 @@ L4  examples/ + tools/       完整版专有
 | [prompts/](prompts/) | 场景专链（按 C 域索引见 skill_structure） |
 | [platforms/](platforms/) | ESP32 / STM32 / JL / BK 专档 |
 | [examples/](examples/) | good/bad 范例 + `app_mvp.h` |
-| [tools/](tools/) | checker、codegen、fixtures |
+| [tools/](tools/) | checker、codegen、fixtures、checker registry |
 | [scripts/](scripts/) | sync、iterate、install（含 `.cmd` 包装） |
 | [freertos-skill-lite/](freertos-skill-lite/) | Lite 分发（sync 生成，勿手改） |
+
+## 常用验证
+
+```bash
+python tools/run_review.py --list-checkers
+python tools/run_review.py --self-test
+python tools/run_review.py --validate-examples
+python scripts/skill_iterate.py --check
+```
 
 ## 关键范例
 
