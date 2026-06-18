@@ -59,6 +59,15 @@ Cache 一致性细则 → [audio_dma_pingpong.txt](../prompts/audio_dma_pingpong
 
 深细节 → [av_pipeline_sync.txt](../prompts/av_pipeline_sync.txt)
 
+## C26 — 编解码 / 媒体格式一致性
+
+| | 文件 | ID | Checker |
+|---|------|-----|---------|
+| ❌ | [bad_media_format_mismatch.c](bad_media_format_mismatch.c) | C26.1–C26.6 | `media_format_checker.py` |
+| ✅ | [good_media_format_contract.c](good_media_format_contract.c) sample rate/frame/stride/codec lifecycle | C26.1–C26.6 | `media_format_checker.py` |
+
+深细节 → [av_codec_format.txt](../prompts/av_codec_format.txt)
+
 ## C8 — 启动 / WDT / 阻塞
 
 | | 文件 | ID | Checker |
@@ -137,7 +146,7 @@ Cache 一致性细则 → [audio_dma_pingpong.txt](../prompts/audio_dma_pingpong
 # checker fixtures 自测
 python tools/run_review.py --self-test
 
-# 铁律 C1–C4 + C10 + C25 范例 good/bad 约束
+# 铁律 C1–C4 + C10 + C25 + C26 范例 good/bad 约束
 python tools/run_review.py --validate-examples
 
 # 审查用户源码（含 queue 所有权）

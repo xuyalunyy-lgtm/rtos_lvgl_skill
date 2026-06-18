@@ -154,6 +154,9 @@ def run_validate_examples() -> int:
         # C25 — 音视频管线 / A/V sync
         ("av_pipeline_checker.py", examples / "good_av_pipeline_sync.c", 0, "C25 good"),
         ("av_pipeline_checker.py", examples / "bad_av_pipeline_blocking.c", 1, "C25 bad"),
+        # C26 — 编解码 / 媒体格式一致性
+        ("media_format_checker.py", examples / "good_media_format_contract.c", 0, "C26 good"),
+        ("media_format_checker.py", examples / "bad_media_format_mismatch.c", 1, "C26 bad"),
         # C11 — 编码规范（函数长度）
         ("function_length_checker.py", examples / "good_presenter_consumer.c", 0, "C11.5 good"),
         # C12 — 错误处理（返回值检查）
@@ -222,6 +225,7 @@ def main() -> int:
     parser.add_argument("--skip-queue", action="store_true")
     parser.add_argument("--skip-voice", action="store_true")
     parser.add_argument("--skip-av", action="store_true")
+    parser.add_argument("--skip-media-format", action="store_true")
     parser.add_argument("--skip-logging", action="store_true")
     parser.add_argument("--skip-return-check", action="store_true")
     parser.add_argument("--skip-func-length", action="store_true")
@@ -371,6 +375,20 @@ def main() -> int:
         exit_code = max(exit_code, rc)
     elif not args.skip_av:
         print("\n[skip] av_pipeline_checker: 无 .c 文件")
+
+    if not args.skip_media_format and c_files:
+        media_argv: list[str] = []
+        if args.dir:
+            media_argv.extend(["--dir", args.dir])
+        else:
+            media_argv.extend(str(f) for f in c_files)
+        rc = run_cmd(
+            "media_format_checker",
+            [sys.executable, str(TOOLS_DIR / "media_format_checker.py"), *media_argv],
+        )
+        exit_code = max(exit_code, rc)
+    elif not args.skip_media_format:
+        print("\n[skip] media_format_checker: 无 .c 文件")
 
     if not args.skip_logging and c_files:
         logging_argv: list[str] = []

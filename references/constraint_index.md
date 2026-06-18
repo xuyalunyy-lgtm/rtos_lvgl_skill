@@ -203,6 +203,16 @@
 | C25.5 | 0 | camera/LCD/DMA callback 只 notify/enqueue，不跑 UI/codec/network/json |
 | C25.6 | 2 | 保留 drift/drop/late/underrun/overrun 遥测计数 |
 
+## C26 编解码 / 媒体格式一致性
+| ID | P | 一句话 |
+|----|---|--------|
+| C26.1 | 0 | I2S/AEC/ASR/encoder/uplink 的 sample rate/channels/bit depth 必须一致或显式转换 |
+| C26.2 | 0 | frame_samples 必须由 sample_rate * frame_ms * channels 推导，禁止 magic 512/1024 |
+| C26.3 | 1 | video frame 必须声明 pixel_format/stride，RGB565 stride ≥ width*2 |
+| C26.4 | 1 | resample/convert/encode/decode 热路径禁止 malloc/free/printf/重日志 |
+| C26.5 | 0 | codec handle 在 open/start 创建，禁止每帧 create/init/open |
+| C26.6 | 2 | 保留 negotiated format、format_mismatch、codec_error、last_frame_size 遥测 |
+
 ## 症状 → ID（Crash 用）
 
 → [debug_crash.md](../workflows/debug_crash.md) Step 2 症状路由表（与 `constraint_detail.md` 末尾同步）。

@@ -1,5 +1,14 @@
 # Changelog
 
+## 4.9.0 — 2026-06-18
+
+- **新增 C26 编解码 / 媒体格式一致性**：覆盖 sample rate、channels、bit depth、frame duration、RGB/YUV pixel format、stride、codec 生命周期与格式遥测
+- **新增 prompt**：`prompts/av_codec_format.txt`，用于 ASR 空、AEC 异常、Opus/AAC 编码失败、RGB565 花屏、stride 行错位等场景
+- **新增 checker**：`tools/media_format_checker.py`，并接入 `run_review.py --validate-examples` 与默认审查链（可用 `--skip-media-format` 跳过）
+- **新增范例**：`good_media_format_contract.c` / `bad_media_format_mismatch.c`，验证格式契约、公式化 frame_samples、正确 stride、codec 生命周期
+- **全链路同步**：SKILL 控制平面、core_rules、constraint_index/detail/graph、skill_structure、workflow、Lite checklist、product profiles 全部补齐 C26
+- **版本升至 4.9.0**
+
 ## 4.8.0 — 2026-06-18
 
 - **新增 C25 音视频管线 / A/V Sync**：覆盖 audio clock master、音视频帧 PTS/seq、bounded queue 背压、per-frame 热路径、camera/LCD/DMA callback 隔离、drift/drop/underrun 遥测

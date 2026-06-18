@@ -270,10 +270,14 @@ Presenter Looper（等待 Queue）
 
 - [ ] audio clock / I2S DMA timestamp 作为 master clock（C25.1）
 - [ ] audio/video frame 带 pts、seq、duration/sample_count、owner（C25.2）
+- [ ] I2S/AEC/ASR/encoder/uplink 的 sample rate/channels/bit depth 一致或显式转换（C26.1）
+- [ ] frame_samples 由 sample_rate * frame_ms * channels 推导（C26.2）
+- [ ] video frame 有 pixel_format/stride，RGB565 stride ≥ width*2（C26.3）
 - [ ] video queue 有界，满时 drop-oldest，不阻塞 audio hot path（C25.3）
-- [ ] camera/display per-frame 路径无 malloc/free/printf/重日志（C25.4）
+- [ ] camera/display/encode/decode per-frame 路径无 malloc/free/printf/重日志（C25.4/C26.4）
 - [ ] camera/LCD/DMA callback 只 notify/enqueue，不直接跑 UI/codec/network/json（C25.5）
-- [ ] 记录 av_drift_ms、dropped_frames、late_frames、audio_underrun/overrun（C25.6）
+- [ ] codec handle 不在每帧 create/init/open（C26.5）
+- [ ] 记录 av_drift_ms、dropped_frames、late_frames、format_mismatch、codec_error（C25.6/C26.6）
 ```
 
 ---
@@ -287,6 +291,7 @@ Presenter Looper（等待 Queue）
 
 - [ ] 上电 → 连 WiFi → WSS 连接 → 等待唤醒
 - [ ] 唤醒 → 语音交互 → ASR 返回 → TTS 播放
+- [ ] audio sample rate / frame_ms / channels 与 ASR/encoder 配置一致
 - [ ] camera/video preview 音画同步，无持续 drift / dropped_frames 激增（若有）
 - [ ] 连续 10 轮语音交互无异常
 - [ ] 堆水位无持续下降（无泄漏）

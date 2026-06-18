@@ -24,6 +24,8 @@
 | I2S 卡顿 / 爆音 | C4.1–C4.4 | [audio_dma_pingpong.txt](../prompts/audio_dma_pingpong.txt) | [bad_isr_blocking.c](../examples/bad_isr_blocking.c) |
 | 音画不同步 / lip-sync drift / 画面慢半拍 | C25.1–C25.3, C25.6 | [av_pipeline_sync.txt](../prompts/av_pipeline_sync.txt) | [bad_av_pipeline_blocking.c](../examples/bad_av_pipeline_blocking.c) · `av_pipeline_checker.py` |
 | camera preview 卡顿 / 掉帧 / UI 刷新拖慢音频 | C25.3–C25.5, C23.3 | [av_pipeline_sync.txt](../prompts/av_pipeline_sync.txt) · [lcd_display_driver.txt](../prompts/lcd_display_driver.txt) | [bad_av_pipeline_blocking.c](../examples/bad_av_pipeline_blocking.c) · `av_pipeline_checker.py` |
+| ASR 空 / AEC 异常 / 音频变速 / Opus 编码失败 | C26.1, C26.2, C26.5 | [av_codec_format.txt](../prompts/av_codec_format.txt) | [bad_media_format_mismatch.c](../examples/bad_media_format_mismatch.c) · `media_format_checker.py` |
+| RGB565 花屏 / 行错位 / 视频画面倾斜 | C26.3, C23.6 | [av_codec_format.txt](../prompts/av_codec_format.txt) · [lcd_display_driver.txt](../prompts/lcd_display_driver.txt) | [bad_media_format_mismatch.c](../examples/bad_media_format_mismatch.c) · `media_format_checker.py` |
 | heap 持续下降 | C3.1–C3.5, **C7.2** | [cjson_safe_parse.txt](../prompts/cjson_safe_parse.txt) · [memory_alloc_optimize.txt](../prompts/memory_alloc_optimize.txt) | `cjson_leak_checker.py` |
 | 缩池 / 关模块后异常 | **C7.6** | [memory_alloc_optimize.txt](../prompts/memory_alloc_optimize.txt) | — |
 | TLS 握手 fail / 反复断线 | C1.5 | [mbedtls_wss_memory.txt](../prompts/mbedtls_wss_memory.txt) | [bad_wss_blocking.c](../examples/bad_wss_blocking.c) → [good_wss_reconnect.c](../examples/good_wss_reconnect.c) |

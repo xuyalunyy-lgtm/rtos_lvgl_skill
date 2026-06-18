@@ -110,6 +110,15 @@ Code Review 或 L3 校验时逐条核对。违规项引用 `C#.#`（完整矩阵
 - [ ] C25.5 camera/LCD/DMA callback 不直接跑 UI/codec/network/json
 - [ ] C25.6 有 drift/drop/late/underrun/overrun 遥测计数
 
+## C26 — 编解码 / 媒体格式一致性
+
+- [ ] C26.1 I2S/AEC/ASR/encoder/uplink 的 sample rate/channels/bit depth 一致或有显式转换
+- [ ] C26.2 frame_samples 由 sample_rate * frame_ms * channels 推导，无 magic 512/1024
+- [ ] C26.3 video frame 有 pixel_format/stride，RGB565 stride ≥ width*2
+- [ ] C26.4 resample/convert/encode/decode 热路径无 malloc/free/printf/重日志
+- [ ] C26.5 codec handle 在 open/start 创建，stop/cleanup 释放，不每帧 create/init/open
+- [ ] C26.6 有 negotiated format、format_mismatch、codec_error、last_frame_size 遥测
+
 ## 堆栈 / WSS / MVP
 
 - [ ] 相对优先级表已输出（见 [core_rules.md](core_rules.md)）

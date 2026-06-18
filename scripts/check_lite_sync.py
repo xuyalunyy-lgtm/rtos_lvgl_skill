@@ -50,6 +50,7 @@ REQUIRED_PROMPTS = [
     "lcd_display_driver.txt",
     "peripheral_shutdown_safety.txt",
     "av_pipeline_sync.txt",
+    "av_codec_format.txt",
 ]
 
 REQUIRED_WORKFLOWS = [
