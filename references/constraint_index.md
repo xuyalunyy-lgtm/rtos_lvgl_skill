@@ -213,6 +213,16 @@
 | C26.5 | 0 | codec handle 在 open/start 创建，禁止每帧 create/init/open |
 | C26.6 | 2 | 保留 negotiated format、format_mismatch、codec_error、last_frame_size 遥测 |
 
+## C27 音视频时钟漂移 / Jitter Buffer
+| ID | P | 一句话 |
+|----|---|--------|
+| C27.1 | 0 | A/V sync 必须声明唯一 master clock，并使用单调 PTS/timestamp |
+| C27.2 | 0 | jitter buffer 必须有 capacity、low/high watermark、target delay 与满水位策略 |
+| C27.3 | 1 | drift correction 必须有 ppm 上限，禁止无界 resample/playback 调整 |
+| C27.4 | 1 | render/playback/sync 热路径禁止按 drift/PTS `vTaskDelay` 或 `portMAX_DELAY` 硬等 |
+| C27.5 | 1 | underrun/overrun 路径只做静音/重复/丢帧/resync，禁止分配、释放、打印 |
+| C27.6 | 2 | 保留 drift、jitter_depth、underrun/overrun、drop/insert、resync 遥测 |
+
 ## 症状 → ID（Crash 用）
 
 → [debug_crash.md](../workflows/debug_crash.md) Step 2 症状路由表（与 `constraint_detail.md` 末尾同步）。

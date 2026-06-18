@@ -89,10 +89,11 @@ Workflow 索引 → [workflows/README.md](../workflows/README.md)
 | C24 | 外设关闭安全 | [peripheral_shutdown_safety.txt](../prompts/peripheral_shutdown_safety.txt) |
 | C25 | 音视频管线 / A/V Sync | [av_pipeline_sync.txt](../prompts/av_pipeline_sync.txt) |
 | C26 | 编解码 / 媒体格式一致性 | [av_codec_format.txt](../prompts/av_codec_format.txt) |
+| C27 | 时钟漂移 / Jitter Buffer | [av_clock_jitter.txt](../prompts/av_clock_jitter.txt) |
 
 约束 ID 细则 → [constraint_detail.md](constraint_detail.md) · L2 速查 → [constraint_index.md](constraint_index.md) · **知识图谱** → [constraint_graph.md](constraint_graph.md)
 
-> C1–C26，25 个约束域，137 条规则。
+> C1–C27，26 个约束域，143 条规则。
 
 ---
 
@@ -121,10 +122,10 @@ Workflow 索引 → [workflows/README.md](../workflows/README.md)
 
 | 平台 | 文件 | 必选约束 | 特性 |
 |------|------|----------|------|
-| ESP32 | `esp32.json` | C1-C4,C7-C9,C11-C12,C14-C15,C23,C25-C26 | WiFi+BLE+LVGL+I2S+Camera, 双核, PSRAM |
+| ESP32 | `esp32.json` | C1-C4,C7-C9,C11-C12,C14-C15,C23,C25-C27 | WiFi+BLE+LVGL+I2S+Camera, 双核, PSRAM |
 | STM32 | `stm32.json` | C2-C4,C7-C9,C11-C12,C14-C15,C23 | LVGL+I2S+TLS, 单核 Cortex-M |
-| JL | `jl.json` | C1-C4,C6-C15,C23,C25-C26 | WiFi+BLE+LVGL+I2S+语音/视频, 双核 RISC-V |
-| BK | `bk.json` | C1-C4,C6-C15,C17,C23,C25-C26 | WiFi+BLE+LVGL+AVDK音频+语音/视频, 双核 IPC |
+| JL | `jl.json` | C1-C4,C6-C15,C23,C25-C27 | WiFi+BLE+LVGL+I2S+语音/视频, 双核 RISC-V |
+| BK | `bk.json` | C1-C4,C6-C15,C17,C23,C25-C27 | WiFi+BLE+LVGL+AVDK音频+语音/视频, 双核 IPC |
 
 加载方式：`python tools/product_profile.py <platform>` · `--json` · `--stack <task>`
 
@@ -149,6 +150,7 @@ Agent 在 L3 开始前**推荐**加载产品 profile：自动获取必选约束�
 | C23 显示驱动 | `python tools/display_driver_checker.py --dir src/` |
 | C25 音视频管线 | `python tools/av_pipeline_checker.py --dir src/` |
 | C26 编解码格式 | `python tools/media_format_checker.py --dir src/` |
+| C27 时钟/Jitter | `python tools/av_clock_jitter_checker.py --dir src/` |
 | C13 状态机 | `python tools/state_machine_checker.py --dir src/` |
 | C14.4 日志脱敏 | `python tools/log_desensitize_checker.py --dir src/` |
 | C16 定时器 | `python tools/timer_checker.py --dir src/` |

@@ -22,10 +22,11 @@
 | HardFault @ Presenter / 随机复现 | C2.1, C2.2 | [memory_ownership.txt](../prompts/memory_ownership.txt) | 完整版 `examples/bad_queue_stack_pointer.c` · `queue_ownership_checker.py` |
 | 界面 frozen | C1.5, C1.6, C2.7 | [deadlock_lock_order.txt](../prompts/deadlock_lock_order.txt) | — |
 | I2S 卡顿 / 爆音 | C4.1–C4.4 | [audio_dma_pingpong.txt](../prompts/audio_dma_pingpong.txt) | 完整版 `examples/bad_isr_blocking.c` |
-| 音画不同步 / lip-sync drift / 画面慢半拍 | C25.1–C25.3, C25.6 | [av_pipeline_sync.txt](../prompts/av_pipeline_sync.txt) | 完整版 `examples/bad_av_pipeline_blocking.c` · `av_pipeline_checker.py` |
+| 音画不同步 / lip-sync drift / 画面慢半拍 | C25.1–C25.3, C25.6, C27.1, C27.3 | [av_pipeline_sync.txt](../prompts/av_pipeline_sync.txt) · [av_clock_jitter.txt](../prompts/av_clock_jitter.txt) | 完整版 `examples/bad_av_pipeline_blocking.c` · 完整版 `examples/bad_av_clock_jitter.c` · `av_pipeline_checker.py` · `av_clock_jitter_checker.py` |
 | camera preview 卡顿 / 掉帧 / UI 刷新拖慢音频 | C25.3–C25.5, C23.3 | [av_pipeline_sync.txt](../prompts/av_pipeline_sync.txt) · [lcd_display_driver.txt](../prompts/lcd_display_driver.txt) | 完整版 `examples/bad_av_pipeline_blocking.c` · `av_pipeline_checker.py` |
 | ASR 空 / AEC 异常 / 音频变速 / Opus 编码失败 | C26.1, C26.2, C26.5 | [av_codec_format.txt](../prompts/av_codec_format.txt) | 完整版 `examples/bad_media_format_mismatch.c` · `media_format_checker.py` |
 | RGB565 花屏 / 行错位 / 视频画面倾斜 | C26.3, C23.6 | [av_codec_format.txt](../prompts/av_codec_format.txt) · [lcd_display_driver.txt](../prompts/lcd_display_driver.txt) | 完整版 `examples/bad_media_format_mismatch.c` · `media_format_checker.py` |
+| 网络抖动后爆音 / 音频 underrun / 恢复慢 | C27.2, C27.4, C27.5, C20.1 | [av_clock_jitter.txt](../prompts/av_clock_jitter.txt) · [network_resilience.txt](../prompts/network_resilience.txt) | 完整版 `examples/bad_av_clock_jitter.c` · `av_clock_jitter_checker.py` |
 | heap 持续下降 | C3.1–C3.5, **C7.2** | [cjson_safe_parse.txt](../prompts/cjson_safe_parse.txt) · [memory_alloc_optimize.txt](../prompts/memory_alloc_optimize.txt) | `cjson_leak_checker.py` |
 | 缩池 / 关模块后异常 | **C7.6** | [memory_alloc_optimize.txt](../prompts/memory_alloc_optimize.txt) | — |
 | TLS 握手 fail / 反复断线 | C1.5 | [mbedtls_wss_memory.txt](../prompts/mbedtls_wss_memory.txt) | 完整版 `examples/bad_wss_blocking.c` → 完整版 `examples/good_wss_reconnect.c` |

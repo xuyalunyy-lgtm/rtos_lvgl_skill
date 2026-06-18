@@ -119,6 +119,15 @@ Code Review 或 L3 校验时逐条核对。违规项引用 `C#.#`（完整矩阵
 - [ ] C26.5 codec handle 在 open/start 创建，stop/cleanup 释放，不每帧 create/init/open
 - [ ] C26.6 有 negotiated format、format_mismatch、codec_error、last_frame_size 遥测
 
+## C27 — 音视频时钟漂移 / Jitter Buffer
+
+- [ ] C27.1 A/V sync 有唯一 master clock，frame PTS/timestamp 单调，不用系统 tick 冒充媒体时钟
+- [ ] C27.2 jitter buffer 有 capacity、low/high watermark、target delay 与满水位策略
+- [ ] C27.3 drift correction 有 ppm 上限，禁止无界 resample/playback 调整
+- [ ] C27.4 render/playback/sync 热路径不按 drift/PTS `vTaskDelay` 或 `portMAX_DELAY` 硬等
+- [ ] C27.5 underrun/overrun 只做静音/重复/丢帧/resync，路径内无 malloc/free/printf/重日志
+- [ ] C27.6 有 drift、jitter_depth、underrun/overrun、drop/insert、resync 遥测
+
 ## 堆栈 / WSS / MVP
 
 - [ ] 相对优先级表已输出（见 [core_rules.md](core_rules.md)）

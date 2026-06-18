@@ -32,7 +32,7 @@
 | WSS 重连 | [mbedtls_wss_memory.txt](../prompts/mbedtls_wss_memory.txt)（SNTP + 退避） | [good_wss_reconnect.c](../examples/good_wss_reconnect.c) |
 | UI | [lvgl_thread_safety.txt](../prompts/lvgl_thread_safety.txt) | [good_mvp_pattern.c](../examples/good_mvp_pattern.c) |
 | 音频 | [audio_dma_pingpong.txt](../prompts/audio_dma_pingpong.txt) | — |
-| 音视频管线 | [av_pipeline_sync.txt](../prompts/av_pipeline_sync.txt) + [av_codec_format.txt](../prompts/av_codec_format.txt) + [audio_dma_pingpong.txt](../prompts/audio_dma_pingpong.txt) | [good_av_pipeline_sync.c](../examples/good_av_pipeline_sync.c) + [good_media_format_contract.c](../examples/good_media_format_contract.c) |
+| 音视频管线 | [av_pipeline_sync.txt](../prompts/av_pipeline_sync.txt) + [av_codec_format.txt](../prompts/av_codec_format.txt) + [av_clock_jitter.txt](../prompts/av_clock_jitter.txt) + [audio_dma_pingpong.txt](../prompts/audio_dma_pingpong.txt) | [good_av_pipeline_sync.c](../examples/good_av_pipeline_sync.c) + [good_media_format_contract.c](../examples/good_media_format_contract.c) + [good_av_clock_jitter.c](../examples/good_av_clock_jitter.c) |
 | JSON | [cjson_safe_parse.txt](../prompts/cjson_safe_parse.txt) | [good_wss_json_parse.c](../examples/good_wss_json_parse.c) |
 | Presenter | [memory_ownership.txt](../prompts/memory_ownership.txt) | [good_presenter_consumer.c](../examples/good_presenter_consumer.c) |
 

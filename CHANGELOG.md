@@ -1,5 +1,15 @@
 # Changelog
 
+## 4.10.0 — 2026-06-18
+
+- **新增 C27 音视频时钟漂移 / jitter buffer**：覆盖 master clock、单调 PTS、有界水位、drift ppm 限幅、late/drop/repeat、underrun/overrun 与遥测
+- **新增 prompt**：`prompts/av_clock_jitter.txt`，用于长时间 lip-sync drift、网络抖动、音频 underrun、视频 late frame 与 clock recovery 场景
+- **新增 checker**：`tools/av_clock_jitter_checker.py`，并接入 `run_review.py --validate-examples` 与默认审查链（可用 `--skip-av-clock` 跳过）
+- **减少误报**：C27 checker 仅在系统 tick 被赋给 PTS/timestamp 时判定为媒体时钟违规
+- **新增范例**：`good_av_clock_jitter.c` / `bad_av_clock_jitter.c`，验证 audio clock master、jitter watermarks、drift clamp、补静音/丢帧策略与遥测
+- **全链路同步**：SKILL 控制平面、core_rules、constraint_index/detail/graph、skill_structure、workflow、Lite checklist、product profiles 全部补齐 C27
+- **版本升至 4.10.0**
+
 ## 4.9.0 — 2026-06-18
 
 - **新增 C26 编解码 / 媒体格式一致性**：覆盖 sample rate、channels、bit depth、frame duration、RGB/YUV pixel format、stride、codec 生命周期与格式遥测

@@ -157,6 +157,9 @@ def run_validate_examples() -> int:
         # C26 — 编解码 / 媒体格式一致性
         ("media_format_checker.py", examples / "good_media_format_contract.c", 0, "C26 good"),
         ("media_format_checker.py", examples / "bad_media_format_mismatch.c", 1, "C26 bad"),
+        # C27 — 音视频时钟漂移 / jitter buffer
+        ("av_clock_jitter_checker.py", examples / "good_av_clock_jitter.c", 0, "C27 good"),
+        ("av_clock_jitter_checker.py", examples / "bad_av_clock_jitter.c", 1, "C27 bad"),
         # C11 — 编码规范（函数长度）
         ("function_length_checker.py", examples / "good_presenter_consumer.c", 0, "C11.5 good"),
         # C12 — 错误处理（返回值检查）
@@ -226,6 +229,7 @@ def main() -> int:
     parser.add_argument("--skip-voice", action="store_true")
     parser.add_argument("--skip-av", action="store_true")
     parser.add_argument("--skip-media-format", action="store_true")
+    parser.add_argument("--skip-av-clock", action="store_true")
     parser.add_argument("--skip-logging", action="store_true")
     parser.add_argument("--skip-return-check", action="store_true")
     parser.add_argument("--skip-func-length", action="store_true")
@@ -389,6 +393,20 @@ def main() -> int:
         exit_code = max(exit_code, rc)
     elif not args.skip_media_format:
         print("\n[skip] media_format_checker: 无 .c 文件")
+
+    if not args.skip_av_clock and c_files:
+        av_clock_argv: list[str] = []
+        if args.dir:
+            av_clock_argv.extend(["--dir", args.dir])
+        else:
+            av_clock_argv.extend(str(f) for f in c_files)
+        rc = run_cmd(
+            "av_clock_jitter_checker",
+            [sys.executable, str(TOOLS_DIR / "av_clock_jitter_checker.py"), *av_clock_argv],
+        )
+        exit_code = max(exit_code, rc)
+    elif not args.skip_av_clock:
+        print("\n[skip] av_clock_jitter_checker: 无 .c 文件")
 
     if not args.skip_logging and c_files:
         logging_argv: list[str] = []

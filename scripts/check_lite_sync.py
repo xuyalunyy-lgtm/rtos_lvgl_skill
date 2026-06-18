@@ -51,6 +51,7 @@ REQUIRED_PROMPTS = [
     "peripheral_shutdown_safety.txt",
     "av_pipeline_sync.txt",
     "av_codec_format.txt",
+    "av_clock_jitter.txt",
 ]
 
 REQUIRED_WORKFLOWS = [
