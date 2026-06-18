@@ -34,6 +34,13 @@ def read_version(path: Path) -> str | None:
         return None
     text = path.read_text(encoding="utf-8")
     m = re.search(r"^version:\s*([^\s#]+)", text, re.MULTILINE)
+    if m:
+        return m.group(1).strip()
+    m = re.search(
+        r"^metadata:\s*\n(?:[ \t]+[^\n]*\n)*?[ \t]+version:\s*([^\s#]+)",
+        text,
+        re.MULTILINE,
+    )
     return m.group(1).strip() if m else None
 
 
@@ -74,7 +81,7 @@ def main() -> int:
     full_ver = read_version(SKILL)
     lite_ver = read_version(LITE_SKILL)
     if not full_ver:
-        errors.append("SKILL.md 缺少 version 字段")
+        errors.append("SKILL.md 缺少 metadata.version 字段")
     else:
         print(f"  完整版: {full_ver}")
     if lite_ver:

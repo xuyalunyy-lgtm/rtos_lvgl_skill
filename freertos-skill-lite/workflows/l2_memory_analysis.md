@@ -91,7 +91,7 @@ void memory_dump_baseline(const char *stage)
 ### 1.1 cJSON 泄漏（C3）
 
 ```bash
-python tools/cjson_leak_checker.py --dir ./src --platform <平台>
+python tools/cjson_leak_checker.py --dir ./src
 ```
 
 常见泄漏模式：

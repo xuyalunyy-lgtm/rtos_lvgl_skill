@@ -25,7 +25,16 @@ rsync -a \
   --exclude 'node_modules' \
   "${SOURCE}/" "${DEST}/"
 
-VER=$(grep -m1 '^version:' "${DEST}/SKILL.md" | sed 's/version:[[:space:]]*//')
+VER=$(awk '
+  /^version:[[:space:]]*/ { sub(/^version:[[:space:]]*/, ""); print; exit }
+  /^metadata:[[:space:]]*$/ { in_meta=1; next }
+  in_meta && /^[^[:space:]]/ { in_meta=0 }
+  in_meta && /^[[:space:]]+version:[[:space:]]*/ {
+    sub(/^[[:space:]]+version:[[:space:]]*/, "");
+    print;
+    exit
+  }
+' "${DEST}/SKILL.md")
 echo "已安装: ${DEST}"
 echo "版本: ${VER}"
 echo "重启 Cursor 或新开 Agent 对话后生效。"

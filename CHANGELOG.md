@@ -1,5 +1,16 @@
 # Changelog
 
+## 4.7.1 — 2026-06-18
+
+- **C3 cJSON checker 修复**：补齐 `cjson_leak_checker.py` CLI 入口，修复原脚本运行后无输出且误返回成功的问题
+- **退出路径增强**：按函数与变量追踪 `cJSON_Parse` / `cJSON_Delete`，识别 early return、`goto fail`、循环内未 Delete、`strdup` 失败路径泄漏
+- **目录扫描支持**：新增 `--dir`，兼容既有 workflow 的目录级审查；普通输出仅展示有 cJSON 站点或告警的文件
+- **core_rules.md 清理**：移除残留工具调用片段，收敛 L3 自主实施与高风险确认规则
+- **标准 Skill 校验兼容**：将 frontmatter `version` 迁移为允许的 `metadata.version`，并更新安装/同步/迭代脚本的版本读取逻辑
+- **Lite 同步脚本修复**：`check_lite_sync.py` 识别 Lite 的 examples 链接转换，并在 `--fix` 时统一写 LF，避免误报与 Windows CRLF 造成的 trailing whitespace
+- **验证恢复**：`run_review.py --self-test` 与 `--validate-examples` 全部通过
+- **版本升至 4.7.1**
+
 ## 4.7.0 — 2026-06-18
 
 - **新增 3 个 Checker**：补充 C13/C14.4/C16 约束覆盖率

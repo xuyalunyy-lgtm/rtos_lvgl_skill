@@ -28,11 +28,11 @@ PARSE_PATTERNS = [
 DELETE_PATTERN = re.compile(r"\bcJSON_Delete\s*\(")
 CREATE_PATTERN = re.compile(r"\bcJSON_Create\w*\s*\(")
 
-# 粗略函数边界检测
-FUNC_START = re.compile(
-    r"^(?:static\s+)?(?:\w+\s+)+(\w+)\s*\([^)]*\)\s*\{?",
-    re.MULTILINE,
+PARSE_ASSIGN_PATTERN = re.compile(
+    r"\b(?P<var>[A-Za-z_]\w*)\s*=\s*(?:\([^)]*\)\s*)?"
+    r"cJSON_Parse(?:WithLength|WithOpts)?\s*\("
 )
+CONTROL_KEYWORDS = {"if", "for", "while", "switch", "return", "sizeof"}
 
 
 @dataclass
@@ -40,6 +40,14 @@ class ParseSite:
     line_no: int
     line_text: str
     func_name: str = "global"
+    var_name: str | None = None
+
+
+@dataclass
+class FunctionSpan:
+    name: str
+    start: int
+    end: int
 
 
 @dataclass
@@ -52,35 +60,183 @@ class CheckResult:
     errors: list[str] = field(default_factory=list)
 
 
-def find_function_at_line(lines: list[str], line_idx: int) -> str:
-    """向上搜索最近的函数定义（支持指针返回类型）。"""
-    func_pat = re.compile(
-        r"(?:static\s+)?(?:inline\s+)?[\w\s\*]+\s+(\w+)\s*\([^;]*\)\s*$"
-    )
-    for i in range(line_idx, -1, -1):
-        stripped = lines[i].strip()
-        if stripped.startswith("#") or stripped.startswith("extern "):
+def strip_comments_preserve_lines(content: str) -> list[str]:
+    """Remove C/C++ comments while preserving line numbers."""
+    out: list[str] = []
+    in_block = False
+    for raw in content.splitlines():
+        i = 0
+        cleaned: list[str] = []
+        while i < len(raw):
+            if in_block:
+                end = raw.find("*/", i)
+                if end == -1:
+                    i = len(raw)
+                else:
+                    in_block = False
+                    i = end + 2
+                continue
+            if raw.startswith("//", i):
+                break
+            if raw.startswith("/*", i):
+                in_block = True
+                i += 2
+                continue
+            cleaned.append(raw[i])
+            i += 1
+        out.append("".join(cleaned))
+    return out
+
+
+def _match_function_header(text: str) -> str | None:
+    if not text or text.endswith(";"):
+        return None
+    collapsed = " ".join(text.strip().split())
+    m = re.search(r"\b([A-Za-z_]\w*)\s*\([^;{}]*\)\s*$", collapsed)
+    if not m:
+        return None
+    name = m.group(1)
+    if name in CONTROL_KEYWORDS:
+        return None
+    prefix = collapsed[: m.start(1)].strip()
+    if not prefix:
+        return None
+    return name
+
+
+def build_function_spans(lines: list[str]) -> tuple[list[FunctionSpan], list[str]]:
+    spans: list[FunctionSpan] = []
+    line_to_func = ["global"] * len(lines)
+    current_name: str | None = None
+    current_start = 0
+    depth = 0
+    pending_name: str | None = None
+    pending_start = 0
+
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        if current_name is None:
+            if pending_name is not None:
+                if "{" in stripped:
+                    current_name = pending_name
+                    current_start = pending_start
+                    depth = line.count("{") - line.count("}")
+                    for j in range(current_start, i + 1):
+                        line_to_func[j] = current_name
+                    pending_name = None
+                    if depth <= 0:
+                        spans.append(FunctionSpan(current_name, current_start, i))
+                        current_name = None
+                    continue
+                if stripped.endswith(";") or not stripped:
+                    pending_name = None
+
+            if "{" in stripped:
+                header = stripped.split("{", 1)[0].strip()
+                name = _match_function_header(header)
+                if name:
+                    current_name = name
+                    current_start = i
+                    depth = line.count("{") - line.count("}")
+                    line_to_func[i] = current_name
+                    if depth <= 0:
+                        spans.append(FunctionSpan(current_name, current_start, i))
+                        current_name = None
+                    continue
+
+            name = _match_function_header(stripped)
+            if name:
+                pending_name = name
+                pending_start = i
             continue
-        m = func_pat.search(stripped)
-        if m:
-            return m.group(1)
-    return "global"
+
+        line_to_func[i] = current_name
+        depth += line.count("{") - line.count("}")
+        if depth <= 0:
+            spans.append(FunctionSpan(current_name, current_start, i))
+            current_name = None
+
+    return spans, line_to_func
+
+
+def _line_deletes_var(line: str, var: str) -> bool:
+    return re.search(rf"\bcJSON_Delete\s*\(\s*{re.escape(var)}\s*\)", line) is not None
+
+
+def _is_null_guard_exit(body: list[tuple[int, str]], var: str, exit_idx: int) -> bool:
+    start = max(0, exit_idx - 4)
+    window = "\n".join(line for _, line in body[start : exit_idx + 1])
+    null_guard = re.search(
+        rf"\bif\s*\(\s*(?:{re.escape(var)}\s*==\s*NULL|"
+        rf"NULL\s*==\s*{re.escape(var)}|!\s*{re.escape(var)})\s*\)",
+        window,
+    )
+    if not null_guard:
+        return False
+    used_after_parse = re.search(
+        rf"{re.escape(var)}\s*->|cJSON_GetObjectItem|cJSON_Is\w+\s*\(",
+        window,
+    )
+    return used_after_parse is None
+
+
+def _block_segment_before_exit(body: list[tuple[int, str]], exit_idx: int) -> str:
+    start = 0
+    for j in range(exit_idx, -1, -1):
+        text = body[j][1].strip()
+        if "{" in text or re.match(r"^[A-Za-z_]\w*\s*:\s*$", text):
+            start = j
+            break
+    return "\n".join(line for _, line in body[start : exit_idx + 1])
+
+
+def _label_deletes_var(body: list[tuple[int, str]], label: str, var: str) -> bool:
+    for idx, (_, line) in enumerate(body):
+        if not re.match(rf"^\s*{re.escape(label)}\s*:\s*(?:/\*.*\*/)?\s*$", line):
+            continue
+        for _, label_line in body[idx + 1 :]:
+            if re.match(r"^\s*[A-Za-z_]\w*\s*:\s*$", label_line):
+                return False
+            if _line_deletes_var(label_line, var):
+                return True
+            if re.search(r"\breturn\b", label_line):
+                return False
+    return False
+
+
+def _function_body_for(
+    spans: list[FunctionSpan],
+    clean_lines: list[str],
+    func_name: str,
+) -> list[tuple[int, str]]:
+    for span in spans:
+        if span.name == func_name:
+            return [(i + 1, clean_lines[i]) for i in range(span.start, span.end + 1)]
+    return [(i + 1, line) for i, line in enumerate(clean_lines)]
 
 
 def analyze(content: str, filename: str = "<stdin>") -> CheckResult:
     result = CheckResult(file=filename)
-    lines = content.splitlines()
+    raw_lines = content.splitlines()
+    lines = strip_comments_preserve_lines(content)
+    spans, line_to_func = build_function_spans(lines)
 
     for i, line in enumerate(lines):
         stripped = line.strip()
-        if stripped.startswith("//") or stripped.startswith("/*"):
+        if not stripped:
             continue
 
         for pat in PARSE_PATTERNS:
             if pat.search(line):
-                func = find_function_at_line(lines, i)
+                func = line_to_func[i]
+                var_match = PARSE_ASSIGN_PATTERN.search(line)
                 result.parse_sites.append(
-                    ParseSite(line_no=i + 1, line_text=stripped, func_name=func)
+                    ParseSite(
+                        line_no=i + 1,
+                        line_text=raw_lines[i].strip(),
+                        func_name=func,
+                        var_name=var_match.group("var") if var_match else None,
+                    )
                 )
 
         if DELETE_PATTERN.search(line):
@@ -89,85 +245,61 @@ def analyze(content: str, filename: str = "<stdin>") -> CheckResult:
         if CREATE_PATTERN.search(line):
             result.create_count += 1
 
-    # 每个 Parse 站点至少应有一个 Delete（同函数或调用链）
     if result.parse_sites:
-        ratio = result.delete_count / len(result.parse_sites)
-        if ratio < 1.0:
-            result.errors.append(
-                f"Parse 调用 {len(result.parse_sites)} 次，Delete 仅 {result.delete_count} 次 — "
-                f"比例 {ratio:.1f}，可能存在泄漏"
-            )
-
-        # 按函数分组检查
-        func_parse: dict[str, int] = {}
-        func_delete_lines: dict[str, list[int]] = {}
-
         for site in result.parse_sites:
-            func_parse[site.func_name] = func_parse.get(site.func_name, 0) + 1
+            func_body = _function_body_for(spans, lines, site.func_name)
+            local_parse_idx = next(
+                (idx for idx, (line_no, _) in enumerate(func_body) if line_no == site.line_no),
+                None,
+            )
+            if local_parse_idx is None:
+                continue
 
-        for i, line in enumerate(lines):
-            if DELETE_PATTERN.search(line):
-                fn = find_function_at_line(lines, i)
-                func_delete_lines.setdefault(fn, []).append(i + 1)
-
-        for func, parse_count in func_parse.items():
-            del_count = len(func_delete_lines.get(func, []))
-            if del_count < parse_count:
+            var = site.var_name
+            if var is None:
                 result.errors.append(
-                    f"函数 '{func}()': {parse_count} 次 Parse，仅 {del_count} 次 Delete — "
-                    f"请确认所有退出分支（含 early return / goto）都调用了 cJSON_Delete"
+                    f"函数 '{site.func_name}()': L{site.line_no} Parse 结果未赋值 — 无法释放 cJSON 树"
+                )
+                continue
+
+            delete_lines = [
+                line_no
+                for line_no, text in func_body[local_parse_idx + 1 :]
+                if _line_deletes_var(text, var)
+            ]
+            if not delete_lines:
+                result.errors.append(
+                    f"函数 '{site.func_name}()': L{site.line_no} 解析到 '{var}' 后未发现 cJSON_Delete({var})"
                 )
 
-        # Parse 之后、首次 Delete 之前的 return 视为泄漏路径
-        func_bodies: dict[str, list[tuple[int, str]]] = {}
-        current_func = "global"
-        func_pat = re.compile(
-            r"(?:static\s+)?(?:inline\s+)?[\w\s\*]+\s+(\w+)\s*\([^;]*\)\s*$"
-        )
-        for i, line in enumerate(lines):
-            stripped = line.strip()
-            if stripped.startswith("#") or stripped.startswith("extern "):
-                continue
-            m = func_pat.search(stripped)
-            if m:
-                current_func = m.group(1)
-            func_bodies.setdefault(current_func, []).append((i + 1, line))
-
-        for func in func_parse:
-            body_lines = func_bodies.get(func, [])
-            if not body_lines:
-                continue
-            parse_lines = [s.line_no for s in result.parse_sites if s.func_name == func]
-            delete_lines = func_delete_lines.get(func, [])
-            if not parse_lines:
-                continue
-            first_parse = min(parse_lines)
-            first_delete = min(delete_lines) if delete_lines else 10**9
-            for line_no, text in body_lines:
-                if line_no <= first_parse:
-                    continue
+            for idx in range(local_parse_idx + 1, len(func_body)):
+                line_no, text = func_body[idx]
                 stripped = text.strip()
-                if stripped.startswith("//") or stripped.startswith("/*"):
+                if not stripped:
                     continue
-                if not re.search(r"\breturn\b", stripped) or line_no >= first_delete:
-                    continue
-                segment = "\n".join(
-                    t for ln, t in body_lines if first_parse < ln <= line_no
-                )
-                # Parse 失败直接 return（root/json 仍为 NULL）不算泄漏
-                if re.search(
-                    r"if\s*\(\s*(?:root|json)\s*==\s*NULL|if\s*\(\s*!\s*(?:root|json)\b",
-                    segment,
-                ):
-                    if not re.search(
-                        r"cJSON_GetObjectItem|cJSON_IsString|cJSON_IsNumber|cJSON_IsObject",
-                        segment,
-                    ):
+
+                goto_match = re.search(r"\bgoto\s+([A-Za-z_]\w*)\s*;", stripped)
+                if goto_match:
+                    if _is_null_guard_exit(func_body, var, idx):
                         continue
+                    label = goto_match.group(1)
+                    if _label_deletes_var(func_body, label, var):
+                        continue
+                    result.errors.append(
+                        f"函数 '{site.func_name}()': L{line_no} goto {label} 早于 cJSON_Delete({var})"
+                    )
+                    continue
+
+                if not re.search(r"\b(return|continue|break)\b", stripped):
+                    continue
+                if _is_null_guard_exit(func_body, var, idx):
+                    continue
+                segment = _block_segment_before_exit(func_body, idx)
+                if _line_deletes_var(segment, var):
+                    continue
                 result.errors.append(
-                    f"函数 '{func}()': L{line_no} return 早于 cJSON_Delete — 疑似泄漏路径"
+                    f"函数 '{site.func_name}()': L{line_no} 提前退出早于 cJSON_Delete({var})"
                 )
-                break
 
     # Create 对象也需要 Delete
     if result.create_count > 0 and result.delete_count < result.create_count:
@@ -176,33 +308,12 @@ def analyze(content: str, filename: str = "<stdin>") -> CheckResult:
         )
 
     # 检查常见反模式
-    if re.search(r"cJSON_Parse\s*\([^)]+\)\s*;", content):
+    if any(site.var_name is None for site in result.parse_sites):
         result.warnings.append(
             "检测到 Parse 结果未赋值给变量 — 无法追踪释放"
         )
 
-    if re.search(r"return\s*;", content) and result.parse_sites:
-        # 粗略：有 parse 且有裸 return 的函数
-        for site in result.parse_sites:
-            func_body = _extract_func_body(lines, site.line_no - 1)
-            if func_body and re.search(r"return\s*;", func_body) and "cJSON_Delete" not in func_body:
-                result.warnings.append(
-                    f"第 {site.line_no} 行附近函数存在 return 但未见 cJSON_Delete — 检查错误分支"
-                )
-
     return result
-
-
-def _extract_func_body(lines: list[str], start_idx: int) -> str:
-    """粗略提取从某行到下一个 '}' 的文本。"""
-    depth = 0
-    body: list[str] = []
-    for i in range(start_idx, min(start_idx + 80, len(lines))):
-        body.append(lines[i])
-        depth += lines[i].count("{") - lines[i].count("}")
-        if depth <= 0 and "{" in "".join(body):
-            break
-    return "\n".join(body)
 
 
 def format_report(result: CheckResult) -> str:
@@ -271,10 +382,43 @@ def format_report_json(result: CheckResult) -> dict:
     }
 
 
+def format_fix_suggest(result: CheckResult, content: str) -> str:
+    """Print a compact cleanup pattern after the normal report."""
+    del content
+    return "\n\n".join(
+        [
+            format_report(result),
+            """建议模板:
+
+```c
+int ret = -1;
+cJSON *root = cJSON_Parse(json);
+if (root == NULL) {
+    return -1;
+}
+
+/* parse fields; use goto cleanup on every failure after root is non-NULL */
+ret = 0;
+
+cleanup:
+if (root != NULL) {
+    cJSON_Delete(root);
+}
+return ret;
+```""",
+        ]
+    )
+
+
 def main() -> int:
     configure_stdout()
     parser = argparse.ArgumentParser(description="cJSON 静态泄漏审查")
     parser.add_argument("file", nargs="?", help="待检查的 .c/.h 文件路径")
+    parser.add_argument("--dir", "-d", help="递归检查目录下的 .c/.h/.cpp 文件")
+    parser.add_argument(
+        "--platform",
+        help="兼容旧 workflow 参数；cJSON 泄漏检查不使用平台值",
+    )
     parser.add_argument("--stdin", action="store_true", help="从标准输入读取")
     parser.add_argument("--json", action="store_true", help="输出 JSON 格式（CI 集成）")
     parser.add_argument("--fix-suggest", action="store_true", help="输出修复建议代码骨架")
@@ -283,22 +427,86 @@ def main() -> int:
     if args.stdin:
         content = sys.stdin.read()
         result = analyze(content)
-    elif args.file:
-        path = Path(args.file)
+        if args.json:
+            from checker_io import output_json
+            output_json(format_report_json(result))
+        elif args.fix_suggest:
+            print(format_fix_suggest(result, content))
+        else:
+            print(format_report(result))
+        return 1 if result.errors else 0
+
+    targets: list[Path] = []
+    if args.file:
+        targets.append(Path(args.file))
+    if args.dir:
+        root = Path(args.dir)
+        if not root.is_dir():
+            print(f"错误: 目录不存在: {root}", file=sys.stderr)
+            return 1
+        for suffix in ("*.c", "*.h", "*.cpp"):
+            targets.extend(sorted(root.rglob(suffix)))
+
+    if not targets:
+        parser.print_help()
+        return 1
+
+    results: list[CheckResult] = []
+    contents: dict[str, str] = {}
+    seen: set[Path] = set()
+    for path in targets:
+        path = path.resolve()
+        if path in seen:
+            continue
+        seen.add(path)
         if not path.exists():
             print(f"错误: 文件不存在: {path}", file=sys.stderr)
             return 1
         content = path.read_text(encoding="utf-8", errors="replace")
-        result = analyze(content, str(path))
-    else:
-        parser.print_help()
-        return 1
+        contents[str(path)] = content
+        results.append(analyze(content, str(path)))
 
     if args.json:
         from checker_io import output_json
-        output_json(format_report_json(result))
+        if len(results) == 1:
+            output_json(format_report_json(results[0]))
+        else:
+            output_json(
+                {
+                    "checker": "cjson_leak_checker",
+                    "files": [format_report_json(result) for result in results],
+                    "summary": {
+                        "files": len(results),
+                        "errors": sum(len(result.errors) for result in results),
+                        "warnings": sum(len(result.warnings) for result in results),
+                    },
+                }
+            )
     elif args.fix_suggest:
-        print(format_fix_suggest(result, content))
+        shown = [r for r in results if r.parse_sites or r.errors or r.warnings]
+        for idx, result in enumerate(shown):
+            if idx:
+                print()
+            print(format_fix_suggest(result, contents[result.file]))
     else:
-        print(format_report(result))
-    return 1 if result.errors else 0
+        shown = [r for r in results if r.parse_sites or r.errors or r.warnings]
+        for idx, result in enumerate(shown):
+            if idx:
+                print()
+            print(format_report(result))
+        if len(results) > 1:
+            clean = len(results) - len(shown)
+            print()
+            print("=" * 60)
+            print(
+                f"Summary: 扫描 {len(results)} 个文件；"
+                f"有 cJSON 站点/告警 {len(shown)} 个；"
+                f"无 cJSON 站点 {clean} 个；"
+                f"错误 {sum(len(result.errors) for result in results)} 个"
+            )
+            print("=" * 60)
+    return 1 if any(result.errors for result in results) else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

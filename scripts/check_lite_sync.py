@@ -21,6 +21,7 @@ from pathlib import Path
 ROOT = Path(__file__).parent.parent
 FULL_DIR = ROOT
 LITE_DIR = ROOT / "freertos-skill-lite"
+EXAMPLE_LINK_RE = re.compile(r"\[([^\]]+)\]\(\.\./examples/([^)]+)\)")
 
 # Files that MUST exist in lite
 REQUIRED_PROMPTS = [
@@ -79,7 +80,14 @@ def get_version(file_path: Path) -> str | None:
     """Extract version from SKILL.md frontmatter"""
     try:
         text = file_path.read_text(encoding="utf-8")
-        m = re.search(r"version:\s*(\S+)", text)
+        m = re.search(r"^version:\s*(\S+)", text, re.MULTILINE)
+        if m:
+            return m.group(1)
+        m = re.search(
+            r"^metadata:\s*\n(?:[ \t]+[^\n]*\n)*?[ \t]+version:\s*(\S+)",
+            text,
+            re.MULTILINE,
+        )
         return m.group(1) if m else None
     except OSError:
         return None
@@ -166,7 +174,7 @@ def check_prompt_content_sync() -> list[dict]:
         lite_path = LITE_DIR / "prompts" / prompt
 
         if full_path.exists() and lite_path.exists():
-            full_text = full_path.read_text(encoding="utf-8")
+            full_text = expected_lite_text(full_path)
             lite_text = lite_path.read_text(encoding="utf-8")
 
             # Compare content (ignore whitespace differences)
@@ -179,6 +187,14 @@ def check_prompt_content_sync() -> list[dict]:
     return issues
 
 
+def expected_lite_text(src: Path) -> str:
+    """Return the text expected after sync_lite.py's Lite transformations."""
+    text = src.read_text(encoding="utf-8")
+    if "prompts" in src.parts:
+        text = EXAMPLE_LINK_RE.sub(r"完整版 `examples/\2`", text)
+    return text
+
+
 def fix_issues(issues: list[dict]) -> int:
     """Auto-fix fixable issues"""
     fixed = 0
@@ -187,7 +203,7 @@ def fix_issues(issues: list[dict]) -> int:
             src = FULL_DIR / issue["file"]
             dst = LITE_DIR / issue["file"]
             dst.parent.mkdir(parents=True, exist_ok=True)
-            dst.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+            dst.write_text(expected_lite_text(src), encoding="utf-8", newline="\n")
             print(f"  ✓ Copied {issue['file']}")
             fixed += 1
         elif issue["fix"] == "update_version":
@@ -195,8 +211,23 @@ def fix_issues(issues: list[dict]) -> int:
             full_version = get_version(FULL_DIR / "SKILL.md")
             lite_skill = LITE_DIR / "SKILL.md"
             text = lite_skill.read_text(encoding="utf-8")
-            text = re.sub(r"version:\s*\S+", f"version: {full_version}", text)
-            lite_skill.write_text(text, encoding="utf-8")
+            if re.search(r"^version:\s*\S+", text, re.MULTILINE):
+                text = re.sub(
+                    r"^version:\s*\S+",
+                    f"metadata:\n  version: {full_version}",
+                    text,
+                    count=1,
+                    flags=re.MULTILINE,
+                )
+            elif re.search(r"^metadata:\s*\n(?:[ \t]+[^\n]*\n)*?[ \t]+version:\s*\S+", text, re.MULTILINE):
+                text = re.sub(
+                    r"(^metadata:\s*\n(?:[ \t]+[^\n]*\n)*?[ \t]+version:\s*)\S+",
+                    rf"\g<1>{full_version}",
+                    text,
+                    count=1,
+                    flags=re.MULTILINE,
+                )
+            lite_skill.write_text(text, encoding="utf-8", newline="\n")
             print(f"  ✓ Updated lite version to {full_version}")
             fixed += 1
     return fixed

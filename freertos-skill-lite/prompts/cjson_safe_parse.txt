@@ -5,7 +5,7 @@
 1. **cJSON 树不得跨 Queue / 线程传递** — 只在解析函数内存在，提取 plain data 后 `cJSON_Delete(root)`
 2. **每个 `cJSON_Parse` 有且仅有一个 `cJSON_Delete` 出口** — 用 `goto cleanup` 或 `do { } while(0)`
 3. **网络循环禁止高频 Parse+Delete** — 考虑 jsmn 流式或复用静态缓冲
-4. 生成/审查后**必须**运行 `python tools/cjson_leak_checker.py <file.c>`
+4. 生成/审查后**必须**运行 `python tools/cjson_leak_checker.py <file.c>`；工程级审查用 `python tools/cjson_leak_checker.py --dir ./src`
 
 ---
 
@@ -100,4 +100,4 @@ static bool model_emit_text_event(QueueHandle_t q, const char *json)
 - [ ] 循环内每次 Parse 都 Delete？
 - [ ] Queue 传的是 plain buffer 而非 cJSON*？
 - [ ] 错误分支 Queue 满时谁释放 payload？
-- [ ] 已跑 cjson_leak_checker.py？
+- [ ] 已跑 `cjson_leak_checker.py <file.c>` 或 `cjson_leak_checker.py --dir ./src`？

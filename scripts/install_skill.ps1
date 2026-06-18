@@ -33,8 +33,14 @@ if ($LASTEXITCODE -ge 8) {
     exit 1
 }
 
-$verLine = Select-String -Path (Join-Path $Dest "SKILL.md") -Pattern "^version:" | Select-Object -First 1
-$ver = if ($verLine) { $verLine.Line -replace "version:\s*", "" } else { "unknown" }
+$skillText = [System.IO.File]::ReadAllText((Join-Path $Dest "SKILL.md"), [System.Text.UTF8Encoding]::new($false))
+if ($skillText -match '(?m)^version:\s*([^\s#]+)') {
+    $ver = $Matches[1].Trim()
+} elseif ($skillText -match '(?ms)^metadata:\s*\r?\n(?:[ \t]+[^\r\n]*\r?\n)*?[ \t]+version:\s*([^\s#]+)') {
+    $ver = $Matches[1].Trim()
+} else {
+    $ver = "unknown"
+}
 
 Write-Host "Installed: $Dest"
 Write-Host "Version: $ver"

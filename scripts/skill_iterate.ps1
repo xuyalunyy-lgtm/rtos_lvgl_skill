@@ -29,6 +29,7 @@ function Get-SkillVersion([string]$Path) {
     if (-not (Test-Path $Path)) { return $null }
     $text = Read-Utf8 $Path
     if ($text -match '(?m)^version:\s*([^\s#]+)') { return $Matches[1].Trim() }
+    if ($text -match '(?ms)^metadata:\s*\r?\n(?:[ \t]+[^\r\n]*\r?\n)*?[ \t]+version:\s*([^\s#]+)') { return $Matches[1].Trim() }
     return $null
 }
 
@@ -115,7 +116,7 @@ Write-Host "`n[3/6] SKILL.md version"
 $fullVer = Get-SkillVersion $Skill
 $liteVer = Get-SkillVersion $LiteSkill
 if (-not $fullVer) {
-    $errors.Add("SKILL.md missing version field")
+    $errors.Add("SKILL.md missing metadata.version field")
 }
 else {
     Write-Host "  full: $fullVer"
@@ -127,7 +128,7 @@ if ($liteVer) {
     }
 }
 else {
-    $errors.Add("freertos-skill-lite/SKILL.md missing or no version")
+    $errors.Add("freertos-skill-lite/SKILL.md missing or no metadata.version")
 }
 
 Write-Host "`n[4/6] CHANGELOG / iteration_log"

@@ -37,7 +37,7 @@
 
 ## Step 3 — 版本与 CHANGELOG
 
-1. 更新 `SKILL.md` frontmatter `version:`（semver：patch=文案/typo，minor=新 prompt/workflow，major=架构重构）
+1. 更新 `SKILL.md` frontmatter `metadata.version`（semver：patch=文案/typo，minor=新 prompt/workflow，major=架构重构）
 2. 在 [CHANGELOG.md](../CHANGELOG.md) 顶部追加版本条目
 3. 若改 `skill_lite_body.md` 或完整版 SKILL 路由 → 运行 sync 生成 Lite `SKILL.md`
 4. 若本次含 git commit → 遵循 [git_commit_style.md](../references/git_commit_style.md)（先 `git log` 对齐目标仓）

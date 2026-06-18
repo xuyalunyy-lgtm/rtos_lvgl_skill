@@ -397,9 +397,9 @@ static void wss_task(void *arg)
         /* TODO: 接收 WSS 消息 */
         /* 消息处理示例：*/
         char text_buf[128];
-        /* if (parse_message(received_json, text_buf, sizeof(text_buf)) == 0) {*/
+        /* if (parse_message(received_json, text_buf, sizeof(text_buf)) == 0) {{*/
         /*     emit_net_event(evt_q, NET_EVT_DATA, text_buf, strlen(text_buf));*/
-        /* }*/
+        /* }}*/
         vTaskDelay(pdMS_TO_TICKS(100));
     }}
 }}

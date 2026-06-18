@@ -16,10 +16,10 @@ Agent 在 L2/L3 或 workflow 要求时读取本文件。L1 概念问答可跳过
 | **跑通为止** | 持续实现 → 编译 → 修错，直至 **用户指定功能完成** 且 **工程编译通过** |
 | **编译** | 命令以 `platforms/xxx.md` 为准；编译失败则读日志、修复、重编，**禁止**留半成品让用户收尾 |
 | **铁律仍生效** | 改动须满足 C1–C10；L2+ 可跑 `run_review.py` 自检 |
-| **改动范围声明** | L3 开始前输出「计划改动文件清单」，用户确认后执行 |
+| **改动范围声明** | L3 开始前简述计划改动文件/模块；除高风险项外直接执行，不等待逐项确认 |
 | **编译重试上限** | 最多 **5 次**编译失败后暂停，输出错误摘要请用户介入 |
 | **不可触碰清单** | 用户可标记 `.gitignore`、`partitions.csv`、`sdkconfig` 等为只读；Agent 禁止修改 |
-| **回滚点** | L3 任务开始前建议 `git stash` 或创建临时分支 |
+| **回滚点** | 若仓库已有改动或任务风险较高，先建议 `git stash` / 临时分支；不要擅自重置用户改动 |
 | **配置文件独立** | 新项目**禁止**直接复制/复用/修改已有项目的配置文件；只能参考格式结构，**严格按用户输入编写全新配置** |
 | **须询问用户** | 大规模删 SDK 模块（超 C6 问卷范围）、git push/force、改仓库 secrets、需求根本歧义 |
 | **Git 提交** | 用户要求 commit 时读 [git_commit_style.md](git_commit_style.md)；标题中文 + `type(scope):`；提交前 `git log` 对齐仓库风格 |
@@ -27,27 +27,36 @@ Agent 在 L2/L3 或 workflow 要求时读取本文件。L1 概念问答可跳过
 
 **完成定义：** 功能按需求可演示或逻辑闭环 + 目标工程 **0 error 编译**（warning 可登记，P0 须修）。
 
+## 测试阶段例外机制
+
+当用户**明确说明处于测试/联调阶段**时，以下约束可降级处理：
+
+| 约束 | 测试阶段处理 | 上线前必须修复 |
+|------|-------------|---------------|
+| **C9 凭据安全** | 允许硬编码测试 token/密码，标记 `// TODO: C9 上线前配置化` | 改为 Kconfig/NVS/secrets 文件 |
+| **C14 日志脱敏** | 允许明文打印调试信息，标记 `// TODO: C14 上线前脱敏` | 添加脱敏逻辑 |
+| **C5 测试宏** | 测试宏可默认开启 | 量产前全部关闭 |
+| **C7 内存优化** | 可暂不优化，标记 `// TODO: C7 基线测量后优化` | 需基线数据后优化 |
+
+**不降级的约束（即使测试阶段也必须遵守）：**
+- C1 LVGL 线程安全（死机风险）
+- C2 Queue 所有权（内存泄漏）
+- C3 cJSON 防泄漏（内存泄漏）
+- C4 ISR/DMA 安全（硬件风险）
+- C12 错误处理（崩溃风险）
+- C20 网络韧性（阻塞风险）
+- C24 外设关闭安全（硬件风险）
+
+**使用方式：** 用户在 prompt 中明确说「测试阶段」「联调阶段」「凭据可以硬编码」时，Agent 按此规则降级 C9/C14/C5/C7 的审查严格度。
+
 ### L3 安全围栏（防 Agent 失控）
 
 | 围栏 | 触发条件 | Agent 行为 |
 |------|----------|-----------|
 | **编译重试上限** | 同一编译错误连续失败 **≥5 次** | 暂停，输出错误摘要 + 已尝试方案，请用户介入 |
-| **改动范围锁定** | L3 开始前 | 输出「计划改动文件清单」，用户确认后才执行；超出范围须追加确认 |
+| **改动范围锁定** | L3 开始前 | 输出「计划改动文件清单」；常规实现直接推进，超出需求边界或触发高风险项才追加确认 |
 | **不可触碰文件** | 用户声明或 `.skill-readonly` | 禁止修改（即使 Agent 认为「应该改」） |
 | **Git 回滚点** | L3 开始前（建议） | `git stash` 或创建 `skill/l3-<desc>` 临时分支 |
-
----</parameter>
-</parameter>
-</replace_in_file>
-
-<read_file>
-<path>references/core_rules.md</path>
-<task_progress>
-- [x] L3 safety guardrails in core_rules.md
-- [ ] Update CHANGELOG.md with all changes
-- [ ] Validate examples coverage update
-- [ ] Final review of all changes
-</task_progress>
 
 ```
 音频/DMA ISR > WSS/网络长连接 > LVGL 刷新 > Presenter > Model 后台
@@ -111,6 +120,7 @@ python tools/stack_calculator.py --describe "WSS TLS cJSON" --platform jl
 | 20 | 网络韧性 | 重连退避/超时/DNS/降级策略 → [network_resilience.txt](../prompts/network_resilience.txt) | 5 |
 | 21 | 低功耗管理 | 睡眠前保存状态/唤醒恢复/Tickless Idle/外设断电 → [low_power_management.txt](../prompts/low_power_management.txt) | 5 |
 | 23 | 显示驱动 | LCD 初始化时序/背光 PWM/帧率/撕裂防护/帧缓冲 → [lcd_display_driver.txt](../prompts/lcd_display_driver.txt) | 6 |
+| 24 | 外设关闭安全 | 异常收尾/可重入/超时释放/DMA 等待/电源门控 → [peripheral_shutdown_safety.txt](../prompts/peripheral_shutdown_safety.txt) | 5 |
 
 ## 文件归属惯例
 

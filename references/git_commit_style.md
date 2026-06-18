@@ -58,7 +58,7 @@ EOF
 
 | 字段 | 说明 |
 |------|------|
-| 版本 | 与 `SKILL.md` frontmatter `version:` 一致 |
+| 版本 | 与 `SKILL.md` frontmatter `metadata.version` 一致 |
 | 分隔 | 中文破折号 `—` |
 | patch | 文案/小修可用 `docs:` / `fix:` + 简短中文 |
 
