@@ -1,5 +1,13 @@
 # Changelog
 
+## 4.7.3 — 2026-06-18
+
+- **C10 voice checker 增强**：`voice_sequence_checker.py` 改为函数路径级检查，分别验证 prompt stop 与 playback FINISHED 回调是否真正 detach playback
+- **注释抗干扰**：检查前剥离 C/C++ 注释，避免反例说明文字或注释掉的 API 调用造成漏报
+- **C10.2/C10.5 覆盖恢复**：识别 `audio_start_uplink` / `session_begin_capture`，按函数内顺序检查 AEC settle / mic ready，并校验 generation 过滤
+- **validate-examples 加固**：`bad_prompt_no_detach.c` 重新纳入 `run_review.py --validate-examples`
+- **版本升至 4.7.3**
+
 ## 4.7.2 — 2026-06-18
 
 - **Lite workflow 同步修复**：更新 `l3_new_module.md` 与 `debug_crash.md` 的 Lite patch 规则，匹配当前 workflow 标题与段落结构

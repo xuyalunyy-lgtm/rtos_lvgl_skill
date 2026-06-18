@@ -150,8 +150,7 @@ def run_validate_examples() -> int:
         ("queue_ownership_checker.py", examples / "good_voice_prompt_uplink.c", 0, "C10 good"),
         # C10 — 语音时序
         ("voice_sequence_checker.py", examples / "good_voice_prompt_uplink.c", 0, "C10 good"),
-        # TODO: voice_sequence_checker 尚未覆盖 C10.1 detach 检测，待 checker 增强后启用
-        # ("voice_sequence_checker.py", examples / "bad_prompt_no_detach.c", 1, "C10 bad"),
+        ("voice_sequence_checker.py", examples / "bad_prompt_no_detach.c", 1, "C10 bad"),
         # C11 — 编码规范（函数长度）
         ("function_length_checker.py", examples / "good_presenter_consumer.c", 0, "C11.5 good"),
         # C12 — 错误处理（返回值检查）

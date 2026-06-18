@@ -2,7 +2,7 @@
  * 反例 — C10 语音/Uplink 违规
  *
  * 违反约束:
- *   C10.1 — prompt stop 后未 detach playback（FINISHED 路径遗漏）
+ *   C10.1 — prompt stop / FINISHED 两路径都未真正 detach playback
  *   C10.2 — prompt 刚停即 start uplink，无 AEC settle
  *   C10.5 — 旧 FINISHED 回调未用 session generation 过滤
  *
@@ -13,7 +13,9 @@
 #include <string.h>
 #include <stdio.h>
 
-/* ========== 反例 1: stop 路径 detach 但 FINISHED 路径遗漏 (C10.1) ========== */
+extern void audio_start_uplink(int audio_handle);
+
+/* ========== 反例 1: stop 路径只清 flag，FINISHED 路径也遗漏 detach (C10.1) ========== */
 
 typedef struct {
     int audio_handle;
@@ -23,7 +25,7 @@ typedef struct {
     void *user_data;
 } bad_prompt_tone_t;
 
-/* ❌ stop 时 detach 了，但 FINISHED 回调未 detach */
+/* ❌ stop 时只清 flag，未真正 detach；FINISHED 回调也未 detach */
 void bad_prompt_tone_stop(bad_prompt_tone_t *pt)
 {
     if (pt == NULL) {
@@ -64,7 +66,7 @@ static void bad_on_prompt_done(void *ctx)
     /* 未调用 wait_mic_capture_ready */
 
     /* 直接开 uplink — AEC 参考路径仍残留播放信号 */
-    /* audio_start_uplink(s->audio_handle); */
+    audio_start_uplink(s->audio_handle);
     printf("[BAD] start uplink immediately, no AEC settle\n");
 }
 
@@ -78,7 +80,7 @@ static void bad_stale_callback(void *ctx)
     /* 未检查 session_is_current_generation(s, gen) */
     /* 旧回调在新会话中仍然触发，导致乱序 */
     printf("[BAD] stale callback still triggers capture\n");
-    /* audio_start_uplink(s->audio_handle); */
+    audio_start_uplink(s->audio_handle);
 }
 
 /* ❌ 旧 timer 回调未校验 generation */
