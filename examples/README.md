@@ -74,6 +74,46 @@ Cache 一致性细则 → [audio_dma_pingpong.txt](../prompts/audio_dma_pingpong
 
 深细节 → [logging_debug.txt](../prompts/logging_debug.txt)
 
+## C18 — 外设驱动安全
+
+| | 文件 | ID | Checker |
+|---|------|-----|---------|
+| ❌ | [bad_gpio_no_config.c](bad_gpio_no_config.c) | C18.1, C18.2, C18.4 | `peripheral_driver_checker.py` |
+
+深细节 → [peripheral_driver_safety.txt](../prompts/peripheral_driver_safety.txt)
+
+## C19 — Flash/NVS 安全
+
+| | 文件 | ID | Checker |
+|---|------|-----|---------|
+| ❌ | [bad_nvs_no_commit.c](bad_nvs_no_commit.c) | C19.1, C21.1 | `flash_nvs_checker.py` |
+
+深细节 → [flash_nvs_safety.txt](../prompts/flash_nvs_safety.txt)
+
+## C20 — 网络韧性
+
+| | 文件 | ID | Checker |
+|---|------|-----|---------|
+| ❌ | [bad_reconnect_no_backoff.c](bad_reconnect_no_backoff.c) | C20.1, C20.2 | `network_resilience_checker.py` |
+
+深细节 → [network_resilience.txt](../prompts/network_resilience.txt)
+
+## C21 — 低功耗管理
+
+| | 文件 | ID | Checker |
+|---|------|-----|---------|
+| ❌ | [bad_sleep_no_save.c](bad_sleep_no_save.c) | C21.1, C21.2, C21.4 | `low_power_checker.py` |
+
+深细节 → [low_power_management.txt](../prompts/low_power_management.txt)
+
+## C23 — 显示驱动安全
+
+| | 文件 | ID | Checker |
+|---|------|-----|---------|
+| ❌ | [bad_display_no_init.c](bad_display_no_init.c) | C23.1, C23.5, C23.6 | `display_driver_checker.py` |
+
+深细节 → [lcd_display_driver.txt](../prompts/lcd_display_driver.txt)
+
 ## MVP 分层闭环
 
 | | 文件 |

@@ -27,6 +27,28 @@ Agent 在 L2/L3 或 workflow 要求时读取本文件。L1 概念问答可跳过
 
 **完成定义：** 功能按需求可演示或逻辑闭环 + 目标工程 **0 error 编译**（warning 可登记，P0 须修）。
 
+## 测试阶段例外机制
+
+当用户**明确说明处于测试/联调阶段**时，以下约束可降级处理：
+
+| 约束 | 测试阶段处理 | 上线前必须修复 |
+|------|-------------|---------------|
+| **C9 凭据安全** | 允许硬编码测试 token/密码，标记 `// TODO: C9 上线前配置化` | 改为 Kconfig/NVS/secrets 文件 |
+| **C14 日志脱敏** | 允许明文打印调试信息，标记 `// TODO: C14 上线前脱敏` | 添加脱敏逻辑 |
+| **C5 测试宏** | 测试宏可默认开启 | 量产前全部关闭 |
+| **C7 内存优化** | 可暂不优化，标记 `// TODO: C7 基线测量后优化` | 需基线数据后优化 |
+
+**不降级的约束（即使测试阶段也必须遵守）：**
+- C1 LVGL 线程安全（死机风险）
+- C2 Queue 所有权（内存泄漏）
+- C3 cJSON 防泄漏（内存泄漏）
+- C4 ISR/DMA 安全（硬件风险）
+- C12 错误处理（崩溃风险）
+- C20 网络韧性（阻塞风险）
+- C24 外设关闭安全（硬件风险）
+
+**使用方式：** 用户在 prompt 中明确说「测试阶段」「联调阶段」「凭据可以硬编码」时，Agent 按此规则降级 C9/C14/C5/C7 的审查严格度。
+
 ### L3 安全围栏（防 Agent 失控）
 
 | 围栏 | 触发条件 | Agent 行为 |
@@ -83,9 +105,9 @@ python tools/stack_calculator.py --describe "WSS TLS cJSON" --platform jl
 
 共享类型：`examples/app_mvp.h`（与 `mvp_codegen` 输出一致）；Queue 设计 → [queue_event_bus.txt](../prompts/queue_event_bus.txt)
 
-## 十条硬性约束（摘要）
+## 廿三条硬性约束（摘要）
 
-**细粒度 ID 矩阵（C1.1–C10.6）** → [constraint_detail.md](constraint_detail.md)（L2+ 违规报告须引用 `C#.#`）
+**细粒度 ID 矩阵（C1.1–C24.5）** → [constraint_detail.md](constraint_detail.md)（L2+ 违规报告须引用 `C#.#`）
 
 | # | 主题 | 细则 | 子约束数 |
 |---|------|------|----------|
@@ -94,7 +116,7 @@ python tools/stack_calculator.py --describe "WSS TLS cJSON" --platform jl
 | 3 | cJSON | goto cleanup 模板 → [cjson_safe_parse.txt](../prompts/cjson_safe_parse.txt) | 6 |
 | 4 | 音频 DMA | ISR 仅 `*FromISR`；Cache 一致性 → [audio_dma_pingpong.txt](../prompts/audio_dma_pingpong.txt) | 8 |
 | 5 | 测试宏 | 每模块 `APP_TEST_MODE_*` → [test_mode_macro.txt](../prompts/test_mode_macro.txt) | 3 |
-| 6 | SDK 裁剪 | 先问卷再动刀；JL/BK 先扫描 → [sdk_trim_prune.txt](../prompts/sdk_trim_prune.txt) | 4 |
+| 6 | SDK 裁剪 | 先问卷再动刀；JL/BK 先扫描 → [sdk_trim_prune.txt](../prompts/sdk_trim_prune.txt) | 5 |
 | 7 | 内存分配优化 | 先量后改；缩池顺序 → [memory_alloc_optimize.txt](../prompts/memory_alloc_optimize.txt) | 9 |
 | 8 | 启动 / WDT | Queue 先于回调；有限 timeout → [boot_wdt_lifecycle.txt](../prompts/boot_wdt_lifecycle.txt) | 6 |
 | 9 | 密钥 / 凭证 | config.secrets 不入库 → [secrets_kconfig.txt](../prompts/secrets_kconfig.txt) | 6 |
@@ -104,8 +126,14 @@ python tools/stack_calculator.py --describe "WSS TLS cJSON" --platform jl
 | 13 | 状态机 | enum state/转换表/非法状态 → [state_machine_patterns.txt](../prompts/state_machine_patterns.txt) | 4 |
 | 14 | 日志规范 | 分级日志/TAG/脱敏/崩溃现场 → [logging_debug.txt](../prompts/logging_debug.txt) | 5 |
 | 15 | 优先级与通信 | 优先级差/优先级反转/通信选择 → [inter_task_communication.txt](../prompts/inter_task_communication.txt) | 3 |
-| 16 | 定时器管理 | 回调禁阻塞/lifecycle/周期vs单次 |
-| 17 | 多核 IPC | 跨核通信/mailbox/硬件信号量 → [timer_management.txt](../prompts/timer_management.txt) | 3 |
+| 16 | 定时器管理 | 回调禁阻塞/lifecycle/周期vs单次 → [timer_management.txt](../prompts/timer_management.txt) | 3 |
+| 17 | 多核 IPC | 跨核通信/mailbox/硬件信号量 → [multi_core_ipc.txt](../prompts/multi_core_ipc.txt) | 3 |
+| 18 | 外设驱动安全 | GPIO/I2C/SPI/DMA 配置 → [peripheral_driver_safety.txt](../prompts/peripheral_driver_safety.txt) | 6 |
+| 19 | Flash/NVS 安全 | NVS commit/Flash 擦写/OTA 回滚 → [flash_nvs_safety.txt](../prompts/flash_nvs_safety.txt) | 5 |
+| 20 | 网络韧性 | 重连退避/超时/DNS/降级策略 → [network_resilience.txt](../prompts/network_resilience.txt) | 5 |
+| 21 | 低功耗管理 | 睡眠前保存状态/唤醒恢复/Tickless Idle/外设断电 → [low_power_management.txt](../prompts/low_power_management.txt) | 5 |
+| 23 | 显示驱动 | LCD 初始化时序/背光 PWM/帧率/撕裂防护/帧缓冲 → [lcd_display_driver.txt](../prompts/lcd_display_driver.txt) | 6 |
+| 24 | 外设关闭安全 | 异常收尾/可重入/超时释放/DMA 等待/电源门控 → [peripheral_shutdown_safety.txt](../prompts/peripheral_shutdown_safety.txt) | 5 |
 
 ## 文件归属惯例
 

@@ -1,0 +1,85 @@
+# 任务间通信模式选择专精提示词
+
+> 约束 ID：C15.1–C15.3 → [constraint_detail.md](../references/constraint_detail.md)
+
+## 适用场景
+
+多任务架构设计时选择正确的通信/同步机制。
+
+---
+
+## 模式选择决策表
+
+| 场景 | 推荐 | 禁忌 |
+|------|------|------|
+| 1:1 数据传递 | **Queue** | 禁全局变量 + flag |
+| 1:N 事件广播 | **Task Notification bitmask** | 禁多 Queue 冗余 |
+| 读多写少共享变量 | **taskENTER_CRITICAL** (短临界区) | 禁无锁读写 |
+| 大数据传递 (>256B) | **Queue 传指针 + 所有权转移** | 禁拷贝大数据进 Queue |
+| 异步 UI 刷新 | **lv_async_call** | 禁后台线程直接 lv_obj_* |
+| 定时触发 | **xTimerPendFunctionCall** / software timer | 禁 vTaskDelay 轮询 |
+| ISR → 任务 | **xQueueSendFromISR** / xTaskNotifyFromISR | 禁 ISR 中阻塞 |
+| 任务 → ISR（极少） | **共享 volatile 变量** | 禁 mutex / Queue |
+
+---
+
+## 铁律
+
+### C15.1 — 优先级差 ≥2
+
+```c
+/* ✅ 优先级间隔足够 */
+#define PRIO_AUDIO    (configMAX_PRIORITIES - 1)  /* 最高 */
+#define PRIO_WSS      (configMAX_PRIORITIES - 3)  /* 差 2 */
+#define PRIO_LVGL     (configMAX_PRIORITIES - 5)  /* 差 2 */
+#define PRIO_PRESENTER (configMAX_PRIORITIES - 7) /* 差 2 */
+
+/* ❌ 相邻优先级 */
+#define PRIO_WSS   5
+#define PRIO_LVGL  6  /* 仅差 1，频繁切换 */
+```
+
+**原因：** FreeRTOS 调度器在相邻优先级间频繁上下文切换，增加开销。
+
+### C15.2 — 优先级反转防护
+
+```c
+/* ✅ 使用优先级继承 mutex */
+SemaphoreHandle_t g_resource_mutex;
+
+void init(void) {
+    g_resource_mutex = xSemaphoreCreateMutex();
+    /* FreeRTOS mutex 默认支持优先级继承 */
+}
+
+/* 高优先级任务等待 mutex 时，持有者临时提升优先级 */
+void high_prio_task(void *arg) {
+    xSemaphoreTake(g_resource_mutex, pdMS_TO_TICKS(100));
+    /* ... */
+    xSemaphoreGive(g_resource_mutex);
+}
+```
+
+**禁止**用 binary semaphore 保护共享资源（无优先级继承 → 优先级反转死锁）。
+
+### C15.3 — 禁止运行时动态改优先级
+
+```c
+/* ❌ 运行时改优先级（难以推理调度行为） */
+vTaskPrioritySet(wss_handle, 10);
+
+/* ✅ 仅在初始化时设定，运行时不变 */
+xTaskCreate(wss_task, "wss", 4096, NULL, PRIO_WSS, &wss_handle);
+```
+
+若确需动态调整（如低功耗模式），须在注释中说明原因和恢复条件。
+
+---
+
+## Agent 检查清单
+
+- [ ] 多任务间是否通过 Queue/Notification 通信（非全局变量）？
+- [ ] 相邻任务优先级差是否 ≥2？
+- [ ] 共享资源是否用 mutex（非 binary semaphore）保护？
+- [ ] 运行时是否有 vTaskPrioritySet（需文档说明原因）？
+- [ ] 大数据是否通过指针传递（非拷贝进 Queue）？

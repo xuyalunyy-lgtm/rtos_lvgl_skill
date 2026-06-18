@@ -16,13 +16,38 @@ Agent 在 L2/L3 或 workflow 要求时读取本文件。L1 概念问答可跳过
 | **跑通为止** | 持续实现 → 编译 → 修错，直至 **用户指定功能完成** 且 **工程编译通过** |
 | **编译** | 命令以 `platforms/xxx.md` 为准；编译失败则读日志、修复、重编，**禁止**留半成品让用户收尾 |
 | **铁律仍生效** | 改动须满足 C1–C10；L2+ 可跑 `run_review.py` 自检 |
+| **改动范围声明** | L3 开始前输出「计划改动文件清单」，用户确认后执行 |
+| **编译重试上限** | 最多 **5 次**编译失败后暂停，输出错误摘要请用户介入 |
+| **不可触碰清单** | 用户可标记 `.gitignore`、`partitions.csv`、`sdkconfig` 等为只读；Agent 禁止修改 |
+| **回滚点** | L3 任务开始前建议 `git stash` 或创建临时分支 |
+| **配置文件独立** | 新项目**禁止**直接复制/复用/修改已有项目的配置文件；只能参考格式结构，**严格按用户输入编写全新配置** |
 | **须询问用户** | 大规模删 SDK 模块（超 C6 问卷范围）、git push/force、改仓库 secrets、需求根本歧义 |
 | **Git 提交** | 用户要求 commit 时读 [git_commit_style.md](git_commit_style.md)；标题中文 + `type(scope):`；提交前 `git log` 对齐仓库风格 |
 | **不适用** | L2 纯 Code Review；用户写明「只审查/只给方案不改代码」 |
 
 **完成定义：** 功能按需求可演示或逻辑闭环 + 目标工程 **0 error 编译**（warning 可登记，P0 须修）。
 
----
+### L3 安全围栏（防 Agent 失控）
+
+| 围栏 | 触发条件 | Agent 行为 |
+|------|----------|-----------|
+| **编译重试上限** | 同一编译错误连续失败 **≥5 次** | 暂停，输出错误摘要 + 已尝试方案，请用户介入 |
+| **改动范围锁定** | L3 开始前 | 输出「计划改动文件清单」，用户确认后才执行；超出范围须追加确认 |
+| **不可触碰文件** | 用户声明或 `.skill-readonly` | 禁止修改（即使 Agent 认为「应该改」） |
+| **Git 回滚点** | L3 开始前（建议） | `git stash` 或创建 `skill/l3-<desc>` 临时分支 |
+
+---</parameter>
+</parameter>
+</replace_in_file>
+
+<read_file>
+<path>references/core_rules.md</path>
+<task_progress>
+- [x] L3 safety guardrails in core_rules.md
+- [ ] Update CHANGELOG.md with all changes
+- [ ] Validate examples coverage update
+- [ ] Final review of all changes
+</task_progress>
 
 ```
 音频/DMA ISR > WSS/网络长连接 > LVGL 刷新 > Presenter > Model 后台
@@ -58,9 +83,9 @@ python tools/stack_calculator.py --describe "WSS TLS cJSON" --platform jl
 
 共享类型：`examples/app_mvp.h`（与 `mvp_codegen` 输出一致）；Queue 设计 → [queue_event_bus.txt](../prompts/queue_event_bus.txt)
 
-## 十条硬性约束（摘要）
+## 廿三条硬性约束（摘要）
 
-**细粒度 ID 矩阵（C1.1–C10.6）** → [constraint_detail.md](constraint_detail.md)（L2+ 违规报告须引用 `C#.#`）
+**细粒度 ID 矩阵（C1.1–C24.5）** → [constraint_detail.md](constraint_detail.md)（L2+ 违规报告须引用 `C#.#`）
 
 | # | 主题 | 细则 | 子约束数 |
 |---|------|------|----------|
@@ -69,11 +94,23 @@ python tools/stack_calculator.py --describe "WSS TLS cJSON" --platform jl
 | 3 | cJSON | goto cleanup 模板 → [cjson_safe_parse.txt](../prompts/cjson_safe_parse.txt) | 6 |
 | 4 | 音频 DMA | ISR 仅 `*FromISR`；Cache 一致性 → [audio_dma_pingpong.txt](../prompts/audio_dma_pingpong.txt) | 8 |
 | 5 | 测试宏 | 每模块 `APP_TEST_MODE_*` → [test_mode_macro.txt](../prompts/test_mode_macro.txt) | 3 |
-| 6 | SDK 裁剪 | 先问卷再动刀；JL/BK 先扫描 → [sdk_trim_prune.txt](../prompts/sdk_trim_prune.txt) | 4 |
+| 6 | SDK 裁剪 | 先问卷再动刀；JL/BK 先扫描 → [sdk_trim_prune.txt](../prompts/sdk_trim_prune.txt) | 5 |
 | 7 | 内存分配优化 | 先量后改；缩池顺序 → [memory_alloc_optimize.txt](../prompts/memory_alloc_optimize.txt) | 9 |
 | 8 | 启动 / WDT | Queue 先于回调；有限 timeout → [boot_wdt_lifecycle.txt](../prompts/boot_wdt_lifecycle.txt) | 6 |
 | 9 | 密钥 / 凭证 | config.secrets 不入库 → [secrets_kconfig.txt](../prompts/secrets_kconfig.txt) | 6 |
 | 10 | 语音 / ASR / Uplink | prompt detach + settle → [voice_asr_uplink.txt](../prompts/voice_asr_uplink.txt) | 6 |
+| 11 | 编码规范 | 命名/函数长度/文件头 → [coding_style.txt](../prompts/coding_style.txt) | 6 |
+| 12 | 错误处理 | API 返回值/清理模板/assert → [error_handling.txt](../prompts/error_handling.txt) | 5 |
+| 13 | 状态机 | enum state/转换表/非法状态 → [state_machine_patterns.txt](../prompts/state_machine_patterns.txt) | 4 |
+| 14 | 日志规范 | 分级日志/TAG/脱敏/崩溃现场 → [logging_debug.txt](../prompts/logging_debug.txt) | 5 |
+| 15 | 优先级与通信 | 优先级差/优先级反转/通信选择 → [inter_task_communication.txt](../prompts/inter_task_communication.txt) | 3 |
+| 16 | 定时器管理 | 回调禁阻塞/lifecycle/周期vs单次 → [timer_management.txt](../prompts/timer_management.txt) | 3 |
+| 17 | 多核 IPC | 跨核通信/mailbox/硬件信号量 → [multi_core_ipc.txt](../prompts/multi_core_ipc.txt) | 3 |
+| 18 | 外设驱动安全 | GPIO/I2C/SPI/DMA 配置 → [peripheral_driver_safety.txt](../prompts/peripheral_driver_safety.txt) | 6 |
+| 19 | Flash/NVS 安全 | NVS commit/Flash 擦写/OTA 回滚 → [flash_nvs_safety.txt](../prompts/flash_nvs_safety.txt) | 5 |
+| 20 | 网络韧性 | 重连退避/超时/DNS/降级策略 → [network_resilience.txt](../prompts/network_resilience.txt) | 5 |
+| 21 | 低功耗管理 | 睡眠前保存状态/唤醒恢复/Tickless Idle/外设断电 → [low_power_management.txt](../prompts/low_power_management.txt) | 5 |
+| 23 | 显示驱动 | LCD 初始化时序/背光 PWM/帧率/撕裂防护/帧缓冲 → [lcd_display_driver.txt](../prompts/lcd_display_driver.txt) | 6 |
 
 ## 文件归属惯例
 

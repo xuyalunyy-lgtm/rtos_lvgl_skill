@@ -45,6 +45,10 @@ L4 可执行     examples/ · tools/    完整版 L2+；Lite 无此层
 | [debug_crash](../workflows/debug_crash.md) | constraint_detail 症状表 | 症状对应 prompt | run_review + 反例 |
 | [l3_sdk_trim](../workflows/l3_sdk_trim.md) | core_rules | sdk_trim_prune | — |
 | [l3_new_module](../workflows/l3_new_module.md) | core_rules | 模块表 prompt | mvp_codegen / good_* |
+| [hw_sw_cocodebug](../workflows/hw_sw_cocodebug.md) | core_rules（C8 初始化顺序） | 平台引脚复用 | — |
+| [l3_bring_up](../workflows/l3_bring_up.md) | core_rules + hw_sw_cocodebug IO 表 | boot_wdt_lifecycle + audio_dma_pingpong | run_review + good_boot_sequence |
+| [l2_memory_analysis](../workflows/l2_memory_analysis.md) | core_rules + constraint_index | memory_alloc_optimize + cjson_safe_parse | run_review + stack_calculator |
+| [l3_lvgl_page](../workflows/l3_lvgl_page.md) | core_rules（C1 线程安全） | lvgl_thread_safety | — |
 | [self_iterate](../workflows/self_iterate.md) | **本文件** + iteration_log | 受影响层 prompt | skill_iterate |
 
 用户要求 **git commit / 提交** → 读 [git_commit_style.md](git_commit_style.md)（无需单独 workflow）
@@ -67,11 +71,26 @@ Workflow 索引 → [workflows/README.md](../workflows/README.md)
 | C8 | 启动 / WDT / 阻塞 | [boot_wdt_lifecycle.txt](../prompts/boot_wdt_lifecycle.txt) |
 | C9 | 密钥 / 凭证 | [secrets_kconfig.txt](../prompts/secrets_kconfig.txt) |
 | C10 | 语音 / ASR / Uplink | [voice_asr_uplink.txt](../prompts/voice_asr_uplink.txt) |
+| C11 | 编码规范 | [coding_style.txt](../prompts/coding_style.txt) |
+| C12 | 错误处理 | [error_handling.txt](../prompts/error_handling.txt) |
+| C13 | 状态机 | [state_machine_patterns.txt](../prompts/state_machine_patterns.txt) |
+| C14 | 日志规范 | [logging_debug.txt](../prompts/logging_debug.txt) |
+| C15 | 优先级与通信 | [inter_task_communication.txt](../prompts/inter_task_communication.txt) |
+| C16 | 定时器管理 | [timer_management.txt](../prompts/timer_management.txt) |
+| C17 | 多核 IPC | [multi_core_ipc.txt](../prompts/multi_core_ipc.txt) |
 | 网络 | WSS / mbedTLS / 栈 | [mbedtls_wss_memory.txt](../prompts/mbedtls_wss_memory.txt) |
 | Crash | 日志解读 | [crash_log_decode.txt](../prompts/crash_log_decode.txt) |
 | 同步 | FreeRTOS 原语 | [freertos_sync_primitives.txt](../prompts/freertos_sync_primitives.txt) |
+| C18 | 外设驱动安全 | [peripheral_driver_safety.txt](../prompts/peripheral_driver_safety.txt) |
+| C19 | Flash/NVS 安全 | [flash_nvs_safety.txt](../prompts/flash_nvs_safety.txt) |
+| C20 | 网络韧性 | [network_resilience.txt](../prompts/network_resilience.txt) |
+| C21 | 低功耗管理 | [low_power_management.txt](../prompts/low_power_management.txt) |
+| C23 | 显示驱动 | [lcd_display_driver.txt](../prompts/lcd_display_driver.txt) |
+| C24 | 外设关闭安全 | [peripheral_shutdown_safety.txt](../prompts/peripheral_shutdown_safety.txt) |
 
-约束 ID 细则 → [constraint_detail.md](constraint_detail.md) · L2 速查 → [constraint_index.md](constraint_index.md)
+约束 ID 细则 → [constraint_detail.md](constraint_detail.md) · L2 速查 → [constraint_index.md](constraint_index.md) · **知识图谱** → [constraint_graph.md](constraint_graph.md)
+
+> C1–C24，23 个约束域，125 条规则。
 
 ---
 
@@ -96,6 +115,19 @@ Workflow 索引 → [workflows/README.md](../workflows/README.md)
 | 项目 Rule | `globs: **/*.{c,h}` 编辑 C 时强制 Read skill |
 | 显式点名 | `@freertos-embedded-architect` |
 
+## 产品线 Profile（`product_profiles/`）
+
+| 平台 | 文件 | 必选约束 | 特性 |
+|------|------|----------|------|
+| ESP32 | `esp32.json` | C1-C4,C7-C9,C11-C12,C14-C15 | WiFi+BLE+LVGL+I2S, 双核, PSRAM |
+| STM32 | `stm32.json` | C2-C4,C7-C9,C11-C12,C14-C15 | LVGL+I2S+TLS, 单核 Cortex-M |
+| JL | `jl.json` | C1-C4,C6-C15 | WiFi+BLE+LVGL+I2S+语音, 双核 RISC-V |
+| BK | `bk.json` | C1-C4,C6-C15,C17 | WiFi+BLE+LVGL+AVDK音频+语音, 双核 IPC |
+
+加载方式：`python tools/product_profile.py <platform>` · `--json` · `--stack <task>`
+
+Agent 在 L3 开始前**推荐**加载产品 profile：自动获取必选约束、栈建议、常见坑点。
+
 ## 工具目录（完整版 · workflow 内调用）
 
 | 用途 | 命令 |
@@ -107,7 +139,13 @@ Workflow 索引 → [workflows/README.md](../workflows/README.md)
 | 迭代验证 | `python scripts/skill_iterate.py --check --sync` · Windows：`.\scripts\skill_iterate.cmd -Sync` |
 | 安装 Cursor | `.\scripts\install_skill.ps1`（见 [INSTALL.md](../INSTALL.md)） |
 | 安装 Claude Code | `.\scripts\install_claude_code.ps1`（见 [claude_code.md](claude_code.md)） |
+| C10 语音时序 | `python tools/voice_sequence_checker.py --dir src/` |
+| 链接检查 | `python tools/check_links.py` |
+| C14 日志检查 | `python tools/logging_checker.py --dir src/` |
+| C12 返回值检查 | `python tools/return_check_checker.py --dir src/` |
+| C11.5 函数长度 | `python tools/function_length_checker.py --dir src/` |
 | MVP 骨架 | `python tools/mvp_codegen_tool.py Module --platform jl -o ./generated` |
+| 自动约束发现 | `python tools/constraint_discovery.py --dir src/` · `--report proposal.md` · `--json` |
 
 Checker 与 C#.# 映射 → 完整版 `examples/README.md`
 

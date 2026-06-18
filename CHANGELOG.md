@@ -1,5 +1,98 @@
 # Changelog
 
+## 4.7.0 — 2026-06-18
+
+- **新增 3 个 Checker**：补充 C13/C14.4/C16 约束覆盖率
+- **C13 state_machine_checker.py**：switch-default 检查（C13.3）、状态枚举检查（C13.1）
+- **C14.4 log_desensitize_checker.py**：日志脱敏检查（密码/token 明文打印）
+- **C16 timer_checker.py**：timer 回调阻塞检查（C16.1）、timer 生命周期检查（C16.2）
+- **constraint_detail.md**：C13.3/C16.1/C16.2 checker 引用更新
+- **skill_structure.md**：工具目录新增 3 个 checker 命令
+- **constraint_graph.md**：自动化 Checker 数量从 16 更新为 19
+- **Checker 覆盖率提升**：从 31 项 / 24.8% 提升至 36 项 / 28.8%
+- **版本升至 4.7.0**
+
+## 4.6.1 — 2026-06-18
+
+- **Checker 脚本质量审查**：对 6 个新增 checker 脚本进行逻辑正确性和完备性审查，修复 6 个高优先级问题和 6 个中优先级问题
+- **network_resilience_checker.py 重大修复**：C20.2 超时检查从空操作改为实际检测（SO_RCVTIMEO/数值/常量超时）；C20.1 退避状态机从简单 `}` 匹配改为函数级花括号计数；recv/send/connect 使用 `\b` 词边界正则避免匹配变量名
+- **blocking_wait_checker.py 修复**：移除 xSemaphoreCreateMutex/xSemaphoreCreateBinary（创建 API 非阻塞等待 API，移除误报）；改用词边界正则；函数上下文检测扩展为 void/int/esp_err_t/bool 签名
+- **display_driver_checker.py 修复**：C23.6 补充 draw_buf 缺失报告（约束要求 4 个必填字段，原脚本只检查 3 个）
+- **peripheral_driver_checker.py 修复**：C18.1 添加 gpio_set_direction 检测（ESP-IDF 常见配置 API）
+- **low_power_checker.py 修复**：C21.4 POWER_DOWN_INDICATORS 从宽泛的 gpio_set_level/spi_/i2s_ 收窄为 esp_wifi_stop/i2s_channel_disable/ledc_stop 等明确断电函数
+- **flash_nvs_checker.py 修复**：C19.1 添加 ESP_ERROR_CHECK/ESP_RETURN_ON_ERROR/assert/configASSERT 宏识别，避免误报
+- **版本升至 4.6.1**
+
+## 4.6.0 — 2026-06-18
+
+- **七项改进**：基于用户反馈的 7 项实用性改进
+- **1. 测试阶段例外机制**：core_rules.md 新增「测试阶段例外」章节，C9/C14/C5/C7 在用户明确测试阶段时可降级处理，不影响死机/泄漏/阻塞类约束（C1-C4/C12/C20/C24）
+- **2. 优先修复顺序模板**：l2_project_review.md 输出格式改为 P0（死机/卡死）→ P1（泄漏/阻塞）→ P2（可维护性）→ P3（上线前配置化）
+- **3. C24 外设关闭安全**：新增约束域 C24（C24.1–C24.5），覆盖异常退出收尾、外设 stop 可重入、超时释放、DMA 等待、电源门控
+- **4. 队列阻塞提醒**：queue_event_bus.txt 新增「队列满/丢事件处理原则」，强调 ISR/timer/callback 中禁止阻塞发送
+- **5. 永久等待扫描器**：新增 `blocking_wait_checker.py`，扫描 WAIT_FOREVER/BEKEN_WAIT_FOREVER/portMAX_DELAY 及无 timeout 的阻塞 API
+- **6. 提交前状态保护**：git_commit_style.md 新增多仓/嵌套仓库提交规则（只提交相关文件、列出脏文件、构建文件不纳入、嵌套仓库分别检查）
+- **7. Lite 同步检查脚本**：新增 `scripts/check_lite_sync.py`，检查 prompt/workflow/platform/reference 版本同步，支持 --fix 自动修复
+- **约束体系扩展至 23 个域、125 条规则、16 个 Checker、28 个 Prompt**
+- **版本升至 4.6.0**
+
+## 4.5.0 — 2026-06-18
+
+- **新增 5 个 Examples 范例**：覆盖 C18（外设驱动）/ C19（Flash/NVS）/ C20（网络韧性）/ C21（低功耗）/ C23（显示驱动），每个反例包含正例对照
+- **C18 bad_gpio_no_config.c**：GPIO 未配置方向直接使用（C18.1）、I2C 地址硬编码猜测（C18.2）、DMA 通道分配无文档（C18.4）
+- **C19 bad_nvs_no_commit.c**：NVS 写入后未 commit（C19.1）、深睡眠前未保存状态（C21.1）
+- **C20 bad_reconnect_no_backoff.c**：WiFi/WSS 重连无指数退避（C20.1）、阻塞网络操作无超时（C20.2）
+- **C21 bad_sleep_no_save.c**：深睡眠前未保存状态（C21.1）、未关闭外设电源（C21.4）、唤醒后无条件重新初始化（C21.2）
+- **C23 bad_display_no_init.c**：LCD 初始化时序错误（C23.1）、帧缓冲分配未检查（C23.5）、lv_disp_drv_t 缺少必要字段（C23.6）
+- **examples/README.md**：新增 C18/C19/C20/C21/C23 范例索引
+- **版本升至 4.5.0**
+
+## 4.4.0 — 2026-06-18
+
+- **新增 5 个自动化 Checker**：覆盖 C18（外设驱动）/ C19（Flash/NVS）/ C20（网络韧性）/ C21（低功耗）/ C23（显示驱动）共 10 项检查规则
+- **C18 peripheral_driver_checker.py**：GPIO 方向配置检查（C18.1）、I2C 地址硬编码检测（C18.2）、DMA 通道文档化检查（C18.4）
+- **C19 flash_nvs_checker.py**：NVS 写入后 commit 检查（C19.1）
+- **C20 network_resilience_checker.py**：重连指数退避检查（C20.1）、阻塞网络操作超时检查（C20.2）
+- **C21 low_power_checker.py**：深度睡眠前状态保存检查（C21.1）、外设断电检查（C21.4）
+- **C23 display_driver_checker.py**：帧缓冲分配返回值检查（C23.5）、lv_disp_drv_t 字段完整性检查（C23.6）
+- **constraint_detail.md**：约束矩阵验证列从「人工」更新为对应 checker 名称
+- **skill_structure.md**：工具目录新增 5 个 checker 命令
+- **constraint_graph.md**：自动化 Checker 数量从 10 更新为 15
+- **版本升至 4.4.0**
+
+## 4.3.1 — 2026-06-18
+
+- **约束体系质量审查**：全面扫描 22 个约束域、120 条规则的一致性，发现并修复 10 个问题
+- **Q1 铁律索引补齐**：SKILL.md 和 core_rules.md 补入 C18（外设驱动）/ C19（Flash/NVS）/ C20（网络韧性）三个遗漏约束域
+- **Q2-Q5 数量一致性**：全链路统一约束数量为 22 域/120 条/P0=43/P1=54/P2=23（原声称 101+/107+ 均不准确）
+- **Q6-Q8 core_rules.md 修复**：C6 子约束数从 4 改为 5、C16 补填子约束数 3、引用范围从 C1.1-C21.5 改为 C1.1-C23.6
+- **标题修正**：core_rules.md「廿一条硬性约束」改为「廿二条硬性约束」
+- **Lite 版本全面同步**：constraint_detail.md / constraint_graph.md / skill_structure.md / core_rules.md 全部修复
+- **链接有效性验证**：所有 28 个 prompt 文件、8 个 references 文件、11 个 workflow 文件引用均有效，无断链
+- **版本升至 4.3.1**
+
+## 4.3.0 — 2026-06-18
+
+- **C23 显示驱动安全正式集成**：`lcd_display_driver.txt`（C23.1–C23.6）从候选域升级为正式约束域，覆盖 LCD 初始化时序、背光 PWM 控制、帧率管理、撕裂防护、帧缓冲管理、LVGL 驱动注册
+- **全链路同步**：constraint_index.md / constraint_detail.md / core_rules.md / SKILL.md 铁律索引 / skill_structure.md 场景表 / constraint_graph.md 知识图谱全部补齐 C23
+- **constraint_graph.md**：新增 3 条依赖关系（C1→C23, C23→C7, C21→C23）+ 2 个冲突场景（帧缓冲 vs 内存优化、帧率 vs 音频优先级）
+- **constraint_detail.md**：新增 C23 完整约束矩阵 + 5 条症状表条目 + 2 个冲突权衡条目
+- **SKILL.md**：description 触发词新增显示/LCD/OLED/背光/帧率/撕裂/tearing/VSync/帧缓冲/display driver
+- **Lite 版本全面同步**：prompts/lcd_display_driver.txt / constraint_index.md / constraint_detail.md / constraint_graph.md / skill_structure.md / core_rules.md / SKILL.md 全部补齐 C9–C23
+- **约束体系扩展至 22 个域、120 条规则**
+- **版本升至 4.3.0**
+
+## 4.2.0 — 2026-06-18
+
+- **C21 低功耗管理正式集成**：`low_power_management.txt`（C21.1–C21.5）从候选域升级为正式约束域，覆盖深度睡眠状态保存、唤醒恢复、Tickless Idle、外设断电、唤醒源冲突检测
+- **全链路同步**：constraint_index.md / constraint_detail.md / core_rules.md / SKILL.md 铁律索引 / skill_structure.md 场景表 / constraint_graph.md 知识图谱全部补齐 C21
+- **constraint_graph.md**：新增 3 条依赖关系（C19→C21, C21→C20, C13→C21）+ 2 个冲突场景（低功耗 vs 网络保持、低功耗 vs 语音实时）
+- **constraint_detail.md**：新增 C21 完整约束矩阵 + 3 条症状表条目 + 2 个冲突权衡条目
+- **SKILL.md**：description 触发词新增低功耗/睡眠/深度睡眠/唤醒源/tickless/功耗/电池/battery/deep sleep/low power
+- **Bug 修复**：core_rules.md C17 链接从 timer_management.txt 修正为 multi_core_ipc.txt
+- **约束体系扩展至 21 个域、101+ 条规则**
+- **版本升至 4.2.0**
+
 ## 3.2.0 — 2026-06-16
 
 - **新增 workflow `l3_lvgl_page.md`**：LVGL 单页面生成完整规格，定义生成完美页面所需的 8 项信息清单

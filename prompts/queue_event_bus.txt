@@ -76,6 +76,43 @@ Presenter 消费顺序建议：**网络 ERROR > DATA > UI**（错误先显示，
 
 ---
 
+## 队列满/丢事件处理原则
+
+**审查队列满/丢事件时，先识别发送上下文：**
+
+| 发送上下文 | 禁忌 | 推荐策略 |
+|-----------|------|----------|
+| **ISR / timer callback** | 禁止阻塞（会卡死中断） | 非阻塞 send + 丢弃 + 计数器 |
+| **网络回调 / SDK callback** | 禁止长时间阻塞 | 非阻塞 send + 丢弃 + 日志 |
+| **按键中断** | 禁止阻塞 | 去抖 + 非阻塞 send |
+| **普通任务** | 可短超时 | 带超时 send + 失败处理 |
+
+**队列满时优先考虑：**
+1. 增加队列深度（如果 RAM 允许）
+2. 事件去抖/合并（如连续相同按键只发一次）
+3. 丢弃 + 日志计数（而非阻塞）
+4. 背压状态机（通知上游暂停产生事件）
+
+**禁止**一律改为 `xQueueSend(..., portMAX_DELAY)` 或长超时 — 可能导致发送方任务卡死。
+
+```c
+/* ❌ 错误: timer 回调中永久阻塞 */
+static void timer_callback(TimerHandle_t t) {
+    app_evt_t evt = { .type = EVT_TIMEOUT };
+    xQueueSend(s_queue, &evt, portMAX_DELAY);  /* timer daemon 卡死！ */
+}
+
+/* ✅ 正确: timer 回调中非阻塞 */
+static void timer_callback(TimerHandle_t t) {
+    app_evt_t evt = { .type = EVT_TIMEOUT };
+    if (xQueueSend(s_queue, &evt, 0) != pdTRUE) {
+        s_queue_drop_count++;  /* 丢弃 + 计数 */
+    }
+}
+```
+
+---
+
 ## Agent 检查清单
 
 - [ ] 无 cJSON* / 栈指针进 Queue？

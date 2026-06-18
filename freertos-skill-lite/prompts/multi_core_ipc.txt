@@ -1,0 +1,65 @@
+# 多核 IPC 专精提示词
+
+> 约束 ID：C17.1–C17.3 → [constraint_detail.md](../references/constraint_detail.md)
+
+## 适用场景
+
+多核 MCU（BK7258 三核、ESP32 双核、JL DSP）的跨核通信与同步。
+
+---
+
+## 铁律
+
+### C17.1 — 跨核通信禁止直接共享全局变量
+
+```c
+/* ❌ 跨核直接读写同一全局变量（无同步 → 数据竞争） */
+volatile int g_sensor_data;  /* CPU0 写，CPU1 读，无屏障 */
+
+/* ✅ 通过 IPC 机制传递 */
+void cpu0_send_to_cpu1(int data) {
+    mailbox_send(MAILBOX_CPU1, &data, sizeof(data));
+}
+```
+
+### C17.2 — 跨核 Queue 须用 IPC mailbox
+
+```c
+/* ❌ 不同 FreeRTOS 实例间用 xQueueSend（无效或未定义行为） */
+/* BK7258 CPU0 和 CP1 各有独立 FreeRTOS 实例 */
+xQueueSend(cp1_queue, &msg, portMAX_DELAY);  /* 不工作 */
+
+/* ✅ 用平台 IPC API */
+bk_mailbox_send(CPU1, MB_CMD_USER, &msg, sizeof(msg));
+```
+
+### C17.3 — 核间同步用硬件信号量
+
+```c
+/* ❌ 跨核 mutex（不同 FreeRTOS 实例，mutex 无效） */
+xSemaphoreTake(cross_core_mutex, portMAX_DELAY);
+
+/* ✅ 硬件信号量（平台提供） */
+hw_semaphore_take(SEM_ID_SHARED_MEM);
+/* ... 访问共享内存 ... */
+hw_semaphore_give(SEM_ID_SHARED_MEM);
+```
+
+---
+
+## 平台注记
+
+| 平台 | IPC 机制 | 文档 |
+|------|----------|------|
+| **BK7258** | `CONFIG_MAILBOX` + `bk_mailbox_*` | `platforms/bk.md` 三核架构节 |
+| **ESP32** | `esp_ipc_*` + 双核 FreeRTOS 共享实例 | ESP-IDF IPC 文档 |
+| **JL** | `thread_fork` + DSP 核专有 API | `platforms/jl.md` |
+
+---
+
+## Agent 检查清单
+
+- [ ] 是否有跨核直接读写的全局变量（无 IPC/mailbox）？
+- [ ] 是否有不同 FreeRTOS 实例间的 xQueueSend/xSemaphoreTake？
+- [ ] 共享内存访问是否有硬件信号量保护？
+- [ ] PSRAM/堆配置是否按核划分（无冲突）？

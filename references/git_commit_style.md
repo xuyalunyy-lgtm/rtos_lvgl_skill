@@ -73,6 +73,31 @@ EOF
 
 ---
 
+## 提交前状态保护（多仓/嵌套仓库）
+
+| 规则 | 说明 |
+|------|------|
+| **只提交相关文件** | `git add` 仅当前任务修改的文件，禁止 `git add .` 或 `git add -A` |
+| **列出未提交的脏文件** | 提交前 `git status` 输出未暂存文件，说明为何不提交 |
+| **构建生成文件不纳入** | `build/`、`*.o`、`*.bin`、`gen_files_list.txt` 等禁止提交 |
+| **嵌套仓库分别检查** | 若有 submodule 或嵌套 git 仓库（如 `projects/printer/`），每个仓库单独 `git status` |
+| **分离关注点** | 不同功能的改动分开提交，一个 commit 只做一件事 |
+
+```bash
+# 提交前检查示例
+git status                    # 查看所有改动
+git diff --cached             # 查看已暂存内容
+git diff                      # 查看未暂存内容
+
+# 嵌套仓库检查
+cd projects/printer && git status
+cd ../../skill && git status
+```
+
+**禁止**一次提交包含不相关改动（如同时改 audio + ui + config）。
+
+---
+
 ## Agent 提交流程（checklist）
 
 1. `git log -8 --oneline` — 确认目标仓库风格

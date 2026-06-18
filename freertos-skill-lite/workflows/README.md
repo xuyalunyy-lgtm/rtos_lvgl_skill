@@ -12,6 +12,10 @@
 | [debug_crash.md](debug_crash.md) | L2–L3 | HardFault / 死机 / WDT / frozen |
 | [l3_sdk_trim.md](l3_sdk_trim.md) | L3 | SDK 改造 / 需求驱动裁剪 |
 | [l3_new_module.md](l3_new_module.md) | L3 | 新模块 / 多任务 / MVP 设计 |
+| [hw_sw_cocodebug.md](hw_sw_cocodebug.md) | L2 | 硬件联调 / IO 口分配 / GPIO 冲突 / bring-up |
+| [l3_bring_up.md](l3_bring_up.md) | L3 | 板级 bring-up / 最小系统 / 外设逐个验证 / 量产闭环 |
+| [l2_memory_analysis.md](l2_memory_analysis.md) | L2 | 内存专项分析 / 基线采集 / 泄漏排查 / 缩池缩栈 |
+| [l3_lvgl_page.md](l3_lvgl_page.md) | L3 | LVGL 单页面生成（规格收集→代码生成→MVP 联动→内存检查） |
 | [self_iterate.md](self_iterate.md) | L3 | Skill 维护 / 自我迭代 |
 
 ## 标准加载顺序（L2+）

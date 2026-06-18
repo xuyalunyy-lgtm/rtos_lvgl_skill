@@ -77,7 +77,7 @@ rg "super\.init\(\)|_tool_init|_instance\(\)->start" <产品仓>/main --glob '*.
 - 是否缺 CI：secret scan + build smoke
 - 产品层是否有单元测试（C5）
 
-## Step 6 — 输出
+## Step 6 — 输出（优先修复顺序）
 
 <output_format>
 
@@ -85,21 +85,43 @@ rg "super\.init\(\)|_tool_init|_instance\(\)->start" <产品仓>/main --glob '*.
 ## 结论
 通过 / 需修复
 
-## P0（安全/崩溃）
-- C9.x / C1.x — 位置 — 问题 — 修复
+## 优先修复顺序
 
-## P1（稳定性/文档）
-...
+### 🔴 P0 — 会导致死机/卡死/硬件风险（立即修复）
+- C1.x — LVGL 跨线程调用 → 死机
+- C4.x — ISR 中阻塞 → 系统卡死
+- C12.x — API 返回值未检查 → HardFault
+- C20.x — 网络永久阻塞 → 任务卡死
+- C24.x — 外设未收尾 → 硬件损坏
 
-## P2（裁剪 / 技术债）
-- C6.5 — 未 init 仍编入 / Demo 组件 / 冗余 Web 模块
+### 🟠 P1 — 会导致内存泄漏/任务阻塞/状态错乱（本轮必须修复）
+- C2.x — Queue payload 泄漏
+- C3.x — cJSON 未 Delete
+- C7.x — 内存泄漏/栈溢出
+- C8.x — 启动顺序错误
+- C13.x — 状态机异常未处理
+- C19.x — NVS 未 commit
+
+### 🟡 P2 — 可维护性/日志/结构优化（下轮迭代）
+- C6.5 — 未 init 仍编入 / Demo 组件
+- C11.x — 命名/函数长度
+- C14.x — 日志规范
+- C15.x — 优先级文档
+
+### 🟢 P3 — 上线前安全/配置化（发布前）
+- C9.x — 凭据硬编码（测试阶段例外）
+- C14.4 — 日志脱敏（测试阶段例外）
+- C5.x — 测试宏关闭
 
 ## Checker 摘要
 - run_review: ...
 - secret_scan: ...
+- blocking_wait: ...
 
-## 建议后续
-1. ...
+## 建议后续（按优先级）
+1. 先修 P0（死机/卡死风险）
+2. 再修 P1（泄漏/阻塞）
+3. 最后处理 P2/P3（优化/配置化）
 ```
 
 </output_format>

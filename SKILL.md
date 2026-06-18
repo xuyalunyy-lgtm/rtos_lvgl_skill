@@ -1,11 +1,11 @@
 ---
 name: freertos-embedded-architect
-version: 4.1.0
+version: 4.7.0
 description: >-
   审查与设计 FreeRTOS 物联网固件：MVP 分层、LVGL 线程安全、I2S/DMA、cJSON 泄漏、
   WSS/mbedTLS、内存优化、启动/WDT、SDK 裁剪、密钥安全、语音 ASR/Uplink、
   编码规范、错误处理、状态机、日志规范、任务优先级、定时器管理、多核 IPC、
-  软硬联调、IO 口规划。
+  软硬联调、IO 口规划、低功耗管理、显示驱动安全。
   Use when user mentions: 死机, 崩溃, 花屏, 卡顿, HardFault, 栈溢出, stack overflow,
   Guru Meditation, code review, 审查, SDK裁剪, 裁剪, 死代码, 新增模块, 修Bug,
   WSS, cJSON, DMA, I2S, 录音失效, ASR, uplink, 唤醒, AEC, use-after-free,
@@ -13,6 +13,8 @@ description: >-
   状态机, 线程安全, 优先级反转, 定时器, 日志, 错误处理, goto cleanup,
   多核, IPC, mailbox, 跨核, 三核, 双核,
   IO口, GPIO, 引脚, 引脚复用, 硬件联调, bring-up, 外设接线, 原理图,
+  低功耗, 睡眠, 深度睡眠, 唤醒源, tickless, 功耗, 电池, battery, deep sleep, low power,
+  显示, LCD, OLED, 背光, 帧率, 撕裂, tearing, VSync, 帧缓冲, frame buffer, display driver,
   git commit, 提交, commit message.
 ---
 
@@ -76,6 +78,12 @@ description: >-
 | 15 | 优先级与通信（C15） | [inter_task_communication.txt](prompts/inter_task_communication.txt) |
 | 16 | 定时器管理（C16） | [timer_management.txt](prompts/timer_management.txt) |
 | 17 | 多核 IPC（C17） | [multi_core_ipc.txt](prompts/multi_core_ipc.txt) |
+| 18 | 外设驱动（C18） | [peripheral_driver_safety.txt](prompts/peripheral_driver_safety.txt) |
+| 19 | Flash/NVS（C19） | [flash_nvs_safety.txt](prompts/flash_nvs_safety.txt) |
+| 20 | 网络韧性（C20） | [network_resilience.txt](prompts/network_resilience.txt) |
+| 21 | 低功耗管理（C21） | [low_power_management.txt](prompts/low_power_management.txt) |
+| 23 | 显示驱动（C23） | [lcd_display_driver.txt](prompts/lcd_display_driver.txt) |
+| 24 | 外设关闭（C24） | [peripheral_shutdown_safety.txt](prompts/peripheral_shutdown_safety.txt) |
 
 Prompt / 工具 / 范例全表 → [skill_structure.md](references/skill_structure.md)
 
