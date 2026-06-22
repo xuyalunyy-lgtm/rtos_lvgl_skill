@@ -128,6 +128,15 @@ Code Review 或 L3 校验时逐条核对。违规项引用 `C#.#`（完整矩阵
 - [ ] C27.5 underrun/overrun 只做静音/重复/丢帧/resync，路径内无 malloc/free/printf/重日志
 - [ ] C27.6 有 drift、jitter_depth、underrun/overrun、drop/insert、resync 遥测
 
+## C28 — 媒体 DMA/cache/零拷贝 buffer 生命周期
+
+- [ ] C28.1 Camera/I2S/LCD/codec DMA buffer 位于 DMA-capable 内存且 cache-line/控制器要求对齐
+- [ ] C28.2 DMA 写后 CPU 读前 invalidate；CPU 写后 DMA/LCD/codec 读前 clean
+- [ ] C28.3 零拷贝 frame pool 有 owner/state/generation/release，consumer 未 release 前不复用
+- [ ] C28.4 Queue 传 buffer index/handle/descriptor，不传裸 DMA 指针
+- [ ] C28.5 cache clean/invalidate 地址和长度按 cache line 对齐并覆盖完整 frame/stride
+- [ ] C28.6 有 cache clean/invalidate、stale、reuse_before_release、buffer overrun/underrun 遥测
+
 ## 堆栈 / WSS / MVP
 
 - [ ] 相对优先级表已输出（见 [core_rules.md](core_rules.md)）

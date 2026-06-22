@@ -223,6 +223,16 @@
 | C27.5 | 1 | underrun/overrun 路径只做静音/重复/丢帧/resync，禁止分配、释放、打印 |
 | C27.6 | 2 | 保留 drift、jitter_depth、underrun/overrun、drop/insert、resync 遥测 |
 
+## C28 媒体 DMA/cache/零拷贝 buffer 生命周期
+| ID | P | 一句话 |
+|----|---|--------|
+| C28.1 | 0 | Camera/I2S/LCD/codec DMA buffer 必须 DMA-capable 且 cache-line/控制器要求对齐 |
+| C28.2 | 0 | DMA 写后 CPU 读前 invalidate；CPU 写后 DMA/LCD/codec 读前 clean |
+| C28.3 | 0 | 零拷贝 frame pool 必须有 owner/state/generation/release，consumer 未 release 前禁止复用 |
+| C28.4 | 1 | Queue 传 buffer index/handle/descriptor，禁止裸 DMA 指针所有权不清 |
+| C28.5 | 1 | cache clean/invalidate 地址和长度必须按 cache line 对齐并覆盖完整 frame/stride |
+| C28.6 | 2 | 保留 cache_clean/invalidate、stale、reuse_before_release、buffer overrun/underrun 遥测 |
+
 ## 症状 → ID（Crash 用）
 
 → [debug_crash.md](../workflows/debug_crash.md) Step 2 症状路由表（与 `constraint_detail.md` 末尾同步）。

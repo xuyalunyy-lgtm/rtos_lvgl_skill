@@ -1,5 +1,14 @@
 # Changelog
 
+## 4.12.0 — 2026-06-22
+
+- **新增 C28 媒体 DMA/cache/零拷贝 buffer 生命周期**：覆盖 DMA-capable 内存、cache clean/invalidate 方向、zero-copy owner/generation、Queue handle、cache line 对齐与遥测
+- **新增 prompt**：`prompts/av_dma_buffer_lifecycle.txt`，用于 Camera preview、LCD flush、I2S RX/TX、坏帧、旧帧、花屏、爆音和 PSRAM/SRAM 混用场景
+- **新增 checker**：`tools/av_dma_buffer_checker.py`，并接入 checker registry、默认审查链与 `--validate-examples`（可用 `--skip-av-dma` 跳过）
+- **新增范例**：`good_av_dma_buffer_lifecycle.c` / `bad_av_dma_buffer_lifecycle.c`，验证 DMA-capable 对齐帧池、cache 同步、零拷贝生命周期和裸指针反例
+- **全链路同步**：SKILL 控制平面、core_rules、constraint_index/detail/graph、skill_structure、workflow、Lite checklist 与 product_profiles 全部补齐 C28
+- **版本升至 4.12.0**
+
 ## 4.11.0 — 2026-06-18
 
 - **大重构：checker 管线注册表化**：新增 `tools/checker_registry.py`，集中管理默认 checker、`--skip-*` 参数、self-test fixtures 与 validate-examples case

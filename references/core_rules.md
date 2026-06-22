@@ -15,7 +15,7 @@ Agent 在 L2/L3 或 workflow 要求时读取本文件。L1 概念问答可跳过
 | **全权改代码** | Agent **自行决定**所有实现改动（`.c/.h`、CMake/Makefile、Kconfig、工程配置），**无需逐步向用户确认** |
 | **跑通为止** | 持续实现 → 编译 → 修错，直至 **用户指定功能完成** 且 **工程编译通过** |
 | **编译** | 命令以 `platforms/xxx.md` 为准；编译失败则读日志、修复、重编，**禁止**留半成品让用户收尾 |
-| **铁律仍生效** | 改动须满足 C1–C27；L2+ 可跑 `run_review.py` 自检 |
+| **铁律仍生效** | 改动须满足 C1–C28；L2+ 可跑 `run_review.py` 自检 |
 | **改动范围声明** | L3 开始前简述计划改动文件/模块；除高风险项外直接执行，不等待逐项确认 |
 | **编译重试上限** | 最多 **5 次**编译失败后暂停，输出错误摘要请用户介入 |
 | **不可触碰清单** | 用户可标记 `.gitignore`、`partitions.csv`、`sdkconfig` 等为只读；Agent 禁止修改 |
@@ -49,6 +49,7 @@ Agent 在 L2/L3 或 workflow 要求时读取本文件。L1 概念问答可跳过
 - C25 音视频管线（实时性风险）
 - C26 编解码格式一致性（实时数据错误风险）
 - C27 音视频时钟漂移 / jitter buffer（长时间同步风险）
+- C28 媒体 DMA/cache/零拷贝 buffer 生命周期（坏帧/花屏/爆音风险）
 
 **使用方式：** 用户在 prompt 中明确说「测试阶段」「联调阶段」「凭据可以硬编码」时，Agent 按此规则降级 C9/C14/C5/C7 的审查严格度。
 
@@ -97,9 +98,9 @@ python tools/stack_calculator.py --describe "WSS TLS cJSON" --platform jl
 
 共享类型：`examples/app_mvp.h`（与 `mvp_codegen` 输出一致）；Queue 设计 → [queue_event_bus.txt](../prompts/queue_event_bus.txt)
 
-## 二十六条硬性约束（摘要）
+## 二十七条硬性约束（摘要）
 
-**细粒度 ID 矩阵（C1.1–C27.6）** → [constraint_detail.md](constraint_detail.md)（L2+ 违规报告须引用 `C#.#`）
+**细粒度 ID 矩阵（C1.1–C28.6）** → [constraint_detail.md](constraint_detail.md)（L2+ 违规报告须引用 `C#.#`）
 
 | # | 主题 | 细则 | 子约束数 |
 |---|------|------|----------|
@@ -129,6 +130,7 @@ python tools/stack_calculator.py --describe "WSS TLS cJSON" --platform jl
 | 25 | 音视频管线 | audio clock master/帧元数据/有界队列/callback 隔离/遥测 → [av_pipeline_sync.txt](../prompts/av_pipeline_sync.txt) | 6 |
 | 26 | 编解码格式 | sample rate/channels/bit depth/帧长/stride/codec 生命周期 → [av_codec_format.txt](../prompts/av_codec_format.txt) | 6 |
 | 27 | 时钟漂移 / Jitter | master clock/PTS/jitter 水位/drift 限幅/underrun 补偿 → [av_clock_jitter.txt](../prompts/av_clock_jitter.txt) | 6 |
+| 28 | 媒体 DMA/cache buffer | DMA-capable/clean/invalidate/零拷贝 owner/cache line/遥测 → [av_dma_buffer_lifecycle.txt](../prompts/av_dma_buffer_lifecycle.txt) | 6 |
 
 ## 文件归属惯例
 
@@ -160,6 +162,8 @@ app_test_config.h       → APP_TEST_MODE_*
 | 反例 媒体格式 | [bad_media_format_mismatch.c](../examples/bad_media_format_mismatch.c) |
 | 正例 时钟/Jitter | [good_av_clock_jitter.c](../examples/good_av_clock_jitter.c) |
 | 反例 时钟/Jitter | [bad_av_clock_jitter.c](../examples/bad_av_clock_jitter.c) |
+| 正例 DMA/cache buffer | [good_av_dma_buffer_lifecycle.c](../examples/good_av_dma_buffer_lifecycle.c) |
+| 反例 DMA/cache buffer | [bad_av_dma_buffer_lifecycle.c](../examples/bad_av_dma_buffer_lifecycle.c) |
 
 索引与 checker 命令 → [examples/README.md](../examples/README.md)
 

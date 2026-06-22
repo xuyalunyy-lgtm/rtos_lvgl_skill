@@ -2,7 +2,7 @@
   "name": "BK 博通集成 / BK7258 / Armino",
   "platform": "bk",
   "description": "博通集成 BK7258/BK7231 系列，WiFi+BLE 双核 RISC-V，AVDK 多 port 音频架构",
-  "required_constraints": ["C1", "C2", "C3", "C4", "C6", "C7", "C8", "C9", "C10", "C11", "C12", "C14", "C15", "C17", "C23", "C25", "C26", "C27"],
+  "required_constraints": ["C1", "C2", "C3", "C4", "C6", "C7", "C8", "C9", "C10", "C11", "C12", "C14", "C15", "C17", "C23", "C25", "C26", "C27", "C28"],
   "optional_constraints": ["C5", "C13", "C16"],
   "excluded_constraints": [],
   "features": {
@@ -30,7 +30,8 @@
     "BK7258 的 mbedTLS 为 SDK 内置版本，cipher suite 配置路径与 ESP32 不同",
     "bk_printer 产品的打印 mutex 需与音频互斥，避免并发 SPI 访问",
     "app_event 桥接模式：Model 层通过 app_event 分发，非标准 xQueue",
-    "SDK 的 thread_create 栈单位为 bytes（非 words），注意换算"
+    "SDK 的 thread_create 栈单位为 bytes（非 words），注意换算",
+    "AVDK/LCD/camera DMA buffer 需确认 cache 同步与 producer/consumer release 时序"
   ],
   "stack_recommendations": {
     "wss_tls": {"min_bytes": 4096, "recommended_bytes": 6144, "note": "BK7258 TLS 握手峰值适中"},
@@ -39,6 +40,7 @@
     "av_sync": {"min_bytes": 3072, "recommended_bytes": 6144, "note": "AVDK audio master + display/camera queue"},
     "media_codec": {"min_bytes": 4096, "recommended_bytes": 6144, "note": "AVDK encode/decode + format negotiation"},
     "av_clock_jitter": {"min_bytes": 3072, "recommended_bytes": 6144, "note": "AVDK jitter buffer + drift recovery"},
+    "media_dma_buffer": {"min_bytes": 2048, "recommended_bytes": 4096, "note": "AVDK/video DMA buffer lifecycle + cache sync"},
     "presenter": {"min_bytes": 2048, "recommended_bytes": 3072, "note": "app_event 桥接分发"},
     "main": {"min_bytes": 2048, "recommended_bytes": 3072, "note": "main 任务初始化 AVDK"}
   },

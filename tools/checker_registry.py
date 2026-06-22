@@ -41,6 +41,7 @@ DEFAULT_CHECKERS: tuple[CheckerSpec, ...] = (
     CheckerSpec("av_pipeline_checker", "av_pipeline_checker.py", "av", "batch", ("C25",)),
     CheckerSpec("media_format_checker", "media_format_checker.py", "media-format", "batch", ("C26",)),
     CheckerSpec("av_clock_jitter_checker", "av_clock_jitter_checker.py", "av-clock", "batch", ("C27",)),
+    CheckerSpec("av_dma_buffer_checker", "av_dma_buffer_checker.py", "av-dma", "batch", ("C28",)),
     CheckerSpec("logging_checker", "logging_checker.py", "logging", "batch", ("C14",)),
     CheckerSpec("return_check_checker", "return_check_checker.py", "return-check", "batch", ("C12",)),
     CheckerSpec("function_length_checker", "function_length_checker.py", "func-length", "batch", ("C11.5",)),
@@ -82,6 +83,8 @@ VALIDATE_EXAMPLE_CASES: tuple[CheckerCase, ...] = (
     CheckerCase("media_format_checker.py", "examples/bad_media_format_mismatch.c", 1, "C26 bad"),
     CheckerCase("av_clock_jitter_checker.py", "examples/good_av_clock_jitter.c", 0, "C27 good"),
     CheckerCase("av_clock_jitter_checker.py", "examples/bad_av_clock_jitter.c", 1, "C27 bad"),
+    CheckerCase("av_dma_buffer_checker.py", "examples/good_av_dma_buffer_lifecycle.c", 0, "C28 good"),
+    CheckerCase("av_dma_buffer_checker.py", "examples/bad_av_dma_buffer_lifecycle.c", 1, "C28 bad"),
     CheckerCase("function_length_checker.py", "examples/good_presenter_consumer.c", 0, "C11.5 good"),
     # TODO: return_check_checker 对 good_presenter_consumer.c 测试模式 xQueueSend 过于严格，待优化后启用。
     CheckerCase("return_check_checker.py", "examples/bad_unchecked_return.c", 1, "C12 bad"),

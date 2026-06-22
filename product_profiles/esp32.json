@@ -2,7 +2,7 @@
   "name": "ESP32 / ESP-IDF",
   "platform": "esp32",
   "description": "乐鑫 ESP32 系列（ESP32/S3/S2/C3/C6/H2），WiFi+BLE 双核 Xtensa/RISC-V",
-  "required_constraints": ["C1", "C2", "C3", "C4", "C7", "C8", "C9", "C11", "C12", "C14", "C15", "C23", "C25", "C26", "C27"],
+  "required_constraints": ["C1", "C2", "C3", "C4", "C7", "C8", "C9", "C11", "C12", "C14", "C15", "C23", "C25", "C26", "C27", "C28"],
   "optional_constraints": ["C5", "C6", "C10", "C13", "C16", "C17"],
   "excluded_constraints": [],
   "features": {
@@ -29,6 +29,7 @@
     "CONFIG_FREERTOS_HZ 默认 1000（tick=1ms），影响 vTaskDelay 精度",
     "xTaskCreate 栈单位为 words（4 bytes/word），非 bytes",
     "heap_caps_malloc 的 MALLOC_CAP_SPIRAM 与 MALLOC_CAP_DMA 不可混用",
+    "Camera/LCD/I2S DMA buffer 需确认 internal SRAM、MALLOC_CAP_DMA 与 cache clean/invalidate 方向",
     "idf.py build 后用 idf.py size-components 检查各组件 Flash/RAM 占用",
     "BLE + WiFi 共存时 BLE 优先级高于 WiFi，可能影响 WSS 实时性"
   ],
@@ -39,6 +40,7 @@
     "av_sync": {"min_bytes": 3072, "recommended_bytes": 6144, "note": "audio clock master + camera/video frame queue"},
     "media_codec": {"min_bytes": 4096, "recommended_bytes": 6144, "note": "Opus/JPEG/H264 wrapper + format checks"},
     "av_clock_jitter": {"min_bytes": 3072, "recommended_bytes": 6144, "note": "jitter buffer + drift correction + telemetry"},
+    "media_dma_buffer": {"min_bytes": 2048, "recommended_bytes": 4096, "note": "DMA-capable frame pool + cache sync bookkeeping"},
     "presenter": {"min_bytes": 2048, "recommended_bytes": 3072, "note": "逻辑简单，2048 够用"},
     "main": {"min_bytes": 3584, "recommended_bytes": 4096, "note": "CONFIG_ESP_MAIN_TASK_STACK_SIZE"}
   },

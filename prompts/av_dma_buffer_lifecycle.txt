@@ -1,0 +1,41 @@
+# 媒体 DMA / Cache / 零拷贝 Buffer 生命周期专精提示词
+
+适用：Camera preview、LCD flush、I2S RX/TX、codec input/output、frame pool、PSRAM/SRAM 混用、花屏、爆音、坏帧、偶发旧帧、DMA 后 CPU 读到旧数据。
+
+## C28.1 — DMA-capable 与对齐（P0/P1）
+- Camera/I2S/LCD/codec DMA buffer 必须位于 DMA 可访问内存：平台专用 DMA SRAM、`MALLOC_CAP_DMA`、`DMA_ATTR` 或明确 section。
+- buffer 至少按 cache line 或 DMA 控制器要求对齐；只写 `static uint8_t buf[]` 不够。
+- 禁止媒体 DMA buffer 使用普通 `malloc` / `pvPortMalloc`，除非平台文档证明该 heap 默认 DMA-capable。
+
+## C28.2 — Cache 方向正确（P0）
+- DMA 写、CPU 读：在 CPU 读取 frame/PCM 前 invalidate 对应范围。
+- CPU 写、DMA 读：提交给 I2S TX、LCD、codec DMA 前 clean 对应范围。
+- 不要把 clean/invalidate 当成一个“随便刷一下”的动作；方向错会保留脏数据或丢掉 CPU 新写入。
+
+## C28.3 — 零拷贝生命周期（P0）
+- frame pool 必须有 owner/state：`FREE -> DMA_RX -> CPU_OWNED -> QUEUED -> DISPLAY/CODEC -> FREE`。
+- 每个 buffer 有 `generation` 或等价 token，回调/队列消费时丢弃 stale generation。
+- consumer 未 release 前禁止复用；display flush done / codec done / queue send fail 都必须归还或保持明确 owner。
+
+## C28.4 — Queue 只传 handle/index（P1）
+- Queue 推荐传 buffer index、handle 或 descriptor；descriptor 内写清 owner 与 release 函数。
+- 禁止把裸 `uint8_t *dma_buf` 直接跨任务传递后继续在 producer 侧复用。
+- Queue 满时 producer 仍拥有 buffer，必须 release/drop；发送成功后 producer 不再读写。
+
+## C28.5 — Cache 范围完整（P1）
+- clean/invalidate 起始地址向下按 cache line 对齐，长度向上覆盖完整 frame。
+- 范围必须覆盖 stride padding、DMA half-buffer 或完整 packet，不只覆盖可见 width * height。
+- `SCB_*DCache_by_Addr(buf, len)` 直接用未对齐地址是高风险。
+
+## C28.6 — 遥测（P2）
+- 保留 `cache_clean_count`、`cache_invalidate_count`、`stale_frame_count`、`reuse_before_release_count`。
+- 对 frame pool 记录 `buffer_overrun/underrun`、drop、late、generation mismatch。
+- 现场日志低频输出统计，不在 ISR/DMA callback 内打印。
+
+## 快速审查清单
+- [ ] DMA buffer 是否 DMA-capable + cache line 对齐？
+- [ ] RX 后 CPU 读前 invalidate？TX/LCD 前 clean？
+- [ ] 零拷贝 owner/state 是否完整，consumer release 后才复用？
+- [ ] Queue 是否传 index/handle，而不是裸 DMA 指针？
+- [ ] cache 操作范围是否对齐并覆盖完整 frame/stride？
+- [ ] 是否有 stale/reuse/cache/buffer 遥测？

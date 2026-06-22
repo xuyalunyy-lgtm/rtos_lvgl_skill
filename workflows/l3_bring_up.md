@@ -274,6 +274,10 @@ Presenter Looper（等待 Queue）
 - [ ] I2S/AEC/ASR/encoder/uplink 的 sample rate/channels/bit depth 一致或显式转换（C26.1）
 - [ ] frame_samples 由 sample_rate * frame_ms * channels 推导（C26.2）
 - [ ] video frame 有 pixel_format/stride，RGB565 stride ≥ width*2（C26.3）
+- [ ] Camera/I2S/LCD/codec DMA buffer 位于 DMA-capable 内存并对齐（C28.1）
+- [ ] DMA RX 后 CPU 读前 invalidate，LCD/I2S TX 前 clean（C28.2）
+- [ ] 零拷贝 frame pool 有 owner/state/generation/release，Queue 传 index/handle（C28.3/C28.4）
+- [ ] cache clean/invalidate 范围按 cache line 对齐并覆盖完整 frame/stride（C28.5）
 - [ ] video queue 有界，满时 drop-oldest，不阻塞 audio hot path（C25.3）
 - [ ] jitter buffer 有 capacity、low/high watermark、target delay，满水位策略明确（C27.2）
 - [ ] drift correction 有 ppm 上限，小漂移 bounded correction，大漂移 resync（C27.3）
@@ -282,7 +286,7 @@ Presenter Looper（等待 Queue）
 - [ ] camera/LCD/DMA callback 只 notify/enqueue，不直接跑 UI/codec/network/json（C25.5）
 - [ ] codec handle 不在每帧 create/init/open（C26.5）
 - [ ] underrun/overrun 只做静音/重复/丢帧/resync，路径内无 malloc/free/printf/重日志（C27.5）
-- [ ] 记录 av_drift_ms、drift_ppm、jitter_depth、dropped_frames、late_frames、underrun/overrun、format_mismatch、codec_error（C25.6/C26.6/C27.6）
+- [ ] 记录 av_drift_ms、drift_ppm、jitter_depth、dropped_frames、late_frames、underrun/overrun、format_mismatch、codec_error、cache/stale/reuse 计数（C25.6/C26.6/C27.6/C28.6）
 ```
 
 ---

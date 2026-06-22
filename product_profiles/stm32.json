@@ -3,7 +3,7 @@
   "platform": "stm32",
   "description": "意法半导体 STM32 系列（F4/F7/H7），Cortex-M 单核，FreeRTOS 原生",
   "required_constraints": ["C2", "C3", "C4", "C7", "C8", "C9", "C11", "C12", "C14", "C15", "C23"],
-  "optional_constraints": ["C1", "C5", "C6", "C10", "C13", "C16", "C17", "C25", "C26", "C27"],
+  "optional_constraints": ["C1", "C5", "C6", "C10", "C13", "C16", "C17", "C25", "C26", "C27", "C28"],
   "excluded_constraints": [],
   "features": {
     "wifi": false,
@@ -30,12 +30,14 @@
     "STM32CubeMX 生成的代码中 osThreadNew 为 CMSIS-RTOS2 封装，底层仍是 xTaskCreate",
     "SysTick 优先级默认最低（0xF），HAL_Delay 依赖 SysTick 中断",
     "STM32H7 的 AXI SRAM / SRAM1-4 地址域不同，DMA 缓冲放错域会 HardFault",
+    "F7/H7 D-Cache 打开时 camera/LCD/I2S DMA buffer 必须 clean/invalidate 且 cache-line 对齐",
     "使用 LWIP + FreeRTOS 时 sys_now() 需对接 HAL_GetTick"
   ],
   "stack_recommendations": {
     "wss_tls": {"min_bytes": 4096, "recommended_bytes": 8192, "note": "F4 纯软件 TLS 握手峰值高，H7 有硬件加速可缩至 4096"},
     "lvgl": {"min_bytes": 4096, "recommended_bytes": 8192, "note": "RGB LCD 大屏需更多栈做 DMA 刷新"},
     "audio": {"min_bytes": 2048, "recommended_bytes": 4096, "note": "I2S DMA Ping-Pong"},
+    "media_dma_buffer": {"min_bytes": 2048, "recommended_bytes": 4096, "note": "D-Cache clean/invalidate + DMA SRAM frame pool"},
     "presenter": {"min_bytes": 2048, "recommended_bytes": 3072, "note": "STM32 上 Presenter 通常简单"},
     "main": {"min_bytes": 1024, "recommended_bytes": 2048, "note": "main 任务仅启动子任务"}
   },

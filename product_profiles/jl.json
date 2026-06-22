@@ -2,7 +2,7 @@
   "name": "JL 杰理 / AC79 / WL82",
   "platform": "jl",
   "description": "杰理科技 AC79/WL82/AC791N 系列，WiFi+BLE 双核 RISC-V，audio_server 架构",
-  "required_constraints": ["C1", "C2", "C3", "C4", "C6", "C7", "C8", "C9", "C10", "C11", "C12", "C14", "C15", "C23", "C25", "C26", "C27"],
+  "required_constraints": ["C1", "C2", "C3", "C4", "C6", "C7", "C8", "C9", "C10", "C11", "C12", "C14", "C15", "C23", "C25", "C26", "C27", "C28"],
   "optional_constraints": ["C5", "C13", "C16", "C17"],
   "excluded_constraints": [],
   "features": {
@@ -30,7 +30,8 @@
     "JL SDK 的 cJSON 为定制版，cJSON_Parse 行为可能与上游不同",
     "audio_server 的播放和采集共用同一实例时，需严格串行化",
     "SDK 的 WiFi 驱动内部有 mutex，不可在 ISR 中调用任何 WiFi API",
-    "LVGL 刷新任务建议与音频任务同核（避免跨核 Queue 延迟）"
+    "LVGL 刷新任务建议与音频任务同核（避免跨核 Queue 延迟）",
+    "Camera/LCD/音频 DMA buffer 需核对 SDK 内存域、cache 维护与零拷贝 release 时序"
   ],
   "stack_recommendations": {
     "wss_tls": {"min_bytes": 4096, "recommended_bytes": 6144, "note": "JL 平台 TLS 握手适中"},
@@ -39,6 +40,7 @@
     "av_sync": {"min_bytes": 3072, "recommended_bytes": 6144, "note": "audio_server clock master + LCD preview"},
     "media_codec": {"min_bytes": 4096, "recommended_bytes": 6144, "note": "audio_server encode/decode + format contract"},
     "av_clock_jitter": {"min_bytes": 3072, "recommended_bytes": 6144, "note": "audio_server jitter buffer + drift correction"},
+    "media_dma_buffer": {"min_bytes": 2048, "recommended_bytes": 4096, "note": "audio/video DMA frame pool + owner generation"},
     "presenter": {"min_bytes": 2048, "recommended_bytes": 3072, "note": "事件分发简单"},
     "main": {"min_bytes": 2048, "recommended_bytes": 3072, "note": "main 任务需初始化 audio_server"}
   },

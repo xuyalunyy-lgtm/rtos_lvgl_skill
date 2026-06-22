@@ -77,6 +77,15 @@ Cache 一致性细则 → [audio_dma_pingpong.txt](../prompts/audio_dma_pingpong
 
 深细节 → [av_clock_jitter.txt](../prompts/av_clock_jitter.txt)
 
+## C28 — 媒体 DMA/cache/零拷贝 buffer 生命周期
+
+| | 文件 | ID | Checker |
+|---|------|-----|---------|
+| ❌ | [bad_av_dma_buffer_lifecycle.c](bad_av_dma_buffer_lifecycle.c) | C28.1–C28.6 | `av_dma_buffer_checker.py` |
+| ✅ | [good_av_dma_buffer_lifecycle.c](good_av_dma_buffer_lifecycle.c) DMA-capable pool + cache sync + owner lifecycle | C28.1–C28.6 | `av_dma_buffer_checker.py` |
+
+深细节 → [av_dma_buffer_lifecycle.txt](../prompts/av_dma_buffer_lifecycle.txt)
+
 ## C8 — 启动 / WDT / 阻塞
 
 | | 文件 | ID | Checker |
@@ -155,7 +164,7 @@ Cache 一致性细则 → [audio_dma_pingpong.txt](../prompts/audio_dma_pingpong
 # checker fixtures 自测
 python tools/run_review.py --self-test
 
-# 铁律 C1–C4 + C10 + C25 + C26 + C27 范例 good/bad 约束
+# 铁律 C1–C4 + C10 + C25 + C26 + C27 + C28 范例 good/bad 约束
 python tools/run_review.py --validate-examples
 
 # 审查用户源码（含 queue 所有权）

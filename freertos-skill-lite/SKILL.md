@@ -1,13 +1,13 @@
 ---
 name: freertos-embedded-architect
 metadata:
-  version: 4.11.0
+  version: 4.12.0
 description: >-
   审查与设计 FreeRTOS 物联网固件：MVP 分层、LVGL 线程安全、I2S/DMA、cJSON 泄漏、
   WSS/mbedTLS、内存优化、启动/WDT、SDK 裁剪、密钥安全、语音 ASR/Uplink、
   编码规范、错误处理、状态机、日志规范、任务优先级、定时器管理、多核 IPC、
   软硬联调、IO 口规划、低功耗管理、显示驱动安全、音视频管线、A/V sync、Camera/视频帧同步、
-  编解码格式一致性、音视频时钟漂移与 jitter buffer。
+  编解码格式一致性、音视频时钟漂移与 jitter buffer、DMA cache 与零拷贝 buffer 生命周期。
   Use when user mentions: 死机, 崩溃, 花屏, 卡顿, HardFault, 栈溢出, stack overflow,
   Guru Meditation, code review, 审查, SDK裁剪, 裁剪, 死代码, 新增模块, 修Bug,
   WSS, cJSON, DMA, I2S, 录音失效, ASR, uplink, 唤醒, AEC, use-after-free,
@@ -20,6 +20,7 @@ description: >-
   camera, video, preview, A/V sync, av sync, lip-sync, 音视频同步, 音画不同步, 视频卡顿, 掉帧,
   drift, jitter, jitter buffer, clock recovery, audio clock, PTS, underrun, overrun, 音频漂移, 时钟漂移,
   codec, opus, aac, sample rate, bit depth, channels, stride, RGB565, YUV, 像素格式, 编解码,
+  zero-copy, zero copy, DMA cache, cache clean, cache invalidate, DMA buffer, frame pool, buffer lifecycle,
   git commit, 提交, commit message.
 ---
 

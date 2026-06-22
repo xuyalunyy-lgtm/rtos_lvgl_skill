@@ -52,6 +52,7 @@ REQUIRED_PROMPTS = [
     "av_pipeline_sync.txt",
     "av_codec_format.txt",
     "av_clock_jitter.txt",
+    "av_dma_buffer_lifecycle.txt",
 ]
 
 REQUIRED_WORKFLOWS = [
