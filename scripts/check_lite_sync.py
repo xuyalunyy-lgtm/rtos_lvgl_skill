@@ -262,6 +262,34 @@ def check_agent_content_sync() -> list[dict]:
     return issues
 
 
+def check_lite_runtime_docs() -> list[dict]:
+    """Ensure Lite structure docs do not advertise unavailable runtime commands."""
+    issues = []
+    skill_structure = LITE_DIR / "references" / "skill_structure.md"
+    if not skill_structure.exists():
+        return issues
+
+    text = skill_structure.read_text(encoding="utf-8")
+    forbidden = (
+        "python tools/",
+        "python scripts/",
+        ".\\scripts\\",
+        "run_review.py",
+        "skill_iterate.py",
+        "check_skill_metadata.py",
+    )
+    for pattern in forbidden:
+        if pattern in text:
+            issues.append({
+                "type": "lite_runtime_doc_leak",
+                "file": "references/skill_structure.md",
+                "detail": f"Lite doc advertises unavailable command/token: {pattern}",
+                "fix": "copy",
+            })
+            break
+    return issues
+
+
 def expected_lite_text(src: Path) -> str:
     """Return the text expected after sync_lite.py's Lite transformations."""
     text = src.read_text(encoding="utf-8")
@@ -273,6 +301,12 @@ def expected_lite_text(src: Path) -> str:
             pass
         else:
             text = sync_lite.patch_lite_workflow(text, rel)
+        try:
+            rel = src.relative_to(FULL_DIR / "references")
+        except ValueError:
+            pass
+        else:
+            text = sync_lite.patch_lite_reference(text, rel)
     return text
 
 
@@ -335,6 +369,7 @@ def main() -> int:
     all_issues.extend(check_prompt_content_sync())
     all_issues.extend(check_workflow_content_sync())
     all_issues.extend(check_agent_content_sync())
+    all_issues.extend(check_lite_runtime_docs())
 
     if not all_issues:
         print("✅ Lite 版本与完整版完全同步")

@@ -109,7 +109,7 @@ Workflow 索引 → [workflows/README.md](../workflows/README.md)
 |------|------|
 | 懒加载 | 仅 workflow 指定文件；禁 Glob prompts/ |
 | L2 默认 | `constraint_index.md` 替代 detail 全文 |
-| 工具优先 | `run_review.py` 代替读 checker 源码 |
+| Lite 优先 | `lite_manual_checklist.md` + `constraint_index.md` 手工核对 |
 | 项目索引 | 固件仓 `CLAUDE.md` <500 token + `.claudeignore` |
 
 ## Cursor 命中率（DeepSeek 等）
@@ -131,46 +131,20 @@ Workflow 索引 → [workflows/README.md](../workflows/README.md)
 | JL | `jl.json` | C1-C4,C6-C15,C23,C25-C28 | WiFi+BLE+LVGL+I2S+语音/视频, 双核 RISC-V |
 | BK | `bk.json` | C1-C4,C6-C15,C17,C23,C25-C28 | WiFi+BLE+LVGL+AVDK音频+语音/视频, 双核 IPC |
 
-加载方式：`python tools/product_profile.py <platform>` · `--json` · `--stack <task>`
+Lite 用法：按上表人工识别平台能力；需要自动 profile 时回到完整版源码仓运行工具。
 
 Agent 在 L3 开始前**推荐**加载产品 profile：自动获取必选约束、栈建议、常见坑点。
 
-## 工具目录（完整版 · workflow 内调用）
+## 工具目录（Lite · 人工替代）
 
-| 用途 | 命令 |
-|------|------|
-| 一键 L2 | `python tools/run_review.py --dir src/ --platform xxx` |
-| Checker 管线索引 | `python tools/run_review.py --list-checkers` |
-| 自测 | `python tools/run_review.py --self-test` |
-| 铁律范例约束 | `python tools/run_review.py --validate-examples` |
-| 运行时分发审计 | `python scripts/check_runtime_distribution.py` |
-| Skill 元数据审计 | `python scripts/check_skill_metadata.py` · `python scripts/check_skill_metadata.py --self-test` |
-| Lite 同步 | `python scripts/sync_lite.py` · Windows：`.\scripts\sync_lite.cmd` |
-| 迭代验证 | `python scripts/skill_iterate.py --check --sync` · Windows：`.\scripts\skill_iterate.cmd -Sync` |
-| 安装 Cursor | `.\scripts\install_skill.ps1`（见 [INSTALL.md](../INSTALL.md)） |
-| 安装 Codex | `python scripts/install_multi_ide.py --ide codex` |
-| 安装 Claude Code | `.\scripts\install_claude_code.ps1`（见 [claude_code.md](claude_code.md)） |
-| C10 语音时序 | `python tools/voice_sequence_checker.py --dir src/` |
-| C18 外设驱动 | `python tools/peripheral_driver_checker.py --dir src/` |
-| C19 Flash/NVS | `python tools/flash_nvs_checker.py --dir src/` |
-| C20 网络韧性 | `python tools/network_resilience_checker.py --dir src/` |
-| C21 低功耗 | `python tools/low_power_checker.py --dir src/` |
-| C23 显示驱动 | `python tools/display_driver_checker.py --dir src/` |
-| C25 音视频管线 | `python tools/av_pipeline_checker.py --dir src/` |
-| C26 编解码格式 | `python tools/media_format_checker.py --dir src/` |
-| C27 时钟/Jitter | `python tools/av_clock_jitter_checker.py --dir src/` |
-| C28 DMA/cache buffer | `python tools/av_dma_buffer_checker.py --dir src/` |
-| C13 状态机 | `python tools/state_machine_checker.py --dir src/` |
-| C14.4 日志脱敏 | `python tools/log_desensitize_checker.py --dir src/` |
-| C16 定时器 | `python tools/timer_checker.py --dir src/` |
-| 链接检查 | `python tools/check_links.py` |
-| C14 日志检查 | `python tools/logging_checker.py --dir src/` |
-| C12 返回值检查 | `python tools/return_check_checker.py --dir src/` |
-| C11.5 函数长度 | `python tools/function_length_checker.py --dir src/` |
-| MVP 骨架 | `python tools/mvp_codegen_tool.py Module --platform jl -o ./generated` |
-| 自动约束发现 | `python tools/constraint_discovery.py --dir src/` · `--report proposal.md` · `--json` |
+Lite 包不携带 `tools/`、`examples/`、`scripts/`。需要自动 checker、安装或同步命令时，回到完整版源码仓执行；Lite 内按下表人工替代。
 
-Checker 与 C#.# 映射 → 完整版 `examples/README.md`
+| 用途 | Lite 做法 |
+|------|-----------|
+| L2 审查 | [l2_code_review_lite.md](../workflows/l2_code_review_lite.md) + [lite_manual_checklist.md](lite_manual_checklist.md) |
+| C1-C28 约束核对 | [core_rules.md](core_rules.md) + [constraint_index.md](constraint_index.md) + 对应 prompt 手工检查 |
+| 正/反例参考 | 回到完整版 `examples/README.md` 与对应 example 文件 |
+| Skill 维护同步 | 回到完整版源码仓执行同步与校验脚本 |
 
 ---
 

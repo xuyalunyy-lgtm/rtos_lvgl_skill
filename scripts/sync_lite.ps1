@@ -85,6 +85,30 @@ function Patch-LiteWorkflow([string]$Content, [string]$FileName) {
     return $Content
 }
 
+function Patch-LiteReference([string]$Content, [string]$FileName) {
+    $rules = @{
+        "skill_structure.md" = @(
+            @{ Pattern = "skill_structure_profile.txt"; Patch = "skill_structure_profile.md" },
+            @{ Pattern = "skill_structure_tool_preference.txt"; Patch = "skill_structure_tool_preference.md" },
+            @{ Pattern = "skill_structure_tool_directory.txt"; Patch = "skill_structure_tool_directory.md" }
+        )
+    }
+
+    if ($rules.ContainsKey($FileName)) {
+        foreach ($rule in $rules[$FileName]) {
+            $pattern = Read-Pattern $rule.Pattern
+            $repl = Read-Patch $rule.Patch
+            if (-not [regex]::IsMatch($Content, $pattern)) {
+                throw "Reference patch no match: $FileName"
+            }
+            else {
+                $Content = [regex]::Replace($Content, $pattern, $repl, 1)
+            }
+        }
+    }
+    return $Content
+}
+
 function Sync-Tree([string]$SrcDir, [string]$DstDir, [string]$DirName) {
     $actions = New-Object System.Collections.Generic.List[string]
     if (-not (Test-Path $SrcDir)) { throw "Source directory not found: $SrcDir" }
@@ -105,6 +129,9 @@ function Sync-Tree([string]$SrcDir, [string]$DstDir, [string]$DirName) {
             $patched = Patch-LiteExamples $text
             if ($DirName -eq "workflows") {
                 $patched = Patch-LiteWorkflow $patched $src.Name
+            }
+            if ($DirName -eq "references") {
+                $patched = Patch-LiteReference $patched $src.Name
             }
             $actions.Add("PATCH+COPY ${DirName}/${rel}")
             if (-not $DryRun) { Write-Utf8 $dst $patched }

@@ -1,0 +1,1 @@
+加载方式：`python tools/product_profile\.py <platform>` · `--json` · `--stack <task>`

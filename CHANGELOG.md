@@ -1,5 +1,11 @@
 # Changelog
 
+## 4.12.5 — 2026-06-22
+
+- **Lite 工具索引降级**：`sync_lite.py` 与 `sync_lite.ps1` 对 `references/skill_structure.md` 生成 Lite 专用工具目录，避免 Lite 包展示不可运行的 `tools/` / `scripts/` 命令
+- **Lite 审计护栏**：`check_lite_sync.py` 增加 Lite runtime docs 检查，发现 `python tools/`、`python scripts/`、`run_review.py` 等命令泄漏时失败并可用 `--fix` 重新生成
+- **版本升至 4.12.5**
+
 ## 4.12.4 — 2026-06-22
 
 - **元数据审计自测**：`scripts/check_skill_metadata.py` 新增 `--self-test` 与 `--root`，用临时夹具覆盖 description 超长、root-level version、版本漂移、`openai.yaml` 漂移和行数超限

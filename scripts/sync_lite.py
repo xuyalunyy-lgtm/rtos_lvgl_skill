@@ -76,6 +76,33 @@ LITE_WORKFLOW_REPLACEMENTS: list[tuple[str, str, str]] = [
     ),
 ]
 
+LITE_REFERENCE_REPLACEMENTS: list[tuple[str, str, str]] = [
+    (
+        "skill_structure.md",
+        r"加载方式：`python tools/product_profile\.py <platform>` · `--json` · `--stack <task>`",
+        "Lite 用法：按上表人工识别平台能力；需要自动 profile 时回到完整版源码仓运行工具。",
+    ),
+    (
+        "skill_structure.md",
+        r"\| 工具优先 \| `run_review\.py` 代替读 checker 源码 \|",
+        "| Lite 优先 | `lite_manual_checklist.md` + `constraint_index.md` 手工核对 |",
+    ),
+    (
+        "skill_structure.md",
+        r"## 工具目录（完整版 · workflow 内调用）\n\n.*?\n---",
+        "## 工具目录（Lite · 人工替代）\n\n"
+        "Lite 包不携带 `tools/`、`examples/`、`scripts/`。需要自动 checker、安装或同步命令时，"
+        "回到完整版源码仓执行；Lite 内按下表人工替代。\n\n"
+        "| 用途 | Lite 做法 |\n"
+        "|------|-----------|\n"
+        "| L2 审查 | [l2_code_review_lite.md](../workflows/l2_code_review_lite.md) + [lite_manual_checklist.md](lite_manual_checklist.md) |\n"
+        "| C1-C28 约束核对 | [core_rules.md](core_rules.md) + [constraint_index.md](constraint_index.md) + 对应 prompt 手工检查 |\n"
+        "| 正/反例参考 | 回到完整版 `examples/README.md` 与对应 example 文件 |\n"
+        "| Skill 维护同步 | 回到完整版源码仓执行同步与校验脚本 |\n\n"
+        "---",
+    ),
+]
+
 
 def patch_lite_examples(content: str) -> str:
     return EXAMPLE_LINK_RE.sub(r"完整版 `examples/\2`", content)
@@ -87,6 +114,15 @@ def patch_lite_workflow(content: str, rel: Path) -> str:
             content, n = re.subn(pattern, lambda _m: repl, content, count=1, flags=re.DOTALL)
             if not n:
                 raise ValueError(f"workflow patch no match: {rel}")
+    return content
+
+
+def patch_lite_reference(content: str, rel: Path) -> str:
+    for name, pattern, repl in LITE_REFERENCE_REPLACEMENTS:
+        if rel.name == name:
+            content, n = re.subn(pattern, lambda _m: repl, content, count=1, flags=re.DOTALL)
+            if not n:
+                raise ValueError(f"reference patch no match: {rel}")
     return content
 
 
@@ -135,6 +171,8 @@ def sync_tree(src_dir: Path, dst_dir: Path, dry_run: bool) -> list[str]:
             patched = patch_lite_examples(text)
             if src_dir.name == "workflows":
                 patched = patch_lite_workflow(patched, rel)
+            if src_dir.name == "references":
+                patched = patch_lite_reference(patched, rel)
             actions.append(f"PATCH+COPY {src_dir.name}/{rel}")
             if not dry_run:
                 dst.parent.mkdir(parents=True, exist_ok=True)
