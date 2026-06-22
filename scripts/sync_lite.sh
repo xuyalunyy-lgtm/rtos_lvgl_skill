@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 同步完整版 prompts/、platforms/ → freertos-skill-lite/
+# 同步完整版 agents/、prompts/、platforms/、workflows/、references/ → freertos-skill-lite/
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"

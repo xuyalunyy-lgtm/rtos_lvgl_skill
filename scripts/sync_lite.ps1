@@ -9,7 +9,7 @@ param(
 $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 $Lite = Join-Path $Root "freertos-skill-lite"
-$SyncDirs = @("prompts", "platforms", "workflows", "references")
+$SyncDirs = @("agents", "prompts", "platforms", "workflows", "references")
 $PatchDir = Join-Path $Root "scripts\lite_patches"
 $PatternDir = Join-Path $PatchDir "patterns"
 $SkillSrc = Join-Path $Root "SKILL.md"

@@ -1,5 +1,14 @@
 # Changelog
 
+## 4.12.1 — 2026-06-22
+
+- **Skill 入口收敛**：压缩 `SKILL.md` description 至标准校验限制内，保留 FreeRTOS/LVGL/带屏音视频核心触发词
+- **分发边界明确**：Cursor / Claude Code / Codex 安装路径默认排除根目录 README/INSTALL/CHANGELOG、CI/编辑器目录、Lite 产物、缓存和本地 SDK，同时保留运行时索引文件
+- **Codex 元数据**：新增 `agents/openai.yaml`，并纳入 Lite 同步与同步检查
+- **低功耗边界统一**：明确低功耗只审查/校验用户方案，不主动设计 sleep 策略
+- **Windows UTF-8**：自迭代脚本固定 `PYTHONUTF8=1` / `PYTHONIOENCODING=utf-8`，避免中文 skill 在 GBK 环境校验失败
+- **版本升至 4.12.1**
+
 ## 4.12.0 — 2026-06-22
 
 - **新增 C28 媒体 DMA/cache/零拷贝 buffer 生命周期**：覆盖 DMA-capable 内存、cache clean/invalidate 方向、zero-copy owner/generation、Queue handle、cache line 对齐与遥测

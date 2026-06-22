@@ -10,10 +10,18 @@ PROJECT_ROOT="${1:-}"
 
 EXCLUDE=(
     --exclude .git
+    --exclude .github
+    --exclude .vscode
     --exclude fw-AC79_AIoT_SDK
     --exclude bk_idk-release-v2.2.1
     --exclude __pycache__
+    --exclude '*.pyc'
+    --exclude .pytest_cache
+    --exclude node_modules
     --exclude freertos-skill-lite
+    --exclude /README.md
+    --exclude /INSTALL.md
+    --exclude /CHANGELOG.md
 )
 
 if [[ ! -f "$SOURCE/SKILL.md" ]]; then

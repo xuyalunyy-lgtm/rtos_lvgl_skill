@@ -1,0 +1,4 @@
+interface:
+  display_name: "FreeRTOS Embedded Architect"
+  short_description: "Review and design FreeRTOS IoT firmware"
+  default_prompt: "Use $freertos-embedded-architect to review this FreeRTOS/LVGL firmware change for tasking, memory, DMA, and A/V sync risks."

@@ -19,6 +19,10 @@ from pathlib import Path
 
 import sync_lite
 
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 # Root directory
 ROOT = Path(__file__).parent.parent
 FULL_DIR = ROOT
@@ -78,6 +82,10 @@ REQUIRED_REFERENCES = [
     "skill_structure.md",
     "iteration_log.md",
     "lite_manual_checklist.md",
+]
+
+REQUIRED_AGENTS = [
+    "openai.yaml",
 ]
 
 
@@ -156,6 +164,20 @@ def check_references() -> list[dict]:
     return issues
 
 
+def check_agents() -> list[dict]:
+    """Check if all required agent metadata files exist in lite."""
+    issues = []
+    for agent_file in REQUIRED_AGENTS:
+        lite_path = LITE_DIR / "agents" / agent_file
+        if not lite_path.exists():
+            issues.append({
+                "type": "missing_agent_metadata",
+                "file": f"agents/{agent_file}",
+                "fix": "copy",
+            })
+    return issues
+
+
 def check_version_sync() -> list[dict]:
     """Check if version numbers match"""
     issues = []
@@ -219,6 +241,24 @@ def check_workflow_content_sync() -> list[dict]:
                 "file": f"workflows/{full_path.name}",
                 "fix": "copy",
             })
+    return issues
+
+
+def check_agent_content_sync() -> list[dict]:
+    """Check if generated Lite agent metadata files have diverged."""
+    issues = []
+    for agent_file in REQUIRED_AGENTS:
+        full_path = FULL_DIR / "agents" / agent_file
+        lite_path = LITE_DIR / "agents" / agent_file
+        if full_path.exists() and lite_path.exists():
+            full_text = full_path.read_text(encoding="utf-8")
+            lite_text = lite_path.read_text(encoding="utf-8")
+            if full_text.strip() != lite_text.strip():
+                issues.append({
+                    "type": "agent_metadata_diverged",
+                    "file": f"agents/{agent_file}",
+                    "fix": "copy",
+                })
     return issues
 
 
@@ -290,9 +330,11 @@ def main() -> int:
     all_issues.extend(check_workflows())
     all_issues.extend(check_platforms())
     all_issues.extend(check_references())
+    all_issues.extend(check_agents())
     all_issues.extend(check_version_sync())
     all_issues.extend(check_prompt_content_sync())
     all_issues.extend(check_workflow_content_sync())
+    all_issues.extend(check_agent_content_sync())
 
     if not all_issues:
         print("✅ Lite 版本与完整版完全同步")

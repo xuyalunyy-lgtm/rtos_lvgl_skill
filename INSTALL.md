@@ -2,6 +2,19 @@
 
 本仓库为 **完整版**：含 `SKILL.md`、平台专档、场景 prompt、`examples/` 正反范例、`tools/` checker/codegen。
 
+## 分发边界
+
+源码仓保留维护资料与发布资料；安装到 Cursor / Claude Code / Codex 时默认只复制 skill 运行所需文件。
+
+安装脚本会排除：仓库根目录的 `README.md`、`INSTALL.md`、`CHANGELOG.md`，以及 `.github/`、`.vscode/`、`freertos-skill-lite/`、`__pycache__/`、本地 SDK 目录和常见缓存目录。完整版能力中的 `tools/`、`examples/`、`prompts/`、`platforms/`、`references/` 会保留，包括 `workflows/README.md`、`examples/README.md` 等运行时索引。
+
+Windows 下运行标准 skill 校验或任何会读取中文 `SKILL.md` 的 Python 脚本时，建议固定 UTF-8：
+
+```powershell
+$env:PYTHONUTF8='1'
+$env:PYTHONIOENCODING='utf-8'
+```
+
 ## 安装到 Cursor
 
 ### 个人 Skill（推荐，全项目可用）
@@ -178,6 +191,14 @@ python path/to/skill/tools/mvp_codegen_tool.py Network --platform bk -o ./genera
 - Skill → `~/.claude/skills/freertos-embedded-architect/`，invoke `/freertos-embedded-architect`
 - 省 token 指南 → [references/claude_code.md](references/claude_code.md)
 - 项目模板 → [templates/CLAUDE.embedded.md](templates/CLAUDE.embedded.md)
+
+## Codex
+
+```powershell
+python scripts\install_multi_ide.py --ide codex
+```
+
+安装目标为 `$CODEX_HOME\skills\freertos-embedded-architect`；未设置 `CODEX_HOME` 时使用 `~\.codex\skills\freertos-embedded-architect`。UI 元数据见 `agents/openai.yaml`。
 
 | 完整版 | Lite 版 |
 |--------|---------|

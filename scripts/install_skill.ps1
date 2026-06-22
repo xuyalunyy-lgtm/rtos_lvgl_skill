@@ -7,9 +7,10 @@ param(
 )
 
 $ExcludeDirs = @(
-    ".git", "fw-AC79_AIoT_SDK", "bk_idk-release-v2.2.1", "__pycache__",
+    ".git", ".github", ".vscode", "fw-AC79_AIoT_SDK", "bk_idk-release-v2.2.1", "__pycache__",
     ".pytest_cache", "node_modules", "freertos-skill-lite"
 )
+$RootOnlyExcludeFiles = @("README.md", "INSTALL.md", "CHANGELOG.md")
 
 if (-not (Test-Path (Join-Path $Source "SKILL.md"))) {
     Write-Error "SKILL.md not found. Run from skill repo root or pass -Source."
@@ -31,6 +32,9 @@ foreach ($d in $ExcludeDirs) {
 if ($LASTEXITCODE -ge 8) {
     Write-Error "robocopy failed (exit $LASTEXITCODE)"
     exit 1
+}
+foreach ($f in $RootOnlyExcludeFiles) {
+    Remove-Item -Force -ErrorAction SilentlyContinue (Join-Path $Dest $f)
 }
 
 $skillText = [System.IO.File]::ReadAllText((Join-Path $Dest "SKILL.md"), [System.Text.UTF8Encoding]::new($false))

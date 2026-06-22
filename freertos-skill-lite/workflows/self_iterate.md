@@ -30,7 +30,7 @@
 | 编排步骤 | `workflows/xxx.md` | 检查 SKILL 路由表 |
 | 范例 / 类型 | `examples/`、`app_mvp.h` | 对齐 mvp_codegen |
 | Checker 规则 | `tools/*.py` + `tools/checker_registry.py` | **必须**更新 fixtures / validate-examples case |
-| 控制平面 | `SKILL.md` | 保持 <100 行；路由不膨胀 |
+| 控制平面 | `SKILL.md` + `agents/openai.yaml` | 保持 <100 行；路由不膨胀；UI 元数据同步 |
 | Lite 分发 | 运行 `sync_lite.py` | 禁止手改 Lite 正文 |
 
 **禁止：** 未经问卷扩 SDK 固定删除清单；拆成多个 skill；把 12 个 prompt 塞进 `SKILL.md`。

@@ -19,7 +19,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 LITE = ROOT / "freertos-skill-lite"
-SYNC_DIRS = ("prompts", "platforms", "workflows", "references")
+SYNC_DIRS = ("agents", "prompts", "platforms", "workflows", "references")
 SKILL_SRC = ROOT / "SKILL.md"
 SKILL_LITE_BODY = Path(__file__).resolve().parent / "skill_lite_body.md"
 SKILL_LITE_DST = LITE / "SKILL.md"

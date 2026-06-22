@@ -80,6 +80,7 @@ function Invoke-PythonCheck {
         return
     }
     Write-Host "  $PythonExe $($PyArgs -join ' ')"
+    $env:PYTHONUTF8 = "1"
     $env:PYTHONIOENCODING = "utf-8"
     $proc = Start-Process -FilePath $PythonExe -ArgumentList $PyArgs -WorkingDirectory $Root -Wait -PassThru -NoNewWindow
     if ($proc.ExitCode -ne 0) {

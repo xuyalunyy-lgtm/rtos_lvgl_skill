@@ -2,7 +2,7 @@
 """
 多 IDE 安装脚本：一条命令安装 skill 到任意 AI IDE。
 
-支持: Cursor / Claude Code / Windsurf / GitHub Copilot / Cline
+支持: Cursor / Claude Code / Codex / Windsurf / GitHub Copilot / Cline
 
 用法:
     python scripts/install_multi_ide.py --all
@@ -12,11 +12,45 @@
 from __future__ import annotations
 
 import argparse
+import fnmatch
+import os
 import shutil
 import sys
 from pathlib import Path
 
 SKILL_ROOT = Path(__file__).resolve().parent.parent
+RUNTIME_EXCLUDE_NAMES = {
+    ".git",
+    ".github",
+    ".vscode",
+    "__pycache__",
+    ".pytest_cache",
+    "node_modules",
+    "fw-AC79_AIoT_SDK",
+    "bk_idk-release-v2.2.1",
+    "freertos-skill-lite",
+}
+RUNTIME_EXCLUDE_FILE_PATTERNS = (
+    "*.pyc",
+)
+ROOT_ONLY_EXCLUDE_FILES = {
+    "README.md",
+    "INSTALL.md",
+    "CHANGELOG.md",
+}
+
+
+def runtime_ignore(directory: str, names: list[str]) -> set[str]:
+    """Ignore maintenance assets while preserving nested runtime indexes."""
+    ignored = {name for name in names if name in RUNTIME_EXCLUDE_NAMES}
+    ignored.update(
+        name
+        for name in names
+        if any(fnmatch.fnmatch(name, pattern) for pattern in RUNTIME_EXCLUDE_FILE_PATTERNS)
+    )
+    if Path(directory).resolve() == SKILL_ROOT.resolve():
+        ignored.update(name for name in names if name in ROOT_ONLY_EXCLUDE_FILES)
+    return ignored
 
 WINDSURF_HEADER = """# FreeRTOS Embedded Architect Rules
 
@@ -30,7 +64,7 @@ WINDSURF_HEADER = """# FreeRTOS Embedded Architect Rules
 - 配置文件独立：禁止直接复用原项目配置
 
 ## 完整约束
--> references/constraint_index.md（21 域 101+ 条）
+-> references/constraint_index.md（C1-C28，带屏音视频优先）
 
 ## Workflow
 -> SKILL.md 快速路由表
@@ -38,13 +72,14 @@ WINDSURF_HEADER = """# FreeRTOS Embedded Architect Rules
 
 COPILOT_HEADER = """# FreeRTOS Embedded Architect Instructions
 
-遵循 FreeRTOS IoT 固件约束体系（C1-C21）。
+遵循 FreeRTOS IoT 固件约束体系（C1-C28）。
 
 ## 关键规则
 - UI 仅在 LVGL Task 或 lv_async_call 回调中更新（C1）
 - Queue payload：Model alloc -> Presenter free（C2）
 - cJSON goto cleanup 模板（C3）
 - ISR 禁止阻塞 API / malloc / printf（C4）
+- A/V sync、codec 格式、jitter buffer、DMA/cache buffer 生命周期（C25-C28）
 - 配置文件独立：新项目只能参考格式，严格按用户输入编写
 
 ## 平台专档
@@ -56,9 +91,7 @@ def install_cursor(project_root: str | None = None) -> bool:
     dest = Path.home() / ".cursor" / "skills" / "freertos-embedded-architect"
     if dest.exists():
         shutil.rmtree(dest)
-    shutil.copytree(SKILL_ROOT, dest, ignore=shutil.ignore_patterns(
-        ".git", "__pycache__", "fw-AC79_AIoT_SDK"
-    ))
+    shutil.copytree(SKILL_ROOT, dest, ignore=runtime_ignore)
     print(f"  Skill -> {dest}")
     if project_root:
         rule_src = SKILL_ROOT / "templates" / "cursor-rule.embedded.mdc"
@@ -73,9 +106,7 @@ def install_claude(project_root: str | None = None) -> bool:
     dest = Path.home() / ".claude" / "skills" / "freertos-embedded-architect"
     if dest.exists():
         shutil.rmtree(dest)
-    shutil.copytree(SKILL_ROOT, dest, ignore=shutil.ignore_patterns(
-        ".git", "__pycache__", "fw-AC79_AIoT_SDK"
-    ))
+    shutil.copytree(SKILL_ROOT, dest, ignore=runtime_ignore)
     print(f"  Skill -> {dest}")
     if project_root:
         template = SKILL_ROOT / "templates" / "CLAUDE.embedded.md"
@@ -83,6 +114,17 @@ def install_claude(project_root: str | None = None) -> bool:
             dest_claude = Path(project_root) / "CLAUDE.md"
             shutil.copy2(template, dest_claude)
             print(f"  CLAUDE.md -> {dest_claude}")
+    return True
+
+
+def install_codex(project_root: str | None = None) -> bool:
+    codex_home = os.environ.get("CODEX_HOME")
+    root = Path(codex_home) if codex_home else Path.home() / ".codex"
+    dest = root / "skills" / "freertos-embedded-architect"
+    if dest.exists():
+        shutil.rmtree(dest)
+    shutil.copytree(SKILL_ROOT, dest, ignore=runtime_ignore)
+    print(f"  Skill -> {dest}")
     return True
 
 
@@ -117,6 +159,7 @@ def install_cline() -> bool:
 INSTALLERS = {
     "cursor": install_cursor,
     "claude": install_claude,
+    "codex": install_codex,
     "windsurf": install_windsurf,
     "copilot": install_copilot,
     "cline": install_cline,
@@ -151,7 +194,7 @@ def main() -> int:
     for ide in ides:
         print(f"\n[{ide}]")
         kwargs = {}
-        if ide in ("cursor", "claude", "windsurf", "copilot"):
+        if ide in ("cursor", "claude", "codex", "windsurf", "copilot"):
             kwargs["project_root"] = args.project_root
         if INSTALLERS[ide](**kwargs):
             success += 1

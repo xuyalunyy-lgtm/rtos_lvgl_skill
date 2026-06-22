@@ -30,7 +30,7 @@
 | 编排步骤 | `workflows/xxx.md` | 检查 SKILL 路由表 |
 | 范例 / 类型 | `examples/`、`app_mvp.h` | 对齐 mvp_codegen |
 | Checker 规则 | `tools/*.py` + `tools/checker_registry.py` | **必须**更新 fixtures / validate-examples case |
-| 控制平面 | `SKILL.md` | 保持 <100 行；路由不膨胀 |
+| 控制平面 | `SKILL.md` + `agents/openai.yaml` | 保持 <100 行；路由不膨胀；UI 元数据同步 |
 | Lite 分发 | 运行 `sync_lite.py` | 禁止手改 Lite 正文 |
 
 **禁止：** 未经问卷扩 SDK 固定删除清单；拆成多个 skill；把 12 个 prompt 塞进 `SKILL.md`。
@@ -50,6 +50,8 @@ python tools/run_review.py --validate-examples
 python tools/run_review.py --list-checkers
 python scripts/skill_iterate.py --check
 python scripts/sync_lite.py
+# Windows PowerShell: $env:PYTHONUTF8='1'; python <skill-creator>\scripts\quick_validate.py .
+# bash/zsh: PYTHONUTF8=1 python <skill-creator>/scripts/quick_validate.py .
 # Windows: .\scripts\skill_iterate.cmd -Sync
 ```
 
@@ -61,6 +63,7 @@ python scripts/sync_lite.py
 | SKILL version | frontmatter 含 `metadata.version` |
 | Lite 同步 | `freertos-skill-lite/SKILL.md` 版本与完整版一致 |
 | sync dry-run | `sync_lite.py --dry-run` exit 0 |
+| Codex quick validate | `PYTHONUTF8=1` 下 quick_validate exit 0 |
 | iteration_log | 本次变更有记录 |
 
 Python 不可用：人工执行 [lite_manual_checklist.md](../references/lite_manual_checklist.md) 等价项，标注「待本地补验」。
