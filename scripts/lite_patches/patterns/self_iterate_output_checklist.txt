@@ -1,0 +1,1 @@
+(?s)## 验证\r?\n- \[ \] run_review --self-test\r?\n- \[ \] run_review --validate-examples\r?\n(?:- \[ \] check_runtime_distribution\r?\n)?- \[ \] skill_iterate --check\r?\n- \[ \] sync_lite\r?\n- \[ \] CHANGELOG \+ iteration_log

@@ -45,7 +45,7 @@
 ## Step 4 — 验证闭环（Lite）
 
 1. 更新 [iteration_log.md](../references/iteration_log.md) 与 [CHANGELOG.md](../CHANGELOG.md)
-2. 在完整版仓库运行 `python scripts/sync_lite.py`
+2. 在完整版仓库运行 `python scripts/sync_lite.py` 或 `.\scripts\sync_lite.ps1`
 3. 完成 [lite_manual_checklist.md](../references/lite_manual_checklist.md)（含铁律 #2 Queue 所有权项）
 
 ## Step 5 — 输出
@@ -58,10 +58,8 @@
 - file: 改动一句话
 
 ## 验证
-- [ ] run_review --self-test
-- [ ] run_review --validate-examples
-- [ ] skill_iterate --check
-- [ ] sync_lite
+- [ ] lite_manual_checklist
+- [ ] sync_lite 已在完整版仓库完成
 - [ ] CHANGELOG + iteration_log
 
 ## 新版本

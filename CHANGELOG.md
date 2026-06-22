@@ -1,5 +1,14 @@
 # Changelog
 
+## 4.12.2 — 2026-06-22
+
+- **分发审计脚本**：新增 `scripts/check_runtime_distribution.py`，模拟 Python 多 IDE 安装的 runtime payload，防止根目录 README/INSTALL/CHANGELOG、CI/编辑器目录、Lite 产物、缓存和本地 SDK 混入安装包
+- **安装脚本护栏**：审计 Cursor / Claude Code 的 `.sh` 与 `.ps1` 安装脚本，确保只排除根目录维护文档，同时保留 `workflows/README.md`、`examples/README.md` 等运行时索引
+- **Lite 形态检查**：审计 Lite 必需运行文件与禁止目录，确保 Lite 不携带 `tools/`、`examples/`
+- **自迭代闭环增强**：`skill_iterate.py` 与 `skill_iterate.ps1` 增加运行时分发边界检查，验证步骤扩展为 8 步
+- **Lite workflow patch 加固**：`sync_lite.py` / `sync_lite.ps1` 支持同一 workflow 多段 patch，Lite 自迭代输出清单改为 manual checklist
+- **版本升至 4.12.2**
+
 ## 4.12.1 — 2026-06-22
 
 - **Skill 入口收敛**：压缩 `SKILL.md` description 至标准校验限制内，保留 FreeRTOS/LVGL/带屏音视频核心触发词

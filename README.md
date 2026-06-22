@@ -40,6 +40,7 @@ L4  examples/ + tools/       完整版专有
 python tools/run_review.py --list-checkers
 python tools/run_review.py --self-test
 python tools/run_review.py --validate-examples
+python scripts/check_runtime_distribution.py
 python scripts/skill_iterate.py --check
 ```
 

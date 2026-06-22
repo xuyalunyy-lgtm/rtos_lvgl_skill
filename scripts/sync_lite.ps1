@@ -61,21 +61,25 @@ function Read-Pattern([string]$Name) {
 
 function Patch-LiteWorkflow([string]$Content, [string]$FileName) {
     $rules = @{
-        "l3_new_module.md"  = @{ Pattern = "l3_new_module.txt";  Patch = "l3_new_module_step3.md" }
-        "debug_crash.md"    = @{ Pattern = "debug_crash.txt";    Patch = "debug_crash_step3.md" }
-        "self_iterate.md"   = @{ Pattern = "self_iterate.txt";   Patch = "self_iterate_step4.md" }
-        "l2_code_review.md" = @{ Pattern = "l2_code_review.txt"; Patch = "l2_code_review_step3.md" }
+        "l3_new_module.md"  = @(@{ Pattern = "l3_new_module.txt";  Patch = "l3_new_module_step3.md" })
+        "debug_crash.md"    = @(@{ Pattern = "debug_crash.txt";    Patch = "debug_crash_step3.md" })
+        "self_iterate.md"   = @(
+            @{ Pattern = "self_iterate.txt"; Patch = "self_iterate_step4.md" },
+            @{ Pattern = "self_iterate_output_checklist.txt"; Patch = "self_iterate_output_checklist.md" }
+        )
+        "l2_code_review.md" = @(@{ Pattern = "l2_code_review.txt"; Patch = "l2_code_review_step3.md" })
     }
 
     if ($rules.ContainsKey($FileName)) {
-        $rule = $rules[$FileName]
-        $pattern = Read-Pattern $rule.Pattern
-        $repl = Read-Patch $rule.Patch
-        if (-not [regex]::IsMatch($Content, $pattern)) {
-            throw "Workflow patch no match: $FileName"
-        }
-        else {
-            $Content = [regex]::Replace($Content, $pattern, $repl + "`n", 1)
+        foreach ($rule in $rules[$FileName]) {
+            $pattern = Read-Pattern $rule.Pattern
+            $repl = Read-Patch $rule.Patch
+            if (-not [regex]::IsMatch($Content, $pattern)) {
+                throw "Workflow patch no match: $FileName"
+            }
+            else {
+                $Content = [regex]::Replace($Content, $pattern, $repl + "`n", 1)
+            }
         }
     }
     return $Content

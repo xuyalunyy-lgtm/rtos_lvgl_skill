@@ -48,6 +48,7 @@
 python tools/run_review.py --self-test
 python tools/run_review.py --validate-examples
 python tools/run_review.py --list-checkers
+python scripts/check_runtime_distribution.py
 python scripts/skill_iterate.py --check
 python scripts/sync_lite.py
 # Windows PowerShell: $env:PYTHONUTF8='1'; python <skill-creator>\scripts\quick_validate.py .
@@ -60,6 +61,7 @@ python scripts/sync_lite.py
 | fixtures 自测 | exit 0 |
 | **铁律范例约束** | `--validate-examples` exit 0 |
 | checker registry | `skill_iterate.py --check` 内置审计通过 |
+| runtime distribution | `check_runtime_distribution.py` exit 0，安装包边界未回退 |
 | SKILL version | frontmatter 含 `metadata.version` |
 | Lite 同步 | `freertos-skill-lite/SKILL.md` 版本与完整版一致 |
 | sync dry-run | `sync_lite.py --dry-run` exit 0 |
@@ -80,6 +82,7 @@ Python 不可用：人工执行 [lite_manual_checklist.md](../references/lite_ma
 ## 验证
 - [ ] run_review --self-test
 - [ ] run_review --validate-examples
+- [ ] check_runtime_distribution
 - [ ] skill_iterate --check
 - [ ] sync_lite
 - [ ] CHANGELOG + iteration_log

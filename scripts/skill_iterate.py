@@ -109,11 +109,11 @@ def main() -> int:
     print("=" * 60)
 
     if not args.skip_self_test:
-        print("\n[1/7] tools/run_review.py --self-test")
+        print("\n[1/8] tools/run_review.py --self-test")
         rc = run([sys.executable, str(ROOT / "tools" / "run_review.py"), "--self-test"], ROOT)
         if rc != 0:
             errors.append("run_review --self-test 失败")
-    print("\n[2/7] tools/run_review.py --validate-examples")
+    print("\n[2/8] tools/run_review.py --validate-examples")
     rc = run(
         [sys.executable, str(ROOT / "tools" / "run_review.py"), "--validate-examples"],
         ROOT,
@@ -121,10 +121,15 @@ def main() -> int:
     if rc != 0:
         errors.append("run_review --validate-examples 失败（铁律范例约束）")
 
-    print("\n[3/7] checker registry")
+    print("\n[3/8] checker registry")
     errors.extend(check_checker_registry())
 
-    print("\n[4/7] SKILL.md version")
+    print("\n[4/8] runtime distribution boundary")
+    rc = run([sys.executable, str(ROOT / "scripts" / "check_runtime_distribution.py")], ROOT)
+    if rc != 0:
+        errors.append("check_runtime_distribution.py failed")
+
+    print("\n[5/8] SKILL.md version")
     full_ver = read_version(SKILL)
     lite_ver = read_version(LITE_SKILL)
     if not full_ver:
@@ -138,7 +143,7 @@ def main() -> int:
     else:
         errors.append("freertos-skill-lite/SKILL.md 缺失或无 version")
 
-    print("\n[5/7] CHANGELOG / iteration_log")
+    print("\n[6/8] CHANGELOG / iteration_log")
     if not CHANGELOG.is_file():
         errors.append("缺少 CHANGELOG.md")
     elif full_ver and full_ver not in CHANGELOG.read_text(encoding="utf-8")[:800]:
@@ -150,12 +155,12 @@ def main() -> int:
     else:
         print("  iteration_log.md OK")
 
-    print("\n[6/7] sync_lite --dry-run")
+    print("\n[7/8] sync_lite --dry-run")
     rc = run([sys.executable, str(ROOT / "scripts" / "sync_lite.py"), "--dry-run"], ROOT)
     if rc != 0:
         errors.append("sync_lite.py --dry-run 失败")
 
-    print("\n[7/7] 可选 sync_lite")
+    print("\n[8/8] 可选 sync_lite")
     if args.sync and not errors:
         rc = run([sys.executable, str(ROOT / "scripts" / "sync_lite.py")], ROOT)
         if rc != 0:

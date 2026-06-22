@@ -53,8 +53,18 @@ LITE_WORKFLOW_REPLACEMENTS: list[tuple[str, str, str]] = [
         r"## Step 4 — 验证闭环（完整版）\n\n```bash\n.*?```\n\n.*?(?=## Step 5)",
         "## Step 4 — 验证闭环（Lite）\n\n"
         "1. 更新 [iteration_log.md](../references/iteration_log.md) 与 [CHANGELOG.md](../CHANGELOG.md)\n"
-        "2. 在完整版仓库运行 `python scripts/sync_lite.py`\n"
+        "2. 在完整版仓库运行 `python scripts/sync_lite.py` 或 `.\\scripts\\sync_lite.ps1`\n"
         "3. 完成 [lite_manual_checklist.md](../references/lite_manual_checklist.md)（含铁律 #2 Queue 所有权项）\n\n",
+    ),
+    (
+        "self_iterate.md",
+        r"## 验证\n- \[ \] run_review --self-test\n- \[ \] run_review --validate-examples\n"
+        r"(?:- \[ \] check_runtime_distribution\n)?- \[ \] skill_iterate --check\n"
+        r"- \[ \] sync_lite\n- \[ \] CHANGELOG \+ iteration_log",
+        "## 验证\n"
+        "- [ ] lite_manual_checklist\n"
+        "- [ ] sync_lite 已在完整版仓库完成\n"
+        "- [ ] CHANGELOG + iteration_log",
     ),
     (
         "l2_code_review.md",
@@ -72,10 +82,9 @@ def patch_lite_examples(content: str) -> str:
 def patch_lite_workflow(content: str, rel: Path) -> str:
     for name, pattern, repl in LITE_WORKFLOW_REPLACEMENTS:
         if rel.name == name:
-            content, n = re.subn(pattern, repl, content, count=1, flags=re.DOTALL)
+            content, n = re.subn(pattern, lambda _m: repl, content, count=1, flags=re.DOTALL)
             if not n:
                 raise ValueError(f"workflow patch no match: {rel}")
-            break
     return content
 
 
