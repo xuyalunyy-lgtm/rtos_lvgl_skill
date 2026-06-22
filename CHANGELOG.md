@@ -1,5 +1,18 @@
 # Changelog
 
+## 4.12.4 — 2026-06-22
+
+- **元数据审计自测**：`scripts/check_skill_metadata.py` 新增 `--self-test` 与 `--root`，用临时夹具覆盖 description 超长、root-level version、版本漂移、`openai.yaml` 漂移和行数超限
+- **自迭代闭环硬化**：`skill_iterate.py` 与 `skill_iterate.ps1` 在第 5 步同时运行当前仓库 metadata contract 与脚本自测
+- **版本升至 4.12.4**
+
+## 4.12.3 — 2026-06-22
+
+- **Skill 元数据审计**：新增 `scripts/check_skill_metadata.py`，校验完整版与 Lite 的 `SKILL.md` name、`metadata.version`、description 长度/触发词、行数预算，以及 `agents/openai.yaml` 必需字段
+- **自迭代闭环增强**：`skill_iterate.py` 与 `skill_iterate.ps1` 增加 metadata contract 检查，验证步骤扩展为 9 步
+- **控制平面收敛**：压缩 `SKILL.md` 入口说明，恢复 `<100 行` 控制面预算
+- **版本升至 4.12.3**
+
 ## 4.12.2 — 2026-06-22
 
 - **分发审计脚本**：新增 `scripts/check_runtime_distribution.py`，模拟 Python 多 IDE 安装的 runtime payload，防止根目录 README/INSTALL/CHANGELOG、CI/编辑器目录、Lite 产物、缓存和本地 SDK 混入安装包

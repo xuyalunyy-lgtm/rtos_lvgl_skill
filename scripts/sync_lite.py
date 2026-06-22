@@ -59,7 +59,9 @@ LITE_WORKFLOW_REPLACEMENTS: list[tuple[str, str, str]] = [
     (
         "self_iterate.md",
         r"## 验证\n- \[ \] run_review --self-test\n- \[ \] run_review --validate-examples\n"
-        r"(?:- \[ \] check_runtime_distribution\n)?- \[ \] skill_iterate --check\n"
+        r"(?:- \[ \] check_runtime_distribution\n)?"
+        r"(?:- \[ \] check_skill_metadata\n)?"
+        r"- \[ \] skill_iterate --check\n"
         r"- \[ \] sync_lite\n- \[ \] CHANGELOG \+ iteration_log",
         "## 验证\n"
         "- [ ] lite_manual_checklist\n"

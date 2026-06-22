@@ -41,6 +41,8 @@ python tools/run_review.py --list-checkers
 python tools/run_review.py --self-test
 python tools/run_review.py --validate-examples
 python scripts/check_runtime_distribution.py
+python scripts/check_skill_metadata.py
+python scripts/check_skill_metadata.py --self-test
 python scripts/skill_iterate.py --check
 ```
 

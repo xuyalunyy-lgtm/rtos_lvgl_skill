@@ -49,6 +49,8 @@ python tools/run_review.py --self-test
 python tools/run_review.py --validate-examples
 python tools/run_review.py --list-checkers
 python scripts/check_runtime_distribution.py
+python scripts/check_skill_metadata.py
+python scripts/check_skill_metadata.py --self-test
 python scripts/skill_iterate.py --check
 python scripts/sync_lite.py
 # Windows PowerShell: $env:PYTHONUTF8='1'; python <skill-creator>\scripts\quick_validate.py .
@@ -62,6 +64,7 @@ python scripts/sync_lite.py
 | **铁律范例约束** | `--validate-examples` exit 0 |
 | checker registry | `skill_iterate.py --check` 内置审计通过 |
 | runtime distribution | `check_runtime_distribution.py` exit 0，安装包边界未回退 |
+| skill metadata | `check_skill_metadata.py` 与 `--self-test` exit 0，description / version / openai.yaml 未漂移且脚本坏样本可检出 |
 | SKILL version | frontmatter 含 `metadata.version` |
 | Lite 同步 | `freertos-skill-lite/SKILL.md` 版本与完整版一致 |
 | sync dry-run | `sync_lite.py --dry-run` exit 0 |
@@ -83,6 +86,7 @@ Python 不可用：人工执行 [lite_manual_checklist.md](../references/lite_ma
 - [ ] run_review --self-test
 - [ ] run_review --validate-examples
 - [ ] check_runtime_distribution
+- [ ] check_skill_metadata
 - [ ] skill_iterate --check
 - [ ] sync_lite
 - [ ] CHANGELOG + iteration_log

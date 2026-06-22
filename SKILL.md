@@ -1,7 +1,7 @@
 ---
 name: freertos-embedded-architect
 metadata:
-  version: 4.12.2
+  version: 4.12.4
 description: >-
   审查与设计 FreeRTOS 物联网/带屏音视频固件：MVP 分层、LVGL 线程安全、I2S/DMA、WSS/mbedTLS、cJSON、
   内存与启动/WDT、SDK 需求驱动裁剪、密钥安全、ASR/uplink、状态机、日志、错误处理、任务优先级、
@@ -26,12 +26,7 @@ description: >-
 | JL/BK/ESP32/STM32 SDK 需求驱动裁剪 | OTA、产测、CI、通用编译脚本 |
 | `tools/` checker 与 MVP codegen | LVGL PC 模拟器 / Designer 搭建 |
 
-**平台专档**（编译/Crash/API 差异）：[esp32](platforms/esp32.md) | [stm32](platforms/stm32.md) | [jl](platforms/jl.md) | [bk](platforms/bk.md)
-
-**Claude Code：** [references/claude_code.md](references/claude_code.md) · 安装 `scripts/install_claude_code.*` · 项目 [templates/CLAUDE.embedded.md](templates/CLAUDE.embedded.md)
-
-**Cursor 命中率：** 固件仓安装 [templates/cursor-rule.embedded.mdc](templates/cursor-rule.embedded.mdc) → `.cursor/rules/`（见 [INSTALL.md](INSTALL.md)）
-
+**入口**：平台 [esp32](platforms/esp32.md) | [stm32](platforms/stm32.md) | [jl](platforms/jl.md) | [bk](platforms/bk.md) · Claude [claude_code.md](references/claude_code.md) · Cursor [rule](templates/cursor-rule.embedded.mdc)
 ## 快速路由
 
 | 用户意图 | Workflow | 级别 |
@@ -83,7 +78,6 @@ description: >-
 | 26 | 编解码格式（C26） | [av_codec_format.txt](prompts/av_codec_format.txt) |
 | 27 | 时钟漂移 / Jitter（C27） | [av_clock_jitter.txt](prompts/av_clock_jitter.txt) |
 | 28 | DMA/cache buffer（C28） | [av_dma_buffer_lifecycle.txt](prompts/av_dma_buffer_lifecycle.txt) |
-
 Prompt / 工具 / 范例全表 → [skill_structure.md](references/skill_structure.md)
 
 <thinking>
@@ -102,5 +96,4 @@ Prompt / 工具 / 范例全表 → [skill_structure.md](references/skill_structu
 - Checker 为启发式辅助；Shell 仅 `python tools/*.py` / `scripts/*.py|cmd`
 - 用户要求 **commit** 时读 [git_commit_style.md](references/git_commit_style.md)；中文 `type(scope):` 标题
 </rules>
-
 迭代 → [iteration_log.md](references/iteration_log.md) · [CHANGELOG.md](CHANGELOG.md)

@@ -104,24 +104,31 @@ else {
 }
 
 if (-not $SkipSelfTest) {
-    Invoke-PythonCheck -PythonExe $python -Label "[1/8] tools/run_review.py --self-test" `
+    Invoke-PythonCheck -PythonExe $python -Label "[1/9] tools/run_review.py --self-test" `
         -PyArgs @((Join-Path $Root "tools\run_review.py"), "--self-test") `
         -Errors ([ref]$errors)
 }
 
-Invoke-PythonCheck -PythonExe $python -Label "[2/8] tools/run_review.py --validate-examples" `
+Invoke-PythonCheck -PythonExe $python -Label "[2/9] tools/run_review.py --validate-examples" `
     -PyArgs @((Join-Path $Root "tools\run_review.py"), "--validate-examples") `
     -Errors ([ref]$errors)
 
-Invoke-PythonCheck -PythonExe $python -Label "[3/8] tools/run_review.py --list-checkers" `
+Invoke-PythonCheck -PythonExe $python -Label "[3/9] tools/run_review.py --list-checkers" `
     -PyArgs @((Join-Path $Root "tools\run_review.py"), "--list-checkers") `
     -Errors ([ref]$errors)
 
-Invoke-PythonCheck -PythonExe $python -Label "[4/8] scripts/check_runtime_distribution.py" `
+Invoke-PythonCheck -PythonExe $python -Label "[4/9] scripts/check_runtime_distribution.py" `
     -PyArgs @((Join-Path $Root "scripts\check_runtime_distribution.py")) `
     -Errors ([ref]$errors)
 
-Write-Host "`n[5/8] SKILL.md version"
+Invoke-PythonCheck -PythonExe $python -Label "[5/9] scripts/check_skill_metadata.py" `
+    -PyArgs @((Join-Path $Root "scripts\check_skill_metadata.py")) `
+    -Errors ([ref]$errors)
+Invoke-PythonCheck -PythonExe $python -Label "      scripts/check_skill_metadata.py --self-test" `
+    -PyArgs @((Join-Path $Root "scripts\check_skill_metadata.py"), "--self-test") `
+    -Errors ([ref]$errors)
+
+Write-Host "`n[6/9] SKILL.md version"
 $fullVer = Get-SkillVersion $Skill
 $liteVer = Get-SkillVersion $LiteSkill
 if (-not $fullVer) {
@@ -140,7 +147,7 @@ else {
     $errors.Add("freertos-skill-lite/SKILL.md missing or no metadata.version")
 }
 
-Write-Host "`n[6/8] CHANGELOG / iteration_log"
+Write-Host "`n[7/9] CHANGELOG / iteration_log"
 if (-not (Test-Path $Changelog)) {
     $errors.Add("missing CHANGELOG.md")
 }
@@ -156,7 +163,7 @@ if (-not (Test-Path $IterationLog)) {
 }
 else { Write-Host "  iteration_log.md OK" }
 
-Write-Host "`n[7/8] sync_lite.ps1 -DryRun"
+Write-Host "`n[8/9] sync_lite.ps1 -DryRun"
 if (-not (Test-Path $SyncLitePs1)) {
     $errors.Add("missing scripts/sync_lite.ps1")
 }
@@ -165,7 +172,7 @@ else {
     if ($LASTEXITCODE -ne 0) { $errors.Add("sync_lite.ps1 -DryRun failed") }
 }
 
-Write-Host "`n[8/8] optional sync_lite.ps1"
+Write-Host "`n[9/9] optional sync_lite.ps1"
 if ($Sync -and $errors.Count -eq 0) {
     & $SyncLitePs1
     if ($LASTEXITCODE -ne 0) {

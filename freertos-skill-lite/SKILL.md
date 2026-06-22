@@ -1,7 +1,7 @@
 ---
 name: freertos-embedded-architect
 metadata:
-  version: 4.12.2
+  version: 4.12.4
 description: >-
   审查与设计 FreeRTOS 物联网/带屏音视频固件：MVP 分层、LVGL 线程安全、I2S/DMA、WSS/mbedTLS、cJSON、
   内存与启动/WDT、SDK 需求驱动裁剪、密钥安全、ASR/uplink、状态机、日志、错误处理、任务优先级、
