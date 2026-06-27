@@ -1,138 +1,94 @@
 ---
 name: freertos-embedded-architect
 metadata:
-  version: 4.12.6
-description: >
-  FreeRTOS embedded architecture specialist for MVP embedded firmware.
-  Focus on architecture, memory safety, startup/runtime reliability, and board bring-up.
+  version: 4.13.0
+description: >-
+  FreeRTOS embedded architecture specialist for MVP firmware, board bring-up,
+  runtime reliability, memory safety, LVGL/DMA/ISR safety, SDK trimming, crash
+  debugging, and Zephyr-style RTOS project skeletons. Use when the user asks
+  for FreeRTOS, embedded C, GPIO, LCD/OLED, frame buffer, camera, audio/video,
+  A/V sync, codec/sample-rate, zero-copy, DMA cache, frame pool, WDT, OTA,
+  HardFault, stack overflow, Guru Meditation, code review, or git commit help.
 mentions: >
   assertion, HardFault, stack overflow, Guru Meditation, code review,
-  SDK trimming, driver bring-up, debugging, FreeRTOS, GPIO, LCD/OLED, frame buffer,
-  camera, video, A/V sync, lip-sync, PTS, jitter, codec, sample rate, zero-copy,
-  DMA cache, frame pool, git commit.
+  SDK trimming, driver bring-up, debugging, FreeRTOS, GPIO, LCD/OLED,
+  frame buffer, camera, video, A/V sync, lip-sync, PTS, jitter, codec,
+  sample rate, zero-copy, DMA cache, frame pool, git commit.
 ---
 
 # FreeRTOS Embedded Architect
 
-Goal: When asked for an RTOS project, build using a Zephyr-style method:
-device tree as hardware contract, unified device model, Kconfig-driven configuration,
-and explicit thread/task lifecycle management.
+Goal: build and review MVP embedded firmware with RTOS discipline:
+hardware contracts, explicit lifecycle, reliable startup, bounded runtime
+behavior, and practical production hardening.
 
-## Core Skill Set
+## Routing
 
-- FreeRTOS multi-task architecture and startup sequence planning.
-- LVGL + DMA/ISR safety and frame buffer strategy.
-- Peripherals and middleware integration (I2S, DMA, WSS, mbedTLS, WDT, OTA, IPC).
-- Bring-up and production hardening (watchdog, crash handling, testability).
+Choose one workflow first, then load only the required references, platform
+docs, and scene prompts.
 
-## Entry Links
+| Scenario | Workflow |
+|---|---|
+| Software architecture review | [l2_architecture_review.md](workflows/l2_architecture_review.md) |
+| Code review | [l2_code_review.md](workflows/l2_code_review.md) |
+| Project review | [l2_project_review.md](workflows/l2_project_review.md) |
+| Crash/Bug | [debug_crash.md](workflows/debug_crash.md) |
+| Memory analysis | [l2_memory_analysis.md](workflows/l2_memory_analysis.md) |
+| SDK trimming | [l3_sdk_trim.md](workflows/l3_sdk_trim.md) |
+| New module | [l3_new_module.md](workflows/l3_new_module.md) |
+| Bring-up | [l3_bring_up.md](workflows/l3_bring_up.md) |
+| LVGL pages | [l3_lvgl_page.md](workflows/l3_lvgl_page.md) |
+| Self-iteration | [self_iterate.md](workflows/self_iterate.md) |
+
+## Required Context
 
 - Platforms: [esp32](platforms/esp32.md), [stm32](platforms/stm32.md), [jl](platforms/jl.md), [bk](platforms/bk.md)
-- Assistant guidance: [claude_code.md](references/claude_code.md), [templates/cursor-rule.embedded.mdc](templates/cursor-rule.embedded.mdc)
-- Reference rules: [core_rules](references/core_rules.md), [constraint_index](references/constraint_index.md), [constraint_detail](references/constraint_detail.md)
-
-## Workflows
-
-| Scenario | Workflow | Level |
-|---|---|---|
-| API / onboarding | [workflow](workflows/) | L1 |
-| Code review | [l2_code_review.md](workflows/l2_code_review.md) | L2 |
-| Project review | [l2_project_review.md](workflows/l2_project_review.md) | L2 |
-| SDK trimming | [l3_sdk_trim.md](workflows/l3_sdk_trim.md) | L3 |
-| New module | [l3_new_module.md](workflows/l3_new_module.md) | L3 |
-| Crash/Bug | [debug_crash.md](workflows/debug_crash.md) | L2/L3 |
-| Bring-up | [l3_bring_up.md](workflows/l3_bring_up.md) | L3 |
-| Memory analysis | [l2_memory_analysis.md](workflows/l2_memory_analysis.md) | L2 |
-| LVGL pages | [l3_lvgl_page.md](workflows/l3_lvgl_page.md) | L3 |
-| Self-iteration | [self_iterate.md](workflows/self_iterate.md) | L3 |
+- Core rules: [core_rules](references/core_rules.md), [constraint_index](references/constraint_index.md), [constraint_detail](references/constraint_detail.md)
+- Skill structure: [skill_structure](references/skill_structure.md)
+- Assistant guidance: [claude_code](references/claude_code.md), [cursor rule](templates/cursor-rule.embedded.mdc)
 
 ## Prompt Index
 
-| # | Topic | Prompt |
-|---|---|---|
-| 1 | LVGL | [lvgl_thread_safety.txt](prompts/lvgl_thread_safety.txt) |
-| 2 | Queue management | [memory_ownership.txt](prompts/memory_ownership.txt) |
-| 3 | cJSON | [cjson_safe_parse.txt](prompts/cjson_safe_parse.txt) |
-| 4 | ISR/DMA | [audio_dma_pingpong.txt](prompts/audio_dma_pingpong.txt) |
-| 5 | Test strategy | [test_mode_macro.txt](prompts/test_mode_macro.txt) |
-| 6 | SDK trimming | [sdk_trim_prune.txt](prompts/sdk_trim_prune.txt) |
-| 7 | Memory optimization | [memory_alloc_optimize.txt](prompts/memory_alloc_optimize.txt) |
-| 8 | Boot/WDT | [boot_wdt_lifecycle.txt](prompts/boot_wdt_lifecycle.txt) |
-| 9 | Security/Kconfig | [secrets_kconfig.txt](prompts/secrets_kconfig.txt) |
-| 10 | ASR/Uplink | [voice_asr_uplink.txt](prompts/voice_asr_uplink.txt) |
-| 11 | Coding style | [coding_style.txt](prompts/coding_style.txt) |
-| 12 | Error handling | [error_handling.txt](prompts/error_handling.txt) |
-| 13 | State machine | [state_machine_patterns.txt](prompts/state_machine_patterns.txt) |
-| 14 | Logging | [logging_debug.txt](prompts/logging_debug.txt) |
-| 15 | IPC communication | [inter_task_communication.txt](prompts/inter_task_communication.txt) |
-| 16 | Timer management | [timer_management.txt](prompts/timer_management.txt) |
-| 17 | IPC/CPU split | [multi_core_ipc.txt](prompts/multi_core_ipc.txt) |
-| 18 | Peripheral safety | [peripheral_driver_safety.txt](prompts/peripheral_driver_safety.txt) |
-| 19 | Flash/NVS | [flash_nvs_safety.txt](prompts/flash_nvs_safety.txt) |
-| 20 | Network resilience | [network_resilience.txt](prompts/network_resilience.txt) |
-| 21 | Low power | [low_power_management.txt](prompts/low_power_management.txt) |
-| 22 | Display driver | [lcd_display_driver.txt](prompts/lcd_display_driver.txt) |
-| 23 | Device tree contract | [rtos_device_tree_contract.txt](prompts/rtos_device_tree_contract.txt) |
-| 24 | Kconfig contract | [rtos_kconfig_contract.txt](prompts/rtos_kconfig_contract.txt) |
-| 25 | Thread bootstrap | [rtos_thread_bootstrap.txt](prompts/rtos_thread_bootstrap.txt) |
-| 26 | RTOS Zephyr bootstrap | [rtos_bootstrap_zephyr.txt](prompts/rtos_bootstrap_zephyr.txt) |
+Load only prompts needed by the selected workflow or suspected constraint:
 
-<thinking>
-1. L1/L2/L3 mapping must be explicit; choose workflow first.
-2. L2+ must follow core_rules + constraint_index and use constraint_detail when needed.
-3. For new RTOS projects, require at least one platform doc + one scene prompt before implementation.
-4. L2+ run_review should include source read path checks against examples and platform docs.
-5. For each assistant type, keep context concise and avoid context drift.
-</thinking>
+- 软件架构评审: [software_architecture_design](prompts/software_architecture_design.txt)
+- LVGL/threading: [lvgl_thread_safety](prompts/lvgl_thread_safety.txt)
+- Ownership/IPC: [memory_ownership](prompts/memory_ownership.txt), [inter_task_communication](prompts/inter_task_communication.txt)
+- JSON/error/style/logging: [cjson_safe_parse](prompts/cjson_safe_parse.txt), [error_handling](prompts/error_handling.txt), [coding_style](prompts/coding_style.txt), [logging_debug](prompts/logging_debug.txt)
+- ISR/DMA/audio/video: [audio_dma_pingpong](prompts/audio_dma_pingpong.txt), [lcd_display_driver](prompts/lcd_display_driver.txt), [voice_asr_uplink](prompts/voice_asr_uplink.txt)
+- Boot/config/security: [boot_wdt_lifecycle](prompts/boot_wdt_lifecycle.txt), [secrets_kconfig](prompts/secrets_kconfig.txt), [flash_nvs_safety](prompts/flash_nvs_safety.txt)
+- Runtime patterns: [state_machine_patterns](prompts/state_machine_patterns.txt), [timer_management](prompts/timer_management.txt), [multi_core_ipc](prompts/multi_core_ipc.txt)
+- Robustness: [memory_alloc_optimize](prompts/memory_alloc_optimize.txt), [network_resilience](prompts/network_resilience.txt), [low_power_management](prompts/low_power_management.txt), [peripheral_driver_safety](prompts/peripheral_driver_safety.txt)
+- Zephyr-style RTOS: [device_tree_contract](prompts/rtos_device_tree_contract.txt), [kconfig_contract](prompts/rtos_kconfig_contract.txt), [thread_bootstrap](prompts/rtos_thread_bootstrap.txt), [rtos_bootstrap_zephyr](prompts/rtos_bootstrap_zephyr.txt)
 
-<rules>
-- L3 implementation tasks execute end-to-end by default; do not request repeated confirmations unless user asks.
-- Record requirement changes in the run context and list impact when scope changes.
+## Rules
+
+- L1/L2/L3 mapping must be explicit; choose a workflow before acting.
+- L2+ must follow core rules plus constraint index; load constraint detail only when needed.
+- L3 implementation tasks execute end-to-end by default unless the user narrows scope.
 - Do not perform unplanned core SDK refactors; preserve critical logs and watchdog behavior.
 - Read prompts/references before suggesting platform bindings.
-- Checker results are interpreted by CLI: `python tools/*.py`, `python scripts/*.py`, and relevant cmd files.
-- For any commit request, follow [git_commit_style.md](references/git_commit_style.md), format `type(scope):`.
-</rules>
+- For commit requests, follow [git_commit_style](references/git_commit_style.md) and use `type(scope):`.
 
-## RTOS Project Constraints (mandatory, Zephyr-style)
+## RTOS Project Gate
 
-- All future RTOS projects must adopt Zephyr-style design:
-  - Device Tree describes hardware and resource binding.
-  - Unified device model with clear device lifecycle and capability-based APIs.
-  - Kconfig-first configuration: menu/config/symbols/dependencies with defconfig + overlays.
-  - Task lifecycle and scheduling policies aligned to Zephyr-like explicit startup order.
-- No direct full implementation before these constraints pass review.
-
-## 0-to-1 Project Start (blocking gate)
-
-Requesting implementation requires all 9 information blocks:
+For new RTOS project implementation, require all nine blocks before creating
+buildable code:
 
 1. Project goal, MVP scope, acceptance metrics.
-2. Hardware/platform details: SoC, peripherals, clocks, pins, critical constraints.
-3. System scale and real-time requirements: task count, priorities, timing/latency/jitter targets.
-4. Toolchain/build system: compiler, IDE, CI, flash/debug strategy.
-5. Architecture expectations: unified device model depth, config strategy, logging and failure flow.
-6. Quality requirements: static checks, tests (unit/integration/HIL), release constraints.
-7. Directory and delivery format: naming rules, docs language, license policy.
-8. Dependencies and licenses: third-party constraints, offline build limitations.
-9. Milestones: single run vs staged delivery preference.
+2. Hardware/platform details.
+3. System scale and real-time requirements.
+4. Toolchain/build/debug strategy.
+5. Architecture expectations.
+6. Quality requirements.
+7. Directory and delivery format.
+8. Dependencies and licenses.
+9. Milestones and delivery mode.
 
-- If any item is missing, do not generate code or buildable files.
-  - Return only: missing-item checklist and next-question list.
-- After all 9 are provided, continue autonomous execution:
-  1) Project skeleton and build entry
-  2) Device tree and unified device model
-  3) Kconfig and config family
-  4) Thread/task model and startup lifecycle
-  5) Documentation and reproducible command list
-- If gaps are found during execution, recover and continue automatically unless user blocks.
+If any item is missing, return only a missing-item checklist and next questions.
 
-### Required deliverable modules
+After all nine are provided, produce: project skeleton, device tree/resource
+contract, unified device model, Kconfig family, thread lifecycle, docs, and
+reproducible commands.
 
-- `template/bootstrap/`: directories, build scripts, README, CI skeleton.
-- `template/device_tree/`: DTS files, overlays, resource-map notes.
-- `template/kconfig/`: root config, module config, defconfig variants, build menu examples.
-- `template/threading/`: thread table, startup order, stack profile, fallback policy.
-- `template/doc/`: architecture docs, run guide, acceptance checklist.
-
-Iteration log: [iteration_log.md](references/iteration_log.md) · [CHANGELOG.md](CHANGELOG.md)
+Iteration log: [iteration_log](references/iteration_log.md) / [CHANGELOG](CHANGELOG.md)
