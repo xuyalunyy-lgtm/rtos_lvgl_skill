@@ -3,11 +3,12 @@
 > 鎺у埗骞抽潰鍏ュ彛锛歔SKILL.md](../SKILL.md) 路 缁撴瀯璇存槑锛歔skill_structure.md](../references/skill_structure.md)
 
 閫夊畾 **1 涓?* workflow 鍚庢寜 Step 椤哄簭鎵ц锛沺rompt 浠呭姞杞借 workflow 鎸囧畾椤广€?
+
 | 鏂囦欢 | 绾у埆 | 瑙﹀彂 |
 |------|------|------|
 | [l2_code_review.md](l2_code_review.md) | L2 | review / audit / 瀹℃煡 C 浠ｇ爜 |
 | [l2_code_review_lite.md](l2_code_review_lite.md) | L2 | Lite 浜哄伐瀹℃煡 |
-| [l2_architecture_review.md](l2_architecture_review.md) | L2 | 架构 review（I/P/O + FSM/HFSM + HAL 组件） |
+| [l2_architecture_review.md](l2_architecture_review.md) | L2 | 架构 review（I/P/O、FSM/HFSM、HAL 组件、评分门禁） |
 | [l2_project_review.md](l2_project_review.md) | L2 | 宸ョ▼/宸ヤ綔鍖?閲忎骇鍓嶅璁?|
 | [debug_crash.md](debug_crash.md) | L2鈥揕3 | HardFault / 姝绘満 / WDT / frozen |
 | [l3_sdk_trim.md](l3_sdk_trim.md) | L3 | SDK 鏀归€?/ 闇€姹傞┍鍔ㄨ鍓?|
@@ -19,10 +20,16 @@
 | [self_iterate.md](self_iterate.md) | L3 | Skill 缁存姢 / 鑷垜杩唬 |
 
 ## 鏍囧噯鍔犺浇椤哄簭锛圠2+锛?
+
 1. `references/core_rules.md`
-2. `references/constraint_index.md`锛?*榛樿**锛涘畬鏁寸煩闃佃 `constraint_detail.md`锛?3. `platforms/xxx.md`锛? 涓級
+2. `references/constraint_index.md`锛?*榛樿**锛涘畬鏁寸煩闃佃 `constraint_detail.md`锛?
+3. `platforms/xxx.md`锛? 涓級
 4. workflow 鎸囧畾鐨?1鈥? 涓?`prompts/*.txt`
 5. 瀹屾暣鐗堬細`tools/run_review.py`锛涜寖渚?**Grep/Read 鍗曟枃浠?*锛屽嬁鎵归噺璇?examples/
 
+Architecture 同步校验:
+`python scripts/check_architecture_sync.py`
+
 **Claude Code 鐪?token** 鈫?[claude_code.md](../references/claude_code.md)
+
 

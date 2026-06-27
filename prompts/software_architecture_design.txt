@@ -16,55 +16,135 @@
 ### 1. 输入-处理-输出（I/P/O）三层 + 消息队列解耦
 - 输入层（Input/Inbound）：仅采集裸数据并打包入队，不做业务计算。  
   - 数据来源：传感器、按键、RF 接收、UART/SPI 等  
-  - 常见实现：ISR/DMA 回调->RawMessage->`input_queue`
+  - 常见实现：ISR/DMA 回调 -> RawMessage -> `input_queue`
 - 核心层（Core/Business）：阻塞等待输入队列，完成滤波、状态机、协议解析。  
   - 处理完成后输出“控制指令”到 `output_queue`
 - 输出层（Output/Outbound）：只负责执行，不做业务决策。  
-  - 动作：电机、显示、蓝牙、Flash 写入、上报  
+  - 动作：电机、显示、蓝牙、Flash 写入、上报
 - 约束：
-  - 每一层只依赖下游的“数据合约”
+  - 各层职责、输入输出、错误处理完全独立
   - 定义完整数据模型（time_stamp、source、payload_len、crc、seq）
-  - 明确所有权与释放责任（谁分配、谁释放）
+  - 明确所有权与释放责任（谁分配、谁消费、谁释放）
   - 给出队列深度上限、溢出策略（丢旧/丢新/告警）
 
 ### 2. 状态机驱动架构（FSM / HFSM）
-- 采用事件驱动状态机控制系统行为（建议 HFSM 管理复杂子域）。
+- 使用事件驱动状态机控制系统行为（建议 HFSM 管理复杂子域）。
 - 输出：
   - 主状态表：`STATE x EVENT -> GUARD -> ACTION -> NEXT_STATE`
-  - 必要时拆分子状态机（如业务态、通信态、恢复态）
-  - 明确错误态与恢复流程（例如 `ERROR -> RECOVERING -> IDLE`）
-  - 明确禁止行为：不允许 ISR 直接改业务状态，不允许跨层“读改写共享全局”
+  - 可选子状态机（如通信态、业务态、恢复态）
+  - 错误态恢复流程（例如 `ERROR -> RECOVERING -> IDLE`）
+  - 禁止 ISR 直接改写业务状态；仅发事件
 
-### 3. 硬件抽象层（HAL）+ 组件化
-- 所有外设访问通过 `ops` 接口结构体，应用层只认识接口，不看 SDK 细节。
+#### 2.1 状态机代码骨架（至少给出）
+```c
+typedef enum { ST_BOOT, ST_IDLE, ST_ACTIVE, ST_ERROR, ST_RECOVERING } state_t;
+typedef enum { EV_INIT_DONE, EV_INPUT_READY, EV_TIMEOUT, EV_ERROR, EV_RECOVER_DONE } event_t;
+typedef struct { state_t state; } fsm_ctx_t;
+
+state_t fsm_handle(event_t e, fsm_ctx_t *ctx) {
+    switch (ctx->state) {
+        case ST_BOOT:
+            if (e == EV_INIT_DONE) return ST_IDLE;
+            break;
+        case ST_IDLE:
+            if (e == EV_INPUT_READY) return ST_ACTIVE;
+            break;
+        case ST_ACTIVE:
+            if (e == EV_ERROR) return ST_ERROR;
+            break;
+        case ST_ERROR:
+            if (e == EV_RECOVER_DONE) return ST_RECOVERING;
+            break;
+        case ST_RECOVERING:
+            if (e == EV_TIMEOUT) return ST_ERROR;
+            if (e == EV_INPUT_READY) return ST_ACTIVE;
+            break;
+    }
+    return ctx->state; // default: stay
+}
+```
+
+### 3. HAL + 组件化架构
+- 以 `ops` 接口与上下文隔离平台 SDK。
 - 最小形式：
   - `xxx_ops_t`：全部函数指针（init/open/start/stop/read/write/ioctl/deinit）
-  - `xxx_handle_t`：持有 context + ops + 后端状态
-  - `xxx_component_t`：可插拔实现（同一接口，支持不同芯片/驱动替换）
-- 输出：
-  - 至少 5 个关键 HAL 接口示例（如 adc、gpio、i2c、display、storage）
-  - 平台映射表（Interface -> 实现文件 -> 编译宏/链接策略）
-  - 芯片替换时不改 core 层的清单
+  - `xxx_handle_t`：持有 `ctx + ops + state + err_code`
+  - `xxx_component_t`：组件登记表（同一接口，不同平台实现可切换）
+- 产出：
+  - 关键接口示例（至少 5 个）：ADC、GPIO、I2C、Display、Storage
+  - 平台映射表（接口 -> 实现 -> 选型方式）
+  - 芯片替换不改 Core 的 checklist
 
-## 必须给出的交付结构（固定）
+#### 3.1 HAL 组件最小模板
+```c
+typedef struct {
+    int (*init)(void *ctx);
+    int (*start)(void *ctx);
+    int (*stop)(void *ctx);
+    int (*read)(void *ctx, void *dst, uint32_t len);
+    int (*write)(void *ctx, const void *src, uint32_t len);
+    int (*deinit)(void *ctx);
+} xxx_ops_t;
+
+typedef struct {
+    void *ctx;
+    const xxx_ops_t *ops;
+    int (*errno)(void *ctx);
+    int status;
+} xxx_handle_t;
+```
+
+## 关键交付模板（固定）
 
 ### A. 架构图（文本）
-- 数据流：`IRQ/DMA -> Input -> Core -> Output`
-- 控制流：`Event/Timer -> CoreFSM/HFSM -> Output commands`
+1. 数据流：`IRQ/DMA -> Input -> Core -> Output`
+2. 控制流：`Event/Timer -> CoreFSM/HFSM -> Output commands`
 
 ### B. 任务与队列
-- 每个 task 的优先级、栈、阻塞点
-- 每条队列的元素大小/深度/丢弃策略
+- 每个 task：名称、优先级、栈、阻塞点、周期触发点
+- 每条队列：元素大小、深度、满策略、阻塞/非阻塞策略
 
-### C. 模块表
+### C. 模块划分
 - Module | 职责 | 输入 | 输出 | 生命周期 | 依赖
 
 ### D. 状态机规范
-- 状态集、事件集、转移表、错误恢复表
+- 状态集 | 事件集 | 转移表 | 异常恢复表 | 默认兜底动作
 
-### E. HAL 与组件
-- 接口定义草案与平台实现映射
+### E. 接口契约（每模块必须给出）
+- 模块名 / 责任人
+- 输入数据结构与边界（payload、CRC、时间戳）
+- 输出产物与时间约束
+- 错误码与可恢复策略
+- 线程上下文（ISR/Task/Idle）
+- 阻塞/超时/重试策略
+- 所有权与销毁规则
 
-### F. 风险与验收
-- 高峰中断、队列风暴、内存碎片、栈超限、看门狗触发
-- 建议的观测点（计数器、丢包数、最大排队深度、状态切换计数）
+### F. HAL 与组件映射
+- 接口定义清单
+- 各平台实现文件映射
+- 替换测试策略（mock 或桩代码）
+
+### G. RTOS 资源预算（必须给出）
+- CPU 使用估算（空闲率、最高占用）
+- 栈预算（最小值/推荐值/预警值）
+- 队列容量与回压分析（满载 1s/5s）
+- 共享对象（malloc 频次、碎片风险）
+- 看门狗窗口与恢复窗口
+
+### H. 异常场景验证（必须给出）
+- 中断风暴：队列拥塞、丢数、平均延迟
+- 非法状态转移：异常恢复路径是否可收敛
+- 队列满：丢旧/丢新策略是否符合业务
+- 外设驱动错误码风暴：上报、退避、降级
+- 看门狗触发：重启后状态恢复完整性
+
+### I. 可复用组件化实施清单
+- 新增外设前先建 `ops` 接口
+- 再建平台适配组件
+- 最后接入 Core 注册表
+- 附加单元 mock + 压力测试用例
+
+### J. 风险与验收清单
+- 风险等级（高/中/低）
+- 风险触发指标与修复行动
+- 验收场景与通过条件（latency、jitter、drop、恢复时延）

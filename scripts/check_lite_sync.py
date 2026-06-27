@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
 Lite 版本同步检查脚本。
 
@@ -15,6 +15,8 @@ from __future__ import annotations
 import argparse
 import re
 import sys
+import subprocess
+import json
 from pathlib import Path
 
 import sync_lite
@@ -310,7 +312,7 @@ def expected_lite_text(src: Path) -> str:
     return text
 
 
-def fix_issues(issues: list[dict]) -> int:
+def fix_issues(issues: list[dict], verbose: bool = False) -> int:
     """Auto-fix fixable issues"""
     fixed = 0
     for issue in issues:
@@ -319,7 +321,8 @@ def fix_issues(issues: list[dict]) -> int:
             dst = LITE_DIR / issue["file"]
             dst.parent.mkdir(parents=True, exist_ok=True)
             dst.write_text(expected_lite_text(src), encoding="utf-8", newline="\n")
-            print(f"  ✓ Copied {issue['file']}")
+            if verbose:
+                print(f"  ✓ Copied {issue['file']}")
             fixed += 1
         elif issue["fix"] == "update_version":
             # Update lite version to match full
@@ -343,21 +346,57 @@ def fix_issues(issues: list[dict]) -> int:
                     flags=re.MULTILINE,
                 )
             lite_skill.write_text(text, encoding="utf-8", newline="\n")
-            print(f"  ✓ Updated lite version to {full_version}")
+            if verbose:
+                print(f"  ✓ Updated lite version to {full_version}")
             fixed += 1
     return fixed
 
 
+def run_architecture_sync_check() -> bool:
+    """Run architecture sync consistency check and return whether it passes."""
+    cmd = [
+        sys.executable,
+        str(ROOT / "scripts" / "check_architecture_sync.py"),
+        "--json",
+    ]
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            cwd=str(ROOT),
+        )
+    except OSError as e:
+        print(f"  架构一致性检查执行失败: {e}")
+        return False
+
+    if result.stderr:
+        print(result.stderr.rstrip(), file=sys.stderr)
+
+    if result.returncode != 0:
+        return False
+
+    try:
+        payload = json.loads(result.stdout or "{}")
+    except json.JSONDecodeError:
+        print("  架构一致性检查输出无法解析为 JSON", file=sys.stderr)
+        return False
+
+    return bool(payload.get("pass", False))
+
+
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Lite 版本同步检查")
-    parser.add_argument("--fix", action="store_true", help="自动修复可修复的问题")
+    parser = argparse.ArgumentParser(description="Lite version sync checker")
+    parser.add_argument("--fix", action="store_true", help="Auto-fix sync issues")
     args = parser.parse_args()
 
     if not LITE_DIR.exists():
-        print(f"[check_lite_sync] Lite 目录不存在: {LITE_DIR}")
+        print(f"[check_lite_sync] Lite directory not found: {LITE_DIR}")
         return 1
 
-    print("[check_lite_sync] 检查 Lite 版本同步状态...\n")
+    print("[check_lite_sync] Start Lite synchronization check")
 
     all_issues = []
     all_issues.extend(check_prompts())
@@ -371,41 +410,39 @@ def main() -> int:
     all_issues.extend(check_agent_content_sync())
     all_issues.extend(check_lite_runtime_docs())
 
+    auto_fixable = sum(1 for item in all_issues if item["fix"] in {"copy", "update_version"})
+    manual_only = len(all_issues) - auto_fixable
+
     if not all_issues:
-        print("✅ Lite 版本与完整版完全同步")
+        if args.fix:
+            print("=== 无自动修复项 ===")
+            arch_ok = run_architecture_sync_check()
+            print(f"[SUMMARY] lite_sync=PASS")
+            print(f"[SUMMARY] architecture_check={('PASS' if arch_ok else 'FAIL')}")
+            print(f"[SUMMARY] final={('PASS' if arch_ok else 'FAIL')}")
+            return 0 if arch_ok else 1
+
+        print("Lite 同步检查通过")
         return 0
 
-    # Group by type
-    by_type: dict[str, list[dict]] = {}
-    for issue in all_issues:
-        t = issue["type"]
-        if t not in by_type:
-            by_type[t] = []
-        by_type[t].append(issue)
-
-    print(f"发现 {len(all_issues)} 个同步问题:\n")
-
-    for issue_type, issues in by_type.items():
-        print(f"=== {issue_type} ({len(issues)} 处) ===")
-        for issue in issues:
-            if "file" in issue:
-                print(f"  - {issue['file']}")
-            if "detail" in issue:
-                print(f"  - {issue['detail']}")
-        print()
+    print(f"[SUMMARY] lite_sync={len(all_issues)} issues (auto={auto_fixable}, manual={manual_only})")
 
     if args.fix:
-        print("=== 自动修复 ===")
         fixed = fix_issues(all_issues)
-        print(f"\n已修复 {fixed}/{len(all_issues)} 个问题")
         remaining = len(all_issues) - fixed
-        if remaining > 0:
-            print(f"剩余 {remaining} 个问题需手动处理")
-    else:
-        print("提示: 使用 --fix 自动修复可修复的问题")
+        print(f"[SUMMARY] lite_sync_auto_fix={fixed}/{len(all_issues)}")
+        print(f"[SUMMARY] manual_pending={remaining}")
 
+        arch_ok = run_architecture_sync_check()
+        print(f"[SUMMARY] architecture_check={('PASS' if arch_ok else 'FAIL')}")
+
+        final_ok = (remaining == 0 and arch_ok)
+        print(f"[SUMMARY] final={('PASS' if final_ok else 'FAIL')}")
+        return 0 if final_ok else 1
+
+    print(f"[SUMMARY] final=FAIL (run with --fix to auto-fix auto items)")
     return 1
-
 
 if __name__ == "__main__":
     sys.exit(main())
+
