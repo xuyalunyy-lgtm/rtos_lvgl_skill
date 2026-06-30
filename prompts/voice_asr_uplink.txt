@@ -165,6 +165,33 @@ bool session_is_current_generation(voice_session_t *s, uint32_t gen)
 
 ---
 
+## 现场联调经验：半双工音频 + 云端 TTS
+
+当 MIC 与 SPK 共享同一个 voice/audio handle，或底层 SDK 实际是半双工 backend 时，先把链路建模为 `CAPTURE` / `SPEAKER` / `IDLE` 三态，而不是把 mic 与 speaker 当作完全独立外设。
+
+- `stop_playback` 必须 mode-aware：speaker 未运行时应 no-op，禁止因为云端 `CALL_AGENT_INTERRUPTED`、本地 cancel 或旧回调误停正在录音的 shared handle。
+- AI 键打断 TTS 时，先发云端 `CLIENT_INTERRUPT`，再切本地 TTS generation；capture pending/running 期间丢弃旧 generation 的 TTS 队列片段和刚到达的下行 TTS 帧，避免旧 TTS 重新启动 speaker 并抢掉 MIC。
+- 正在播放的 PCM 写循环要在小块写入前检查 generation/capture 状态，发现被打断立即退出；不要等整段 TTS 播放结束。
+- 录音首包延迟要纳入日志判断：warmup drop + upload frame window 可能带来数百毫秒延迟。不要因为按键后几十毫秒内没看到 uplink，就误判为“录音没有上传”。
+- 长 TTS 若下发快于播放，speaker ring buffer 会逐渐满；`speaker write backpressure` 应作为流控/延迟指标观察，必要时 drop-tail 或限速，不能把所有等待都当成 crash 根因。
+
+推荐打断验证顺序：
+
+```
+AI key
+  -> CLIENT_INTERRUPT sent/ok
+  -> local TTS generation++
+  -> speaker idle/stop only if SPEAKER mode
+  -> stale/incoming TTS dropped while capture pending/running
+  -> MIC capture running
+  -> audio uplink frame index continues
+  -> CLIENT_AUDIO_FINISH
+```
+
+若打断后未上传，优先查：capture 状态是否被 speaker stop 改回 idle、旧 TTS 是否重新启动播放、首包延迟窗口是否尚未到、WSS send task 是否被大 JSON/TTS recv 阻塞。
+
+---
+
 ## L2 审查要点
 
 | 模块 glob | 查什么 |

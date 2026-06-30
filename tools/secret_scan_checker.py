@@ -3,7 +3,7 @@
 仓库密钥/凭证静态扫描（启发式）。
 
 检查：
-  - Kconfig/config 中非空 SECRET/PASSWORD/TOKEN/API_KEY
+  - Kconfig/config 中非空 SECRET/PASSWORD/TOKEN/API_KEY/LICENSE/ACCESS_KEY/LCS_KEY/LCS_IV
   - Git remote URL 内嵌用户名/密码
   - 疑似高熵硬编码密钥
 
@@ -26,7 +26,7 @@ from checker_io import configure_stdout
 
 # Kconfig / sdkconfig 敏感键名
 SENSITIVE_KEY = re.compile(
-    r"^CONFIG_[A-Z0-9_]*(SECRET|PASSWORD|TOKEN|API_KEY|PRIVATE_KEY)[A-Z0-9_]*\s*=",
+    r"^CONFIG_[A-Z0-9_]*(SECRET|PASSWORD|TOKEN|API_KEY|PRIVATE_KEY|ACCESS_KEY|LICENSE|LCS_KEY|LCS_IV)[A-Z0-9_]*\s*=",
     re.MULTILINE,
 )
 

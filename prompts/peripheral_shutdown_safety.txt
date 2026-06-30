@@ -170,6 +170,18 @@ void printer_stop_print_head(void)
 }
 ```
 
+### 音频/媒体 pipeline 补充：区分 idle 与 deinit
+
+音频播放、录音、codec、I2S、DMA ring、media pipeline 这类外设，`stop` 不一定等于 `deinit/free`。若业务会频繁打断 TTS、重新开麦或切换半双工方向，优先设计轻量 `idle` 状态：
+
+- `stop_playback()` 只让播放路径进入 idle，保留已初始化的 driver/ring buffer/handle，避免频繁 malloc/free 造成碎片或触发 SDK 清理竞态。
+- `deinit/free()` 只在会话彻底结束、低功耗、模式切换或错误恢复时调用，并且要确认 DMA、播放任务、回调队列都已 idle。
+- shared handle 平台必须 mode-aware：当前不是 SPEAKER 模式时，speaker stop 不能释放 capture 需要的底层 voice handle。
+- abort/interrupt 路径只标记 generation/cancel，并让工作线程在安全点退出；不要在其他线程强拆正在写 PCM 或正在读 MIC 的 driver。
+- 如果必须释放，先等待 writer/reader 任务退出，再释放 ring buffer 和 driver；日志要能区分 `idle begin/done` 与 `deinit begin/done`。
+
+现场判断：如果“停 speaker driver 后 MIC 不工作”，优先怀疑 shared backend 被错误释放；如果“频繁打断后卡死或堆越来越碎”，优先把播放 stop 改为 idle + 复用资源，再追真实泄漏。
+
 ---
 
 ## C24.5 — 电机停止后必须关闭加热/VH/电源门控（P0）

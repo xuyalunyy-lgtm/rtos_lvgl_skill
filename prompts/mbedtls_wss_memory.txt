@@ -86,6 +86,26 @@ Component config → mbedTLS:
 
 ---
 
+## 多堆内存与延迟崩溃
+
+带 PSRAM/SRAM/audio heap 的平台，WSS 与语音链路经常跨多个 allocator。分配和释放必须成对，不允许只看指针类型：
+
+- `psram_malloc` / `psram_zalloc` 只能用平台对应的 `psram_free`。
+- `os_malloc` / `malloc` 只能用同族 `os_free` / `free`。
+- fallback allocation 必须携带 `in_psram`、`heap_kind` 或封装 helper，释放时按来源分派。
+- URL、JSON response、TTS PCM、WebSocket frame buffer 这类跨任务传递对象，要把 ownership 和 heap kind 放进结构体，不要靠调用者记忆。
+
+错堆释放常常不是当场崩，而是延迟表现为 FreeRTOS IDLE 清理已删除任务时 MemFault，例如 PC 落在 `prvCheckTasksWaitingTermination` 附近，fault address 为 0 或非法链表指针。此时不要只盯着 IDLE task：
+
+1. 用 map/addr2line 同时解析 PC、LR、call stack。
+2. 回看最近 task delete / idle cleanup 日志，确认哪个任务刚被释放。
+3. 扫描该任务生命周期内的跨堆对象释放路径，尤其是 “PSRAM 分配、通用 os_free 释放” 和反向组合。
+4. 先修 matched free，再判断是否还存在真实的栈溢出或 UAF。
+
+Reset reason 也要区分：带 MemFault/HardFault dump 的 reset 属于软件崩溃线索；仅 `power on` / brownout / manual reset 且无 fault dump 时，不应直接归因到同一处内存 bug。
+
+---
+
 ## 非阻塞与重连
 
 ```c
