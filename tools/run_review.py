@@ -11,7 +11,9 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -138,12 +140,27 @@ def run_validate_examples() -> int:
     return run_case_group("run_review.py — examples/ 铁律约束验证", VALIDATE_EXAMPLE_CASES, SKILL_ROOT)
 
 
-def list_checkers() -> int:
-    print("默认 checker 管线:")
-    for spec in DEFAULT_CHECKERS:
-        domains = ",".join(spec.domains)
-        print(f"  --skip-{spec.skip_arg:<14} {spec.name:<28} {spec.mode:<8} {domains}")
-    print("\n特殊项: --skip-stack 跳过 stack_calculator；--scan-secrets / --git-remotes 单独启用 C9 扫描")
+def list_checkers(as_json: bool = False) -> int:
+    if as_json:
+        import json
+        data = []
+        for spec in DEFAULT_CHECKERS:
+            data.append({
+                "name": spec.name,
+                "script": spec.script,
+                "skip_arg": spec.skip_arg,
+                "mode": spec.mode,
+                "domains": list(spec.domains),
+                "suites": list(spec.suites),
+            })
+        json.dump(data, sys.stdout, ensure_ascii=False, indent=2)
+        print()
+    else:
+        print("默认 checker 管线:")
+        for spec in DEFAULT_CHECKERS:
+            domains = ",".join(spec.domains)
+            print(f"  --skip-{spec.skip_arg:<14} {spec.name:<28} {spec.mode:<8} {domains}")
+        print("\n特殊项: --skip-stack 跳过 stack_calculator；--scan-secrets / --git-remotes 单独启用 C9 扫描")
     return 0
 
 
@@ -153,25 +170,88 @@ def checker_argv(spec: CheckerSpec, c_files: list[Path]) -> list[str]:
     return argv
 
 
-def run_registered_checkers(args: argparse.Namespace, c_files: list[Path]) -> int:
+def _run_and_capture(label: str, argv: list[str], quiet: bool = False) -> tuple[int, str]:
+    """Run a subprocess, optionally print output, return (exit_code, stdout+stderr)."""
+    if not quiet:
+        print(f"\n{'=' * 60}\n[{label}]\n{'=' * 60}", flush=True)
+        print(" ", " ".join(str(a) for a in argv), flush=True)
+    proc = subprocess.run(
+        argv, cwd=SKILL_ROOT, env=checker_env(),
+        capture_output=True, text=True, encoding="utf-8", errors="replace",
+    )
+    combined = proc.stdout + proc.stderr
+    if combined and not quiet:
+        print(combined, end="", flush=True)
+    return proc.returncode, combined
+
+
+_ISSUE_COUNT_RE = re.compile(r'发现\s*(\d+)\s*个')
+_WARN_COUNT_RE = re.compile(r'(\d+)\s+warnings?', re.IGNORECASE)
+
+
+def _parse_issue_count(output: str) -> int:
+    """Extract violation count from checker stdout."""
+    m = _ISSUE_COUNT_RE.search(output)
+    if m:
+        return int(m.group(1))
+    m = _WARN_COUNT_RE.search(output)
+    if m:
+        return int(m.group(1))
+    return 0
+
+
+def run_registered_checkers(args: argparse.Namespace, c_files: list[Path]) -> int | tuple[int, list[dict]]:
+    """Run all registered checkers.  Returns exit_code, or (exit_code, results) in JSON mode."""
+    json_mode = getattr(args, "json", False)
     exit_code = 0
+    results: list[dict] = []
+
     for spec in DEFAULT_CHECKERS:
         if getattr(args, spec.skip_attr):
             continue
         if not c_files:
-            print(f"\n[skip] {spec.name}: 无 .c 文件")
+            if not json_mode:
+                print(f"\n[skip] {spec.name}: 无 .c 文件")
+            if json_mode:
+                results.append({
+                    "checker": spec.name, "script": spec.script,
+                    "domains": spec.domains, "mode": spec.mode,
+                    "files_checked": 0, "issues": 0, "exit_code": 0, "skipped": True,
+                })
             continue
 
         if spec.mode == "per-file":
+            checker_exit = 0
+            total_issues = 0
             for f in c_files:
-                rc = run_cmd(spec.name, [sys.executable, str(TOOLS_DIR / spec.script), str(f)])
-                exit_code = max(exit_code, rc)
+                rc, out = _run_and_capture(spec.name, [sys.executable, str(TOOLS_DIR / spec.script), str(f)], quiet=json_mode)
+                checker_exit = max(checker_exit, rc)
+                total_issues += _parse_issue_count(out)
+            exit_code = max(exit_code, checker_exit)
+            if json_mode:
+                results.append({
+                    "checker": spec.name, "script": spec.script,
+                    "domains": spec.domains, "mode": spec.mode,
+                    "files_checked": len(c_files), "issues": total_issues,
+                    "exit_code": checker_exit,
+                })
         elif spec.mode == "batch":
-            rc = run_cmd(spec.name, checker_argv(spec, c_files))
+            rc, out = _run_and_capture(spec.name, checker_argv(spec, c_files), quiet=json_mode)
             exit_code = max(exit_code, rc)
+            if json_mode:
+                results.append({
+                    "checker": spec.name, "script": spec.script,
+                    "domains": spec.domains, "mode": spec.mode,
+                    "files_checked": len(c_files), "issues": _parse_issue_count(out),
+                    "exit_code": rc,
+                })
         else:
-            print(f"[warn] 未知 checker mode: {spec.name} mode={spec.mode}")
+            if not json_mode:
+                print(f"[warn] 未知 checker mode: {spec.name} mode={spec.mode}")
             exit_code = max(exit_code, 1)
+
+    if json_mode:
+        return exit_code, results
     return exit_code
 
 
@@ -234,7 +314,7 @@ def main() -> int:
     args = parser.parse_args()
 
     if args.list_checkers:
-        return list_checkers()
+        return list_checkers(as_json=args.json)
 
     if args.self_test:
         return run_self_test()
@@ -252,7 +332,10 @@ def main() -> int:
             if args.dir:
                 secret_argv.extend(["--dir", args.dir])
             secret_argv.extend(args.files)
-        rc = run_cmd("secret_scan_checker", secret_argv)
+        if args.json:
+            rc, _ = _run_and_capture("secret_scan_checker", secret_argv, quiet=True)
+        else:
+            rc = run_cmd("secret_scan_checker", secret_argv)
         exit_code = max(exit_code, rc)
         if args.git_remotes and not args.scan_secrets and not args.dir and not args.files:
             print(f"\n{'=' * 60}")
@@ -270,34 +353,61 @@ def main() -> int:
         if root.is_dir():
             skipped_bad = sum(1 for f in root.rglob("*.c") if is_bad_example(f.resolve()))
 
-    if skipped_bad:
+    if skipped_bad and not args.json:
         print(f"[info] 已排除 {skipped_bad} 个 bad_*.c 反例（加 --include-bad 可纳入）")
 
     if not args.skip_stack:
-        rc = run_cmd(
-            "stack_calculator",
-            [
-                sys.executable,
-                str(TOOLS_DIR / "stack_calculator.py"),
-                "--describe",
-                args.describe,
-                "--platform",
-                args.platform,
-            ],
-        )
+        stack_argv = [
+            sys.executable,
+            str(TOOLS_DIR / "stack_calculator.py"),
+            "--describe",
+            args.describe,
+            "--platform",
+            args.platform,
+        ]
+        if args.json:
+            rc, _ = _run_and_capture("stack_calculator", stack_argv, quiet=True)
+        else:
+            rc = run_cmd("stack_calculator", stack_argv)
         exit_code = max(exit_code, rc)
 
-    exit_code = max(exit_code, run_registered_checkers(args, c_files))
+    checker_result = run_registered_checkers(args, c_files)
+    if args.json:
+        checker_exit, checker_results = checker_result
+    else:
+        checker_exit = checker_result
+    exit_code = max(exit_code, checker_exit if not args.json else checker_exit)
 
     if not c_files and args.dir:
         print("\n[warn] 排除 bad_*.c 后无可审查文件")
 
-    print(f"\n{'=' * 60}")
-    if exit_code == 0:
-        print("Summary: 全部 checker 通过（启发式，仍需人工 review）")
+    if args.json:
+        # 从 checker_registry 获取 suite 信息
+        from checker_registry import ALL_CHECKERS as _ALL
+        checker_map = {c.name: c for c in _ALL}
+        for r in checker_results:
+            spec = checker_map.get(r["checker"])
+            if spec:
+                r["suites"] = list(spec.suites)
+
+        report = {
+            "version": "8.0.4",
+            "exit_code": exit_code,
+            "files_checked": len(c_files),
+            "suites": ["default"],
+            "checkers": checker_results,
+            "total_issues": sum(r.get("issues", 0) for r in checker_results),
+            "total_checkers_run": sum(1 for r in checker_results if not r.get("skipped")),
+        }
+        json.dump(report, sys.stdout, ensure_ascii=False, indent=2)
+        print()
     else:
-        print(f"Summary: 存在告警/失败 (exit={exit_code})，请人工核对")
-    print(f"{'=' * 60}\n")
+        print(f"\n{'=' * 60}")
+        if exit_code == 0:
+            print("Summary: 全部 checker 通过（启发式，仍需人工 review）")
+        else:
+            print(f"Summary: 存在告警/失败 (exit={exit_code})，请人工核对")
+        print(f"{'=' * 60}\n")
     return exit_code
 
 
