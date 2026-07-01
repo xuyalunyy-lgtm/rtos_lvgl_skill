@@ -322,6 +322,21 @@ Presenter Looper（等待 Queue）
 - [ ] C11 编码规范：函数 ≤80 行、命名规范、文件头注释
 - [ ] C14 日志：无裸 printf、ISR 无日志、密码已脱敏、量产 profile 不刷屏
 - [ ] C13 状态机：非法状态有 log + reset
+- [ ] C29 模块契约：context/blocking/ownership/lifecycle/error 已声明
+- [ ] C30 任务/队列拓扑表：priority/stack/depth/backpressure/exit 已记录
+- [ ] C31 超时预算：无裸 portMAX_DELAY/WAIT_FOREVER，例外已注释
+- [ ] C32 可观测性：state/error/counter/watermark/max time 可采集
+- [ ] C33 生命周期：init/start/stop/deinit 与 alloc/free 对称
+- [ ] C34 热路径：ISR/DMA/flush/frame/control loop 无阻塞、分配、重日志
+- [ ] C35 关键路径预算：boot/net/audio/video/UI/OTA/sleep-wake 有 stage budget
+- [ ] C36 数据拷贝预算：copy count、owner/release、DMA cache 策略已声明
+- [ ] C37 背压降级：满队列/满池/网络差时有 drop/coalesce/backpressure/degrade
+- [ ] C38 故障恢复：故障域、retry/backoff、supervisor、降级/安全停机已定义
+- [ ] C39 配置矩阵：feature/board/SDK 差异、依赖、资源、test mode 已记录
+- [ ] C40 一键复现：build/flash/monitor/log/decode/test 命令可复制
+- [ ] C41 回归样本：新增约束或 bugfix 有 good/bad 样本或最小复现
+- [ ] C42 板级资源：GPIO/DMA/clock/IRQ/cache/heap/PSRAM owner 和冲突检查明确
+- [ ] C43 锁预算：等锁 timeout、持锁预算、lock_order 与优先级继承明确
 - [ ] Stack watermark 全任务 > 20% 剩余
 - [ ] 堆最低水位 > 20% 总量
 - [ ] Flash/RAM 占比记录

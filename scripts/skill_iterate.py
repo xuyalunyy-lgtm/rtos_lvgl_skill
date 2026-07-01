@@ -109,11 +109,11 @@ def main() -> int:
     print("=" * 60)
 
     if not args.skip_self_test:
-        print("\n[1/9] tools/run_review.py --self-test")
+        print("\n[1/11] tools/run_review.py --self-test")
         rc = run([sys.executable, str(ROOT / "tools" / "run_review.py"), "--self-test"], ROOT)
         if rc != 0:
             errors.append("run_review --self-test 失败")
-    print("\n[2/9] tools/run_review.py --validate-examples")
+    print("\n[2/11] tools/run_review.py --validate-examples")
     rc = run(
         [sys.executable, str(ROOT / "tools" / "run_review.py"), "--validate-examples"],
         ROOT,
@@ -121,15 +121,15 @@ def main() -> int:
     if rc != 0:
         errors.append("run_review --validate-examples 失败（铁律范例约束）")
 
-    print("\n[3/9] checker registry")
+    print("\n[3/11] checker registry")
     errors.extend(check_checker_registry())
 
-    print("\n[4/9] runtime distribution boundary")
+    print("\n[4/11] runtime distribution boundary")
     rc = run([sys.executable, str(ROOT / "scripts" / "check_runtime_distribution.py")], ROOT)
     if rc != 0:
         errors.append("check_runtime_distribution.py failed")
 
-    print("\n[5/9] skill metadata contract")
+    print("\n[5/11] skill metadata contract")
     rc = run([sys.executable, str(ROOT / "scripts" / "check_skill_metadata.py")], ROOT)
     if rc != 0:
         errors.append("check_skill_metadata.py failed")
@@ -137,7 +137,7 @@ def main() -> int:
     if rc != 0:
         errors.append("check_skill_metadata.py --self-test failed")
 
-    print("\n[6/9] SKILL.md version")
+    print("\n[6/11] SKILL.md version")
     full_ver = read_version(SKILL)
     lite_ver = read_version(LITE_SKILL)
     if not full_ver:
@@ -151,7 +151,7 @@ def main() -> int:
     else:
         errors.append("freertos-skill-lite/SKILL.md 缺失或无 version")
 
-    print("\n[7/9] CHANGELOG / iteration_log")
+    print("\n[7/11] CHANGELOG / iteration_log")
     if not CHANGELOG.is_file():
         errors.append("缺少 CHANGELOG.md")
     elif full_ver and full_ver not in CHANGELOG.read_text(encoding="utf-8")[:800]:
@@ -163,12 +163,22 @@ def main() -> int:
     else:
         print("  iteration_log.md OK")
 
-    print("\n[8/9] sync_lite --dry-run")
+    print("\n[8/11] release / commit audit self-test")
+    rc = run([sys.executable, str(ROOT / "scripts" / "commit_audit.py"), "--self-test"], ROOT)
+    if rc != 0:
+        errors.append("commit_audit.py --self-test failed")
+
+    print("\n[9/11] release / commit audit")
+    rc = run([sys.executable, str(ROOT / "scripts" / "commit_audit.py"), "--max-log", "8", "--strict-release"], ROOT)
+    if rc != 0:
+        errors.append("commit_audit.py --strict-release failed")
+
+    print("\n[10/11] sync_lite --dry-run")
     rc = run([sys.executable, str(ROOT / "scripts" / "sync_lite.py"), "--dry-run"], ROOT)
     if rc != 0:
         errors.append("sync_lite.py --dry-run 失败")
 
-    print("\n[9/9] 可选 sync_lite")
+    print("\n[11/11] 可选 sync_lite")
     if args.sync and not errors:
         rc = run([sys.executable, str(ROOT / "scripts" / "sync_lite.py")], ROOT)
         if rc != 0:

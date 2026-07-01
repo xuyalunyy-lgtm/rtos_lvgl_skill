@@ -1,19 +1,24 @@
 ---
 name: freertos-embedded-architect
 metadata:
-  version: 4.13.6
+  version: 4.15.0
 description: >-
   FreeRTOS embedded architecture specialist for MVP firmware, board bring-up,
-  runtime reliability, memory safety, LVGL/DMA/ISR safety, SDK trimming, crash
-  debugging, and Zephyr-style RTOS project skeletons. Use when the user asks
-  for FreeRTOS, embedded C, GPIO, LCD/OLED, frame buffer, camera, audio/video,
-  A/V sync, codec/sample-rate, zero-copy, DMA cache, frame pool, logging, WDT,
-  OTA, HardFault, stack overflow, Guru Meditation, code review, or git commit help.
+  runtime reliability, memory safety, module contracts, task topology, timeout
+  budgets, observability, lifecycle symmetry, critical path budgets, copy budgets,
+  backpressure, recovery, config matrices, reproducible bring-up, regression samples,
+  board resource contracts, lock budgets, priority inversion prevention, LVGL/DMA/ISR safety, SDK trimming,
+  crash debugging, release governance, and Zephyr-style RTOS project skeletons. Use when the user
+  asks for FreeRTOS, embedded C, GPIO, LCD/OLED, camera, audio/video, A/V sync,
+  zero-copy, DMA cache, logging, WDT, HardFault, code review, or git commit audit help.
 mentions: >
   assertion, HardFault, stack overflow, Guru Meditation, code review,
   SDK trimming, driver bring-up, debugging, FreeRTOS, GPIO, LCD/OLED,
   frame buffer, camera, video, A/V sync, lip-sync, PTS, jitter, codec,
-  sample rate, logging, observability, zero-copy, DMA cache, frame pool, git commit.
+  sample rate, module contract, task topology, timeout budget, observability,
+  lifecycle, hot path, critical path, copy budget, backpressure, recovery,
+  config matrix, reproduce, regression sample, board resource, lock budget, priority inversion, zero-copy,
+  DMA cache, frame pool, git commit, release audit.
 ---
 
 # FreeRTOS Embedded Architect
@@ -45,6 +50,7 @@ docs, and scene prompts.
 - Platforms: [esp32](platforms/esp32.md), [stm32](platforms/stm32.md), [jl](platforms/jl.md), [bk](platforms/bk.md)
 - Core rules: [core_rules](references/core_rules.md), [constraint_index](references/constraint_index.md), [constraint_detail](references/constraint_detail.md)
 - Skill structure: [skill_structure](references/skill_structure.md)
+- Release governance: [release_governance](references/release_governance.md)
 - Assistant guidance: [claude_code](references/claude_code.md), [cursor rule](templates/cursor-rule.embedded.mdc)
 
 ## Prompt Index
@@ -60,6 +66,7 @@ Load only prompts needed by the selected workflow or suspected constraint:
 - Boot/config/security: [boot_wdt_lifecycle](prompts/boot_wdt_lifecycle.txt), [secrets_kconfig](prompts/secrets_kconfig.txt), [flash_nvs_safety](prompts/flash_nvs_safety.txt)
 - Runtime patterns: [state_machine_patterns](prompts/state_machine_patterns.txt), [timer_management](prompts/timer_management.txt), [multi_core_ipc](prompts/multi_core_ipc.txt)
 - Robustness: [memory_alloc_optimize](prompts/memory_alloc_optimize.txt), [network_resilience](prompts/network_resilience.txt), [low_power_management](prompts/low_power_management.txt), [peripheral_driver_safety](prompts/peripheral_driver_safety.txt)
+- Efficiency contracts: [runtime_efficiency_contracts](prompts/runtime_efficiency_contracts.txt)
 - Zephyr-style RTOS: [device_tree_contract](prompts/rtos_device_tree_contract.txt), [kconfig_contract](prompts/rtos_kconfig_contract.txt), [thread_bootstrap](prompts/rtos_thread_bootstrap.txt), [rtos_bootstrap_zephyr](prompts/rtos_bootstrap_zephyr.txt)
 
 ## Rules
@@ -69,7 +76,7 @@ Load only prompts needed by the selected workflow or suspected constraint:
 - L3 implementation tasks execute end-to-end by default unless the user narrows scope.
 - Do not perform unplanned core SDK refactors; preserve critical logs and watchdog behavior.
 - Read prompts/references before suggesting platform bindings.
-- For commit requests, follow [git_commit_style](references/git_commit_style.md) and use `type(scope):`.
+- For commit requests, follow [git_commit_style](references/git_commit_style.md), run release audit, and use `type(scope):`.
 
 ## RTOS Project Gate
 
@@ -87,9 +94,5 @@ buildable code:
 9. Milestones and delivery mode.
 
 If any item is missing, return only a missing-item checklist and next questions.
-
-After all nine are provided, produce: project skeleton, device tree/resource
-contract, unified device model, Kconfig family, thread lifecycle, docs, and
-reproducible commands.
-
+After all nine are provided, produce skeleton, resource contract, device model, Kconfig family, thread lifecycle, docs, and reproducible commands.
 Iteration log: [iteration_log](references/iteration_log.md) / [CHANGELOG](CHANGELOG.md)

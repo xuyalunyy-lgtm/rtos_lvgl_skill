@@ -119,7 +119,7 @@ Code Review 或 L3 校验时逐条核对。违规项引用 `C#.#`（完整矩阵
 - [ ] C24.3 abort/timeout/skip 路径释放所有硬件资源
 - [ ] C24.4 stop/deinit 前等待 DMA/任务 idle
 - [ ] C24.4 音频/媒体 stop 只进 idle，deinit/free 只在会话结束、低功耗或错误恢复执行
-- [ ] C24.5 电机/加热/VH/电源门控完整关闭
+- [ ] C24.5 执行器停止后关闭加热/电源门控/外设使能
 
 ## C25 — 音视频管线 / A/V Sync
 
@@ -156,6 +156,126 @@ Code Review 或 L3 校验时逐条核对。违规项引用 `C#.#`（完整矩阵
 - [ ] C28.4 Queue 传 buffer index/handle/descriptor，不传裸 DMA 指针
 - [ ] C28.5 cache clean/invalidate 地址和长度按 cache line 对齐并覆盖完整 frame/stride
 - [ ] C28.6 有 cache clean/invalidate、stale、reuse_before_release、buffer overrun/underrun 遥测
+
+## C29 — 模块契约
+
+- [ ] C29.1 模块 API 声明 task/ISR/timer/LVGL 可调用上下文
+- [ ] C29.2 模块 API 声明阻塞语义、最大等待时间和可重入性
+- [ ] C29.3 入参/出参/Queue/callback payload 所有权明确
+- [ ] C29.4 init/start/stop/deinit 合法顺序明确
+- [ ] C29.5 错误码语义与可恢复/不可恢复分类明确
+
+## C30 — 任务/队列拓扑表
+
+- [ ] C30.1 多任务模块有 task/priority/stack/queue 拓扑表
+- [ ] C30.2 每条 Queue 声明元素类型、生产者、消费者和所有权
+- [ ] C30.3 每条 Queue 声明深度、timeout 和满队列背压策略
+- [ ] C30.4 每个 task 有退出条件，不依赖 reboot 退出
+- [ ] C30.5 有 queue high-water/drop/timeout/overflow 观测点
+
+## C31 — 超时预算
+
+- [ ] C31.1 阻塞等待默认有限 timeout，无裸 `portMAX_DELAY` / `WAIT_FOREVER`
+- [ ] C31.2 网络/TLS/DNS/file IO 有 deadline 与失败恢复
+- [ ] C31.3 mutex/semaphore 等待声明持锁路径和超时处理
+- [ ] C31.4 永久等待仅限 dedicated idle/daemon consumer，且有例外注释
+- [ ] C31.5 timeout/drop/retry 有低频遥测计数
+
+## C32 — 可观测性优先
+
+- [ ] C32.1 关键模块暴露 state、last_error、last_error_line
+- [ ] C32.2 关键链路计数 timeout/drop/retry/overflow/underrun
+- [ ] C32.3 可采集 stack high-water、queue high-water、heap free/min/largest
+- [ ] C32.4 init/connect/decode/render/flush 等阶段保留 max time
+- [ ] C32.5 现场 dump 可还原最近关键事件，且脱敏、限频、可关闭
+
+## C33 — 生命周期对称
+
+- [ ] C33.1 init/open/start/enable 有 stop/disable/close/deinit
+- [ ] C33.2 alloc/create/register/attach 有 free/delete/unregister/detach
+- [ ] C33.3 多资源函数统一 cleanup，异常路径复用收尾 helper
+- [ ] C33.4 stop/deinit 可重入，能处理半初始化状态
+- [ ] C33.5 lifecycle 状态与 release 结果低频可观测
+
+## C34 — 热路径禁区
+
+- [ ] C34.1 ISR/DMA/LVGL flush/audio/video/control hot path 无阻塞等待
+- [ ] C34.2 hot path 无 malloc/free/printf/重日志/file IO
+- [ ] C34.3 hot path 无 cJSON parse、codec create、TLS handshake
+- [ ] C34.4 hot path 只做 notify/enqueue/set flag/increment counter
+- [ ] C34.5 hot path 有预算、峰值耗时和丢弃计数
+
+## C35 — 关键路径预算表
+
+- [ ] C35.1 启动/联网/音频/视频/UI/OTA/低功耗唤醒有 stage budget
+- [ ] C35.2 每个关键阶段有 owner、timeout、fallback 和 metric
+- [ ] C35.3 长 IO 已评估并行化、异步化或延迟加载
+- [ ] C35.4 max time、timeout/drop/retry counter 可采集
+- [ ] C35.5 预算表随需求、配置、板级差异同步更新
+
+## C36 — 数据拷贝预算
+
+- [ ] C36.1 跨 task/跨核/DMA/网络/音视频 frame 有数据移动策略
+- [ ] C36.2 大 payload 优先传 descriptor/index/handle
+- [ ] C36.3 copy count、buffer owner 和 release 方明确
+- [ ] C36.4 DMA/cache 路径声明 clean/invalidate、对齐和 ownership transfer
+- [ ] C36.5 buffer pool 满时有 drop/backpressure/retry 策略和计数
+
+## C37 — 背压与降级策略
+
+- [ ] C37.1 高频 producer、网络、音视频、日志、UI 队列有背压策略
+- [ ] C37.2 满队列不无限等待，已选择 drop/coalesce/overwrite/backpressure
+- [ ] C37.3 降采样、降帧率、降码率、暂停非关键任务有触发条件
+- [ ] C37.4 retry bounded，并有 backoff 或 circuit breaker
+- [ ] C37.5 背压、降级、恢复有低频 telemetry
+
+## C38 — 故障隔离与自动恢复
+
+- [ ] C38.1 task/driver/protocol/cloud/UI 故障域明确
+- [ ] C38.2 recoverable/fatal 错误分类与恢复动作明确
+- [ ] C38.3 retry/backoff/max retry/circuit open time 有上限
+- [ ] C38.4 supervisor/watchdog/health counter 能发现卡死或半死
+- [ ] C38.5 恢复失败进入降级模式或安全停机
+
+## C39 — 配置矩阵约束
+
+- [ ] C39.1 Kconfig/feature flag/board/SDK 差异进入配置矩阵
+- [ ] C39.2 每个 feature 有 dependency、resource、default、test mode
+- [ ] C39.3 `#ifdef` 归类 platform/board/feature/debug，无无名散落宏
+- [ ] C39.4 配置变化同步 bring-up checklist、profile 和回归样本
+- [ ] C39.5 无效配置组合在 build 或初始化阶段 fail fast
+
+## C40 — 一键复现闭环
+
+- [ ] C40.1 新模块、bring-up、复杂 bug 有 build/flash/monitor 命令
+- [ ] C40.2 crash/core dump 解码有 symbol path、工具和输入日志
+- [ ] C40.3 最小配置、测试入口、预期输出可复制执行
+- [ ] C40.4 失败日志保存位置、脱敏规则和保留时间明确
+- [ ] C40.5 复现命令随平台脚本或 SDK 版本变化更新
+
+## C41 — 回归样本优先
+
+- [ ] C41.1 新约束、新 checker、新 bugfix 有 bad 样本
+- [ ] C41.2 bad 样本有对应 good 样本或推荐修复模式
+- [ ] C41.3 样本已通用化，无产品名、客户名、密钥或私有路径
+- [ ] C41.4 checker/self-test/manual checklist 引用样本并说明预期结果
+- [ ] C41.5 样本覆盖失败路径、边界条件和恢复路径
+
+## C42 — 板级资源契约
+
+- [ ] C42.1 GPIO/DMA/clock/IRQ/cache/heap/PSRAM 资源 owner 明确
+- [ ] C42.2 板级资源冲突有检查方式或审查表
+- [ ] C42.3 DMA/cache/heap capability 的对齐、cacheability 和分配域明确
+- [ ] C42.4 IRQ priority、ISR-safe API、跨核访问边界明确
+- [ ] C42.5 clock/power domain 生命周期与低功耗约束进入 platform/profile
+
+## C43 — 锁预算与优先级反转防护
+
+- [ ] C43.1 mutex/recursive mutex 等锁等待有有限 timeout 或专用例外
+- [ ] C43.2 持锁期间无网络/TLS/Flash/file IO/cJSON parse/delay 等阻塞重活
+- [ ] C43.3 共享资源用带优先级继承的 mutex，不用 binary semaphore 伪装 mutex
+- [ ] C43.4 多锁嵌套声明 `lock_order` / `lock_rank`
+- [ ] C43.5 ISR/callback/LVGL flush/audio/video hot path 不拿 mutex
 
 ## 堆栈 / WSS / MVP
 

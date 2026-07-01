@@ -7,7 +7,7 @@
 
 | ✅ Skill 负责 | ❌ 不纳入 Skill |
 |--------------|----------------|
-| FreeRTOS 多任务 / MVP 架构设计与审查 | 字库、图片、OTA、CI |
+| FreeRTOS 多任务 / MVP 架构设计与审查 / C29-C43 运行时效率契约 | 字库、图片、OTA、CI |
 | LVGL / I2S / WSS / cJSON / SDK 裁剪 | 低功耗设计（仅审查/校验用户方案，不主动设计 sleep 策略） |
 | 人工审查清单 | checker / codegen 脚本 |
 

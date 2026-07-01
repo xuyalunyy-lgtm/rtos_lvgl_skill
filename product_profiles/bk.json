@@ -2,7 +2,7 @@
   "name": "BK 博通集成 / BK7258 / Armino",
   "platform": "bk",
   "description": "博通集成 BK7258/BK7231 系列，WiFi+BLE 双核 RISC-V，AVDK 多 port 音频架构",
-  "required_constraints": ["C1", "C2", "C3", "C4", "C6", "C7", "C8", "C9", "C10", "C11", "C12", "C14", "C15", "C17", "C23", "C25", "C26", "C27", "C28"],
+  "required_constraints": ["C1", "C2", "C3", "C4", "C6", "C7", "C8", "C9", "C10", "C11", "C12", "C14", "C15", "C17", "C23", "C25", "C26", "C27", "C28", "C29", "C30", "C31", "C32", "C33", "C34", "C35", "C36", "C37", "C38", "C39", "C40", "C41", "C42", "C43"],
   "optional_constraints": ["C5", "C13", "C16"],
   "excluded_constraints": [],
   "features": {

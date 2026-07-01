@@ -8,7 +8,7 @@
 |------|------|------|
 | [l2_code_review.md](l2_code_review.md) | L2 | review / audit / 瀹℃煡 C 浠ｇ爜 |
 | [l2_code_review_lite.md](l2_code_review_lite.md) | L2 | Lite 浜哄伐瀹℃煡 |
-| [l2_architecture_review.md](l2_architecture_review.md) | L2 | 架构 review（I/P/O、FSM/HFSM、HAL 组件、评分门禁） |
+| [l2_architecture_review.md](l2_architecture_review.md) | L2 | 架构 review（I/P/O、FSM/HFSM、HAL 组件、C29-C43 效率契约、评分门禁） |
 | [l2_project_review.md](l2_project_review.md) | L2 | 宸ョ▼/宸ヤ綔鍖?閲忎骇鍓嶅璁?|
 | [debug_crash.md](debug_crash.md) | L2鈥揕3 | HardFault / 姝绘満 / WDT / frozen |
 | [l3_sdk_trim.md](l3_sdk_trim.md) | L3 | SDK 鏀归€?/ 闇€姹傞┍鍔ㄨ鍓?|

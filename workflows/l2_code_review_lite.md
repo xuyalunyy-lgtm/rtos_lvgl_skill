@@ -17,8 +17,11 @@
 | cJSON 泄漏 | `Parse` 后 early `return` 无 `Delete` | 堆耗尽 |
 | 栈指针进 Queue | 传局部变量地址 | 野指针 |
 | WSS tight 重连 | 断线立即握手无退避 | heap / WDT |
+| 缺模块契约 | API 未说明 context/blocking/ownership | 接手成本高 / 误调用 |
+| 无界等待 | `portMAX_DELAY` / `WAIT_FOREVER` 默认使用 | 假死 / stop 卡住 |
+| 热路径重活 | callback 内 malloc/printf/JSON/TLS | 实时尖峰 / WDT |
 
-按需读 scene prompt（仅相关 1–2 个）。
+按需读 scene prompt（仅相关 1–2 个）；模块契约、拓扑、超时、可观测、生命周期、热路径、关键路径预算、数据拷贝、背压降级、故障恢复、配置矩阵、复现闭环、回归样本、板级资源问题读 [runtime_efficiency_contracts.txt](../prompts/runtime_efficiency_contracts.txt)。
 
 ## Step 3 — 人工审查
 

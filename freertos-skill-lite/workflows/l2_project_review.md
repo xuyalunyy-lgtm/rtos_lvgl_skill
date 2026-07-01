@@ -52,6 +52,7 @@ python tools/run_review.py --dir <产品仓>/components --platform <esp32|jl|bk|
 - **语音产品**：prompt/TTS 后 uplink 时序 → [voice_asr_uplink.txt](../prompts/voice_asr_uplink.txt)（C10）
 - **Audio/WSS 现场链路**：TTS 打断、shared voice handle、WSS 上行、speaker idle/deinit、TLS/堆栈峰值 → [voice_asr_uplink.txt](../prompts/voice_asr_uplink.txt)（C10）+ [peripheral_shutdown_safety.txt](../prompts/peripheral_shutdown_safety.txt)（C24）+ [mbedtls_wss_memory.txt](../prompts/mbedtls_wss_memory.txt)（C7/C20）
 - **带屏音视频产品**：camera/video preview、音画同步、掉帧/爆音、长时间漂移、DMA/cache/零拷贝坏帧 → [av_pipeline_sync.txt](../prompts/av_pipeline_sync.txt)（C25）+ [av_codec_format.txt](../prompts/av_codec_format.txt)（C26）+ [av_clock_jitter.txt](../prompts/av_clock_jitter.txt)（C27）+ [av_dma_buffer_lifecycle.txt](../prompts/av_dma_buffer_lifecycle.txt)（C28）
+- **工程效率/接手成本**：模块边界不清、队列拓扑缺失、无界等待、现场不可观测、生命周期不对称、热路径抖动、关键路径无预算、拷贝过多、无背压降级、故障不可恢复、配置矩阵散落、无法一键复现、缺回归样本、板级资源冲突、锁预算缺失/优先级反转 → [runtime_efficiency_contracts.txt](../prompts/runtime_efficiency_contracts.txt)（C29-C43）
 - **产品层死代码（C6.5）** — 见 Step 4b
 
 ## Step 4b — 产品层裁剪 spot-check（C6.5）

@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """
-永久等待启发式扫描器。
+永久等待 / 超时预算启发式扫描器。
 
 检查项:
-  - WAIT_FOREVER / BEKEN_WAIT_FOREVER / portMAX_DELAY 使用
-  - 无 timeout 的 mutex/semaphore/queue API
-  - 输出提示"请确认是否允许永久等待"（不直接判错）
+  C31.1 — WAIT_FOREVER / BEKEN_WAIT_FOREVER / portMAX_DELAY 使用
+  C31.2 — 无 timeout 的网络/TLS/IO 阻塞 API
+  C31.3 — 无 timeout 的 mutex/semaphore/queue API
+  C31.4 — 永久等待例外须人工确认
 
 用法:
     python tools/blocking_wait_checker.py <file.c> [file2.c ...]
@@ -30,14 +31,18 @@ PERMANENT_WAIT_CONSTANTS = [
     "0xffffffff",
 ]
 
-# Blocking APIs (function name pattern) — only actual blocking wait APIs
-BLOCKING_API_PATTERNS = [
+# RTOS blocking APIs that normally carry an explicit timeout argument.
+SYNC_API_PATTERNS = [
     re.compile(r"\brtos_get_semaphore\s*\("),
     re.compile(r"\brtos_lock_mutex\s*\("),
     re.compile(r"\brtos_get_queue\s*\("),
     re.compile(r"\bxSemaphoreTake\s*\("),
     re.compile(r"\bxQueueReceive\s*\("),
     re.compile(r"\bxQueueSend\s*\("),
+]
+
+# Network/TLS APIs whose timeout/deadline is usually configured outside the call.
+NETWORK_API_PATTERNS = [
     re.compile(r"\bmbedtls_ssl_read\s*\("),
     re.compile(r"\bmbedtls_ssl_write\s*\("),
     re.compile(r"\bmbedtls_ssl_handshake\s*\("),
@@ -45,6 +50,28 @@ BLOCKING_API_PATTERNS = [
     re.compile(r"\bsend\s*\("),
     re.compile(r"\bconnect\s*\("),
 ]
+
+TIMEOUT_ARGUMENT_RE = re.compile(
+    r",\s*(?:pdMS_TO_TICKS\s*\([^)]*\)|[A-Z][A-Z0-9_]*|\d+)\s*\)"
+)
+
+NETWORK_TIMEOUT_HINTS = (
+    "timeout_ms",
+    "deadline_ms",
+    "recv_timeout",
+    "send_timeout",
+    "read_timeout",
+    "select(",
+    "poll(",
+    "SO_RCVTIMEO",
+    "SO_SNDTIMEO",
+    "setsockopt",
+    "O_NONBLOCK",
+    "FIONBIO",
+    "nonblock",
+    "mbedtls_ssl_conf_read_timeout",
+    "mbedtls_net_set_nonblock",
+)
 
 
 def check_permanent_wait(path: Path, lines: list[str]) -> list[dict]:
@@ -66,7 +93,8 @@ def check_permanent_wait(path: Path, lines: list[str]) -> list[dict]:
                         break
 
                 issues.append({
-                    "id": "BLOCKING_WAIT",
+                    "id": "C31.1",
+                    "severity": "P0",
                     "file": f"{path}:{i}",
                     "line": stripped[:80],
                     "context": func_context[:60] if func_context else "",
@@ -85,26 +113,11 @@ def check_blocking_api_without_timeout(path: Path, lines: list[str]) -> list[dic
         if stripped.startswith("//") or stripped.startswith("/*"):
             continue
 
-        for api_pattern in BLOCKING_API_PATTERNS:
+        for api_pattern in SYNC_API_PATTERNS:
             if not api_pattern.search(stripped):
                 continue
 
-            # Check if there's a timeout parameter
-            has_timeout = False
-
-            # Check for timeout constants in the same line
-            if any(c in stripped for c in PERMANENT_WAIT_CONSTANTS):
-                has_timeout = True  # Has explicit timeout (even if permanent)
-            elif re.search(r",\s*\d+\s*\)", stripped):
-                has_timeout = True  # Has numeric timeout as last arg
-            elif re.search(r",\s*[A-Z_]{3,}\s*\)", stripped):
-                has_timeout = True  # Has constant timeout as last arg
-            elif "pdMS_TO_TICKS" in stripped:
-                has_timeout = True
-            elif "sizeof" in stripped:
-                has_timeout = True
-
-            if not has_timeout:
+            if not has_sync_timeout(stripped):
                 # Find function context
                 func_context = ""
                 for j in range(max(0, i - 10), i):
@@ -113,7 +126,28 @@ def check_blocking_api_without_timeout(path: Path, lines: list[str]) -> list[dic
                         break
 
                 issues.append({
-                    "id": "BLOCKING_WAIT",
+                    "id": "C31.3",
+                    "severity": "P1",
+                    "file": f"{path}:{i}",
+                    "line": stripped[:80],
+                    "context": func_context[:60] if func_context else "",
+                    "type": "blocking_api_no_timeout",
+                })
+
+        for api_pattern in NETWORK_API_PATTERNS:
+            if not api_pattern.search(stripped):
+                continue
+
+            if not has_network_timeout_hint(lines, i):
+                func_context = ""
+                for j in range(max(0, i - 10), i):
+                    if re.search(r"(?:static\s+)?(?:void|int|esp_err_t|bool|ssize_t)\s+\w+\s*\(", lines[j]):
+                        func_context = lines[j].strip()
+                        break
+
+                issues.append({
+                    "id": "C31.2",
+                    "severity": "P0",
                     "file": f"{path}:{i}",
                     "line": stripped[:80],
                     "context": func_context[:60] if func_context else "",
@@ -121,6 +155,23 @@ def check_blocking_api_without_timeout(path: Path, lines: list[str]) -> list[dic
                 })
 
     return issues
+
+
+def has_sync_timeout(line: str) -> bool:
+    """Return True when an RTOS wait call has an explicit final timeout argument."""
+    if any(c in line for c in PERMANENT_WAIT_CONSTANTS):
+        return True
+    if "pdMS_TO_TICKS" in line:
+        return True
+    return bool(TIMEOUT_ARGUMENT_RE.search(line))
+
+
+def has_network_timeout_hint(lines: list[str], line_no: int) -> bool:
+    """Network calls need nearby deadline/nonblocking/socket-timeout evidence."""
+    start = max(0, line_no - 8)
+    end = min(len(lines), line_no + 3)
+    window = "\n".join(lines[start:end])
+    return any(hint in window for hint in NETWORK_TIMEOUT_HINTS)
 
 
 def check_file(path: Path) -> list[dict]:
@@ -178,7 +229,7 @@ def main() -> int:
         return 0
 
     if not all_issues:
-        print(f"[blocking_wait_checker] 已检查 {len(unique)} 个文件，未发现永久等待")
+        print(f"[blocking_wait_checker] 已检查 {len(unique)} 个文件，未发现 C31 超时预算违规")
         return 0
 
     # Group by type
@@ -191,7 +242,7 @@ def main() -> int:
         print(f"=== 永久等待常量 ({len(permanent_waits)} 处) ===")
         print("请确认这些位置是否允许永久等待：\n")
         for issue in permanent_waits:
-            print(f"  {issue['file']}")
+            print(f"  [{issue['severity']}] {issue['id']} — {issue['file']}")
             if issue['context']:
                 print(f"    函数: {issue['context']}")
             print(f"    代码: {issue['line']}")
@@ -201,7 +252,7 @@ def main() -> int:
         print(f"=== 阻塞 API 无显式超时 ({len(no_timeout)} 处) ===")
         print("请确认这些 API 调用是否有隐式超时或允许永久等待：\n")
         for issue in no_timeout:
-            print(f"  {issue['file']}")
+            print(f"  [{issue['severity']}] {issue['id']} — {issue['file']}")
             if issue['context']:
                 print(f"    函数: {issue['context']}")
             print(f"    代码: {issue['line']}")

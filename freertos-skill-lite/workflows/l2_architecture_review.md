@@ -9,7 +9,7 @@
 - 平台约束是否明确（SoC、外设、总线、DMA/IRQ）
 - P0/P1/P2 目标与验收指标是否明确
 - 是否提供启动顺序、错误恢复与回退策略
-- 是否提供架构输入（模块列表、队列路径、ISR 处理路径、状态定义）
+- 是否提供架构输入（模块列表、模块契约、任务/队列拓扑、ISR 处理路径、状态定义）
 
 缺失关键项时，先输出补充问题清单，不产出完整审查结论。
 
@@ -21,6 +21,7 @@
 - `platforms/<xxx>.md`
 - `references/skill_structure.md`
 - `prompts/software_architecture_design.txt`
+- `prompts/runtime_efficiency_contracts.txt`（涉及模块边界、任务拓扑、超时预算、生命周期、热路径、关键路径预算、数据拷贝、背压降级、故障恢复、配置矩阵、复现闭环、回归样本或板级资源时）
 - 如属于工程级任务，参考 `workflows/l2_project_review.md`
 
 ## Step 3：Architecture Mandatory Checklist（硬约束）
@@ -48,6 +49,22 @@
 4. 是否可替换芯片实现且核心层不改
 5. 错误码和生命周期是否统一（init/start/stop/deinit）
 
+### D. C29-C43 运行时效率契约
+1. 每个模块是否声明 context/blocking/ownership/lifecycle/error（C29）
+2. 是否有 task/queue topology：priority/stack/depth/producer/consumer/backpressure/exit（C30）
+3. 所有等待是否有 timeout budget，永久等待是否满足例外条件（C31）
+4. 是否有 state/error/counter/watermark/max time/dump 观测点（C32）
+5. acquire/release 是否对称，hot path 是否只做轻量投递和计数（C33/C34）
+6. 关键路径是否有 stage budget、timeout、fallback、metric（C35）
+7. 数据路径是否声明 copy count、owner/release、DMA cache 策略（C36）
+8. 高频 producer 是否有背压、降级、bounded retry 与 telemetry（C37）
+9. 故障域、自动恢复、supervisor/watchdog 与安全降级是否明确（C38）
+10. Kconfig/feature/board/SDK 差异是否进入配置矩阵并 fail fast（C39）
+11. build/flash/log/decode/test 是否有一键复现闭环（C40）
+12. 新约束/bugfix 是否有通用 good/bad 回归样本（C41）
+13. GPIO/DMA/clock/IRQ/cache/heap/PSRAM 是否有板级资源契约（C42）
+14. 锁等待、持锁预算、lock_order 和优先级继承是否明确（C43）
+
 ## Step 4：架构评分门禁（必须给出）
 
 - 定义三档分数并给总分：
@@ -64,6 +81,7 @@
   - HAL 未抽象，核心层直接依赖 MCU SDK
   - Error recovery 缺失或不可观测
   - 队列策略未定义但存在高频消息
+  - 存在无界等待或 hot path 阻塞
 
 ## Step 5：异常场景验证矩阵（必须至少覆盖）
 
@@ -103,6 +121,7 @@
 - A. I/P/O 三层：PASS/WARN/FAIL
 - B. FSM/HFSM：PASS/WARN/FAIL
 - C. HAL + 组件化：PASS/WARN/FAIL
+- D. C29-C43 运行时效率契约：PASS/WARN/FAIL
 
 ### 1. 评分明细
 - 实时性与正确性：xx/40

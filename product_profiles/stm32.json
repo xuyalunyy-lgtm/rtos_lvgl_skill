@@ -2,7 +2,7 @@
   "name": "STM32 / CubeMX HAL",
   "platform": "stm32",
   "description": "意法半导体 STM32 系列（F4/F7/H7），Cortex-M 单核，FreeRTOS 原生",
-  "required_constraints": ["C2", "C3", "C4", "C7", "C8", "C9", "C11", "C12", "C14", "C15", "C23"],
+  "required_constraints": ["C2", "C3", "C4", "C7", "C8", "C9", "C11", "C12", "C14", "C15", "C23", "C29", "C30", "C31", "C32", "C33", "C34", "C35", "C36", "C37", "C38", "C39", "C40", "C41", "C42", "C43"],
   "optional_constraints": ["C1", "C5", "C6", "C10", "C13", "C16", "C17", "C25", "C26", "C27", "C28"],
   "excluded_constraints": [],
   "features": {

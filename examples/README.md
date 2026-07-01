@@ -86,6 +86,24 @@ Cache 一致性细则 → [audio_dma_pingpong.txt](../prompts/audio_dma_pingpong
 
 深细节 → [av_dma_buffer_lifecycle.txt](../prompts/av_dma_buffer_lifecycle.txt)
 
+## C31 — 超时预算
+
+| | 文件 | ID | Checker |
+|---|------|-----|---------|
+| ❌ | [bad_timeout_budget.c](../tools/fixtures/bad_timeout_budget.c) | C31.1, C31.2, C31.3 | `blocking_wait_checker.py` |
+| ✅ | [good_timeout_budget.c](../tools/fixtures/good_timeout_budget.c) 有限 timeout + socket deadline + 返回值处理 | C31.1–C31.3 | `blocking_wait_checker.py` |
+
+深细节 → [runtime_efficiency_contracts.txt](../prompts/runtime_efficiency_contracts.txt)
+
+## C36/C37 — 数据拷贝预算 / 背压与降级
+
+| | 文件 | ID | Checker |
+|---|------|-----|---------|
+| ❌ | [bad_efficiency_budget.c](../tools/fixtures/bad_efficiency_budget.c) | C36.2, C36.5, C37.2, C37.4 | `efficiency_budget_checker.py` |
+| ✅ | [good_efficiency_budget.c](../tools/fixtures/good_efficiency_budget.c) descriptor 入队 + 有限 timeout + drop 计数 | C36.2, C36.3, C37.2 | `efficiency_budget_checker.py` |
+
+深细节 → [runtime_efficiency_contracts.txt](../prompts/runtime_efficiency_contracts.txt)
+
 ## C8 — 启动 / WDT / 阻塞
 
 | | 文件 | ID | Checker |
@@ -150,6 +168,15 @@ Cache 一致性细则 → [audio_dma_pingpong.txt](../prompts/audio_dma_pingpong
 
 深细节 → [lcd_display_driver.txt](../prompts/lcd_display_driver.txt)
 
+## C43 — 锁预算与优先级反转防护
+
+| | 文件 | ID | Checker |
+|---|------|-----|---------|
+| ✅ | [good_lock_budget.c](../tools/fixtures/good_lock_budget.c) | C43.1, C43.4, C43.5 | `lock_budget_checker.py` |
+| ❌ | [bad_lock_budget.c](../tools/fixtures/bad_lock_budget.c) | C43.1, C43.2, C43.3, C43.4, C43.5 | `lock_budget_checker.py` |
+
+深细节 → [runtime_efficiency_contracts.txt](../prompts/runtime_efficiency_contracts.txt)
+
 ## MVP 分层闭环
 
 | | 文件 |
@@ -164,7 +191,7 @@ Cache 一致性细则 → [audio_dma_pingpong.txt](../prompts/audio_dma_pingpong
 # checker fixtures 自测
 python tools/run_review.py --self-test
 
-# 铁律 C1–C4 + C10 + C25 + C26 + C27 + C28 范例 good/bad 约束
+# 铁律 C1–C4 + C10 + C25 + C26 + C27 + C28 + C31 + C36/C37 + C43 范例 good/bad 约束
 python tools/run_review.py --validate-examples
 
 # 审查用户源码（含 queue 所有权）

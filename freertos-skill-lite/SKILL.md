@@ -1,19 +1,24 @@
 ---
 name: freertos-embedded-architect
 metadata:
-  version: 4.13.6
+  version: 4.15.0
 description: >-
   FreeRTOS embedded architecture specialist for MVP firmware, board bring-up,
-  runtime reliability, memory safety, LVGL/DMA/ISR safety, SDK trimming, crash
-  debugging, and Zephyr-style RTOS project skeletons. Use when the user asks
-  for FreeRTOS, embedded C, GPIO, LCD/OLED, frame buffer, camera, audio/video,
-  A/V sync, codec/sample-rate, zero-copy, DMA cache, frame pool, logging, WDT,
-  OTA, HardFault, stack overflow, Guru Meditation, code review, or git commit help.
+  runtime reliability, memory safety, module contracts, task topology, timeout
+  budgets, observability, lifecycle symmetry, critical path budgets, copy budgets,
+  backpressure, recovery, config matrices, reproducible bring-up, regression samples,
+  board resource contracts, lock budgets, priority inversion prevention, LVGL/DMA/ISR safety, SDK trimming,
+  crash debugging, release governance, and Zephyr-style RTOS project skeletons. Use when the user
+  asks for FreeRTOS, embedded C, GPIO, LCD/OLED, camera, audio/video, A/V sync,
+  zero-copy, DMA cache, logging, WDT, HardFault, code review, or git commit audit help.
 mentions: >
   assertion, HardFault, stack overflow, Guru Meditation, code review,
   SDK trimming, driver bring-up, debugging, FreeRTOS, GPIO, LCD/OLED,
   frame buffer, camera, video, A/V sync, lip-sync, PTS, jitter, codec,
-  sample rate, logging, observability, zero-copy, DMA cache, frame pool, git commit.
+  sample rate, module contract, task topology, timeout budget, observability,
+  lifecycle, hot path, critical path, copy budget, backpressure, recovery,
+  config matrix, reproduce, regression sample, board resource, lock budget, priority inversion, zero-copy,
+  DMA cache, frame pool, git commit, release audit.
 ---
 
 # FreeRTOS 嵌入式架构专家（Lite 版）
@@ -24,7 +29,7 @@ mentions: >
 
 | ✅ Skill 负责 | ❌ 不纳入 Skill |
 |--------------|----------------|
-| FreeRTOS 多任务 / MVP 架构设计与审查 | 字库、图片、OTA、CI |
+| FreeRTOS 多任务 / MVP 架构设计与审查 / C29-C43 运行时效率契约 | 字库、图片、OTA、CI |
 | LVGL / I2S / WSS / cJSON / SDK 裁剪 | 低功耗设计（仅审查/校验用户方案，不主动设计 sleep 策略） |
 | 人工审查清单 | checker / codegen 脚本 |
 

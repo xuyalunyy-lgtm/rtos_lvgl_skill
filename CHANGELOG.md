@@ -1,9 +1,54 @@
 # Changelog
 
+## 4.15.0 — 2026-07-01
+
+- **C43 锁预算与优先级反转防护**：新增通用 RTOS 锁约束，覆盖有限等锁、持锁禁阻塞 IO、binary semaphore 不当作 mutex、嵌套锁顺序、热路径禁拿 mutex
+- **新增默认 checker**：`tools/lock_budget_checker.py` 接入 `tools/checker_registry.py`、`run_review.py --self-test` 与 good/bad fixture
+- **whole-skill-refactor: yes**：新增 `tools/static_c_scan.py` 共享 C/C++ 扫描 helper，为后续 checker 复用函数解析、去注释、文件收集和 issue 格式
+- **20x-impact:** 将“偶发卡死/优先级反转/持锁阻塞”从人工经验审查前移到默认自动化管线，减少 RTOS 现场排查长尾成本
+- **版本升至 4.15.0**
+
+## 4.14.1 — 2026-07-01
+
+- **C36/C37 自动化检查**：新增 `tools/efficiency_budget_checker.py`，扫描大 payload 入队、热路径 alloc+memcpy、满队列永久等待、无 backoff 的无限 retry/reconnect loop
+- **回归样本优先**：新增 `good_efficiency_budget.c` / `bad_efficiency_budget.c` 并接入 `run_review.py --self-test`
+- **默认管线接入**：`checker_registry.py` 新增 `--skip-efficiency`，`run_review --list-checkers` 可见 C36/C37 映射
+- **版本升至 4.14.1**
+
+## 4.14.0 — 2026-07-01
+
+- **C35-C42 效率约束扩展**：新增关键路径预算表、数据拷贝预算、背压与降级策略、故障隔离与自动恢复、配置矩阵、一键复现闭环、回归样本优先、板级资源契约，共 8 个通用 RTOS 提效约束域
+- **whole-skill-refactor: yes**：同步重构 `runtime_efficiency_contracts`、`core_rules`、`constraint_index/detail/graph`、`skill_structure`、Lite checklist、workflow 路由、product profiles、README 与 Lite 分发脚本，确保 C35-C42 可检索、可引用、可审查
+- **20x-impact:** 将 RTOS 开发中最耗时的“等现场复现、追拷贝链、猜背压、查板级资源冲突、补配置矩阵、反复问怎么跑”前置为模板化约束，目标是把人工排查从小时级压到分钟级
+- **major-refactor: yes**：本轮作为 v4.14.0 较大版本扩展，完成跨文档/脚本/配置的整体一致性重构
+- **版本升至 4.14.0**
+
+## 4.13.9 — 2026-07-01
+
+- **commit audit 自测闭环**：`scripts/commit_audit.py` 新增 `--self-test`，用临时 git 仓库验证正常 minor、版本漂移、大版本缺少整体重构证据、大版本缺少 20x 证据、产品专用残留等正反例
+- **未跟踪文件审计补强**：commit audit 改用 `git status --porcelain` 收集 tracked/untracked 文件，并递归展开未跟踪目录，避免新建 prompt/reference 逃过残留扫描
+- **自迭代验证加固**：`scripts/skill_iterate.py --check` 接入 `commit_audit.py --self-test`；`release_governance`、`self_iterate`、`skill_structure`、README 同步
+- **版本升至 4.13.9**
+
+## 4.13.8 — 2026-07-01
+
+- **20x 提效 release governance**：新增 `references/release_governance.md`，把 20x 提效目标、大版本整体重构门禁和主动提交审计固化为维护规则
+- **主动审核提交脚本**：新增 `scripts/commit_audit.py`，审计最近提交、当前 diff、版本同步、产品专用残留，并对大版本缺少整体重构/20x 证据的情况严格失败
+- **自迭代闭环加固**：`workflows/self_iterate.md` 与 `scripts/skill_iterate.py --check` 接入 commit audit；`references/skill_structure.md`、README、SKILL 入口同步
+- **版本升至 4.13.8**
+
+## 4.13.7 — 2026-07-01
+
+- **C29-C34 运行时效率约束**：新增模块契约、任务/队列拓扑表、超时预算、可观测性优先、生命周期对称、热路径禁区，共 6 个通用 RTOS 效率约束域
+- **效率 prompt**：新增 `prompts/runtime_efficiency_contracts.txt`，将 C29-C34 作为一组可按需加载的通用工程效率护栏
+- **C31 自动化检查**：将 `blocking_wait_checker.py` 接入 checker registry，新增 timeout good/bad fixtures，并纳入 self-test / validate-examples；同步修复 socket/TLS 调用中 `sizeof(...)` / flags 被误判为 timeout 的漏报
+- **全链路同步**：更新 `SKILL.md`、`core_rules`、`constraint_index/detail/graph`、`skill_structure`、workflows、Lite checklist、product_profiles 与安装/Lite 分发文案
+- **版本升至 4.13.7**
+
 ## 4.13.6 — 2026-07-01
 
 - **通用化门禁**：在 `core_rules.md` 与 `self_iterate.md` 明确 skill 面向通用 RTOS 固件工程，真实项目经验入库前必须抽象为“症状 → 通用根因 → 通用修复模式”
-- **产品残留收敛**：将 C24 外设关闭 prompt 从打印机专用函数改为通用 `device/peripheral/actuator` 模板；收敛 BK profile、BK 平台文档、SDK 裁剪和 Git 提交示例中的产品名/业务文件名
+- **产品残留收敛**：将 C24 外设关闭 prompt 从专用外设函数改为通用 `device/peripheral/actuator` 模板；收敛 BK profile、BK 平台文档、SDK 裁剪和 Git 提交示例中的产品名/业务文件名
 - **测试夹具通用化**：将 secret scan fixtures 从具体业务 key 改为 `CONFIG_APP_CLOUD_*` 示例
 - **版本升至 4.13.6**
 
@@ -393,26 +438,26 @@
 - 新增 **C10 语音/ASR/Uplink**（C10.1–C10.6）与 `prompts/voice_asr_uplink.txt`
 - `examples/good_voice_prompt_uplink.c` — prompt detach + AEC settle + VSM generation 正例
 - `platforms/bk.md` 共享引擎 prompt 模式；`debug_crash.md` / `l2_code_review.md` 症状与审查路由
-- 来源：带屏 AI 闹钟日志诊断（ASR 空 / 第二轮麦幅塌陷）闭环
+- 来源：带屏语音设备日志诊断（ASR 空 / 第二轮麦幅塌陷）闭环
 
 ## 2.17.0 — 2026-06-16
 
-- `platforms/bk.md` 增补 bk_printer WSS 异步建链竞态（vc_start）、QueueSet Assert、littlefs 表情资源、SARADC gpio busy
+- `platforms/bk.md` 增补 BK WSS 异步建链竞态（vc_start）、QueueSet Assert、littlefs 资源、SARADC gpio busy
 - `prompts/crash_log_decode.txt` BK7258 HardFault / Assert 解读与 addr2line 流程
 - `workflows/debug_crash.md` 症状路由：WSS 401/断线后 vc_start HardFault
-- 来源：bk_printer 日志诊断 + vc_start 竞态修复闭环
+- 来源：BK WSS 日志诊断 + vc_start 竞态修复闭环
 
 ## 2.16.0 — 2026-06-16
 
 - 新增 **C6.5** 产品层裁剪：`main/CMakeLists.txt` 与 Kconfig/init 链一致
 - `l2_project_review.md` Step 4b 产品层死代码 spot-check
-- `platforms/bk.md` 增补 bk_printer 实测（密钥路径、可裁模块、打印 mutex/栈）
+- `platforms/bk.md` 增补 BK 实测模式（密钥路径、可裁模块、外设 mutex/栈）
 - `secrets_kconfig.txt` 单工程 `config/bk7258` 布局；`sdk_trim_prune.txt` 产品层章节
-- 来源：AI 打印机工程审查 + 裁剪闭环
+- 来源：BK 应用工程审查 + 裁剪闭环
 
 ## 2.15.1 — 2026-06-16
 
-- 新增 [references/git_commit_style.md](references/git_commit_style.md) — 多仓（AIAlarmClock / skill / SDK）中文 conventional commit 规范
+- 新增 [references/git_commit_style.md](references/git_commit_style.md) — 多仓（应用工程 / skill / SDK）中文 conventional commit 规范
 - `core_rules`、`skill_structure`、`self_iterate`、SKILL rules 与 Cursor 模板联动
 
 ## 2.15.0 — 2026-06-16
@@ -420,13 +465,13 @@
 - 新增 **C9 密钥/凭证**（C9.1–C9.6）与 `prompts/secrets_kconfig.txt`
 - 新增 `tools/secret_scan_checker.py`；`run_review.py` 支持 `--scan-secrets` / `--git-remotes`
 - 新增 workflow `l2_project_review.md`（多仓工程审查）
-- 来源：AIAlarmClock 工程审查闭环（config.secrets、ARCHITECTURE.md、build.sh 可移植）
+- 来源：通用应用工程审查闭环（config.secrets、ARCHITECTURE.md、build.sh 可移植）
 
 ## 2.14.0 — 2026-06-16
 
-- BK 平台：`platforms/bk.md` 增补 AIAlarmClock 实测模式（app_event 桥接、BEKEN_NO_WAIT、栈表、timer→事件）
+- BK 平台：`platforms/bk.md` 增补通用应用实测模式（app_event 桥接、BEKEN_NO_WAIT、栈表、timer→事件）
 - Checker：`cjson_leak_checker` 识别 `!json` Parse 失败早 return；`lvgl_thread_checker` 放行 lvgl_ui 目录与 lcd/port 驱动
-- 来源：AIAlarmClock L2 review + P1 修复闭环
+- 来源：通用应用 L2 review + P1 修复闭环
 
 ## 2.13.0 — 2026-06-15
 

@@ -241,6 +241,141 @@
 | C28.5 | 1 | cache clean/invalidate 地址和长度必须按 cache line 对齐并覆盖完整 frame/stride |
 | C28.6 | 2 | 保留 cache_clean/invalidate、stale、reuse_before_release、buffer overrun/underrun 遥测 |
 
+## C29 模块契约
+| ID | P | 一句话 |
+|----|---|--------|
+| C29.1 | 0 | 模块必须声明 task/ISR/timer/LVGL 可调用上下文 |
+| C29.2 | 0 | 模块 API 必须声明阻塞语义、最大等待时间和可重入性 |
+| C29.3 | 1 | 模块必须声明入参/出参/Queue/callback payload 所有权 |
+| C29.4 | 1 | 模块必须声明 init/start/stop/deinit 合法顺序 |
+| C29.5 | 2 | 模块必须声明错误码语义与可恢复/不可恢复分类 |
+
+## C30 任务/队列拓扑表
+| ID | P | 一句话 |
+|----|---|--------|
+| C30.1 | 0 | 多任务模块必须输出 task/priority/stack/queue 拓扑表 |
+| C30.2 | 0 | 每条 Queue 必须声明元素类型、生产者、消费者与所有权 |
+| C30.3 | 1 | 每条 Queue 必须声明深度、timeout、满队列背压策略 |
+| C30.4 | 1 | 每个 task 必须声明退出条件，禁止只能 reboot 退出 |
+| C30.5 | 2 | 拓扑表必须保留 queue high-water/drop/timeout 观测点 |
+
+## C31 超时预算
+| ID | P | 一句话 |
+|----|---|--------|
+| C31.1 | 0 | 阻塞等待默认必须有限 timeout，禁止裸 `portMAX_DELAY` |
+| C31.2 | 0 | 网络/TLS/DNS/file IO 等待必须有 deadline 与失败恢复 |
+| C31.3 | 1 | mutex/semaphore 等待必须声明持锁路径和超时处理 |
+| C31.4 | 1 | 允许永久等待必须限 dedicated idle/daemon consumer 且有注释 |
+| C31.5 | 2 | timeout/drop/retry 必须有低频遥测计数 |
+
+## C32 可观测性优先
+| ID | P | 一句话 |
+|----|---|--------|
+| C32.1 | 1 | 关键模块必须暴露 state、last_error、last_error_line |
+| C32.2 | 1 | 关键链路必须计数 timeout/drop/retry/overflow/underrun |
+| C32.3 | 1 | 任务必须可采集 stack high-water 与 queue/heap 水位 |
+| C32.4 | 2 | init/connect/decode/render/flush 等阶段必须保留 max time |
+| C32.5 | 2 | 现场 dump 必须能还原最近关键事件且脱敏限频 |
+
+## C33 生命周期对称
+| ID | P | 一句话 |
+|----|---|--------|
+| C33.1 | 0 | init/open/start/enable 必须有 stop/disable/close/deinit |
+| C33.2 | 0 | alloc/create/register/attach 必须有 free/delete/unregister/detach |
+| C33.3 | 1 | 多资源函数必须统一 `cleanup:`，异常路径复用收尾 helper |
+| C33.4 | 1 | stop/deinit 必须可重入并处理半初始化状态 |
+| C33.5 | 2 | lifecycle 状态与 release 结果必须低频可观测 |
+
+## C34 热路径禁区
+| ID | P | 一句话 |
+|----|---|--------|
+| C34.1 | 0 | ISR/DMA/LVGL flush/audio/video hot path 禁止阻塞等待 |
+| C34.2 | 1 | hot path 禁止 malloc/free/printf/重日志/file IO |
+| C34.3 | 1 | hot path 禁止 cJSON parse、codec create、TLS handshake |
+| C34.4 | 1 | hot path 只允许 notify/enqueue/set flag/increment counter |
+| C34.5 | 2 | hot path 预算、峰值耗时和丢弃计数必须可观测 |
+
+## C35 关键路径预算表
+| ID | P | 一句话 |
+|----|---|--------|
+| C35.1 | 0 | 启动/联网/音频/视频/UI/OTA/低功耗唤醒必须声明 stage budget |
+| C35.2 | 0 | 每个关键阶段必须声明 owner、timeout、fallback 和 metric |
+| C35.3 | 1 | 关键路径禁止无证据串行长 IO，必须评估并行化或异步化 |
+| C35.4 | 1 | 关键路径必须记录 max time、timeout/drop/retry counter |
+| C35.5 | 2 | 预算表必须随需求、配置、板级差异变化同步更新 |
+
+## C36 数据拷贝预算
+| ID | P | 一句话 |
+|----|---|--------|
+| C36.1 | 0 | 跨 task/跨核/DMA/网络/音视频 frame 必须声明数据移动策略 |
+| C36.2 | 0 | 大 payload 默认传 descriptor/index/handle，禁止无理由传大结构体进 Queue |
+| C36.3 | 1 | 每条数据路径必须声明 copy count、buffer owner 和 release 方 |
+| C36.4 | 1 | DMA/cache 路径必须声明 clean/invalidate、对齐和 ownership transfer |
+| C36.5 | 2 | buffer pool 满时必须有 drop/backpressure/retry 策略和计数 |
+
+## C37 背压与降级策略
+| ID | P | 一句话 |
+|----|---|--------|
+| C37.1 | 0 | 高频 producer、网络、音视频、日志、UI 队列必须声明背压策略 |
+| C37.2 | 0 | 满队列禁止无限等待，必须选择 drop/coalesce/overwrite/backpressure |
+| C37.3 | 1 | 降采样、降帧率、降码率、暂停非关键任务必须有触发条件 |
+| C37.4 | 1 | retry 必须 bounded，并带 backoff 或 circuit breaker |
+| C37.5 | 2 | 背压、降级、恢复必须有低频 telemetry |
+
+## C38 故障隔离与自动恢复
+| ID | P | 一句话 |
+|----|---|--------|
+| C38.1 | 0 | 关键模块必须声明 task/driver/protocol/cloud/UI 故障域 |
+| C38.2 | 0 | 错误必须分类 recoverable/fatal，并声明恢复动作 |
+| C38.3 | 1 | retry/backoff/max retry/circuit open time 必须有上限 |
+| C38.4 | 1 | supervisor/watchdog/health counter 必须能发现卡死或半死 |
+| C38.5 | 2 | 恢复失败必须进入降级模式或安全停机，而非静默失败 |
+
+## C39 配置矩阵约束
+| ID | P | 一句话 |
+|----|---|--------|
+| C39.1 | 0 | Kconfig/feature flag/board/SDK 差异必须进入配置矩阵 |
+| C39.2 | 0 | 每个 feature 必须声明 dependency、resource、default、test mode |
+| C39.3 | 1 | `#ifdef` 必须归类 platform/board/feature/debug，禁止无名散落 |
+| C39.4 | 1 | 配置变化必须同步 bring-up checklist、profile 和回归样本 |
+| C39.5 | 2 | 无效配置组合必须在 build 或初始化阶段 fail fast |
+
+## C40 一键复现闭环
+| ID | P | 一句话 |
+|----|---|--------|
+| C40.1 | 0 | 新模块、bring-up、复杂 bug 必须提供 build/flash/monitor 命令 |
+| C40.2 | 0 | crash/core dump 解码必须声明 symbol path、工具和输入日志 |
+| C40.3 | 1 | 最小配置、测试入口、预期输出必须可复制执行 |
+| C40.4 | 1 | 失败日志保存位置、脱敏规则和保留时间必须明确 |
+| C40.5 | 2 | 复现命令必须随平台脚本或 SDK 版本变化更新 |
+
+## C41 回归样本优先
+| ID | P | 一句话 |
+|----|---|--------|
+| C41.1 | 0 | 新约束、新 checker、新 bugfix 必须优先沉淀 bad 样本 |
+| C41.2 | 0 | 每个 bad 样本必须有对应 good 样本或推荐修复模式 |
+| C41.3 | 1 | 样本必须通用化，不包含产品名、客户名、密钥或私有路径 |
+| C41.4 | 1 | checker/self-test/manual checklist 必须引用样本并说明预期结果 |
+| C41.5 | 2 | 样本覆盖失败路径、边界条件和恢复路径，不只覆盖 happy path |
+
+## C42 板级资源契约
+| ID | P | 一句话 |
+|----|---|--------|
+| C42.1 | 0 | GPIO/DMA/clock/IRQ/cache/heap/PSRAM 资源必须声明 owner |
+| C42.2 | 0 | 板级资源冲突必须有检查方式或审查表 |
+| C42.3 | 1 | DMA/cache/heap capability 必须声明对齐、cacheability 和分配域 |
+| C42.4 | 1 | IRQ priority、ISR-safe API、跨核访问边界必须明确 |
+| C42.5 | 2 | clock/power domain 生命周期与低功耗约束必须进入 platform/profile |
+
+## C43 锁预算与优先级反转防护
+| ID | P | 一句话 |
+|----|---|--------|
+| C43.1 | 0 | mutex/recursive mutex 等锁等待必须有限 timeout 或声明专用例外 |
+| C43.2 | 0 | 持锁期间禁止网络/TLS/Flash/file IO/cJSON parse/delay 等阻塞或重活 |
+| C43.3 | 1 | 保护共享资源必须使用带优先级继承的 mutex，禁止 binary semaphore 伪装 mutex |
+| C43.4 | 1 | 多锁嵌套必须声明 lock_order/lock_rank，禁止隐式锁顺序 |
+| C43.5 | 0 | ISR/callback/LVGL flush/audio/video hot path 禁止拿 mutex |
+
 ## 症状 → ID（Crash 用）
 
 → [debug_crash.md](../workflows/debug_crash.md) Step 2 症状路由表（与 `constraint_detail.md` 末尾同步）。

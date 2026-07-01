@@ -33,6 +33,16 @@
 | 控制平面 | `SKILL.md` + `agents/openai.yaml` | 保持 <100 行；路由不膨胀；UI 元数据同步 |
 | Lite 分发 | 运行 `sync_lite.py` | 禁止手改 Lite 正文 |
 
+### 20x 提效与大版本重构门禁
+
+当迭代目标涉及“提效”“大版本”“整体重构”“审核提交”时，先读取
+[release_governance.md](../references/release_governance.md)，并执行：
+
+1. 用 20x scorecard 判断本次变更减少了哪类重复人工动作。
+2. 如果版本为 `N.0.0` 或 major 增加，必须做 whole-skill refactor：盘点 L0-L4、合并重复逻辑、删除漂移入口、补自动化门禁。
+3. 提交前运行 `python scripts/commit_audit.py --max-log 12 --strict-release`，将 FAIL 视为阻塞。
+4. 在 CHANGELOG 与 iteration_log 记录效率收益、重构边界和主动提交审计结果。
+
 ### 现场经验入库门槛
 
 | 判断 | 行动 |

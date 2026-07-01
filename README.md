@@ -1,6 +1,6 @@
 # FreeRTOS Embedded Architect Skill
 
-Cursor Agent Skill：FreeRTOS 物联网固件架构（MVP 分层、LVGL 线程安全、I2S DMA、音视频管线/A-V sync、编解码格式一致性、时钟漂移/jitter buffer、DMA cache/零拷贝 buffer 生命周期、cJSON 防泄漏、WSS/mbedTLS、SDK 裁剪、错误处理、状态机、日志规范、任务优先级、定时器管理、多核 IPC、低功耗、显示驱动、软硬联调 IO 口规划）。约束体系 C1–C28（当前 27 个约束域，C22 预留）。
+Cursor Agent Skill：FreeRTOS 物联网固件架构（MVP 分层、LVGL 线程安全、I2S DMA、音视频管线/A-V sync、编解码格式一致性、时钟漂移/jitter buffer、DMA cache/零拷贝 buffer 生命周期、模块契约、任务/队列拓扑、超时预算、可观测性、生命周期对称、热路径禁区、关键路径预算、数据拷贝预算、背压降级、故障恢复、配置矩阵、一键复现、回归样本、板级资源契约、锁预算与优先级反转防护、cJSON 防泄漏、WSS/mbedTLS、SDK 裁剪、错误处理、状态机、日志规范、任务优先级、定时器管理、多核 IPC、低功耗、显示驱动、软硬联调 IO 口规划）。约束体系 C1–C43（当前 42 个约束域，C22 预留）。
 
 ## 快速开始
 
@@ -24,7 +24,7 @@ L4  examples/ + tools/       完整版专有
 |------|------|
 | [workflows/](workflows/) | L2/L3/Debug/自我迭代 Step 编排 |
 | [agents/](agents/) | Codex/OpenAI UI 元数据 |
-| [references/](references/) | core_rules、constraint_detail、skill_structure、iteration_log |
+| [references/](references/) | core_rules、constraint_detail、skill_structure、release_governance、iteration_log |
 | [prompts/](prompts/) | 场景专链（按 C 域索引见 skill_structure） |
 | [platforms/](platforms/) | ESP32 / STM32 / JL / BK 专档 |
 | [examples/](examples/) | good/bad 范例 + `app_mvp.h` |
@@ -43,6 +43,8 @@ python tools/run_review.py --validate-examples
 python scripts/check_runtime_distribution.py
 python scripts/check_skill_metadata.py
 python scripts/check_skill_metadata.py --self-test
+python scripts/commit_audit.py --self-test
+python scripts/commit_audit.py --max-log 12 --strict-release
 python scripts/skill_iterate.py --check
 ```
 

@@ -21,7 +21,7 @@
 
 1. 读 [references/core_rules.md](../references/core_rules.md)（优先级 + MVP + 文件归属）
 2. 读 `platforms/xxx.md`
-3. 输出相对优先级表 + 平台数值 + 文件归属表
+3. 输出相对优先级表 + 平台数值 + 文件归属表 + 模块契约 + task/queue 拓扑表
 
 ## Step 2 — 场景 prompt（按需 1–3 个）
 
@@ -35,6 +35,7 @@
 | 音视频管线 | [av_pipeline_sync.txt](../prompts/av_pipeline_sync.txt) + [av_codec_format.txt](../prompts/av_codec_format.txt) + [av_clock_jitter.txt](../prompts/av_clock_jitter.txt) + [av_dma_buffer_lifecycle.txt](../prompts/av_dma_buffer_lifecycle.txt) + [audio_dma_pingpong.txt](../prompts/audio_dma_pingpong.txt) | [good_av_pipeline_sync.c](../examples/good_av_pipeline_sync.c) + [good_media_format_contract.c](../examples/good_media_format_contract.c) + [good_av_clock_jitter.c](../examples/good_av_clock_jitter.c) + [good_av_dma_buffer_lifecycle.c](../examples/good_av_dma_buffer_lifecycle.c) |
 | JSON | [cjson_safe_parse.txt](../prompts/cjson_safe_parse.txt) | [good_wss_json_parse.c](../examples/good_wss_json_parse.c) |
 | Presenter | [memory_ownership.txt](../prompts/memory_ownership.txt) | [good_presenter_consumer.c](../examples/good_presenter_consumer.c) |
+| 多任务/通用模块效率 | [runtime_efficiency_contracts.txt](../prompts/runtime_efficiency_contracts.txt) | — |
 
 ## Step 3 — 代码生成与落地（自主实施）
 

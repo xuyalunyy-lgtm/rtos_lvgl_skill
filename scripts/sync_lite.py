@@ -61,6 +61,8 @@ LITE_WORKFLOW_REPLACEMENTS: list[tuple[str, str, str]] = [
         r"## 验证\n- \[ \] run_review --self-test\n- \[ \] run_review --validate-examples\n"
         r"(?:- \[ \] check_runtime_distribution\n)?"
         r"(?:- \[ \] check_skill_metadata\n)?"
+        r"(?:- \[ \] commit_audit --self-test\n)?"
+        r"(?:- \[ \] commit_audit --strict-release\n)?"
         r"- \[ \] skill_iterate --check\n"
         r"- \[ \] sync_lite\n- \[ \] CHANGELOG \+ iteration_log",
         "## 验证\n"
@@ -96,7 +98,7 @@ LITE_REFERENCE_REPLACEMENTS: list[tuple[str, str, str]] = [
         "| 用途 | Lite 做法 |\n"
         "|------|-----------|\n"
         "| L2 审查 | [l2_code_review_lite.md](../workflows/l2_code_review_lite.md) + [lite_manual_checklist.md](lite_manual_checklist.md) |\n"
-        "| C1-C28 约束核对 | [core_rules.md](core_rules.md) + [constraint_index.md](constraint_index.md) + 对应 prompt 手工检查 |\n"
+        "| C1-C43 约束核对 | [core_rules.md](core_rules.md) + [constraint_index.md](constraint_index.md) + 对应 prompt 手工检查 |\n"
         "| 正/反例参考 | 回到完整版 `examples/README.md` 与对应 example 文件 |\n"
         "| Skill 维护同步 | 回到完整版源码仓执行同步与校验脚本 |\n\n"
         "---",

@@ -19,7 +19,7 @@ Agent 在 L2/L3 或 workflow 要求时读取本文件。L1 概念问答可跳过
 | **全权改代码** | Agent **自行决定**所有实现改动（`.c/.h`、CMake/Makefile、Kconfig、工程配置），**无需逐步向用户确认** |
 | **跑通为止** | 持续实现 → 编译 → 修错，直至 **用户指定功能完成** 且 **工程编译通过** |
 | **编译** | 命令以 `platforms/xxx.md` 为准；编译失败则读日志、修复、重编，**禁止**留半成品让用户收尾 |
-| **铁律仍生效** | 改动须满足 C1–C28；L2+ 可跑 `run_review.py` 自检 |
+| **铁律仍生效** | 改动须满足 C1–C43；L2+ 可跑 `run_review.py` 自检 |
 | **改动范围声明** | L3 开始前简述计划改动文件/模块；除高风险项外直接执行，不等待逐项确认 |
 | **编译重试上限** | 最多 **5 次**编译失败后暂停，输出错误摘要请用户介入 |
 | **不可触碰清单** | 用户可标记 `.gitignore`、`partitions.csv`、`sdkconfig` 等为只读；Agent 禁止修改 |
@@ -54,6 +54,15 @@ Agent 在 L2/L3 或 workflow 要求时读取本文件。L1 概念问答可跳过
 - C26 编解码格式一致性（实时数据错误风险）
 - C27 音视频时钟漂移 / jitter buffer（长时间同步风险）
 - C28 媒体 DMA/cache/零拷贝 buffer 生命周期（坏帧/花屏/爆音风险）
+- C29 模块契约（上下文/阻塞/所有权不清会放大维护成本）
+- C31 超时预算（假死/不可恢复阻塞风险）
+- C33 生命周期对称（资源泄漏/重启失败风险）
+- C34 热路径禁区（实时性尖峰/周期性卡顿风险）
+- C35 关键路径预算表（启动/联网/音视频/UI/OTA 超时风险）
+- C37 背压与降级策略（队列满、网络差、帧堆积时不可控风险）
+- C40 一键复现闭环（新人接手和现场复盘成本风险）
+- C42 板级资源契约（GPIO/DMA/IRQ/cache/heap 冲突风险）
+- C43 锁预算与优先级反转防护（死锁/WDT/实时任务被低优先级拖住风险）
 
 **使用方式：** 用户在 prompt 中明确说「测试阶段」「联调阶段」「凭据可以硬编码」时，Agent 按此规则降级 C9/C14/C5/C7 的审查严格度。
 
@@ -102,9 +111,9 @@ python tools/stack_calculator.py --describe "WSS TLS cJSON" --platform jl
 
 共享类型：`examples/app_mvp.h`（与 `mvp_codegen` 输出一致）；Queue 设计 → [queue_event_bus.txt](../prompts/queue_event_bus.txt)
 
-## 二十七条硬性约束（摘要）
+## 四十二条硬性约束（摘要）
 
-**细粒度 ID 矩阵（C1.1–C28.6）** → [constraint_detail.md](constraint_detail.md)（L2+ 违规报告须引用 `C#.#`）
+**细粒度 ID 矩阵（C1.1–C43.5）** → [constraint_detail.md](constraint_detail.md)（L2+ 违规报告须引用 `C#.#`）
 
 | # | 主题 | 细则 | 子约束数 |
 |---|------|------|----------|
@@ -135,6 +144,21 @@ python tools/stack_calculator.py --describe "WSS TLS cJSON" --platform jl
 | 26 | 编解码格式 | sample rate/channels/bit depth/帧长/stride/codec 生命周期 → [av_codec_format.txt](../prompts/av_codec_format.txt) | 6 |
 | 27 | 时钟漂移 / Jitter | master clock/PTS/jitter 水位/drift 限幅/underrun 补偿 → [av_clock_jitter.txt](../prompts/av_clock_jitter.txt) | 6 |
 | 28 | 媒体 DMA/cache buffer | DMA-capable/clean/invalidate/零拷贝 owner/cache line/遥测 → [av_dma_buffer_lifecycle.txt](../prompts/av_dma_buffer_lifecycle.txt) | 6 |
+| 29 | 模块契约 | 调用上下文/阻塞语义/所有权/生命周期/错误语义 → [runtime_efficiency_contracts.txt](../prompts/runtime_efficiency_contracts.txt) | 5 |
+| 30 | 任务/队列拓扑 | task/priority/stack/queue/producer/consumer/backpressure/exit → [runtime_efficiency_contracts.txt](../prompts/runtime_efficiency_contracts.txt) | 5 |
+| 31 | 超时预算 | 有限 timeout/deadline/永久等待例外/timeout 遥测 → [runtime_efficiency_contracts.txt](../prompts/runtime_efficiency_contracts.txt) · `blocking_wait_checker.py` | 5 |
+| 32 | 可观测性优先 | state/last_error/counter/watermark/max time/现场 dump → [runtime_efficiency_contracts.txt](../prompts/runtime_efficiency_contracts.txt) | 5 |
+| 33 | 生命周期对称 | acquire/release 对称、cleanup、可重入 stop/deinit → [runtime_efficiency_contracts.txt](../prompts/runtime_efficiency_contracts.txt) | 5 |
+| 34 | 热路径禁区 | ISR/DMA/flush/frame/control loop 禁阻塞、分配、重日志、重解析 → [runtime_efficiency_contracts.txt](../prompts/runtime_efficiency_contracts.txt) | 5 |
+| 35 | 关键路径预算表 | boot/net/audio/video/UI/OTA/sleep-wake stage budget、timeout、fallback、metric → [runtime_efficiency_contracts.txt](../prompts/runtime_efficiency_contracts.txt) | 5 |
+| 36 | 数据拷贝预算 | 跨 task/跨核/DMA/网络/音视频数据移动、copy count、owner/release、cache 策略 → [runtime_efficiency_contracts.txt](../prompts/runtime_efficiency_contracts.txt) · `efficiency_budget_checker.py` | 5 |
+| 37 | 背压与降级策略 | queue/frame/log/network 满载时 drop/coalesce/overwrite/backpressure/degrade/retry 上限 → [runtime_efficiency_contracts.txt](../prompts/runtime_efficiency_contracts.txt) · `efficiency_budget_checker.py` | 5 |
+| 38 | 故障隔离与自动恢复 | 故障域、recoverable/fatal、retry/backoff、supervisor、降级/安全停机 → [runtime_efficiency_contracts.txt](../prompts/runtime_efficiency_contracts.txt) | 5 |
+| 39 | 配置矩阵约束 | Kconfig/feature/board/SDK 差异矩阵、`#ifdef` 归类、fail fast → [runtime_efficiency_contracts.txt](../prompts/runtime_efficiency_contracts.txt) | 5 |
+| 40 | 一键复现闭环 | build/flash/monitor/log/decode/test 最小复现命令与脱敏日志 → [runtime_efficiency_contracts.txt](../prompts/runtime_efficiency_contracts.txt) | 5 |
+| 41 | 回归样本优先 | 新约束/checker/bugfix 必须沉淀 good/bad 样本并接入自测或 checklist → [runtime_efficiency_contracts.txt](../prompts/runtime_efficiency_contracts.txt) | 5 |
+| 42 | 板级资源契约 | GPIO/DMA/clock/IRQ/cache/heap/PSRAM owner、冲突检查、power domain → [runtime_efficiency_contracts.txt](../prompts/runtime_efficiency_contracts.txt) | 5 |
+| 43 | 锁预算与优先级反转防护 | 有限等锁、持锁禁阻塞 IO、mutex 优先级继承、lock_order、热路径禁锁 → [runtime_efficiency_contracts.txt](../prompts/runtime_efficiency_contracts.txt) · `lock_budget_checker.py` | 5 |
 
 ## 文件归属惯例
 
