@@ -1,6 +1,6 @@
 # 内存分配与优化专精（通用 · C7）
 
-> 约束 ID：C7.1–C7.10 → [constraint_detail.md](../references/constraint_detail.md)
+> 约束 ID：C7.1–C7.13 → [constraint_detail.md](../references/constraint_detail.md)
 > 平台堆/PSRAM/LwIP Kconfig → 对应 `platforms/xxx.md`
 
 ## 铁律
@@ -27,6 +27,8 @@
 | 指标 | 通用手段 | 平台补充 |
 |------|---------|---------|
 | 堆剩余 / 历史最低 | `xPortGetMinimumEverFreeHeapSize()` / SDK 封装 | BK: `rtos_get_minimum_free_heap_size()` |
+| 碎片 / 最大可分配块 | largest free block / max alloc | ESP: `heap_caps_get_largest_free_block()` |
+| Heap kind | internal/external/DMA free、min、fail | 由统一 allocator 计数 |
 | 任务栈水位 | `uxTaskGetStackHighWaterMark()` | 跑满 WSS 握手 + LVGL + 音频闭环 |
 | 编译体积 | map / size 工具 | ESP: `idf.py size`; BK/JL: build 输出 |
 | 泄漏 | cJSON checker; MEM_DEBUG 计数 | 见 C3 |
@@ -128,6 +130,18 @@ void *app_heap_alloc_normal(size_t size, app_heap_kind_t *kind)
 
 ---
 
+## Allocator / Telemetry / Pool（C7.11–C7.13）
+
+**C7.11 统一 allocator：** 项目须提供 `app_alloc(class, size, &heap_kind)` / `app_free(ptr, heap_kind)` 这类统一封装。业务模块只表达用途（normal、DMA、fast、external-ok），不直接散落调用 `malloc`、`psram_malloc`、`heap_caps_malloc` 多族 API。
+
+**C7.12 碎片遥测：** 内存日志至少包含 internal/external 的 free、minimum free、largest free block、alloc fail count。判断 OOM 时先看 largest block 是否小于目标 size，不只看总 free heap。
+
+**C7.13 固定块池：** 高频/固定尺寸对象（WS frame、音频 packet、event payload、codec packet）启动期预分配 pool/ring，运行期 O(1) 取还；池满时按业务选择 drop-oldest、backpressure 或返回错误，禁止临时扩容。
+
+模板与报告字段 → [l2_memory_analysis.md](../workflows/l2_memory_analysis.md) Step 3。
+
+---
+
 ## TLS 栈唯一（C7.7）
 
 主工程只链入 **一个** TLS 实现（mbedtls / wolfssl / psa_mbedtls 择一）。多栈并存是 Flash+RAM 双重浪费。
@@ -162,3 +176,6 @@ SDK 裁剪 Phase C 末尾才是「缩内存池和任务栈」（见 [sdk_trim_pr
 - [ ] C7.8 ISR/DMA 缓冲在 fast RAM？
 - [ ] C7.9 重连有退避？
 - [ ] C7.10 普通堆申请优先外部 RAM，失败 fallback，且 matched free 可追踪？
+- [ ] C7.11 是否统一 allocator/free，业务代码无多族 allocator 散落？
+- [ ] C7.12 是否记录 largest free block、heap kind 和 alloc fail？
+- [ ] C7.13 高频固定尺寸对象是否预分配固定块池，满时策略明确？

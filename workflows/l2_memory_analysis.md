@@ -25,9 +25,16 @@ void memory_dump_baseline(const char *stage)
     LOG_I(TAG, "  Free heap: %u bytes", xPortGetFreeHeapSize());
     LOG_I(TAG, "  Min free heap: %u bytes", xPortGetMinimumEverFreeHeapSize());
 
+#if defined(MALLOC_CAP_INTERNAL)
+    LOG_I(TAG, "  Internal largest block: %u bytes",
+          heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
+#endif
+
 #if CONFIG_SPIRAM
     LOG_I(TAG, "  Free PSRAM: %u bytes",
           heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
+    LOG_I(TAG, "  PSRAM largest block: %u bytes",
+          heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
 #endif
 
 #if CONFIG_FREERTOS_USE_TRACE_FACILITY
@@ -64,13 +71,13 @@ void memory_dump_baseline(const char *stage)
 ## 内存基线
 
 ### 堆
-| 时机 | Free Heap | Min Free Heap | Free PSRAM |
-|------|-----------|---------------|------------|
-| 冷启动 | __ B | __ B | __ B |
-| WiFi 连接后 | __ B | __ B | __ B |
-| WSS 握手峰值 | __ B | __ B | __ B |
-| 业务稳定 30s | __ B | __ B | __ B |
-| 连续 30min | __ B | __ B | __ B |
+| 时机 | Free Heap | Min Free Heap | Largest Internal | Free PSRAM | Largest PSRAM |
+|------|-----------|---------------|------------------|------------|---------------|
+| 冷启动 | __ B | __ B | __ B | __ B | __ B |
+| WiFi 连接后 | __ B | __ B | __ B | __ B | __ B |
+| WSS 握手峰值 | __ B | __ B | __ B | __ B | __ B |
+| 业务稳定 30s | __ B | __ B | __ B | __ B | __ B |
+| 连续 30min | __ B | __ B | __ B | __ B | __ B |
 
 ### 任务栈（按 watermark 升序排列）
 | 任务名 | 栈大小 | Watermark | 使用率 | 状态 |
@@ -168,16 +175,52 @@ static void heap_monitor_task(void *arg)
 
 ## Step 3 — 堆/池优化
 
-### 3.0 外部 RAM 优先（C7.10）
+### 3.0 统一 allocator + 外部 RAM 优先（C7.10–C7.11）
 
-缩池前先分类现有堆申请：普通/大块/低频对象优先迁到外部 RAM，失败再回退 internal SRAM，并在 payload 结构体中记录 `heap_kind` / `in_psram`，保证释放路径 matched free。不要把 I2S/LCD/Camera DMA buffer、ISR 触达 buffer、音视频实时热路径 buffer 迁到 PSRAM；这些仍按 C7.8/C28 使用 fast/DMA-capable RAM。
+缩池前先分类现有堆申请：普通/大块/低频对象优先迁到外部 RAM，失败再回退 internal SRAM，并在 payload 结构体中记录 `heap_kind` / `in_psram`，保证释放路径 matched free。业务模块不要散落调用 `malloc`、`psram_malloc`、`heap_caps_malloc`；统一走项目 allocator。不要把 I2S/LCD/Camera DMA buffer、ISR 触达 buffer、音视频实时热路径 buffer 迁到 PSRAM；这些仍按 C7.8/C28 使用 fast/DMA-capable RAM。
 
 优先外移对象：
 - URL、JSON response、WebSocket 普通帧缓存
 - TTS PCM backlog、非 DMA staging buffer
 - LVGL 图片资源、低频大缓存
 
-### 3.1 LwIP 池优化
+```c
+typedef enum {
+    APP_HEAP_INTERNAL,
+    APP_HEAP_EXTERNAL,
+    APP_HEAP_DMA,
+} app_heap_kind_t;
+
+typedef enum {
+    APP_ALLOC_NORMAL,
+    APP_ALLOC_DMA,
+} app_alloc_class_t;
+
+void *app_alloc(size_t size, app_alloc_class_t cls, app_heap_kind_t *kind);
+void app_free(void *ptr, app_heap_kind_t kind);
+```
+
+约定：
+- `APP_ALLOC_NORMAL`：external RAM 优先，失败 fallback internal。
+- `APP_ALLOC_DMA`：只走 internal/DMA-capable RAM，不 fallback 到 external。
+- allocator 内部记录 normal/dma/external alloc fail count，释放时按 `heap_kind` matched free。
+
+### 3.1 碎片与 heap kind 遥测（C7.12）
+
+```markdown
+| Heap | Free | Min Free | Largest Block | Alloc Fail |
+|------|------|----------|---------------|------------|
+| internal | __ B | __ B | __ B | __ |
+| external | __ B | __ B | __ B | __ |
+| dma | __ B | __ B | __ B | __ |
+```
+
+判断规则：
+- `Free` 充足但 `Largest Block < request_size`：优先处理碎片或改固定块池。
+- `internal fail` 上升但 external 空闲：检查 C7.10/C7.11 是否绕过 wrapper。
+- `dma fail` 上升：检查 C7.8/C28，不要用 external RAM 伪装 DMA buffer。
+
+### 3.2 LwIP 池优化
 
 ```c
 /* sdkconfig 或 Kconfig 调整 */
@@ -189,7 +232,7 @@ CONFIG_LWIP_TCP_WND=4096           /* 默认 5744 */
 
 **C7.6：每步缩完必须冒烟 WiFi + WSS + 业务闭环。**
 
-### 3.2 mbedTLS 池优化
+### 3.3 mbedTLS 池优化
 
 ```c
 /* 仅保留需要的 cipher suite */
@@ -201,7 +244,7 @@ CONFIG_MBEDTLS_KEY_EXCHANGE_DHE_RSA=n
 CONFIG_MBEDTLS_KEY_EXCHANGE_RSA=n
 ```
 
-### 3.3 LVGL 内存池
+### 3.4 LVGL 内存池
 
 ```c
 CONFIG_LV_MEM_CUSTOM=y                   /* 使用自定义分配器 */
@@ -209,26 +252,49 @@ CONFIG_LV_MEM_CUSTOM_ALLOC=heap_caps_malloc  /* 放 PSRAM */
 CONFIG_LV_MEM_SIZE=0                     /* 使用系统堆 */
 ```
 
-### 3.4 对象池（高频路径）
+### 3.5 固定块池（C7.13 高频路径）
 
 ```c
-/* 高频分配/释放路径（如每帧 JSON 或每包网络数据）用固定块池 */
+/* 高频分配/释放路径（如 WS frame、event payload、packet）用固定块池 */
 #define POOL_BLOCK_SIZE  256
 #define POOL_BLOCK_COUNT 8
 
-static uint8_t s_pool[POOL_BLOCK_COUNT][POOL_BLOCK_SIZE] __attribute__((aligned(4)));
-static StaticQueue_t s_pool_queue;
-static QueueHandle_t s_pool_free_queue;
+typedef struct {
+    uint8_t bytes[POOL_BLOCK_SIZE];
+} app_pool_block_t;
 
-void pool_init(void)
+static app_pool_block_t s_blocks[POOL_BLOCK_COUNT] __attribute__((aligned(4)));
+static uint8_t s_free_q_storage[POOL_BLOCK_COUNT * sizeof(void *)];
+static StaticQueue_t s_free_q_cb;
+static QueueHandle_t s_free_q;
+
+void app_pool_init(void)
 {
-    s_pool_free_queue = xQueueCreateStatic(POOL_BLOCK_COUNT, sizeof(void *), (uint8_t *)&s_pool_queue + sizeof(QueueHandle_t), /* ... */);
+    s_free_q = xQueueCreateStatic(POOL_BLOCK_COUNT, sizeof(void *),
+                                  s_free_q_storage, &s_free_q_cb);
+    configASSERT(s_free_q != NULL);
+
     for (int i = 0; i < POOL_BLOCK_COUNT; i++) {
-        void *p = &s_pool[i][0];
-        xQueueSend(s_pool_free_queue, &p, 0);
+        void *p = s_blocks[i].bytes;
+        configASSERT(xQueueSend(s_free_q, &p, 0) == pdTRUE);
+    }
+}
+
+void *app_pool_alloc(TickType_t timeout)
+{
+    void *p = NULL;
+    return (xQueueReceive(s_free_q, &p, timeout) == pdTRUE) ? p : NULL;
+}
+
+void app_pool_free(void *p)
+{
+    if (p != NULL) {
+        configASSERT(xQueueSend(s_free_q, &p, 0) == pdTRUE);
     }
 }
 ```
+
+池满策略必须写在模块设计里：音视频帧一般 drop-oldest，控制事件一般返回错误或 backpressure，禁止运行期扩容。
 
 ---
 
@@ -300,6 +366,9 @@ python tools/stack_calculator.py --describe "WSS TLS cJSON" --platform <平台>
 
 ### 堆/池优化（Step 3）
 - 外部 RAM：____
+- Allocator 封装：____
+- 碎片/heap kind 遥测：____
+- 固定块池：____
 - LwIP：____
 - mbedTLS：____
 - LVGL：____

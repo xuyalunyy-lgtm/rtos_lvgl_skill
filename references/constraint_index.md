@@ -57,6 +57,9 @@
 | C7.5 | 0 | WSS 栈 ≥4096 bytes |
 | C7.9 | 1 | 重连指数退避 |
 | C7.10 | 1 | 普通堆申请优先外部 RAM，失败再回退 internal |
+| C7.11 | 1 | 跨模块内存走统一 allocator/free 封装 |
+| C7.12 | 1 | 遥测含 per-heap free/min/largest/fail |
+| C7.13 | 1 | 高频固定尺寸对象用启动期预分配固定块池 |
 | C8.1 | 0 | Queue/Presenter 先于网络回调 |
 | C8.3 | 1 | Presenter 禁 `portMAX_DELAY` 等 Queue |
 | C8.6 | 0 | init 禁同步 TLS/大 Parse |

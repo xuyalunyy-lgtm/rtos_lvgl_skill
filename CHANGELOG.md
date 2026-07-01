@@ -1,5 +1,11 @@
 # Changelog
 
+## 4.13.4 — 2026-07-01
+
+- **C7 allocator 工程化闭环**：新增 C7.11 统一 allocator/free 封装、C7.12 largest free block + heap kind 遥测、C7.13 固定块池 / ring buffer 模板约束
+- **内存专项 workflow**：补充 allocator 封装接口、per-heap free/min/largest/fail 采集、固定块池模板和输出报告字段
+- **规则同步**：更新 `core_rules`、`constraint_index/detail/graph`、Lite checklist 与规则计数至 153 条
+
 ## 4.13.3 — 2026-07-01
 
 - **C7.10 外部 RAM 优先**：新增普通/大块/低频堆申请优先 PSRAM/SPIRAM/external RAM、失败回退 internal SRAM 的规则，并明确 DMA/ISR/实时热路径仍按 C7.8/C28 使用 fast/DMA-capable RAM
