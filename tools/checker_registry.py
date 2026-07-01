@@ -2,12 +2,22 @@
 """
 Central registry for run_review.py.
 
+Single source of truth for all checkers.  Every checker MUST be registered here.
 Add a checker here first, then wire only unusual behavior in run_review.py.
+
+Suites:
+  default   — run by default in run_review.py (L2 gate)
+  all       — every non-AST checker (for --suite all)
+  security  — secret scan, OTA, boot, lifecycle
+  media     — A/V pipeline, codec, clock, DMA
+  platform  — peripheral, display, flash, low-power, network
+  realtime  — ISR, priority, blocking wait, lock, critical section, backpressure
+  enhanced  — AST-enhanced duplicates (cjson_ast, queue_ast); not run by default
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 @dataclass(frozen=True)
@@ -18,6 +28,7 @@ class CheckerSpec:
     mode: str
     domains: tuple[str, ...]
     note: str = ""
+    suites: tuple[str, ...] = ("default", "all")
 
     @property
     def skip_attr(self) -> str:
@@ -32,38 +43,146 @@ class CheckerCase:
     label: str
 
 
-DEFAULT_CHECKERS: tuple[CheckerSpec, ...] = (
-    CheckerSpec("cjson_leak_checker", "cjson_leak_checker.py", "cjson", "per-file", ("C3",)),
-    CheckerSpec("isr_safety_checker", "isr_safety_checker.py", "isr", "per-file", ("C4",)),
-    CheckerSpec("lvgl_thread_checker", "lvgl_thread_checker.py", "lvgl", "per-file", ("C1",)),
-    CheckerSpec("queue_ownership_checker", "queue_ownership_checker.py", "queue", "per-file", ("C2",)),
-    CheckerSpec("voice_sequence_checker", "voice_sequence_checker.py", "voice", "batch", ("C10",)),
-    CheckerSpec("av_pipeline_checker", "av_pipeline_checker.py", "av", "batch", ("C25",)),
-    CheckerSpec("media_format_checker", "media_format_checker.py", "media-format", "batch", ("C26",)),
-    CheckerSpec("av_clock_jitter_checker", "av_clock_jitter_checker.py", "av-clock", "batch", ("C27",)),
-    CheckerSpec("av_dma_buffer_checker", "av_dma_buffer_checker.py", "av-dma", "batch", ("C28",)),
-    CheckerSpec("blocking_wait_checker", "blocking_wait_checker.py", "timeout", "batch", ("C31",)),
-    CheckerSpec("efficiency_budget_checker", "efficiency_budget_checker.py", "efficiency", "batch", ("C36", "C37")),
-    CheckerSpec("lock_budget_checker", "lock_budget_checker.py", "lock-budget", "batch", ("C43",)),
-    CheckerSpec("critical_section_checker", "critical_section_checker.py", "critical-section", "batch", ("C44",)),
-    CheckerSpec("sensor_integration_checker", "sensor_integration_checker.py", "sensor-integration", "batch", ("C45",)),
-    CheckerSpec("ota_safety_checker", "ota_safety_checker.py", "ota", "batch", ("C22",)),
-    CheckerSpec("boot_sequence_checker", "boot_sequence_checker.py", "boot", "batch", ("C8",)),
-    CheckerSpec("stack_alloc_checker", "stack_alloc_checker.py", "stack-alloc", "batch", ("C7.3",)),
-    CheckerSpec("lifecycle_checker", "lifecycle_checker.py", "lifecycle", "batch", ("C33",)),
-    CheckerSpec("peripheral_shutdown_checker", "peripheral_shutdown_checker.py", "peripheral-shutdown", "batch", ("C24",)),
-    CheckerSpec("backpressure_checker", "backpressure_checker.py", "backpressure", "batch", ("C37",)),
-    CheckerSpec("critical_path_checker", "critical_path_checker.py", "critical-path", "batch", ("C35",)),
-    CheckerSpec("priority_checker", "priority_checker.py", "priority", "batch", ("C15",)),
-    CheckerSpec("observability_checker", "observability_checker.py", "observability", "batch", ("C32",)),
-    CheckerSpec("config_matrix_checker", "config_matrix_checker.py", "config-matrix", "batch", ("C39",)),
-    CheckerSpec("coding_style_checker", "coding_style_checker.py", "coding-style", "batch", ("C11",)),
-    CheckerSpec("test_macro_checker", "test_macro_checker.py", "test-macro", "batch", ("C5",)),
-    CheckerSpec("board_resource_checker", "board_resource_checker.py", "board-resource", "batch", ("C42",)),
-    CheckerSpec("logging_checker", "logging_checker.py", "logging", "batch", ("C14",)),
-    CheckerSpec("return_check_checker", "return_check_checker.py", "return-check", "batch", ("C12",)),
-    CheckerSpec("function_length_checker", "function_length_checker.py", "func-length", "batch", ("C11.5",)),
+ALL_CHECKERS: tuple[CheckerSpec, ...] = (
+    # ── C1: LVGL thread safety ──────────────────────────────────────────
+    CheckerSpec("lvgl_thread_checker", "lvgl_thread_checker.py", "lvgl", "per-file", ("C1",),
+                suites=("default", "all")),
+    # ── C2: Queue payload ownership ─────────────────────────────────────
+    CheckerSpec("queue_ownership_checker", "queue_ownership_checker.py", "queue", "per-file", ("C2",),
+                suites=("default", "all")),
+    CheckerSpec("queue_ast_checker", "queue_ast_checker.py", "queue-ast", "per-file", ("C2",),
+                note="AST-enhanced duplicate of queue_ownership_checker",
+                suites=("enhanced",)),
+    # ── C3: cJSON lifecycle ─────────────────────────────────────────────
+    CheckerSpec("cjson_leak_checker", "cjson_leak_checker.py", "cjson", "per-file", ("C3",),
+                suites=("default", "all")),
+    CheckerSpec("cjson_ast_checker", "cjson_ast_checker.py", "cjson-ast", "per-file", ("C3",),
+                note="AST-enhanced duplicate of cjson_leak_checker",
+                suites=("enhanced",)),
+    # ── C5: Test macros ─────────────────────────────────────────────────
+    CheckerSpec("test_macro_checker", "test_macro_checker.py", "test-macro", "batch", ("C5",),
+                suites=("default", "all")),
+    # ── C7: Stack allocation ────────────────────────────────────────────
+    CheckerSpec("stack_alloc_checker", "stack_alloc_checker.py", "stack-alloc", "batch", ("C7.3",),
+                suites=("default", "all")),
+    # ── C8: Boot sequence ───────────────────────────────────────────────
+    CheckerSpec("boot_sequence_checker", "boot_sequence_checker.py", "boot", "batch", ("C8",),
+                suites=("default", "all", "security")),
+    # ── C9: Secret scan ─────────────────────────────────────────────────
+    CheckerSpec("secret_scan_checker", "secret_scan_checker.py", "secret-scan", "batch", ("C9",),
+                suites=("default", "all", "security")),
+    # ── C10: Voice sequence ─────────────────────────────────────────────
+    CheckerSpec("voice_sequence_checker", "voice_sequence_checker.py", "voice", "batch", ("C10",),
+                suites=("default", "all")),
+    # ── C11: Coding style / function length ─────────────────────────────
+    CheckerSpec("coding_style_checker", "coding_style_checker.py", "coding-style", "batch", ("C11",),
+                suites=("default", "all")),
+    CheckerSpec("function_length_checker", "function_length_checker.py", "func-length", "batch", ("C11.5",),
+                suites=("default", "all")),
+    # ── C12: Return value check ─────────────────────────────────────────
+    CheckerSpec("return_check_checker", "return_check_checker.py", "return-check", "batch", ("C12",),
+                suites=("default", "all")),
+    # ── C13: State machine ──────────────────────────────────────────────
+    CheckerSpec("state_machine_checker", "state_machine_checker.py", "state-machine", "batch", ("C13",),
+                suites=("default", "all")),
+    # ── C14: Logging ────────────────────────────────────────────────────
+    CheckerSpec("logging_checker", "logging_checker.py", "logging", "batch", ("C14",),
+                suites=("default", "all")),
+    CheckerSpec("log_desensitize_checker", "log_desensitize_checker.py", "log-desensitize", "batch", ("C14.4",),
+                suites=("default", "all", "security")),
+    # ── C15: Priority ───────────────────────────────────────────────────
+    CheckerSpec("priority_checker", "priority_checker.py", "priority", "batch", ("C15",),
+                suites=("default", "all", "realtime")),
+    # ── C16: Timer ──────────────────────────────────────────────────────
+    CheckerSpec("timer_checker", "timer_checker.py", "timer", "batch", ("C16",),
+                suites=("default", "all")),
+    # ── C18: Peripheral driver ──────────────────────────────────────────
+    CheckerSpec("peripheral_driver_checker", "peripheral_driver_checker.py", "peripheral-driver", "batch", ("C18",),
+                suites=("all", "platform")),
+    # ── C19: Flash/NVS ─────────────────────────────────────────────────
+    CheckerSpec("flash_nvs_checker", "flash_nvs_checker.py", "flash-nvs", "batch", ("C19",),
+                suites=("all", "platform")),
+    # ── C20: Network resilience ─────────────────────────────────────────
+    CheckerSpec("network_resilience_checker", "network_resilience_checker.py", "network-resilience", "batch", ("C20",),
+                suites=("all", "platform")),
+    # ── C21: Low power ─────────────────────────────────────────────────
+    CheckerSpec("low_power_checker", "low_power_checker.py", "low-power", "batch", ("C21",),
+                suites=("all", "platform")),
+    # ── C22: OTA safety ─────────────────────────────────────────────────
+    CheckerSpec("ota_safety_checker", "ota_safety_checker.py", "ota", "batch", ("C22",),
+                suites=("default", "all", "security")),
+    # ── C23: Display driver ─────────────────────────────────────────────
+    CheckerSpec("display_driver_checker", "display_driver_checker.py", "display-driver", "batch", ("C23",),
+                suites=("all", "platform")),
+    # ── C24: Peripheral shutdown ────────────────────────────────────────
+    CheckerSpec("peripheral_shutdown_checker", "peripheral_shutdown_checker.py", "peripheral-shutdown", "batch", ("C24",),
+                suites=("default", "all")),
+    # ── C25: A/V pipeline ──────────────────────────────────────────────
+    CheckerSpec("av_pipeline_checker", "av_pipeline_checker.py", "av", "batch", ("C25",),
+                suites=("default", "all", "media")),
+    # ── C26: Media format ───────────────────────────────────────────────
+    CheckerSpec("media_format_checker", "media_format_checker.py", "media-format", "batch", ("C26",),
+                suites=("default", "all", "media")),
+    # ── C27: A/V clock jitter ──────────────────────────────────────────
+    CheckerSpec("av_clock_jitter_checker", "av_clock_jitter_checker.py", "av-clock", "batch", ("C27",),
+                suites=("default", "all", "media")),
+    # ── C28: A/V DMA buffer ────────────────────────────────────────────
+    CheckerSpec("av_dma_buffer_checker", "av_dma_buffer_checker.py", "av-dma", "batch", ("C28",),
+                suites=("default", "all", "media")),
+    # ── C31: Blocking wait / timeout budget ─────────────────────────────
+    CheckerSpec("blocking_wait_checker", "blocking_wait_checker.py", "timeout", "batch", ("C31",),
+                suites=("default", "all", "realtime")),
+    # ── C32: Observability ──────────────────────────────────────────────
+    CheckerSpec("observability_checker", "observability_checker.py", "observability", "batch", ("C32",),
+                suites=("default", "all")),
+    # ── C33: Lifecycle ──────────────────────────────────────────────────
+    CheckerSpec("lifecycle_checker", "lifecycle_checker.py", "lifecycle", "batch", ("C33",),
+                suites=("default", "all", "security")),
+    # ── C35: Critical path ──────────────────────────────────────────────
+    CheckerSpec("critical_path_checker", "critical_path_checker.py", "critical-path", "batch", ("C35",),
+                suites=("default", "all")),
+    # ── C36/C37: Efficiency / backpressure ──────────────────────────────
+    CheckerSpec("efficiency_budget_checker", "efficiency_budget_checker.py", "efficiency", "batch", ("C36", "C37"),
+                suites=("default", "all")),
+    CheckerSpec("backpressure_checker", "backpressure_checker.py", "backpressure", "batch", ("C37",),
+                suites=("default", "all")),
+    # ── C39: Config matrix ──────────────────────────────────────────────
+    CheckerSpec("config_matrix_checker", "config_matrix_checker.py", "config-matrix", "batch", ("C39",),
+                suites=("default", "all")),
+    # ── C42: Board resource ─────────────────────────────────────────────
+    CheckerSpec("board_resource_checker", "board_resource_checker.py", "board-resource", "batch", ("C42",),
+                suites=("default", "all")),
+    # ── C43: Lock budget ────────────────────────────────────────────────
+    CheckerSpec("lock_budget_checker", "lock_budget_checker.py", "lock-budget", "batch", ("C43",),
+                suites=("default", "all", "realtime")),
+    # ── C44: Critical section ───────────────────────────────────────────
+    CheckerSpec("critical_section_checker", "critical_section_checker.py", "critical-section", "batch", ("C44",),
+                suites=("default", "all", "realtime")),
+    # ── C45: Sensor integration ─────────────────────────────────────────
+    CheckerSpec("sensor_integration_checker", "sensor_integration_checker.py", "sensor-integration", "batch", ("C45",),
+                suites=("default", "all")),
+    # ── ISR safety (cross-cutting) ──────────────────────────────────────
+    CheckerSpec("isr_safety_checker", "isr_safety_checker.py", "isr", "per-file", ("C4",),
+                suites=("default", "all", "realtime")),
 )
+
+# Default suite = subset that runs in run_review.py without --suite flag
+DEFAULT_CHECKERS: tuple[CheckerSpec, ...] = tuple(c for c in ALL_CHECKERS if "default" in c.suites)
+
+# Known suite names (for --list-suites / validation)
+SUITE_NAMES = ("default", "all", "security", "media", "platform", "realtime", "enhanced")
+
+
+def get_suite(name: str) -> tuple[CheckerSpec, ...]:
+    """Return checkers belonging to *name* suite.  Raises ValueError for unknown suite."""
+    if name not in SUITE_NAMES:
+        raise ValueError(f"unknown suite {name!r}; choose from {SUITE_NAMES}")
+    return tuple(c for c in ALL_CHECKERS if name in c.suites)
+
+
+def checker_count_by_suite() -> dict[str, int]:
+    """Return {suite_name: checker_count} for all suites."""
+    return {s: len(get_suite(s)) for s in SUITE_NAMES}
 
 
 SELF_TEST_CASES: tuple[CheckerCase, ...] = (
