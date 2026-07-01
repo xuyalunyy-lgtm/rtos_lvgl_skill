@@ -1,7 +1,7 @@
 ---
 name: freertos-embedded-architect
 metadata:
-  version: 4.13.5
+  version: 4.13.6
 description: >-
   FreeRTOS embedded architecture specialist for MVP firmware, board bring-up,
   runtime reliability, memory safety, LVGL/DMA/ISR safety, SDK trimming, crash

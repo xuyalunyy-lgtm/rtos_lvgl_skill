@@ -125,7 +125,7 @@ typedef enum {
 static void on_network_lost(void)
 {
     set_net_mode(NET_MODE_OFFLINE);
-    /* 本地功能继续：时钟、闹钟、设置、本地播放 */
+    /* 本地功能继续：时钟、定时器、设置、本地播放 */
     LOG_I(TAG, "Network lost, entering offline mode");
 }
 ```

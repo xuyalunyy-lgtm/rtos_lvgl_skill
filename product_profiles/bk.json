@@ -25,10 +25,10 @@
     "BEKEN_NO_WAIT 超时宏（非 portMAX_DELAY），Queue/Semaphore 超时须用此宏",
     "vc_start / voicechat 生命周期竞态：WSS 断线后异步 reconnect 可能触发 HardFault",
     "双核 FreeRTOS 独立实例，跨核通信须 IPC（C17），xQueueSend 仅限同核",
-    "littlefs 表情资源占用 Flash 分区，SDK 裁剪时注意分区表",
+    "littlefs UI/二进制资源占用 Flash 分区，SDK 裁剪时注意分区表",
     "SARADC 引脚与 GPIO 复用，使用 ADC 时该引脚不可做普通 GPIO",
     "BK7258 的 mbedTLS 为 SDK 内置版本，cipher suite 配置路径与 ESP32 不同",
-    "bk_printer 产品的打印 mutex 需与音频互斥，避免并发 SPI 访问",
+    "SPI/LCD/执行器类外设与音频/媒体链路并发时需明确互斥与 DMA 通道归属",
     "app_event 桥接模式：Model 层通过 app_event 分发，非标准 xQueue",
     "SDK 的 thread_create 栈单位为 bytes（非 words），注意换算",
     "AVDK/LCD/camera DMA buffer 需确认 cache 同步与 producer/consumer release 时序"

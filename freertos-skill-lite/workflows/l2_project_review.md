@@ -67,7 +67,7 @@ python tools/run_review.py --dir <产品仓>/components --platform <esp32|jl|bk|
 | 条件编译 Web 子模块 | 仅编已定义宏的模块 |
 | 密钥在 `.c` `#define` | 迁 Kconfig + 本地 secrets（C9.1） |
 
-平台实测裁剪表（打印机、带屏 AI 等）→ 各 `platforms/xxx.md`，勿在通用 workflow 硬编码产品名。
+平台实测裁剪经验 → 各 `platforms/xxx.md`，勿在通用 workflow 硬编码产品名或默认删除清单。
 
 ```bash
 rg "super\.init\(\)|_tool_init|_instance\(\)->start" <产品仓>/main --glob '*.c' | head

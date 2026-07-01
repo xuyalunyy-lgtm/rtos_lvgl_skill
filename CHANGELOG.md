@@ -1,5 +1,12 @@
 # Changelog
 
+## 4.13.6 — 2026-07-01
+
+- **通用化门禁**：在 `core_rules.md` 与 `self_iterate.md` 明确 skill 面向通用 RTOS 固件工程，真实项目经验入库前必须抽象为“症状 → 通用根因 → 通用修复模式”
+- **产品残留收敛**：将 C24 外设关闭 prompt 从打印机专用函数改为通用 `device/peripheral/actuator` 模板；收敛 BK profile、BK 平台文档、SDK 裁剪和 Git 提交示例中的产品名/业务文件名
+- **测试夹具通用化**：将 secret scan fixtures 从具体业务 key 改为 `CONFIG_APP_CLOUD_*` 示例
+- **版本升至 4.13.6**
+
 ## 4.13.5 — 2026-07-01
 
 - **C14 日志管理系统约束**：新增 `references/logging_management_constraints.md`，覆盖日志 profile、TAG/级别、上下文安全、限频预算、结构化事件、crash ring buffer、脱敏与量产发布门槛

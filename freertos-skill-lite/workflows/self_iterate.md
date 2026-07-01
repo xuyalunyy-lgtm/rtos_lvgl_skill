@@ -45,7 +45,20 @@
 
 每次新增现场经验，至少做一次 drift audit：`prompt -> constraint_index/detail -> workflow 路由 -> checker/example -> Lite checklist`。缺任一层时，在迭代摘要里标注“人工覆盖”或补齐。
 
-**禁止：** 未经问卷扩 SDK 固定删除清单；拆成多个 skill；把 12 个 prompt 塞进 `SKILL.md`。
+### 通用化门禁
+
+真实项目只能作为经验来源，运行时 skill 必须保持产品中立：
+
+| 允许 | 禁止 |
+|------|------|
+| 平台/芯片/SDK 事实：如 BK7258、ESP32-S3、STM32H7、AC79、Armino、ESP-IDF | 产品名、客户名、仓库名、内部模块名直接进入通用 workflow/prompt |
+| 抽象后的模式：WSS 异步建链、共享音频 backend、外设 stop/deinit 竞态 | 具体产品名、仓库名、云服务 key、业务文件名作为规则前提 |
+| 通用代码示例：`device_*`、`peripheral_*`、`session_*`、`media_*` | 只能在某个产品成立的函数名/任务名作为标准模板 |
+| 平台专档中的 SDK API/编译命令 | 把单项目裁剪清单当成默认删除清单 |
+
+若现场经验来自特定产品，先写入 `iteration_log.md` 的来源；进入 prompt / workflow / profile 前必须改写为“症状 → 通用根因 → 通用修复模式”。确需保留产品名时，只能放在归档日志或平台专档的“来源”句中，不得影响触发、约束或默认实现。
+
+**禁止：** 未经问卷扩 SDK 固定删除清单；拆成多个 skill；把 12 个 prompt 塞进 `SKILL.md`；把单个产品的目录/任务/密钥命名当作通用规范。
 
 ## Step 3 — 版本与 CHANGELOG
 

@@ -1,4 +1,4 @@
-<!-- 来源: 打印机/电机/加热器/工业控制量产经验 -->
+<!-- 来源: 电机/加热器/电源门控/DMA 外设等量产收尾经验，已抽象为通用外设模式 -->
 <!-- C24: 外设关闭安全 -->
 
 # 外设关闭安全专精提示词
@@ -7,7 +7,7 @@
 
 ## 适用场景
 
-电机、加热器、VH 电源、打印头、步进电机、DMA 外设等需要严格收尾的硬件动作。
+电机、加热器、电源门控、执行器、步进电机、DMA 外设等需要严格收尾的硬件动作。
 
 ---
 
@@ -15,41 +15,41 @@
 
 ```c
 /* ✅ 正确: 异常和正常都走统一收尾 */
-printer_err_t printer_do_job(printer_job_t *job)
+device_err_t device_do_job(device_job_t *job)
 {
-    printer_err_t ret = PRINTER_OK;
+    device_err_t ret = DEVICE_OK;
 
-    ret = printer_start_vh();
-    if (ret != PRINTER_OK) goto cleanup;
+    ret = peripheral_power_enable();
+    if (ret != DEVICE_OK) goto cleanup;
 
-    ret = printer_feed_paper(job->lines);
-    if (ret != PRINTER_OK) goto cleanup;
+    ret = actuator_start_motion(job->steps);
+    if (ret != DEVICE_OK) goto cleanup;
 
-    ret = printer_print_data(job->data, job->len);
-    if (ret != PRINTER_OK) goto cleanup;
+    ret = peripheral_transfer_data(job->data, job->len);
+    if (ret != DEVICE_OK) goto cleanup;
 
 cleanup:
     /* 正常和异常都走这里 */
-    printer_stop_motor();
-    printer_close_vh();
+    actuator_stop_motion();
+    peripheral_power_disable();
     return ret;
 }
 ```
 
 ```c
 /* ❌ 错误: 异常路径跳过收尾 */
-printer_err_t printer_do_job(printer_job_t *job)
+device_err_t device_do_job(device_job_t *job)
 {
-    printer_start_vh();
-    printer_feed_paper(job->lines);
+    peripheral_power_enable();
+    actuator_start_motion(job->steps);
 
-    int ret = printer_print_data(job->data, job->len);
+    int ret = peripheral_transfer_data(job->data, job->len);
     if (ret != 0) {
-        return ret;  /* VH 和电机未关闭！ */
+        return ret;  /* 电源和执行器未关闭！ */
     }
 
-    printer_stop_motor();
-    printer_close_vh();
+    actuator_stop_motion();
+    peripheral_power_disable();
     return 0;
 }
 ```
@@ -60,34 +60,35 @@ printer_err_t printer_do_job(printer_job_t *job)
 
 ```c
 /* ✅ 正确: 检查状态后再操作 */
-static bool s_vh_enabled = false;
+static bool s_power_enabled = false;
+static bool s_actuator_running = false;
 
-void printer_close_vh(void)
+void peripheral_power_disable(void)
 {
-    if (!s_vh_enabled) {
+    if (!s_power_enabled) {
         return;  /* 已关闭，安全返回 */
     }
-    gpio_set_level(VH_POWER_PIN, 0);
-    s_vh_enabled = false;
-    LOG_I(TAG, "VH power off");
+    gpio_set_level(PERIPHERAL_POWER_PIN, 0);
+    s_power_enabled = false;
+    LOG_I(TAG, "Peripheral power off");
 }
 
-void printer_stop_motor(void)
+void actuator_stop_motion(void)
 {
-    if (!s_motor_running) {
+    if (!s_actuator_running) {
         return;  /* 已停止，安全返回 */
     }
-    pwm_stop(MOTOR_PWM_CHANNEL);
-    s_motor_running = false;
-    LOG_I(TAG, "Motor stopped");
+    pwm_stop(ACTUATOR_PWM_CHANNEL);
+    s_actuator_running = false;
+    LOG_I(TAG, "Actuator stopped");
 }
 ```
 
 ```c
 /* ❌ 错误: 无状态检查，重复关闭可能出错 */
-void printer_close_vh(void)
+void peripheral_power_disable(void)
 {
-    gpio_set_level(VH_POWER_PIN, 0);  /* 可能已经关了 */
+    gpio_set_level(PERIPHERAL_POWER_PIN, 0);  /* 可能已经关了 */
     /* 多次调用可能导致状态机错乱 */
 }
 ```
@@ -98,40 +99,40 @@ void printer_close_vh(void)
 
 ```c
 /* ✅ 正确: 超时后释放所有资源 */
-printer_err_t printer_do_job_with_timeout(printer_job_t *job, uint32_t timeout_ms)
+device_err_t device_do_job_with_timeout(device_job_t *job, uint32_t timeout_ms)
 {
     TickType_t start = xTaskGetTickCount();
-    printer_err_t ret = PRINTER_OK;
+    device_err_t ret = DEVICE_OK;
 
-    ret = printer_start_vh();
-    if (ret != PRINTER_OK) return ret;
+    ret = peripheral_power_enable();
+    if (ret != DEVICE_OK) return ret;
 
     /* 检查超时 */
     if ((xTaskGetTickCount() - start) > pdMS_TO_TICKS(timeout_ms)) {
-        ret = PRINTER_ERR_TIMEOUT;
+        ret = DEVICE_ERR_TIMEOUT;
         goto cleanup;
     }
 
-    ret = printer_feed_paper(job->lines);
-    if (ret != PRINTER_OK) goto cleanup;
+    ret = actuator_start_motion(job->steps);
+    if (ret != DEVICE_OK) goto cleanup;
 
 cleanup:
-    printer_stop_motor();
-    printer_close_vh();
+    actuator_stop_motion();
+    peripheral_power_disable();
     return ret;
 }
 ```
 
 ```c
 /* ❌ 错误: 超时后直接返回，硬件未收尾 */
-printer_err_t printer_do_job_with_timeout(printer_job_t *job, uint32_t timeout_ms)
+device_err_t device_do_job_with_timeout(device_job_t *job, uint32_t timeout_ms)
 {
     TickType_t start = xTaskGetTickCount();
 
-    printer_start_vh();
+    peripheral_power_enable();
 
     if ((xTaskGetTickCount() - start) > pdMS_TO_TICKS(timeout_ms)) {
-        return PRINTER_ERR_TIMEOUT;  /* VH 和电机还在运行！ */
+        return DEVICE_ERR_TIMEOUT;  /* 电源和执行器还在运行！ */
     }
     /* ... */
 }
@@ -143,30 +144,30 @@ printer_err_t printer_do_job_with_timeout(printer_job_t *job, uint32_t timeout_m
 
 ```c
 /* ✅ 正确: 等待 DMA 完成后再关闭 */
-void printer_stop_print_head(void)
+void peripheral_stop_output_path(void)
 {
     /* 1. 等待 DMA 传输完成 */
-    while (dma_is_busy(PRINT_DMA_CHANNEL)) {
+    while (dma_is_busy(PERIPHERAL_DMA_CHANNEL)) {
         vTaskDelay(pdMS_TO_TICKS(1));
     }
 
-    /* 2. 等待打印任务 idle */
-    while (printer_get_state() != PRINTER_STATE_IDLE) {
+    /* 2. 等待工作任务 idle */
+    while (peripheral_get_state() != PERIPHERAL_STATE_IDLE) {
         vTaskDelay(pdMS_TO_TICKS(10));
     }
 
     /* 3. 安全关闭 */
-    pwm_stop(PRINT_PWM_CHANNEL);
-    gpio_set_level(PRINT_HEAD_EN_PIN, 0);
+    pwm_stop(PERIPHERAL_PWM_CHANNEL);
+    gpio_set_level(PERIPHERAL_EN_PIN, 0);
 }
 ```
 
 ```c
 /* ❌ 错误: DMA 还在传输就关闭 */
-void printer_stop_print_head(void)
+void peripheral_stop_output_path(void)
 {
-    pwm_stop(PRINT_PWM_CHANNEL);  /* DMA 可能还在写数据 */
-    gpio_set_level(PRINT_HEAD_EN_PIN, 0);
+    pwm_stop(PERIPHERAL_PWM_CHANNEL);  /* DMA 可能还在写数据 */
+    gpio_set_level(PERIPHERAL_EN_PIN, 0);
 }
 ```
 
@@ -184,34 +185,34 @@ void printer_stop_print_head(void)
 
 ---
 
-## C24.5 — 电机停止后必须关闭加热/VH/电源门控（P0）
+## C24.5 — 执行器停止后必须关闭加热/电源门控/外设使能（P0）
 
 ```c
 /* ✅ 正确: 完整收尾序列 */
-void printer_full_stop(void)
+void device_full_stop(void)
 {
-    /* 1. 停止电机 */
-    printer_stop_motor();
-    vTaskDelay(pdMS_TO_TICKS(50));  /* 等待电机完全停止 */
+    /* 1. 停止执行器 */
+    actuator_stop_motion();
+    vTaskDelay(pdMS_TO_TICKS(50));  /* 等待执行器完全停止 */
 
     /* 2. 关闭加热 */
     gpio_set_level(HEATER_PIN, 0);
 
-    /* 3. 关闭 VH 电源 */
-    printer_close_vh();
+    /* 3. 关闭电源门控 */
+    peripheral_power_disable();
 
-    /* 4. 关闭打印头使能 */
-    gpio_set_level(PRINT_HEAD_EN_PIN, 0);
+    /* 4. 关闭外设使能 */
+    gpio_set_level(PERIPHERAL_EN_PIN, 0);
 
-    LOG_I(TAG, "Printer fully stopped");
+    LOG_I(TAG, "Device fully stopped");
 }
 ```
 
 ```c
-/* ❌ 错误: 只停电机，其他外设未关闭 */
-void printer_full_stop(void)
+/* ❌ 错误: 只停执行器，其他外设未关闭 */
+void device_full_stop(void)
 {
-    printer_stop_motor();  /* 加热和 VH 还在运行！ */
+    actuator_stop_motion();  /* 加热和电源门控还在运行！ */
 }
 ```
 
@@ -224,4 +225,4 @@ void printer_full_stop(void)
 - [ ] C24.3 abort/timeout/skip 路径是否释放了所有硬件资源？
 - [ ] C24.4 外设 stop 前是否等待 DMA/任务 idle？
 - [ ] C24.4 音频/媒体 `stop` 是否只进 idle，`deinit/free` 是否只在会话结束/低功耗/错误恢复时执行？
-- [ ] C24.5 电机停止后是否关闭加热/VH/电源门控？
+- [ ] C24.5 执行器停止后是否关闭加热/电源门控/外设使能？

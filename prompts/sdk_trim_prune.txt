@@ -115,7 +115,7 @@ SDK 配置关断后，还须核对 **产品仓** `main/CMakeLists.txt`：
 4. Webnet：只编 `webnet.h` 里 `#define WEBNET_USING_*` 已开启的 `wn_module_*.c`
 5. 孤儿文件（未进 CMakeLists 的 `list_test.c`、demo `moduleA`）— 删除或 `.gitignore`
 
-打印机实测可裁清单见 `platforms/bk.md`「带屏打印机产品实测」。
+平台实测裁剪经验见对应 `platforms/xxx.md`；只能作为问卷后的参考，不得变成固定删除清单。
 
 ---
 
