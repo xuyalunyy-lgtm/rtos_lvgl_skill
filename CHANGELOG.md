@@ -2,6 +2,10 @@
 
 ## 7.0.7 — 2026-07-01
 
+- **Checker 基础设施统一**：40 个 checker 全部迁移到 `checker_io.py` 统一框架，净减 ~3000 行重复代码
+  - `checker_io.py` 扩展为统一基础设施：`read_file`, `strip_comments`, `extract_functions`, `make_issue`, `run_checker`
+  - 所有 checker 统一入口 `run_checker(check_file, desc, domains)`，自动支持 `--json` / `--dir` 输出
+  - 消除各 checker 中重复的 argparse/文件收集/输出格式化/注释剥离代码
 - **v7 整体重构门禁**：全量一致性审查通过，满足 release_governance.md 大版本门禁
 - **一致性审查**：45 约束域 × 248 规则 × 31 checker × 5 平台交叉验证通过
 - **链接验证**：40 个 .md 文件链接全部有效
