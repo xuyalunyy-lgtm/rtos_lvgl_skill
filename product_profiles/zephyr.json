@@ -1,0 +1,51 @@
+{
+  "platform": "zephyr",
+  "name": "Zephyr RTOS",
+  "description": "Zephyr RTOS 平台，支持多种架构和开发板",
+  "required_constraints": [
+    "C1", "C2", "C3", "C4", "C7", "C8", "C9",
+    "C11", "C12", "C13", "C14", "C15", "C16",
+    "C18", "C19", "C20", "C22", "C23",
+    "C29", "C30", "C31", "C33", "C34"
+  ],
+  "optional_constraints": [
+    "C5", "C6", "C10", "C17", "C21",
+    "C25", "C26", "C27", "C28",
+    "C35", "C36", "C37", "C38", "C39", "C40", "C41", "C42", "C43", "C44", "C45"
+  ],
+  "features": {
+    "dual_core": false,
+    "psram": false,
+    "wifi": true,
+    "ble": true,
+    "lvgl": true,
+    "audio": true,
+    "display": true,
+    "ota": true,
+    "device_tree": true,
+    "native_kconfig": true
+  },
+  "stack_recommendations": {
+    "idle": 1024,
+    "main": 4096,
+    "wifi": 4096,
+    "ble": 2048,
+    "lvgl": 4096,
+    "audio": 2048,
+    "network": 4096
+  },
+  "common_pitfalls": [
+    "Zephyr 优先级数字越小越高（与 STM32 FreeRTOS 相同）",
+    "栈由 K_THREAD_STACK_DEFINE 分配，不是 xTaskCreate 参数",
+    "设备必须 device_is_ready() 检查后才能使用",
+    "DTS overlay 配置外设，不是手动寄存器操作",
+    "k_sem_take 返回 0 表示成功（不是 pdTRUE）",
+    "CONFIG_HEAP_MEM_POOL_SIZE 需要足够大才能用 k_malloc",
+    "Zephyr 自动管理 PM，不需要手动 WFI"
+  ],
+  "crash_decode": {
+    "tool": "arm-none-eabi-addr2line",
+    "elf_path": "build/zephyr/zephyr.elf",
+    "command": "arm-none-eabi-addr2line -e build/zephyr/zephyr.elf -a <address>"
+  }
+}

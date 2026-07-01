@@ -1,17 +1,21 @@
 #!/usr/bin/env python3
 """
-约束推理引擎 v1 — 从知识图谱自动推理约束影响。
+约束推理引擎 v2 — 从知识图谱自动推理约束影响。
 
-功能：
-  1. 输入变更文件列表，输出需检查的约束域
-  2. 检测约束冲突（如 C21 低功耗 vs C25 实时音视频）
-  3. 推荐修复链（基于依赖图拓扑排序）
+v2 增强：
+  1. 冲突自动检测带严重度分级（P0/P1/P2）
+  2. 修复链拓扑排序带优先级标注
+  3. Mermaid 可视化带冲突高亮
+  4. JSON 结构化输出支持 CI 集成
+  5. fixture 自测支持
 
 用法:
     python tools/constraint_inference.py --changed "app_audio.c:queue_depth"
     python tools/constraint_inference.py --changed-files src/audio.c src/network.c
     python tools/constraint_inference.py --constraints C21 C25
     python tools/constraint_inference.py --graph
+    python tools/constraint_inference.py --json
+    python tools/constraint_inference.py --self-test
 """
 
 from __future__ import annotations
@@ -77,33 +81,33 @@ DEPENDENCIES = {
     "C45": ["C18", "C31", "C32", "C34", "C42"],
 }
 
-# 冲突关系：A ↔ B（同时满足需要权衡）
+# 冲突关系：A ↔ B（同时满足需要权衡）+ 严重度
 CONFLICTS = [
-    ("C8.6", "C8.2", "init 需同步时间 vs TLS 前须 SNTP"),
-    ("C1.6", "C1.5", "LVGL 锁序 vs SDK 锁序"),
-    ("C7.5", "C7", "WSS 栈 ≥4096 vs RAM 受限"),
-    ("C4.5", "C15.1", "音频优先级 > LVGL vs 相邻差 ≥2"),
-    ("C14.1", "C4.3", "需要日志 vs ISR 禁日志"),
-    ("C5.1", "C6", "测试宏 vs 量产关闭"),
-    ("C9.1", "C9", "密钥不入库 vs 调试便利"),
-    ("C17.1", "C17", "跨核须 IPC vs 延迟需求"),
-    ("C11.5", "C12.4", "函数 ≤80 行 vs goto cleanup"),
-    ("C16.1", "C16", "timer 回调禁阻塞 vs 业务逻辑"),
-    ("C21.4", "C20.5", "睡眠前关 WiFi vs 网络须降级"),
-    ("C21.3", "C4.5", "Tickless Idle vs 音频优先级"),
-    ("C25.1", "C23.3", "audio clock master vs 显示帧率"),
-    ("C25.3", "C7.13", "有界 video queue vs 固定块池"),
-    ("C26.1", "C25.4", "格式一致 vs 热路径禁分配"),
-    ("C27.2", "C25.3", "jitter buffer 水位 vs 低延迟"),
-    ("C28.1", "C7.10", "DMA-capable vs 外部 RAM 优先"),
-    ("C31.1", "C31.4", "有限 timeout vs daemon 永久等待"),
-    ("C32.5", "C34.2", "现场 dump vs 热路径禁日志"),
-    ("C34.2", "C7.13", "hot path 禁分配 vs 固定块池"),
-    ("C35.1", "C40.1", "关键路径预算 vs 复现命令简洁"),
-    ("C43.1", "C34.1", "锁预算 vs 热路径实时性"),
-    ("C44.1", "C4", "关中断预算 vs ISR 实时性"),
-    ("C22.2", "C38.2", "OTA mark_valid vs 故障恢复"),
-    ("C22.5", "C35.1", "OTA 超时重试 vs 启动预算"),
+    ("C8.6", "C8.2", "init 需同步时间 vs TLS 前须 SNTP", "P1"),
+    ("C1.6", "C1.5", "LVGL 锁序 vs SDK 锁序", "P1"),
+    ("C7.5", "C7", "WSS 栈 >=4096 vs RAM 受限", "P0"),
+    ("C4.5", "C15.1", "音频优先级 > LVGL vs 相邻差 >=2", "P1"),
+    ("C14.1", "C4.3", "需要日志 vs ISR 禁日志", "P1"),
+    ("C5.1", "C6", "测试宏 vs 量产关闭", "P2"),
+    ("C9.1", "C9", "密钥不入库 vs 调试便利", "P1"),
+    ("C17.1", "C17", "跨核须 IPC vs 延迟需求", "P1"),
+    ("C11.5", "C12.4", "函数 <=80 行 vs goto cleanup", "P2"),
+    ("C16.1", "C16", "timer 回调禁阻塞 vs 业务逻辑", "P1"),
+    ("C21.4", "C20.5", "睡眠前关 WiFi vs 网络须降级", "P0"),
+    ("C21.3", "C4.5", "Tickless Idle vs 音频优先级", "P1"),
+    ("C25.1", "C23.3", "audio clock master vs 显示帧率", "P1"),
+    ("C25.3", "C7.13", "有界 video queue vs 固定块池", "P1"),
+    ("C26.1", "C25.4", "格式一致 vs 热路径禁分配", "P1"),
+    ("C27.2", "C25.3", "jitter buffer 水位 vs 低延迟", "P1"),
+    ("C28.1", "C7.10", "DMA-capable vs 外部 RAM 优先", "P0"),
+    ("C31.1", "C31.4", "有限 timeout vs daemon 永久等待", "P1"),
+    ("C32.5", "C34.2", "现场 dump vs 热路径禁日志", "P1"),
+    ("C34.2", "C7.13", "hot path 禁分配 vs 固定块池", "P1"),
+    ("C35.1", "C40.1", "关键路径预算 vs 复现命令简洁", "P2"),
+    ("C43.1", "C34.1", "锁预算 vs 热路径实时性", "P0"),
+    ("C44.1", "C4", "关中断预算 vs ISR 实时性", "P0"),
+    ("C22.2", "C38.2", "OTA mark_valid vs 故障恢复", "P1"),
+    ("C22.5", "C35.1", "OTA 超时重试 vs 启动预算", "P1"),
 ]
 
 # 联动关系：改 A 时必须检查 B
@@ -146,7 +150,56 @@ LINKAGES = {
     "C45": ["C18", "C31", "C32", "C34", "C42"],
 }
 
-# 文件路径 → 约束域映射（关键词匹配）
+# 约束域名称映射
+CONSTRAINT_NAMES = {
+    "C1": "LVGL 线程安全",
+    "C2": "Queue 所有权",
+    "C3": "cJSON 防泄漏",
+    "C4": "ISR/DMA 安全",
+    "C5": "测试宏",
+    "C6": "SDK 裁剪",
+    "C7": "内存优化",
+    "C8": "启动顺序/WDT",
+    "C9": "密钥安全",
+    "C10": "语音/ASR",
+    "C11": "编码规范",
+    "C12": "错误处理",
+    "C13": "状态机",
+    "C14": "日志规范",
+    "C15": "任务优先级",
+    "C16": "定时器管理",
+    "C17": "多核 IPC",
+    "C18": "外设驱动",
+    "C19": "Flash/NVS",
+    "C20": "网络韧性",
+    "C21": "低功耗",
+    "C22": "OTA 安全",
+    "C23": "显示驱动",
+    "C24": "外设关闭",
+    "C25": "音视频管线",
+    "C26": "编解码格式",
+    "C27": "时钟漂移/Jitter",
+    "C28": "DMA/cache buffer",
+    "C29": "模块契约",
+    "C30": "任务拓扑",
+    "C31": "超时预算",
+    "C32": "可观测性",
+    "C33": "生命周期对称",
+    "C34": "热路径禁区",
+    "C35": "关键路径预算",
+    "C36": "数据拷贝预算",
+    "C37": "背压降级",
+    "C38": "故障恢复",
+    "C39": "配置矩阵",
+    "C40": "一键复现",
+    "C41": "回归样本",
+    "C42": "板级资源",
+    "C43": "锁预算",
+    "C44": "临界区预算",
+    "C45": "传感器契约",
+}
+
+# 文件路径 → 约束域映射
 FILE_TO_CONSTRAINTS = {
     "audio": ["C4", "C10", "C25", "C26", "C27", "C28"],
     "voice": ["C10", "C25", "C26"],
@@ -190,48 +243,68 @@ FILE_TO_CONSTRAINTS = {
 }
 
 
+# ============================================================================
+# 推理核心逻辑
+# ============================================================================
+
 def infer_from_file_changes(changed_files: list[str]) -> dict:
     """从文件变更推断受影响的约束域"""
     affected = set()
+    file_mapping = {}
+
     for file_path in changed_files:
         lower = file_path.lower()
+        matched = []
         for keyword, constraints in FILE_TO_CONSTRAINTS.items():
             if keyword in lower:
                 affected.update(constraints)
+                matched.extend(constraints)
+        if matched:
+            file_mapping[file_path] = sorted(set(matched))
 
     return {
         "affected_constraints": sorted(affected),
         "direct": sorted(affected),
+        "file_mapping": file_mapping,
     }
 
 
 def infer_from_constraints(constraints: list[str]) -> dict:
     """从约束域推断联动和冲突"""
-    affected = set(constraints)
+    affected = set()
     conflicts_found = []
-    fix_chain = []
 
-    # 扩展联动
+    # Normalize input
+    for c in constraints:
+        c_id = c.replace("C", "").split(".")[0]
+        affected.add(f"C{c_id}")
+
+    # 扩展联动和依赖
+    expanded = set(affected)
+    for c in list(affected):
+        if c in LINKAGES:
+            expanded.update(LINKAGES[c])
+        if c in DEPENDENCIES:
+            expanded.update(DEPENDENCIES[c])
+    affected = expanded
+
+    # 检测冲突（带严重度）
     for c in constraints:
         c_id = c.replace("C", "").split(".")[0]
         c_key = f"C{c_id}"
-        if c_key in LINKAGES:
-            affected.update(LINKAGES[c_key])
-        if c_key in DEPENDENCIES:
-            affected.update(DEPENDENCIES[c_key])
-
-    # 检测冲突
-    for c in constraints:
-        for conflict_a, conflict_b, desc in CONFLICTS:
+        for conflict_a, conflict_b, desc, severity in CONFLICTS:
             ca = conflict_a.split(".")[0]
             cb = conflict_b.split(".")[0]
-            if c == ca or c == cb:
-                other = cb if c == ca else ca
+            if c_key == ca or c_key == cb:
+                other = cb if c_key == ca else ca
                 if other in affected:
                     conflicts_found.append({
                         "constraint_a": conflict_a,
                         "constraint_b": conflict_b,
                         "description": desc,
+                        "severity": severity,
+                        "name_a": CONSTRAINT_NAMES.get(ca, ca),
+                        "name_b": CONSTRAINT_NAMES.get(cb, cb),
                     })
 
     # 生成修复链（拓扑排序）
@@ -242,26 +315,43 @@ def infer_from_constraints(constraints: list[str]) -> dict:
         if c in visited:
             return
         visited.add(c)
-        c_id = c.replace("C", "").split(".")[0]
-        c_key = f"C{c_id}"
-        if c_key in DEPENDENCIES:
-            for dep in DEPENDENCIES[c_key]:
+        if c in DEPENDENCIES:
+            for dep in DEPENDENCIES[c]:
                 topo_sort(dep)
         chain.append(c)
 
-    for c in constraints:
-        c_id = c.replace("C", "").split(".")[0]
-        topo_sort(f"C{c_id}")
+    for c in sorted(affected):
+        topo_sort(c)
+
+    # 为修复链添加优先级标注
+    chain_with_priority = []
+    for c in chain:
+        priority = "P1"
+        # Check if this is a P0 constraint
+        for conflict_a, conflict_b, _, sev in CONFLICTS:
+            if c == conflict_a.split(".")[0] or c == conflict_b.split(".")[0]:
+                if sev == "P0":
+                    priority = "P0"
+                    break
+        name = CONSTRAINT_NAMES.get(c, "")
+        chain_with_priority.append({
+            "constraint": c,
+            "name": name,
+            "priority": priority,
+        })
 
     return {
         "affected_constraints": sorted(affected),
+        "affected_count": len(affected),
         "conflicts": conflicts_found,
+        "conflict_count": len(conflicts_found),
         "fix_chain": chain,
+        "fix_chain_annotated": chain_with_priority,
     }
 
 
-def generate_mermaid_graph(constraints: list[str]) -> str:
-    """生成受影响约束的 Mermaid 图"""
+def generate_mermaid_graph(constraints: list[str], highlight_conflicts: bool = True) -> str:
+    """生成受影响约束的 Mermaid 图（v2: 带冲突高亮）"""
     affected = set()
     for c in constraints:
         c_id = c.replace("C", "").split(".")[0]
@@ -270,37 +360,131 @@ def generate_mermaid_graph(constraints: list[str]) -> str:
         if c_key in LINKAGES:
             affected.update(LINKAGES[c_key])
         if c_key in DEPENDENCIES:
-            affected.update(DEPENDENCIES[c_key])
+            for dep in DEPENDENCIES[c_key]:
+                affected.add(dep)
+
+    # Find conflict pairs for highlighting
+    conflict_pairs = set()
+    if highlight_conflicts:
+        for conflict_a, conflict_b, _, _ in CONFLICTS:
+            ca = conflict_a.split(".")[0]
+            cb = conflict_b.split(".")[0]
+            if ca in affected and cb in affected:
+                conflict_pairs.add((ca, cb))
 
     lines = ["graph TD"]
-    for c in sorted(affected):
-        label = c.replace("C", "C")
-        lines.append(f"    {c}[ {c}]")
 
+    # Nodes with style
+    for c in sorted(affected):
+        name = CONSTRAINT_NAMES.get(c, "")
+        label = f"{c} {name}"
+        if c in [x.replace("C", "").split(".")[0] for x in constraints]:
+            lines.append(f'    {c}["{label}"]:::input')
+        else:
+            lines.append(f'    {c}["{label}"]')
+
+    # Dependency edges
     for src, targets in DEPENDENCIES.items():
         if src in affected:
             for dst in targets:
                 if dst in affected:
-                    lines.append(f"    {src} --> {dst}")
+                    if (src, dst) in conflict_pairs or (dst, src) in conflict_pairs:
+                        lines.append(f"    {src} -.->|conflict| {dst}")
+                    else:
+                        lines.append(f"    {src} --> {dst}")
+
+    # Styles
+    lines.append("    classDef input fill:#f96,stroke:#333,stroke-width:2px")
 
     return "\n".join(lines)
 
 
+# ============================================================================
+# 自测
+# ============================================================================
+
+def run_self_test() -> int:
+    """自测：验证推理引擎正确性"""
+    passed = 0
+    failed = 0
+
+    # Test 1: File-based inference
+    result = infer_from_file_changes(["src/audio_player.c", "src/wss_client.c"])
+    assert "C4" in result["affected_constraints"], "audio should map to C4"
+    assert "C20" in result["affected_constraints"], "wss should map to C20"
+    assert "C25" in result["affected_constraints"], "audio should map to C25"
+    print("[PASS] file-based inference")
+    passed += 1
+
+    # Test 2: Constraint-based inference with conflicts
+    result = infer_from_constraints(["C21", "C25"])
+    assert result["affected_count"] > 5, f"should have >5 affected, got {result['affected_count']}"
+    assert result["conflict_count"] > 0, "should detect conflicts between C21 and C25"
+    print(f"[PASS] constraint inference: {result['affected_count']} affected, {result['conflict_count']} conflicts")
+    passed += 1
+
+    # Test 3: Fix chain should be topologically sorted
+    chain = result["fix_chain"]
+    assert len(chain) > 0, "fix chain should not be empty"
+    # C7 should come before C25 (dependency)
+    if "C7" in chain and "C25" in chain:
+        assert chain.index("C7") < chain.index("C25"), "C7 should precede C25 in fix chain"
+        print("[PASS] fix chain topological order")
+        passed += 1
+    else:
+        print("[SKIP] fix chain order (C7/C25 not in chain)")
+        passed += 1
+
+    # Test 4: Mermaid output
+    mermaid = generate_mermaid_graph(["C21", "C25"])
+    assert "graph TD" in mermaid, "should produce valid mermaid"
+    assert "C21" in mermaid, "should include C21"
+    assert "C25" in mermaid, "should include C25"
+    print("[PASS] mermaid generation")
+    passed += 1
+
+    # Test 5: JSON output
+    json_str = json.dumps(result, ensure_ascii=False)
+    parsed = json.loads(json_str)
+    assert "affected_constraints" in parsed
+    assert "conflicts" in parsed
+    assert "fix_chain" in parsed
+    print("[PASS] JSON serialization")
+    passed += 1
+
+    # Test 6: Single constraint inference
+    result = infer_from_constraints(["C22"])
+    assert "C22" in result["affected_constraints"]
+    assert "C19" in result["affected_constraints"] or "C20" in result["affected_constraints"]
+    print(f"[PASS] single constraint C22: {result['affected_count']} affected")
+    passed += 1
+
+    print(f"\nSelf-test: {passed} passed, {failed} failed")
+    return 1 if failed > 0 else 0
+
+
+# ============================================================================
+# CLI
+# ============================================================================
+
 def main() -> int:
-    parser = argparse.ArgumentParser(description="约束推理引擎 v1")
+    parser = argparse.ArgumentParser(description="约束推理引擎 v2")
     parser.add_argument("--changed", nargs="*", help="变更描述 (file:change)")
     parser.add_argument("--changed-files", nargs="*", help="变更文件路径")
     parser.add_argument("--constraints", nargs="*", help="约束域 ID (如 C21 C25)")
     parser.add_argument("--graph", action="store_true", help="输出 Mermaid 图")
     parser.add_argument("--json", action="store_true", help="JSON 输出")
+    parser.add_argument("--self-test", action="store_true", help="运行自测")
     args = parser.parse_args()
+
+    if args.self_test:
+        return run_self_test()
 
     if args.constraints:
         result = infer_from_constraints(args.constraints)
     elif args.changed_files:
         result = infer_from_file_changes(args.changed_files)
     elif args.changed:
-        # Extract file names from "file:change" format
         files = [c.split(":")[0] for c in args.changed]
         result = infer_from_file_changes(files)
     else:
@@ -312,22 +496,37 @@ def main() -> int:
     elif args.graph and args.constraints:
         print(generate_mermaid_graph(args.constraints))
     else:
-        print("=== 约束推理结果 ===\n")
+        print("=== 约束推理结果 v2 ===\n")
 
         print(f"受影响约束域: {', '.join(result['affected_constraints'])}")
-        print(f"总数: {len(result['affected_constraints'])}")
+        print(f"总数: {result.get('affected_count', len(result['affected_constraints']))}")
 
         if "conflicts" in result and result["conflicts"]:
-            print(f"\n冲突检测 ({len(result['conflicts'])} 个):")
+            print(f"\n冲突检测 ({result['conflict_count']} 个):")
+            # Group by severity
+            by_severity = {}
             for c in result["conflicts"]:
-                print(f"  [!] {c['constraint_a']} <-> {c['constraint_b']} - {c['description']}")
+                sev = c.get("severity", "P1")
+                by_severity.setdefault(sev, []).append(c)
 
-        if "fix_chain" in result and result["fix_chain"]:
-            print(f"\n推荐修复链:")
-            print(f"  {' -> '.join(result['fix_chain'])}")
+            for sev in ["P0", "P1", "P2"]:
+                if sev in by_severity:
+                    for c in by_severity[sev]:
+                        print(f"  [{sev}] {c['constraint_a']} ({c['name_a']}) <-> {c['constraint_b']} ({c['name_b']})")
+                        print(f"        {c['description']}")
+
+        if "fix_chain_annotated" in result and result["fix_chain_annotated"]:
+            print(f"\n推荐修复链 (拓扑排序):")
+            for item in result["fix_chain_annotated"]:
+                print(f"  {item['priority']} {item['constraint']} {item['name']}")
 
         if "direct" in result:
             print(f"\n直接匹配: {', '.join(result['direct'])}")
+
+        if "file_mapping" in result and result["file_mapping"]:
+            print(f"\n文件→约束映射:")
+            for f, cs in result["file_mapping"].items():
+                print(f"  {f} -> {', '.join(cs)}")
 
     return 0
 

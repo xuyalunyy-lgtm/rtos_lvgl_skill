@@ -1,5 +1,58 @@
 # Changelog
 
+## 6.0.7 — 2026-07-01
+
+- **v6 整体重构门禁**：全量一致性审查通过，满足 release_governance.md 大版本门禁
+- **一致性审查**：45 约束域 × 248 规则 × 28 checker × 5 平台交叉验证通过
+- **链接验证**：38 个 .md 文件链接全部有效
+- **Lite 同步**：SKILL.md 版本同步至 6.0.7
+- **v6 发布里程碑**：从「可推理验证平台」进化为「智能嵌入式开发平台」
+- **版本升至 6.0.7**
+
+## 6.0.6 — 2026-07-01
+
+- **STM32 平台加厚**：`platforms/stm32.md` 新增 SDK 全景扫描、内存/Flash 典型值、app_config 关键宏、平台特定 Crash 模式、Flash 加密/安全启动
+- **平台差异矩阵**：新增 `references/platform_diff_matrix.md`，覆盖 ESP32/STM32/JL/BK/Zephyr 五大平台横向对比（架构/内存/网络/显示/音频/OTA/看门狗/低功耗/Crash/构建/裁剪）
+- **约束域平台适用性**：45 个约束域 × 5 平台适用性矩阵
+- **版本升至 6.0.6**
+
+## 6.0.5 — 2026-07-01
+
+- **Checker 覆盖率 50%**：新增 3 个自动化 checker，总 checker 数达 28
+- **新增 checker**：`priority_checker.py`（C15.1/C15.2）、`observability_checker.py`（C32.1/C32.2）、`config_matrix_checker.py`（C39.1/C39.3）
+- **新增 fixtures**：6 个 good/bad fixture 文件
+- **checker_registry 更新**：3 个新 checker 接入默认管线 + self-test
+- **版本升至 6.0.5**
+
+## 6.0.4 — 2026-07-01
+
+- **模块契约生成器**：新增 `tools/module_contract_gen.py`，输入模块名 + I/P/O 描述，生成 C29 模块契约头文件 + C30 任务拓扑表 + C13 状态机骨架
+- **生成内容**：错误码枚举、模块状态枚举、状态结构体、init/start/stop/deinit 生命周期接口、输入/输出接口、任务拓扑表模板
+- **自测通过**：4 个测试用例全部通过
+- **版本升至 6.0.4**
+
+## 6.0.3 — 2026-07-01
+
+- **Zephyr 平台支持**：新增 `platforms/zephyr.md`，覆盖线程模型、设备驱动、DTS、Kconfig、内存管理、网络、LVGL、音频、看门狗、低功耗、Crash 诊断、SDK 裁剪、FreeRTOS→Zephyr 迁移对照表
+- **Zephyr product profile**：新增 `product_profiles/zephyr.json`，定义必选/可选约束、特性、栈建议、常见坑点
+- **SKILL.md 更新**：Platforms 路由新增 Zephyr 平台入口
+- **版本升至 6.0.3**
+
+## 6.0.2 — 2026-07-01
+
+- **Auto-Fix 引擎 v2**：增强 `tools/auto_fix_engine.py`，新增 C8 启动顺序、C33 生命周期、C22 OTA 安全的修复模板
+- **修复模板扩展**：覆盖 cjson_leak / queue_ownership / return_check / boot / lifecycle / ota 共 6 类 checker
+- **自测通过**：6 个测试用例全部通过
+- **版本升至 6.0.2**
+
+## 6.0.1 — 2026-07-01
+
+- **约束推理引擎 v2**：增强 `tools/constraint_inference.py`，新增冲突严重度分级（P0/P1/P2）、修复链优先级标注、约束域名称映射、Mermaid 冲突高亮、`--self-test` 自测
+- **冲突检测增强**：25 个冲突场景全部带严重度标注，按 P0→P1→P2 分组输出
+- **修复链增强**：拓扑排序 + 优先级标注 + 约束域中文名称
+- **自测通过**：6 个测试用例全部通过
+- **版本升至 6.0.1**
+
 ## 5.0.7 — 2026-07-01
 
 - **v5 整体重构门禁**：全量一致性审查通过，满足 release_governance.md 大版本门禁

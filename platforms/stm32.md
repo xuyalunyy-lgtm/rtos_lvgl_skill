@@ -240,3 +240,77 @@ mbedtls_config.h:     Middlewares/Third_Party/mbedTLS/include/mbedtls_config.h
 lv_conf.h:            Middlewares/Third_Party/LVGL/lv_conf.h
 stm32xx_hal_conf.h:   Core/Inc/stm32xx_hal_conf.h
 ```
+
+## SDK 全景扫描
+
+裁剪前必须完成以下扫描（C6.2）：
+
+| 扫描项 | 命令/方法 | 输出 |
+|--------|----------|------|
+| CubeMX 模块列表 | Project Manager → Advanced Settings | 已启用 HAL 模块清单 |
+| Middlewares 列表 | `ls Middlewares/` | LwIP / mbedTLS / FreeRTOS / LVGL 版本 |
+| HAL 驱动列表 | `Drivers/STM32xx_HAL_Driver/Inc/` | 已用 HAL 头文件清单 |
+| 链接脚本 | `STM32xx_FLASH.ld` | Flash/RAM 分区 |
+| .map 文件 | `build/*.map` | 各段占用 |
+
+## 内存 / Flash 典型值
+
+| 芯片 | Flash | RAM | PSRAM | 说明 |
+|------|-------|-----|-------|------|
+| STM32F407 | 1MB | 192KB | 无 | 主流 Cortex-M4 |
+| STM32F746 | 1MB | 320KB | 无 | Cortex-M7 + LCD |
+| STM32H743 | 2MB | 1MB | 无 | 高性能 Cortex-M7 |
+| STM32U575 | 2MB | 780KB | 无 | 低功耗 Cortex-M33 |
+| STM32N6 | 4MB | 4.5MB | 64MB | NPU + 大 RAM |
+
+## app_config.h 关键宏
+
+```c
+/* FreeRTOSConfig.h 关键配置 */
+#define configTOTAL_HEAP_SIZE        (32*1024)   /* 根据 TLS+LVGL 调整 */
+#define configMAX_PRIORITIES          56
+#define configMINIMAL_STACK_SIZE      128         /* words */
+#define configCHECK_FOR_STACK_OVERFLOW 2          /* 启用栈溢出检测 */
+
+/* HAL 配置 */
+#define HSE_VALUE                   8000000       /* 外部晶振频率 */
+#define TICK_INT_PRIORITY           15            /* SysTick 优先级 */
+```
+
+## 平台特定 Crash 模式
+
+| 症状 | 可能原因 | 诊断 |
+|------|----------|------|
+| HardFault @ 0x00000000 | NULL 函数指针 | 查 LR/PC 寄存器 |
+| Usage Fault (UNALIGNED) | 未对齐访问 | 检查 packed struct |
+| Bus Fault (BFAR) | 非法地址访问 | 查 BFAR 寄存器 |
+| MemManage (DACCVIOL) | 栈溢出/MPU 违规 | 查 MSP/PSP |
+| WDT Reset | 任务卡死 | 查 IWDG 配置 |
+| 偶发 HardFault | 优先级反转/栈溢出 | 启用 `configCHECK_FOR_STACK_OVERFLOW` |
+
+### addr2line
+
+```bash
+arm-none-eabi-addr2line -e build/Project.elf -a <address>
+arm-none-eabi-objdump -d build/Project.elf | grep -A5 <address>
+```
+
+## Flash 加密 / 安全启动
+
+STM32 支持 RDP（Read-Out Protection）和 PCROP（Proprietary Code Readout Protection）：
+
+| 保护级别 | RDP | 说明 |
+|----------|-----|------|
+| Level 0 | 0xAA | 无保护 |
+| Level 1 | 0xCC | 读保护，JTAG 受限 |
+| Level 2 | 0xDD | 不可逆，完全禁用调试 |
+
+```c
+/* HAL 配置 RDP */
+HAL_FLASH_OB_Unlock();
+FLASH_OBProgramInitTypeDef ob;
+ob.OptionType = OPTIONBYTE_RDP;
+ob.RDPLevel = OB_RDP_LEVEL_1;
+HAL_FLASHEx_OBProgram(&ob);
+HAL_FLASH_OB_Launch();
+```

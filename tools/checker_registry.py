@@ -54,6 +54,9 @@ DEFAULT_CHECKERS: tuple[CheckerSpec, ...] = (
     CheckerSpec("peripheral_shutdown_checker", "peripheral_shutdown_checker.py", "peripheral-shutdown", "batch", ("C24",)),
     CheckerSpec("backpressure_checker", "backpressure_checker.py", "backpressure", "batch", ("C37",)),
     CheckerSpec("critical_path_checker", "critical_path_checker.py", "critical-path", "batch", ("C35",)),
+    CheckerSpec("priority_checker", "priority_checker.py", "priority", "batch", ("C15",)),
+    CheckerSpec("observability_checker", "observability_checker.py", "observability", "batch", ("C32",)),
+    CheckerSpec("config_matrix_checker", "config_matrix_checker.py", "config-matrix", "batch", ("C39",)),
     CheckerSpec("logging_checker", "logging_checker.py", "logging", "batch", ("C14",)),
     CheckerSpec("return_check_checker", "return_check_checker.py", "return-check", "batch", ("C12",)),
     CheckerSpec("function_length_checker", "function_length_checker.py", "func-length", "batch", ("C11.5",)),
@@ -95,6 +98,12 @@ SELF_TEST_CASES: tuple[CheckerCase, ...] = (
     CheckerCase("backpressure_checker.py", "fixtures/bad_backpressure.c", 1, "backpressure bad"),
     CheckerCase("critical_path_checker.py", "fixtures/good_critical_path.c", 0, "critical path good"),
     CheckerCase("critical_path_checker.py", "fixtures/bad_critical_path.c", 1, "critical path bad"),
+    CheckerCase("priority_checker.py", "fixtures/good_priority.c", 0, "priority good"),
+    CheckerCase("priority_checker.py", "fixtures/bad_priority.c", 1, "priority bad"),
+    CheckerCase("observability_checker.py", "fixtures/good_observability.c", 0, "observability good"),
+    CheckerCase("observability_checker.py", "fixtures/bad_observability.c", 1, "observability bad"),
+    CheckerCase("config_matrix_checker.py", "fixtures/good_config_matrix.c", 0, "config matrix good"),
+    CheckerCase("config_matrix_checker.py", "fixtures/bad_config_matrix.c", 1, "config matrix bad"),
 )
 
 
