@@ -5,7 +5,7 @@ C10 语音/Uplink 时序启发式检查器。
 检查项:
   C10.1 — prompt/TTS stop + FINISHED 两路径是否都 detach playback
   C10.2 — start_uplink / capture_on 是否在 settle delay 之后
-  C10.5 — session generation 变量是否存在
+  C10.5 — session generation 变量是否存在（stale FINISHED/timer/TTS chunk 需人工确认）
 
 用法:
     python tools/voice_sequence_checker.py <file.c> [file2.c ...]

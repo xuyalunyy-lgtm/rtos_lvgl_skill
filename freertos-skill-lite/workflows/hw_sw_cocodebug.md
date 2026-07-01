@@ -244,7 +244,37 @@ config BOARD_I2S_SCK_PIN
 | 中断不触发 | GPIO 中断类型（上升/下降/双边）？中断号是否正确？ISR 是否注册？ |
 | ADC 读数不准 | ADC 衰减配置？参考电压？采样时间？GPIO 是否配置为模拟模式？ |
 
-### 5.2 联调日志模板
+### 5.2 Audio/WSS 联合排查路径
+
+当异常涉及 MIC、SPK、TTS 打断、WSS 上行、TLS 重连或长 TTS 背压时，不能只停在 IO 层。按同一时间线收集四类证据：
+
+| 证据 | 看什么 | 对应约束 |
+|------|--------|----------|
+| 日志 | `CLIENT_INTERRUPT`、TTS generation、speaker idle/deinit、capture state、uplink frame index、TLS reconnect/backoff | C10、C20、C24 |
+| 示波器/逻辑分析仪 | I2S BCLK/LRCK/SD 是否持续、speaker amp 使能、MIC bias/电源是否被误关 | C4、C18、C24 |
+| 状态机 | `IDLE/CAPTURE/SPEAKER` 是否互斥；旧 TTS chunk 是否在 capture pending/running 时被丢弃 | C10、C13 |
+| 堆/栈 | WSS/TLS 握手最低水位、PSRAM/SRAM matched free、speaker ring backpressure、task delete/IDLE cleanup 前后日志 | C7、C20 |
+
+推荐时间线：
+
+```text
+AI key / wake
+  -> interrupt sent or local cancel
+  -> TTS generation++
+  -> speaker stop only if SPEAKER mode, otherwise no-op
+  -> capture pending/running
+  -> stale TTS chunk dropped
+  -> uplink frame index increments
+  -> CLIENT_AUDIO_FINISH / ASR result
+```
+
+判断规则：
+- 有 I2S/MIC 波形但 ASR 空：优先看 C10 时序、AEC settle、codec/sample-rate，而不是改 IO。
+- speaker stop 后 MIC 波形消失：优先看 C24.4，shared backend 是否被错误 deinit/free。
+- uplink frame 不增长但 WSS connected：看 capture 状态机和 WSS send task 是否被 TTS/JSON 处理阻塞。
+- heap 下降或延迟 HardFault：按 [mbedtls_wss_memory.txt](../prompts/mbedtls_wss_memory.txt) 查跨堆 matched free 与 TLS 重连峰值。
+
+### 5.3 联调日志模板
 
 建议用户在关键点添加日志：
 

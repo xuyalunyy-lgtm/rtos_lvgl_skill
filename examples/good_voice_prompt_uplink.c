@@ -90,3 +90,13 @@ void session_on_wake(voice_session_t *s)
     s->prompt->user_data = s;
     /* prompt_play(s->prompt); — 须在 start_uplink 之前 */
 }
+
+void session_on_tts_interrupt(voice_session_t *s)
+{
+    s->capture_gen++;
+    /*
+     * Platform code should stop speaker only when the shared backend is in
+     * SPEAKER mode. Incoming stale TTS chunks carrying the old generation are
+     * dropped while capture is pending/running.
+     */
+}

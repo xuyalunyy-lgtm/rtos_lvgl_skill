@@ -199,6 +199,8 @@ AI key
 | `*prompt*` / `*tone*` / `*tts*` | stop + FINISHED 是否都 detach |
 | `*voice*` / `*session*` / `*capture*` / `*asr*` | prompt_done → settle → capture 顺序 |
 | `*audio*` | playback attach/detach 对称、refcount |
+| `*interrupt*` / `*cancel*` / `*agent*` | TTS generation 是否递增；capture pending/running 时是否丢弃旧 TTS chunk |
+| `*speaker*` / shared handle | stop 是否 mode-aware，禁止非 SPEAKER 模式释放 MIC backend |
 | 日志 | 是否已有 peak / tap peak / uplink bytes（无则建议加 C10.3 观测） |
 
 违规报告格式：`C10.1` — `file:line` — 问题 — 修复（见 good_voice_prompt_uplink.c）

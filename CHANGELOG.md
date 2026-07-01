@@ -1,5 +1,13 @@
 # Changelog
 
+## 4.13.2 — 2026-07-01
+
+- **Lite 元数据修复**：用 `sync_lite.py` 重写 `freertos-skill-lite/SKILL.md`，移除 BOM、同步 `metadata.version` 至 4.13.2，并恢复可校验 frontmatter
+- **现场经验入库门槛**：`self_iterate.md` 增加 prompt 追加优先、drift audit、checker/example/Lite checklist 同步规则，防止新经验直接膨胀 prompt 或多处漂移
+- **C10/C24/Audio-WSS drift audit**：同步 `constraint_index/detail`、`core_rules`、`constraint_graph`、prompt checklist、Lite checklist 与正例，覆盖 TTS interrupt generation、shared audio handle、idle vs deinit、跨堆 matched free
+- **Audio/WSS 联调路径**：`hw_sw_cocodebug.md` 增加“日志-示波器-状态机-堆/栈”联合排查路径，`debug_crash`、`l2_code_review`、`l2_project_review` 增加对应路由
+- **Codex 元数据**：`agents/openai.yaml` default_prompt 更新为 FreeRTOS/LVGL/Audio/WSS field-debug 场景
+
 ## 4.12.5 — 2026-06-22
 
 - **Lite 工具索引降级**：`sync_lite.py` 与 `sync_lite.ps1` 对 `references/skill_structure.md` 生成 Lite 专用工具目录，避免 Lite 包展示不可运行的 `tools/` / `scripts/` 命令

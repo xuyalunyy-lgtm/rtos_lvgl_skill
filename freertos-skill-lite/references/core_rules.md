@@ -113,7 +113,7 @@ python tools/stack_calculator.py --describe "WSS TLS cJSON" --platform jl
 | 7 | 内存分配优化 | 先量后改；缩池顺序 → [memory_alloc_optimize.txt](../prompts/memory_alloc_optimize.txt) | 9 |
 | 8 | 启动 / WDT | Queue 先于回调；有限 timeout → [boot_wdt_lifecycle.txt](../prompts/boot_wdt_lifecycle.txt) | 6 |
 | 9 | 密钥 / 凭证 | config.secrets 不入库 → [secrets_kconfig.txt](../prompts/secrets_kconfig.txt) | 6 |
-| 10 | 语音 / ASR / Uplink | prompt detach + settle → [voice_asr_uplink.txt](../prompts/voice_asr_uplink.txt) | 6 |
+| 10 | 语音 / ASR / Uplink | prompt detach + settle + generation → [voice_asr_uplink.txt](../prompts/voice_asr_uplink.txt) | 6 |
 | 11 | 编码规范 | 命名/函数长度/文件头 → [coding_style.txt](../prompts/coding_style.txt) | 6 |
 | 12 | 错误处理 | API 返回值/清理模板/assert → [error_handling.txt](../prompts/error_handling.txt) | 5 |
 | 13 | 状态机 | enum state/转换表/非法状态 → [state_machine_patterns.txt](../prompts/state_machine_patterns.txt) | 4 |
@@ -126,7 +126,7 @@ python tools/stack_calculator.py --describe "WSS TLS cJSON" --platform jl
 | 20 | 网络韧性 | 重连退避/超时/DNS/降级策略 → [network_resilience.txt](../prompts/network_resilience.txt) | 5 |
 | 21 | 低功耗管理 | 睡眠前保存状态/唤醒恢复/Tickless Idle/外设断电 → [low_power_management.txt](../prompts/low_power_management.txt) | 5 |
 | 23 | 显示驱动 | LCD 初始化时序/背光 PWM/帧率/撕裂防护/帧缓冲 → [lcd_display_driver.txt](../prompts/lcd_display_driver.txt) | 6 |
-| 24 | 外设关闭安全 | 异常收尾/可重入/超时释放/DMA 等待/电源门控 → [peripheral_shutdown_safety.txt](../prompts/peripheral_shutdown_safety.txt) | 5 |
+| 24 | 外设关闭安全 | 异常收尾/可重入/超时释放/DMA 等待/idle vs deinit/电源门控 → [peripheral_shutdown_safety.txt](../prompts/peripheral_shutdown_safety.txt) | 5 |
 | 25 | 音视频管线 | audio clock master/帧元数据/有界队列/callback 隔离/遥测 → [av_pipeline_sync.txt](../prompts/av_pipeline_sync.txt) | 6 |
 | 26 | 编解码格式 | sample rate/channels/bit depth/帧长/stride/codec 生命周期 → [av_codec_format.txt](../prompts/av_codec_format.txt) | 6 |
 | 27 | 时钟漂移 / Jitter | master clock/PTS/jitter 水位/drift 限幅/underrun 补偿 → [av_clock_jitter.txt](../prompts/av_clock_jitter.txt) | 6 |

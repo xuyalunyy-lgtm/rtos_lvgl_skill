@@ -60,7 +60,10 @@ Code Review 或 L3 校验时逐条核对。违规项引用 `C#.#`（完整矩阵
 
 - [ ] C10.1 prompt/TTS stop + FINISHED 双路径 detach
 - [ ] C10.2 开 uplink 前 AEC settle + mic ready
+- [ ] C10.3 有 peak / tap peak / uplink bytes 日志，能区分无 PCM vs ASR 空
+- [ ] C10.4 prompt/TTS FINISHED+detach 后再 start capture/uplink
 - [ ] C10.5 有 session generation 过滤 stale 回调
+- [ ] C10.6 playback slot/handle 来自配置或对象字段，无 hardcode magic number
 
 ## C11 — 编码规范
 
@@ -100,6 +103,15 @@ Code Review 或 L3 校验时逐条核对。违规项引用 `C#.#`（完整矩阵
 - [ ] C17.1 无跨核直接共享全局变量（无 IPC/mailbox）
 - [ ] C17.2 无不同 FreeRTOS 实例间的 xQueueSend
 - [ ] C17.3 共享内存访问有硬件信号量保护
+
+## C24 — 外设关闭安全
+
+- [ ] C24.1 异常退出路径与正常路径调用相同收尾函数
+- [ ] C24.2 stop/deinit 可重入，有状态检查
+- [ ] C24.3 abort/timeout/skip 路径释放所有硬件资源
+- [ ] C24.4 stop/deinit 前等待 DMA/任务 idle
+- [ ] C24.4 音频/媒体 stop 只进 idle，deinit/free 只在会话结束、低功耗或错误恢复执行
+- [ ] C24.5 电机/加热/VH/电源门控完整关闭
 
 ## C25 — 音视频管线 / A/V Sync
 

@@ -33,6 +33,18 @@
 | 控制平面 | `SKILL.md` + `agents/openai.yaml` | 保持 <100 行；路由不膨胀；UI 元数据同步 |
 | Lite 分发 | 运行 `sync_lite.py` | 禁止手改 Lite 正文 |
 
+### 现场经验入库门槛
+
+| 判断 | 行动 |
+|------|------|
+| 能归入现有约束和 prompt | 只追加到对应 `prompts/xxx.txt`，并补 checklist / 症状路由 |
+| 改变 C#.# 规则边界或严重度 | 同步 `core_rules`、`constraint_index`、`constraint_detail`、Lite checklist |
+| 需要自动化识别 | 更新 checker + registry + good/bad example，再跑 validate-examples |
+| 只是一次项目现场日志 | 先写 `iteration_log.md`，不要新建 prompt |
+| 无法归类且会反复触发 | 才新增 prompt，并在 workflow 中限制加载场景 |
+
+每次新增现场经验，至少做一次 drift audit：`prompt -> constraint_index/detail -> workflow 路由 -> checker/example -> Lite checklist`。缺任一层时，在迭代摘要里标注“人工覆盖”或补齐。
+
 **禁止：** 未经问卷扩 SDK 固定删除清单；拆成多个 skill；把 12 个 prompt 塞进 `SKILL.md`。
 
 ## Step 3 — 版本与 CHANGELOG

@@ -77,7 +77,7 @@
 | C10.2 | 0 | 开 uplink 前 AEC settle + mic ready |
 | C10.3 | 1 | 先 peak/uplink 区分无 PCM vs ASR 空 |
 | C10.4 | 1 | prompt 完成后再 start uplink |
-| C10.5 | 1 | session generation 防 stale 回调 |
+| C10.5 | 1 | session generation 防 stale 回调 / 旧 TTS 重启 |
 | C10.6 | 2 | playback slot/handle 勿 hardcode |
 
 ## C11 编码规范
@@ -190,7 +190,7 @@
 | C24.1 | 0 | 异常退出路径必须与正常路径调用相同收尾函数 |
 | C24.2 | 1 | 外设 stop 函数必须可重入（有状态检查） |
 | C24.3 | 0 | abort/timeout/skip 必须释放所有硬件资源 |
-| C24.4 | 1 | 外设 stop 前须等待 DMA/任务 idle |
+| C24.4 | 1 | stop/deinit 前等 DMA/任务 idle；音频区分 idle 与 free |
 | C24.5 | 0 | 电机停止后必须关闭加热/VH/电源门控 |
 
 ## C25 音视频管线 / A/V Sync

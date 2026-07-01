@@ -36,6 +36,7 @@
 | WDT / task watchdog | **C8.3–C8.6**, C1.5, C4.7 | [boot_wdt_lifecycle.txt](../prompts/boot_wdt_lifecycle.txt) · [deadlock_lock_order.txt](../prompts/deadlock_lock_order.txt) | [bad_wss_blocking.c](../examples/bad_wss_blocking.c) |
 | 录音失效 / ASR 空 / 「没听清」 | **C10.1–C10.5** | [voice_asr_uplink.txt](../prompts/voice_asr_uplink.txt) | [good_voice_prompt_uplink.c](../examples/good_voice_prompt_uplink.c) |
 | 唤醒叮后第二轮麦幅骤降 | **C10.1, C10.2** | [voice_asr_uplink.txt](../prompts/voice_asr_uplink.txt) | — |
+| AI 键打断 TTS 后不上传 / speaker stop 后 MIC 失效 | **C10.1, C10.5, C24.4** | [voice_asr_uplink.txt](../prompts/voice_asr_uplink.txt) · [peripheral_shutdown_safety.txt](../prompts/peripheral_shutdown_safety.txt) | [good_voice_prompt_uplink.c](../examples/good_voice_prompt_uplink.c) |
 
 ## Step 3 — 修复与验证（完整版）
 

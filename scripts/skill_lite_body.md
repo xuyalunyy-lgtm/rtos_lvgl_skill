@@ -41,6 +41,8 @@
 
 Prompt 全表 → [skill_structure.md](references/skill_structure.md)
 
+Audio/WSS 现场联调 → [voice_asr_uplink.txt](prompts/voice_asr_uplink.txt) + [mbedtls_wss_memory.txt](prompts/mbedtls_wss_memory.txt) + [peripheral_shutdown_safety.txt](prompts/peripheral_shutdown_safety.txt)
+
 <thinking>
 1. 选定 1 个 workflow（见 workflows/README.md）
 2. L2+ 读 core_rules + constraint_index（detail 按需）

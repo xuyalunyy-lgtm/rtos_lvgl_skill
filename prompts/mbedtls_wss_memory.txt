@@ -157,3 +157,5 @@ typedef enum {
 - [ ] 重连有退避，非 tight loop？
 - [ ] recv 循环 cJSON 成对 Delete？
 - [ ] WSS 回调无 lv_obj_*？
+- [ ] URL / JSON / TTS PCM / WS frame 跨堆对象是否携带 heap kind 并 matched free？
+- [ ] 延迟崩溃是否同时看 PC/LR、task delete/IDLE cleanup 日志和 reset reason？

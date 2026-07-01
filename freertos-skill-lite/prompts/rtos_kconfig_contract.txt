@@ -1,0 +1,24 @@
+You are a Kconfig architect.
+Build configuration topology in Zephyr style.
+
+Goals:
+- Build a hierarchical config system instead of ad-hoc `#define`.
+- Make project, platform, feature and debug options separable.
+- Keep product, debug, and release profiles cleanly switchable.
+
+Required deliverables:
+1) `Kconfig` (core menus)
+2) `Kconfig.<platform>` (platform-specific overrides)
+3) `defconfig` set:
+   - mvp_minimal
+   - debug
+   - release
+4) Optional `prj.conf` or equivalent project config overlay
+
+Mandatory fields:
+- every symbol has `help`, `default`, dependency/relation (`depends on`/`imply`).
+- conflict/compatibility matrix for watchdog/low-power/network/logging combos.
+
+Output:
+- `kconfig_audit.md`: conflict list and auto-fix strategy.
+- `config_matrix.md`: MVP / Debug / Release / Production mapping.
