@@ -32,18 +32,18 @@ if sys.platform == "win32":
 
 TOOLS_DIR = Path(__file__).resolve().parent
 
-CHECKER_SCRIPTS = {
-    "cjson_leak": "cjson_leak_checker.py",
-    "cjson_ast": "cjson_ast_checker.py",
-    "queue_ownership": "queue_ownership_checker.py",
-    "queue_ast": "queue_ast_checker.py",
-    "return_check": "return_check_checker.py",
-    "logging": "logging_checker.py",
-    "boot": "boot_sequence_checker.py",
-    "lifecycle": "lifecycle_checker.py",
-    "backpressure": "backpressure_checker.py",
-    "ota": "ota_safety_checker.py",
-}
+
+def _build_checker_scripts() -> dict[str, str]:
+    """从 checker_registry 构建 {skip_arg: script} 映射。"""
+    from checker_registry import ALL_CHECKERS
+    mapping = {}
+    for spec in ALL_CHECKERS:
+        mapping[spec.skip_arg] = spec.script
+        mapping[spec.name] = spec.script  # 也支持完整 name
+    return mapping
+
+
+CHECKER_SCRIPTS = _build_checker_scripts()
 
 
 def run_checker_json(checker: str, filepath: str) -> dict:

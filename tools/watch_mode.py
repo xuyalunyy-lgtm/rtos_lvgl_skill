@@ -99,10 +99,26 @@ def watch_directory(directory: Path, checkers: list[str], interval: float = 2.0)
         print("\n[watch_mode] Stopped")
 
 
+def _checkers_from_registry(suite: str) -> list[str]:
+    """从 checker_registry 获取 checker name 列表。"""
+    from checker_registry import get_suite
+    return [spec.name for spec in get_suite(suite)]
+
+
+def _checkers_for_domain(domain: str) -> list[str]:
+    """从 checker_registry 获取指定域的 checker。"""
+    from checker_registry import ALL_CHECKERS
+    return [spec.name for spec in ALL_CHECKERS if domain in spec.domains]
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="实时检查模式")
     parser.add_argument("--dir", "-d", required=True, help="监控目录")
-    parser.add_argument("--checker", "-c", action="append", help="指定 checker（可多次）")
+    parser.add_argument("--checker", "-c", action="append", help="指定 checker name（可多次）")
+    parser.add_argument("--suite", default="default",
+                        choices=["default", "all", "security", "media", "platform", "realtime"],
+                        help="checker suite (default: default)")
+    parser.add_argument("--domain", help="按约束域筛选 checker（如 C3, C22）")
     parser.add_argument("--interval", type=float, default=2.0, help="轮询间隔（秒）")
     args = parser.parse_args()
 
@@ -111,14 +127,12 @@ def main() -> int:
         print(f"Error: {directory} is not a directory")
         return 1
 
-    checkers = args.checker if args.checker else [
-        "cjson_leak_checker",
-        "queue_ownership_checker",
-        "isr_safety_checker",
-        "lvgl_thread_checker",
-        "return_check_checker",
-        "logging_checker",
-    ]
+    if args.checker:
+        checkers = args.checker
+    elif args.domain:
+        checkers = _checkers_for_domain(args.domain)
+    else:
+        checkers = _checkers_from_registry(args.suite)
 
     watch_directory(directory, checkers, args.interval)
     return 0
