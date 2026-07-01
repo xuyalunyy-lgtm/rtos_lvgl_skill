@@ -41,6 +41,7 @@ HEX_OR_B64_BLOB = re.compile(
 )
 
 SCAN_EXTENSIONS = {
+    "",  # extensionless (Kconfig, config.secrets, etc.)
     ".config", ".cfg", ".env", ".ini",
     ".yaml", ".yml", ".json", ".toml",
     ".sh", ".py", ".c", ".h", ".md",
@@ -125,5 +126,38 @@ def scan_git_remotes() -> list[dict]:
     return issues
 
 
+def main() -> int:
+    """支持 --git-remotes + 标准 run_checker 接口。"""
+    import sys
+
+    git_remotes = "--git-remotes" in sys.argv
+    if git_remotes:
+        sys.argv.remove("--git-remotes")
+
+    from checker_io import configure_stdout, output_json
+    configure_stdout()
+
+    exit_code = 0
+
+    if git_remotes:
+        remote_issues = scan_git_remotes()
+        if remote_issues:
+            for iss in remote_issues:
+                print(f"  [{iss['severity']}] {iss['id']} — {iss['file']} — {iss['issue']}")
+            exit_code = 1
+        else:
+            print("[密钥/凭证扫描] git remote 无内嵌凭证")
+
+    # 标准文件扫描（如果有文件参数）
+    remaining_args = sys.argv[1:]
+    if remaining_args:
+        file_rc = run_checker(check_file, "密钥/凭证启发式扫描 (C9)", ("C9",), SCAN_EXTENSIONS)
+        exit_code = max(exit_code, file_rc)
+    elif git_remotes and not remaining_args:
+        pass  # 仅扫描 git remotes，无文件参数
+
+    return exit_code
+
+
 if __name__ == "__main__":
-    raise SystemExit(run_checker(check_file, "密钥/凭证启发式扫描 (C9)", ("C9",), SCAN_EXTENSIONS))
+    raise SystemExit(main())

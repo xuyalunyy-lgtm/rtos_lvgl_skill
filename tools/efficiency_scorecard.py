@@ -117,7 +117,12 @@ def run_checkers(project_dir: Path) -> dict:
             # Parse output for violation count
             output = result.stdout + result.stderr
             violations = 0
-            match = re.search(r'(\d+)\s+(?:个|C\d+)', output)
+            # 匹配 "发现 N 个" 或 "N warnings" 而非 "已检查 N 个文件"
+            match = re.search(r'发现\s*(\d+)\s*个', output)
+            if not match:
+                match = re.search(r'(\d+)\s+warnings?', output, re.IGNORECASE)
+            if not match:
+                match = re.search(r'(\d+)\s+violations?', output, re.IGNORECASE)
             if match:
                 violations = int(match.group(1))
 
