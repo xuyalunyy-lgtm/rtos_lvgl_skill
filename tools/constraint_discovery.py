@@ -434,16 +434,78 @@ def format_markdown_proposal(result: DiscoveryResult) -> str:
     return "\n".join(lines)
 
 
+def run_self_test() -> int:
+    """自测：验证约束发现规则"""
+    import tempfile
+    import os
+
+    passed = 0
+    failed = 0
+
+    # Test 1: Create a temp file with known anti-patterns
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.c', delete=False, encoding='utf-8') as f:
+        f.write("""
+#include <stdio.h>
+#include <string.h>
+
+void bad_function(void) {
+    char buf[64];
+    sprintf(buf, "hello world %d", 42);  // D1: sprintf risk
+
+    char *p = malloc(100);
+    // D4: malloc without free check
+    memcpy(p, "data", 4);
+
+    // D10: hardcoded IP
+    connect("192.168.1.100", 8080);
+}
+""")
+        tmpfile = f.name
+
+    try:
+        results = analyze_file(Path(tmpfile))
+        total_hits = sum(len(v) for v in results.values())
+        assert total_hits > 0, f"Should find violations, got {total_hits}"
+        print(f"[PASS] discovery found {total_hits} violations in test file")
+        passed += 1
+    except Exception as e:
+        print(f"[FAIL] discovery test: {e}")
+        failed += 1
+    finally:
+        os.unlink(tmpfile)
+
+    # Test 2: Check rules are defined
+    assert len(DISCOVERY_RULES) >= 10, f"Should have >=10 rules, got {len(DISCOVERY_RULES)}"
+    print(f"[PASS] {len(DISCOVERY_RULES)} discovery rules defined")
+    passed += 1
+
+    # Test 3: Check covered checkers
+    assert len(COVERED_CHECKERS) >= 5, f"Should have >=5 covered checkers"
+    print(f"[PASS] {len(COVERED_CHECKERS)} covered checkers")
+    passed += 1
+
+    print(f"\nSelf-test: {passed} passed, {failed} failed")
+    return 1 if failed > 0 else 0
+
+
 def main() -> int:
     configure_stdout()
     parser = argparse.ArgumentParser(
         description="自动约束发现：扫描用户项目的高频违规模式，建议新增约束"
     )
-    parser.add_argument("--dir", "-d", required=True, help="扫描目录")
+    parser.add_argument("--dir", "-d", help="扫描目录")
     parser.add_argument("--json", action="store_true", help="输出 JSON 格式")
     parser.add_argument("--report", help="输出 Markdown 提案到文件")
     parser.add_argument("--threshold", type=int, default=3, help="最低命中次数（默认 3）")
+    parser.add_argument("--self-test", action="store_true", help="运行自测")
     args = parser.parse_args()
+
+    if args.self_test:
+        return run_self_test()
+
+    if not args.dir:
+        parser.print_help()
+        return 1
 
     files = collect_c_files(args.dir)
     if not files:

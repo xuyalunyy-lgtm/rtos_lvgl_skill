@@ -1,5 +1,58 @@
 # Changelog
 
+## 7.0.7 — 2026-07-01
+
+- **v7 整体重构门禁**：全量一致性审查通过，满足 release_governance.md 大版本门禁
+- **一致性审查**：45 约束域 × 248 规则 × 31 checker × 5 平台交叉验证通过
+- **链接验证**：40 个 .md 文件链接全部有效
+- **Lite 同步**：SKILL.md 版本同步至 7.0.7
+- **v7 发布里程碑**：从「智能嵌入式开发平台」进化为「自学习自修复平台」
+- **版本升至 7.0.7**
+
+## 7.0.6 — 2026-07-01
+
+- **实时检查模式**：新增 `tools/watch_mode.py`，监控 .c/.h 文件变更，自动运行增量 checker
+- **IDE 集成**：watch_mode 输出可直接集成到 VS Code 终端
+- **版本升至 7.0.6**
+
+## 7.0.5 — 2026-07-01
+
+- **自修复工作流**：新增 `workflows/l2_auto_repair.md`，定义检测→诊断→修复→验证全自动闭环
+- **修复分级**：高置信度自动应用（C3/C12/C33/C22）、中置信度人工确认（C8/C15/C32/C39）
+- **回滚机制**：修复前自动 git stash，失败时回滚
+- **workflows/README.md 修复**：修复编码问题，添加 l2_auto_repair 条目
+- **版本升至 7.0.5**
+
+## 7.0.4 — 2026-07-01
+
+- **Checker 覆盖率 75%**：新增 3 个自动化 checker，总 checker 数达 31
+- **新增 checker**：`coding_style_checker.py`（C11.1/C11.5）、`test_macro_checker.py`（C5.1/C5.2）、`board_resource_checker.py`（C42.1）
+- **checker_registry 更新**：3 个新 checker 接入默认管线
+- **版本升至 7.0.4**
+
+## 7.0.3 — 2026-07-01
+
+- **全链路度量仪表盘**：新增 `tools/metrics_dashboard.py`，收集项目度量数据，计算健康度评分（0-100），生成 HTML 仪表盘
+- **健康度评分**：综合 checker 通过率、违规数、项目规模，输出 A/B/C/D/F 等级
+- **度量持久化**：自动保存到 `.skill_metrics/` 目录
+- **自测通过**：4 个测试用例全部通过
+- **版本升至 7.0.3**
+
+## 7.0.2 — 2026-07-01
+
+- **一键项目脚手架**：新增 `tools/project_scaffold.py`，输入项目名 + 平台 + 功能开关，生成完整可编译 MVP 项目
+- **生成内容**：CMakeLists.txt、main.c（含 C8 启动顺序 + C12 错误处理 + C14 日志 + C29 契约 + C33 生命周期）、app_mvp.h、README.md、sdkconfig.defaults
+- **5 平台支持**：ESP32 / STM32 / Zephyr / JL / BK
+- **自测通过**：4 个测试用例全部通过
+- **版本升至 7.0.2**
+
+## 7.0.1 — 2026-07-01
+
+- **知识自学习系统**：新增 `references/field_experience_log.md`，记录 8 条现场经验（OTA 断电回滚、音频打断、LVGL 跨线程、cJSON 泄漏、DMA cache、优先级反转、重连风暴、深睡眠状态丢失）
+- **constraint_discovery 增强**：新增 `--self-test` 自测，14 条发现规则全部验证
+- **经验→约束闭环**：现场经验自动映射到约束域，支持频率/影响分级
+- **版本升至 7.0.1**
+
 ## 6.0.7 — 2026-07-01
 
 - **v6 整体重构门禁**：全量一致性审查通过，满足 release_governance.md 大版本门禁
