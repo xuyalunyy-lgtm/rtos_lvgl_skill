@@ -12,16 +12,15 @@ Checks:
 Usage:
     python tools/lock_budget_checker.py <file.c> [file2.c ...]
     python tools/lock_budget_checker.py --dir src/
+    python tools/lock_budget_checker.py --json <file.c>
 """
 
 from __future__ import annotations
 
-import argparse
 import re
-import sys
 from pathlib import Path
 
-from static_c_scan import collect_c_like_files, extract_functions, line_at, make_issue, nearby, strip_comments
+from checker_io import extract_functions, line_at, make_issue, nearby, read_file, run_checker, strip_comments
 
 
 LOCK_TAKE_RE = re.compile(
@@ -63,12 +62,12 @@ def check_forever_lock_wait(path: Path, code: str, raw_text: str) -> list[dict[s
     return issues
 
 
-def check_function_lock_patterns(path: Path, raw_text: str, functions: list[dict[str, object]]) -> list[dict[str, str]]:
+def check_function_lock_patterns(path: Path, raw_text: str, functions: list) -> list[dict[str, str]]:
     issues: list[dict[str, str]] = []
     for func in functions:
-        name = str(func["name"])
-        body = str(func["body"])
-        line = int(func["line"])
+        name = func.name
+        body = func.body
+        line = func.line
         lock_takes = list(LOCK_TAKE_RE.finditer(body))
         if not lock_takes:
             continue
@@ -104,11 +103,11 @@ def check_binary_semaphore_mutex(path: Path, code: str) -> list[dict[str, str]]:
 
 
 def check_file(path: Path) -> list[dict[str, str]]:
-    try:
-        raw_text = path.read_text(encoding="utf-8", errors="replace")
-    except OSError:
+    result = read_file(path)
+    if result is None:
         return []
 
+    _lines, raw_text = result
     code = strip_comments(raw_text)
     functions = extract_functions(code)
     issues: list[dict[str, str]] = []
@@ -118,31 +117,5 @@ def check_file(path: Path) -> list[dict[str, str]]:
     return issues
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description="C43 lock budget checker")
-    parser.add_argument("files", nargs="*", help="C/C++ files to check")
-    parser.add_argument("--dir", "-d", help="Directory to scan recursively")
-    args = parser.parse_args()
-
-    targets = collect_c_like_files(args.files, args.dir)
-    if not targets:
-        print("[lock_budget_checker] no files to check")
-        return 0
-
-    all_issues: list[dict[str, str]] = []
-    for path in targets:
-        all_issues.extend(check_file(path))
-
-    if not all_issues:
-        print(f"[lock_budget_checker] checked {len(targets)} files, no C43 warnings")
-        return 0
-
-    print(f"[lock_budget_checker] checked {len(targets)} files, found {len(all_issues)} C43 warnings:\n")
-    for item in all_issues:
-        print(f"  [{item['severity']}] {item['id']} - {item['file']} - {item['issue']}")
-    print(f"\nSummary: {len(all_issues)} C43 lock budget warnings")
-    return 1
-
-
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(run_checker(check_file, "C43 lock budget checker", ("C43",)))

@@ -16,12 +16,10 @@ Usage:
 
 from __future__ import annotations
 
-import argparse
 import re
-import sys
 from pathlib import Path
 
-from static_c_scan import collect_c_like_files, extract_functions, line_at, make_issue, nearby, strip_comments
+from checker_io import extract_functions, line_at, make_issue, nearby, read_file, run_checker, strip_comments
 
 
 SENSOR_RE = re.compile(
@@ -49,24 +47,16 @@ SAMPLE_UNIT_RE = re.compile(r"(unit|units|scale|range|full_scale)", re.IGNORECAS
 CALIB_HOT_RE = re.compile(r"(calibrat|calib_|self_test|selftest|warmup|trim|offset_learn)", re.IGNORECASE)
 
 
-def issue(path: Path, line: int, cid: str, severity: str, msg: str) -> dict[str, str]:
-    return make_issue(path, line, cid, severity, msg)
-
-
 def is_sensor_function(name: str, body: str, path: Path) -> bool:
     joined = f"{path.name} {name} {body[:500]}"
     return bool(SENSOR_RE.search(joined) or BUS_RE.search(body))
 
 
-def function_line(func: dict[str, object]) -> int:
-    return int(func.get("line", 1))
-
-
-def check_function(path: Path, raw_text: str, code: str, func: dict[str, object]) -> list[dict[str, str]]:
+def check_function(path: Path, raw_text: str, code: str, func) -> list[dict[str, str]]:
     issues: list[dict[str, str]] = []
-    name = str(func["name"])
-    body = str(func["body"])
-    line = function_line(func)
+    name = func.name
+    body = func.body
+    line = func.line
     if not is_sensor_function(name, body, path):
         return issues
 
@@ -75,33 +65,34 @@ def check_function(path: Path, raw_text: str, code: str, func: dict[str, object]
 
     if INIT_RE.search(name) and body_has_bus:
         if not WHOAMI_RE.search(body):
-            issues.append(issue(path, line, "C45.1", "P0", f"{name} initializes a sensor without identity/probe verification"))
+            issues.append(make_issue(path, line, "C45.1", "P0", f"{name} initializes a sensor without identity/probe verification"))
         if not REGMAP_RE.search(context):
-            issues.append(issue(path, line, "C45.1", "P1", f"{name} lacks nearby datasheet/register-map evidence for sensor registers"))
+            issues.append(make_issue(path, line, "C45.1", "P1", f"{name} lacks nearby datasheet/register-map evidence for sensor registers"))
 
     if body_has_bus:
         if FOREVER_RE.search(body):
-            issues.append(issue(path, line, "C45.2", "P0", f"{name} uses an unbounded wait for a sensor bus transaction"))
+            issues.append(make_issue(path, line, "C45.2", "P0", f"{name} uses an unbounded wait for a sensor bus transaction"))
         if not TIMEOUT_RE.search(body):
-            issues.append(issue(path, line, "C45.2", "P0", f"{name} performs sensor I2C/SPI transactions without timeout/retry evidence"))
+            issues.append(make_issue(path, line, "C45.2", "P0", f"{name} performs sensor I2C/SPI transactions without timeout/retry evidence"))
 
     if READY_LOOP_RE.search(body) and not WAIT_EVIDENCE_RE.search(body):
-        issues.append(issue(path, line, "C45.3", "P1", f"{name} polls data-ready/status without bounded wait or event evidence"))
+        issues.append(make_issue(path, line, "C45.3", "P1", f"{name} polls data-ready/status without bounded wait or event evidence"))
 
     if READ_RE.search(name) and body_has_bus and not (SAMPLE_TIME_RE.search(body) and SAMPLE_UNIT_RE.search(body)):
-        issues.append(issue(path, line, "C45.4", "P1", f"{name} reads sensor data without timestamp/unit/range/scale/calibration metadata"))
+        issues.append(make_issue(path, line, "C45.4", "P1", f"{name} reads sensor data without timestamp/unit/range/scale/calibration metadata"))
 
     if READ_RE.search(name) and CALIB_HOT_RE.search(body):
-        issues.append(issue(path, line, "C45.5", "P2", f"{name} performs calibration/self-test/warm-up work in the hot read path"))
+        issues.append(make_issue(path, line, "C45.5", "P2", f"{name} performs calibration/self-test/warm-up work in the hot read path"))
 
     return issues
 
 
 def check_file(path: Path) -> list[dict[str, str]]:
-    try:
-        raw_text = path.read_text(encoding="utf-8", errors="replace")
-    except OSError:
+    result = read_file(path)
+    if result is None:
         return []
+
+    _lines, raw_text = result
 
     code = strip_comments(raw_text)
     functions = extract_functions(code)
@@ -110,35 +101,9 @@ def check_file(path: Path) -> list[dict[str, str]]:
         issues.extend(check_function(path, raw_text, code, func))
 
     if BUS_RE.search(code) and not functions:
-        issues.append(issue(path, line_at(code, BUS_RE.search(code).start()), "C45.2", "P0", "sensor bus transaction appears outside a parseable function"))
+        issues.append(make_issue(path, line_at(code, BUS_RE.search(code).start()), "C45.2", "P0", "sensor bus transaction appears outside a parseable function"))
     return issues
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description="C45 sensor-integration contract checker")
-    parser.add_argument("files", nargs="*", help="C/C++ files to check")
-    parser.add_argument("--dir", "-d", help="Directory to scan recursively")
-    args = parser.parse_args()
-
-    targets = collect_c_like_files(args.files, args.dir)
-    if not targets:
-        print("[sensor_integration_checker] no files to check")
-        return 0
-
-    all_issues: list[dict[str, str]] = []
-    for path in targets:
-        all_issues.extend(check_file(path))
-
-    if not all_issues:
-        print(f"[sensor_integration_checker] checked {len(targets)} files, no C45 warnings")
-        return 0
-
-    print(f"[sensor_integration_checker] checked {len(targets)} files, found {len(all_issues)} C45 warnings:\n")
-    for item in all_issues:
-        print(f"  [{item['severity']}] {item['id']} - {item['file']} - {item['issue']}")
-    print(f"\nSummary: {len(all_issues)} C45 sensor-integration warnings")
-    return 1
-
-
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(run_checker(check_file, "C45 sensor-integration contract checker", ("C45",)))

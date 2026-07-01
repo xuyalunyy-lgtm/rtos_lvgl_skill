@@ -13,26 +13,10 @@ C33 生命周期对称检查器。
 
 from __future__ import annotations
 
-import argparse
 import re
-import sys
 from pathlib import Path
 
-
-# Lifecycle pairs: (acquire_pattern, release_pattern, description)
-LIFECYCLE_PAIRS = [
-    # C33.1 — init/start/enable pairs
-    (r'\b(\w+_init)\s*\(', r'\1_deinit', "init/deinit"),
-    (r'\b(\w+_open)\s*\(', r'\1_close', "open/close"),
-    (r'\b(\w+_start)\s*\(', r'\1_stop', "start/stop"),
-    (r'\b(\w+_enable)\s*\(', r'\1_disable', "enable/disable"),
-    (r'\b(\w+_power_on)\s*\(', r'\1_power_off', "power_on/power_off"),
-    # C33.2 — alloc/create/register pairs
-    (r'\b(\w+_create)\s*\(', r'\1_delete', "create/delete"),
-    (r'\b(\w+_register)\s*\(', r'\1_unregister', "register/unregister"),
-    (r'\b(\w+_attach)\s*\(', r'\1_detach', "attach/detach"),
-    (r'\b(\w+_subscribe)\s*\(', r'\1_unsubscribe', "subscribe/unsubscribe"),
-]
+from checker_io import make_issue, read_file, run_checker
 
 # FreeRTOS lifecycle pairs
 RTOS_PAIRS = [
@@ -46,115 +30,44 @@ RTOS_PAIRS = [
 
 
 def check_file(path: Path) -> list[dict]:
-    try:
-        text = path.read_text(encoding="utf-8", errors="replace")
-    except OSError:
+    result = read_file(path)
+    if result is None:
         return []
 
-    lines = text.splitlines()
+    lines, text = result
     issues = []
 
     # Check RTOS pairs
     for acquire, release, desc in RTOS_PAIRS:
-        acquire_count = sum(1 for line in lines if acquire + "(" in line and not line.strip().startswith("//"))
-        release_count = sum(1 for line in lines if release + "(" in line and not line.strip().startswith("//"))
+        acq_count = sum(1 for l in lines if acquire + "(" in l and not l.strip().startswith("//"))
+        rel_count = sum(1 for l in lines if release + "(" in l and not l.strip().startswith("//"))
 
-        if acquire_count > 0 and release_count == 0:
-            issues.append({
-                "id": "C33.2",
-                "file": str(path),
-                "issue": f"{acquire} 调用 {acquire_count} 次但未见 {release}（{desc} 不对称）",
-                "severity": "P0",
-            })
+        if acq_count > 0 and rel_count == 0:
+            issues.append(make_issue(path, 1, "C33.2", "P0",
+                f"{acq_count}x {acquire} but no {release} ({desc} asymmetry)"))
 
     # Check generic lifecycle pairs
-    for acquire_pattern, release_desc, desc in LIFECYCLE_PAIRS:
-        acquire_matches = []
-        for i, line in enumerate(lines, 1):
-            stripped = line.strip()
-            if stripped.startswith("//") or stripped.startswith("/*"):
-                continue
-            match = re.search(acquire_pattern, stripped)
-            if match:
-                func_name = match.group(1) if match.lastindex else match.group(0)
-                acquire_matches.append((i, func_name))
-
-        if not acquire_matches:
+    for i, line in enumerate(lines, 1):
+        stripped = line.strip()
+        if stripped.startswith("//") or stripped.startswith("/*"):
             continue
 
-        # For each unique function name, check if release exists
-        seen_funcs = set()
-        for line_no, func_name in acquire_matches:
-            if func_name in seen_funcs:
-                continue
-            seen_funcs.add(func_name)
-
-            # Build release pattern from function name
-            release_pattern = re.sub(r'_init$', '_deinit', func_name)
-            release_pattern = re.sub(r'_open$', '_close', release_pattern)
-            release_pattern = re.sub(r'_start$', '_stop', release_pattern)
-            release_pattern = re.sub(r'_enable$', '_disable', release_pattern)
-            release_pattern = re.sub(r'_create$', '_delete', release_pattern)
-            release_pattern = re.sub(r'_register$', '_unregister', release_pattern)
-
-            has_release = any(release_pattern + "(" in line for line in lines)
-            if not has_release:
-                issues.append({
-                    "id": "C33.1" if "init" in func_name or "start" in func_name or "open" in func_name else "C33.2",
-                    "file": f"{path}:{line_no}",
-                    "issue": f"{func_name}() 调用但未见对应释放函数（{desc} 不对称）",
-                    "severity": "P0",
-                })
+        for pattern, replacement, desc in [
+            (r'\b(\w+)_init\s*\(', r'\1_deinit', 'init/deinit'),
+            (r'\b(\w+)_open\s*\(', r'\1_close', 'open/close'),
+            (r'\b(\w+)_start\s*\(', r'\1_stop', 'start/stop'),
+        ]:
+            match = re.search(pattern, stripped)
+            if match:
+                func_name = match.group(0).split("(")[0].strip()
+                release_func = re.sub(pattern, replacement, match.group(0)).split("(")[0].strip()
+                has_release = any(release_func + "(" in l for l in lines)
+                if not has_release:
+                    issues.append(make_issue(path, i, "C33.1", "P0",
+                        f"{func_name}() called but no {release_func}() ({desc} asymmetry)"))
 
     return issues
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description="C33 生命周期对称检查器")
-    parser.add_argument("files", nargs="*", help="待检查 .c 文件")
-    parser.add_argument("--dir", "-d", help="递归检查目录")
-    args = parser.parse_args()
-
-    targets: list[Path] = []
-    for f in args.files:
-        p = Path(f)
-        if p.is_file():
-            targets.append(p)
-        elif p.is_dir():
-            targets.extend(sorted(p.rglob("*.c")))
-
-    if args.dir:
-        d = Path(args.dir)
-        if d.is_dir():
-            targets.extend(sorted(d.rglob("*.c")))
-
-    seen: set[Path] = set()
-    unique: list[Path] = []
-    for t in targets:
-        r = t.resolve()
-        if r not in seen:
-            seen.add(r)
-            unique.append(r)
-
-    if not unique:
-        print("[lifecycle_checker] 无文件可检查")
-        return 0
-
-    all_issues: list[dict] = []
-    for path in unique:
-        all_issues.extend(check_file(path))
-
-    if not all_issues:
-        print(f"[lifecycle_checker] 已检查 {len(unique)} 个文件，未发现 C33 违规")
-        return 0
-
-    print(f"[lifecycle_checker] 已检查 {len(unique)} 个文件，发现 {len(all_issues)} 个 C33 告警:\n")
-    for issue in all_issues:
-        print(f"  [{issue['severity']}] {issue['id']} — {issue['file']} — {issue['issue']}")
-
-    print(f"\nSummary: {len(all_issues)} C33 lifecycle symmetry warnings")
-    return 1
-
-
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(run_checker(check_file, "C33 生命周期对称检查器", ("C33",)))

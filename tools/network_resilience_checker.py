@@ -13,10 +13,10 @@ C20 网络韧性启发式检查器。
 
 from __future__ import annotations
 
-import argparse
 import re
-import sys
 from pathlib import Path
+
+from checker_io import make_issue, read_file, run_checker
 
 # Network APIs that MUST have timeout — use word boundary to avoid matching variable names
 BLOCKING_NET_API_PATTERNS = [
@@ -96,12 +96,10 @@ def check_reconnect_backoff(path: Path, lines: list[str]) -> list[dict]:
             # Function end
             if brace_depth <= 0:
                 if has_reconnect and not has_backoff:
-                    issues.append({
-                        "id": "C20.1",
-                        "file": f"{path}:{func_start_line}",
-                        "issue": f"函数 {func_name} 有重连逻辑但未见指数退避（应有 1s→2s→…→60s cap）",
-                        "severity": "P0",
-                    })
+                    issues.append(make_issue(
+                        path, func_start_line, "C20.1", "P0",
+                        f"函数 {func_name} 有重连逻辑但未见指数退避（应有 1s→2s→…→60s cap）",
+                    ))
                 in_function = False
 
     return issues
@@ -123,12 +121,10 @@ def check_network_timeout(path: Path, lines: list[str]) -> list[dict]:
 
             # Check for portMAX_DELAY (explicit permanent wait)
             if "portMAX_DELAY" in stripped:
-                issues.append({
-                    "id": "C20.2",
-                    "file": f"{path}:{i}",
-                    "issue": "阻塞网络 API 使用 portMAX_DELAY 无超时",
-                    "severity": "P0",
-                })
+                issues.append(make_issue(
+                    path, i, "C20.2", "P0",
+                    "阻塞网络 API 使用 portMAX_DELAY 无超时",
+                ))
                 continue
 
             # Check for socket timeout set nearby (SO_RCVTIMEO / SO_SNDTIMEO)
@@ -163,75 +159,25 @@ def check_network_timeout(path: Path, lines: list[str]) -> list[dict]:
                 has_timeout = True
 
             if not has_timeout:
-                issues.append({
-                    "id": "C20.2",
-                    "file": f"{path}:{i}",
-                    "issue": "阻塞网络 API 未见显式超时参数",
-                    "severity": "P1",
-                })
+                issues.append(make_issue(
+                    path, i, "C20.2", "P1",
+                    "阻塞网络 API 未见显式超时参数",
+                ))
 
     return issues
 
 
 def check_file(path: Path) -> list[dict]:
-    try:
-        text = path.read_text(encoding="utf-8", errors="replace")
-    except OSError:
+    result = read_file(path)
+    if result is None:
         return []
 
-    lines = text.splitlines()
+    lines, _text = result
     issues = []
     issues.extend(check_reconnect_backoff(path, lines))
     issues.extend(check_network_timeout(path, lines))
     return issues
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description="C20 网络韧性检查器")
-    parser.add_argument("files", nargs="*", help="待检查 .c 文件")
-    parser.add_argument("--dir", "-d", help="递归检查目录")
-    args = parser.parse_args()
-
-    targets: list[Path] = []
-    for f in args.files:
-        p = Path(f)
-        if p.is_file():
-            targets.append(p)
-        elif p.is_dir():
-            targets.extend(sorted(p.rglob("*.c")))
-
-    if args.dir:
-        d = Path(args.dir)
-        if d.is_dir():
-            targets.extend(sorted(d.rglob("*.c")))
-
-    seen: set[Path] = set()
-    unique: list[Path] = []
-    for t in targets:
-        r = t.resolve()
-        if r not in seen:
-            seen.add(r)
-            unique.append(r)
-
-    if not unique:
-        print("[network_resilience_checker] 无文件可检查")
-        return 0
-
-    all_issues: list[dict] = []
-    for path in unique:
-        all_issues.extend(check_file(path))
-
-    if not all_issues:
-        print(f"[network_resilience_checker] 已检查 {len(unique)} 个文件，未发现 C20 违规")
-        return 0
-
-    print(f"[network_resilience_checker] 已检查 {len(unique)} 个文件，发现 {len(all_issues)} 个 C20 告警:\n")
-    for issue in all_issues:
-        print(f"  [{issue['severity']}] {issue['id']} — {issue['file']} — {issue['issue']}")
-
-    print(f"\nSummary: {len(all_issues)} C20 network-resilience warnings")
-    return 1
-
-
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(run_checker(check_file, "C20 网络韧性检查器", ("C20",)))

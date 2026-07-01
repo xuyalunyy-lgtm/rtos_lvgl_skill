@@ -15,10 +15,10 @@
 
 from __future__ import annotations
 
-import argparse
 import re
-import sys
 from pathlib import Path
+
+from checker_io import make_issue, read_file, run_checker
 
 # Permanent wait constants
 PERMANENT_WAIT_CONSTANTS = [
@@ -92,14 +92,10 @@ def check_permanent_wait(path: Path, lines: list[str]) -> list[dict]:
                         func_context = lines[j].strip()
                         break
 
-                issues.append({
-                    "id": "C31.1",
-                    "severity": "P0",
-                    "file": f"{path}:{i}",
-                    "line": stripped[:80],
-                    "context": func_context[:60] if func_context else "",
-                    "type": "permanent_wait_constant",
-                })
+                msg = stripped[:80]
+                if func_context:
+                    msg += f" (in {func_context[:60]})"
+                issues.append(make_issue(path, i, "C31.1", "P0", msg))
 
     return issues
 
@@ -125,14 +121,10 @@ def check_blocking_api_without_timeout(path: Path, lines: list[str]) -> list[dic
                         func_context = lines[j].strip()
                         break
 
-                issues.append({
-                    "id": "C31.3",
-                    "severity": "P1",
-                    "file": f"{path}:{i}",
-                    "line": stripped[:80],
-                    "context": func_context[:60] if func_context else "",
-                    "type": "blocking_api_no_timeout",
-                })
+                msg = stripped[:80]
+                if func_context:
+                    msg += f" (in {func_context[:60]})"
+                issues.append(make_issue(path, i, "C31.3", "P1", msg))
 
         for api_pattern in NETWORK_API_PATTERNS:
             if not api_pattern.search(stripped):
@@ -145,14 +137,10 @@ def check_blocking_api_without_timeout(path: Path, lines: list[str]) -> list[dic
                         func_context = lines[j].strip()
                         break
 
-                issues.append({
-                    "id": "C31.2",
-                    "severity": "P0",
-                    "file": f"{path}:{i}",
-                    "line": stripped[:80],
-                    "context": func_context[:60] if func_context else "",
-                    "type": "blocking_api_no_timeout",
-                })
+                msg = stripped[:80]
+                if func_context:
+                    msg += f" (in {func_context[:60]})"
+                issues.append(make_issue(path, i, "C31.2", "P0", msg))
 
     return issues
 
@@ -175,92 +163,16 @@ def has_network_timeout_hint(lines: list[str], line_no: int) -> bool:
 
 
 def check_file(path: Path) -> list[dict]:
-    try:
-        text = path.read_text(encoding="utf-8", errors="replace")
-    except OSError:
+    result = read_file(path)
+    if result is None:
         return []
 
-    lines = text.splitlines()
+    lines, text = result
     issues = []
     issues.extend(check_permanent_wait(path, lines))
     issues.extend(check_blocking_api_without_timeout(path, lines))
     return issues
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description="永久等待扫描器")
-    parser.add_argument("files", nargs="*", help="待检查 .c 文件")
-    parser.add_argument("--dir", "-d", help="递归检查目录")
-    parser.add_argument("--json", action="store_true", help="输出 JSON 格式")
-    args = parser.parse_args()
-
-    targets: list[Path] = []
-    for f in args.files:
-        p = Path(f)
-        if p.is_file():
-            targets.append(p)
-        elif p.is_dir():
-            targets.extend(sorted(p.rglob("*.c")))
-
-    if args.dir:
-        d = Path(args.dir)
-        if d.is_dir():
-            targets.extend(sorted(d.rglob("*.c")))
-
-    seen: set[Path] = set()
-    unique: list[Path] = []
-    for t in targets:
-        r = t.resolve()
-        if r not in seen:
-            seen.add(r)
-            unique.append(r)
-
-    if not unique:
-        print("[blocking_wait_checker] 无文件可检查")
-        return 0
-
-    all_issues: list[dict] = []
-    for path in unique:
-        all_issues.extend(check_file(path))
-
-    if args.json:
-        import json
-        print(json.dumps(all_issues, indent=2, ensure_ascii=False))
-        return 0
-
-    if not all_issues:
-        print(f"[blocking_wait_checker] 已检查 {len(unique)} 个文件，未发现 C31 超时预算违规")
-        return 0
-
-    # Group by type
-    permanent_waits = [i for i in all_issues if i["type"] == "permanent_wait_constant"]
-    no_timeout = [i for i in all_issues if i["type"] == "blocking_api_no_timeout"]
-
-    print(f"[blocking_wait_checker] 已检查 {len(unique)} 个文件，发现 {len(all_issues)} 个阻塞等待:\n")
-
-    if permanent_waits:
-        print(f"=== 永久等待常量 ({len(permanent_waits)} 处) ===")
-        print("请确认这些位置是否允许永久等待：\n")
-        for issue in permanent_waits:
-            print(f"  [{issue['severity']}] {issue['id']} — {issue['file']}")
-            if issue['context']:
-                print(f"    函数: {issue['context']}")
-            print(f"    代码: {issue['line']}")
-            print()
-
-    if no_timeout:
-        print(f"=== 阻塞 API 无显式超时 ({len(no_timeout)} 处) ===")
-        print("请确认这些 API 调用是否有隐式超时或允许永久等待：\n")
-        for issue in no_timeout:
-            print(f"  [{issue['severity']}] {issue['id']} — {issue['file']}")
-            if issue['context']:
-                print(f"    函数: {issue['context']}")
-            print(f"    代码: {issue['line']}")
-            print()
-
-    print(f"Summary: {len(permanent_waits)} permanent waits, {len(no_timeout)} blocking APIs without explicit timeout")
-    return 1
-
-
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(run_checker(check_file, "永久等待扫描器", ("C31",)))

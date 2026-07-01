@@ -13,10 +13,9 @@ C19 Flash/NVS 安全启发式检查器。
 
 from __future__ import annotations
 
-import argparse
-import re
-import sys
 from pathlib import Path
+
+from checker_io import make_issue, read_file, run_checker
 
 # NVS write APIs
 NVS_WRITE_APIS = [
@@ -55,12 +54,8 @@ def check_nvs_commit(path: Path, lines: list[str]) -> list[dict]:
     # Check if nvs_write appears without nearby nvs_commit
     if nvs_write_calls and not nvs_commit_calls:
         for line_no, api in nvs_write_calls[:3]:
-            issues.append({
-                "id": "C19.1",
-                "file": f"{path}:{line_no}",
-                "issue": f"{api} 后未见 nvs_commit()",
-                "severity": "P0",
-            })
+            issues.append(make_issue(path, line_no, "C19.1", "P0",
+                                     f"{api} 后未见 nvs_commit()"))
     elif nvs_write_calls and nvs_commit_calls:
         # Check proximity: commit should be within 10 lines of write
         for write_line, api in nvs_write_calls:
@@ -69,12 +64,8 @@ def check_nvs_commit(path: Path, lines: list[str]) -> list[dict]:
                 for commit_line in nvs_commit_calls
             )
             if not has_nearby_commit:
-                issues.append({
-                    "id": "C19.1",
-                    "file": f"{path}:{write_line}",
-                    "issue": f"{api} 后 10 行内未见 nvs_commit()",
-                    "severity": "P0",
-                })
+                issues.append(make_issue(path, write_line, "C19.1", "P0",
+                                         f"{api} 后 10 行内未见 nvs_commit()"))
 
     # Check if nvs_commit return value is checked
     for i, line in enumerate(lines, 1):
@@ -103,74 +94,19 @@ def check_nvs_commit(path: Path, lines: list[str]) -> list[dict]:
                     checked = True
                     break
             if not checked:
-                issues.append({
-                    "id": "C19.1",
-                    "file": f"{path}:{i}",
-                    "issue": "nvs_commit() 返回值未检查",
-                    "severity": "P0",
-                })
+                issues.append(make_issue(path, i, "C19.1", "P0",
+                                         "nvs_commit() 返回值未检查"))
 
     return issues
 
 
 def check_file(path: Path) -> list[dict]:
-    try:
-        text = path.read_text(encoding="utf-8", errors="replace")
-    except OSError:
+    result = read_file(path)
+    if result is None:
         return []
-
-    lines = text.splitlines()
-    issues = []
-    issues.extend(check_nvs_commit(path, lines))
-    return issues
-
-
-def main() -> int:
-    parser = argparse.ArgumentParser(description="C19 Flash/NVS 安全检查器")
-    parser.add_argument("files", nargs="*", help="待检查 .c 文件")
-    parser.add_argument("--dir", "-d", help="递归检查目录")
-    args = parser.parse_args()
-
-    targets: list[Path] = []
-    for f in args.files:
-        p = Path(f)
-        if p.is_file():
-            targets.append(p)
-        elif p.is_dir():
-            targets.extend(sorted(p.rglob("*.c")))
-
-    if args.dir:
-        d = Path(args.dir)
-        if d.is_dir():
-            targets.extend(sorted(d.rglob("*.c")))
-
-    seen: set[Path] = set()
-    unique: list[Path] = []
-    for t in targets:
-        r = t.resolve()
-        if r not in seen:
-            seen.add(r)
-            unique.append(r)
-
-    if not unique:
-        print("[flash_nvs_checker] 无文件可检查")
-        return 0
-
-    all_issues: list[dict] = []
-    for path in unique:
-        all_issues.extend(check_file(path))
-
-    if not all_issues:
-        print(f"[flash_nvs_checker] 已检查 {len(unique)} 个文件，未发现 C19 违规")
-        return 0
-
-    print(f"[flash_nvs_checker] 已检查 {len(unique)} 个文件，发现 {len(all_issues)} 个 C19 告警:\n")
-    for issue in all_issues:
-        print(f"  [{issue['severity']}] {issue['id']} — {issue['file']} — {issue['issue']}")
-
-    print(f"\nSummary: {len(all_issues)} C19 flash/nvs warnings")
-    return 1
+    lines, _text = result
+    return check_nvs_commit(path, lines)
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(run_checker(check_file, "C19 Flash/NVS 安全检查器", ("C19",)))

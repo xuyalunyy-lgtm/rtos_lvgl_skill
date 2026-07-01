@@ -17,20 +17,20 @@ C25 音视频管线 / A/V Sync 启发式检查器。
 
 from __future__ import annotations
 
-import argparse
 import re
-import sys
 from pathlib import Path
 
-
-COMMENT_RE = re.compile(r"//.*?$|/\*.*?\*/", re.MULTILINE | re.DOTALL)
-FUNC_DEF_RE = re.compile(
-    r"(?:^|[\n;])\s*"
-    r"(?:static\s+)?(?:inline\s+)?"
-    r"(?:[A-Za-z_][\w\s\*]*\s+)+"
-    r"(?P<name>[A-Za-z_]\w*)\s*\([^;{}]*\)\s*\{",
-    re.MULTILINE,
+from checker_io import (
+    FunctionSpan,
+    extract_functions,
+    line_at,
+    make_issue,
+    read_file,
+    run_checker,
+    strip_comments,
 )
+
+
 STRUCT_RE = re.compile(
     r"typedef\s+struct(?:\s+[A-Za-z_]\w*)?\s*\{(?P<body>.*?)\}\s*(?P<name>[A-Za-z_]\w*)\s*;",
     re.DOTALL,
@@ -69,53 +69,9 @@ HOT_ALLOC_LOG_RE = re.compile(
 QUEUE_FOREVER_RE = re.compile(r"\bxQueue(?:Send|Receive|SendToBack|SendToFront|Overwrite)\s*\([^;]*portMAX_DELAY", re.DOTALL)
 
 
-def strip_comments(text: str) -> str:
-    """Remove C/C++ comments while preserving line numbers."""
-    return COMMENT_RE.sub(lambda m: "\n" * m.group(0).count("\n"), text)
-
-
-def line_at(text: str, pos: int) -> int:
-    return text[:pos].count("\n") + 1
-
-
-def find_matching_brace(text: str, open_pos: int) -> int:
-    depth = 0
-    for i in range(open_pos, len(text)):
-        if text[i] == "{":
-            depth += 1
-        elif text[i] == "}":
-            depth -= 1
-            if depth == 0:
-                return i
-    return -1
-
-
-def extract_functions(code: str) -> list[dict[str, object]]:
-    functions: list[dict[str, object]] = []
-    for match in FUNC_DEF_RE.finditer(code):
-        name = match.group("name")
-        if name in {"if", "for", "while", "switch", "return", "sizeof"}:
-            continue
-        open_pos = code.find("{", match.end() - 1)
-        close_pos = find_matching_brace(code, open_pos)
-        if open_pos < 0 or close_pos < 0:
-            continue
-        functions.append({
-            "name": name,
-            "body": code[open_pos + 1:close_pos],
-            "line": line_at(code, match.start("name")),
-        })
-    return functions
-
-
 def has_any(text: str, words: tuple[str, ...]) -> bool:
     lower = text.lower()
     return any(word in lower for word in words)
-
-
-def issue(path: Path, line: int | str, cid: str, severity: str, msg: str) -> dict[str, str]:
-    loc = f"{path}:{line}" if isinstance(line, int) else str(path)
-    return {"id": cid, "file": loc, "severity": severity, "issue": msg}
 
 
 def check_audio_master(path: Path, code: str) -> list[dict[str, str]]:
@@ -123,7 +79,7 @@ def check_audio_master(path: Path, code: str) -> list[dict[str, str]]:
     has_audio = any(kw in lower for kw in ("audio", "i2s", "pcm", "speaker", "mic", "aec"))
     has_video = any(kw in lower for kw in ("video", "camera", "preview", "h264", "jpeg", "lcd", "display"))
     if has_audio and has_video and not has_any(code, SYNC_KEYWORDS):
-        return [issue(path, 1, "C25.1", "P0", "音视频同文件管线未找到 PTS/timestamp/audio_clock 等同步依据")]
+        return [make_issue(path, 1, "C25.1", "P0", "音视频同文件管线未找到 PTS/timestamp/audio_clock 等同步依据")]
     return []
 
 
@@ -147,7 +103,7 @@ def check_frame_structs(path: Path, code: str) -> list[dict[str, str]]:
                 missing.append("seq")
             if not has_duration:
                 missing.append("duration/sample_count")
-            issues.append(issue(
+            issues.append(make_issue(
                 path,
                 line_at(code, match.start()),
                 "C25.2",
@@ -162,7 +118,7 @@ def check_queue_forever(path: Path, code: str) -> list[dict[str, str]]:
     if not has_any(code, MEDIA_KEYWORDS):
         return issues
     for match in QUEUE_FOREVER_RE.finditer(code):
-        issues.append(issue(
+        issues.append(make_issue(
             path,
             line_at(code, match.start()),
             "C25.3",
@@ -172,40 +128,36 @@ def check_queue_forever(path: Path, code: str) -> list[dict[str, str]]:
     return issues
 
 
-def check_hotpath_alloc_log(path: Path, functions: list[dict[str, object]]) -> list[dict[str, str]]:
+def check_hotpath_alloc_log(path: Path, functions: list[FunctionSpan]) -> list[dict[str, str]]:
     issues: list[dict[str, str]] = []
     for func in functions:
-        name = str(func["name"])
-        body = str(func["body"])
-        if not HOT_FUNC_RE.search(name):
+        if not HOT_FUNC_RE.search(func.name):
             continue
-        for match in HOT_ALLOC_LOG_RE.finditer(body):
-            rel_line = body[:match.start()].count("\n")
-            issues.append(issue(
+        for match in HOT_ALLOC_LOG_RE.finditer(func.body):
+            rel_line = func.body[:match.start()].count("\n")
+            issues.append(make_issue(
                 path,
-                int(func["line"]) + rel_line,
+                func.line + rel_line,
                 "C25.4",
                 "P1",
-                f"{name} 每帧/回调热路径中出现 {match.group(0).rstrip('(')}",
+                f"{func.name} 每帧/回调热路径中出现 {match.group(0).rstrip('(')}",
             ))
     return issues
 
 
-def check_callback_isolation(path: Path, functions: list[dict[str, object]]) -> list[dict[str, str]]:
+def check_callback_isolation(path: Path, functions: list[FunctionSpan]) -> list[dict[str, str]]:
     issues: list[dict[str, str]] = []
     for func in functions:
-        name = str(func["name"])
-        body = str(func["body"])
-        if not CALLBACK_RE.search(name):
+        if not CALLBACK_RE.search(func.name):
             continue
-        for match in BAD_CALLBACK_RE.finditer(body):
-            rel_line = body[:match.start()].count("\n")
-            issues.append(issue(
+        for match in BAD_CALLBACK_RE.finditer(func.body):
+            rel_line = func.body[:match.start()].count("\n")
+            issues.append(make_issue(
                 path,
-                int(func["line"]) + rel_line,
+                func.line + rel_line,
                 "C25.5",
                 "P0",
-                f"{name} callback 中执行复杂操作 {match.group(0).rstrip('(')}，应只 notify/enqueue",
+                f"{func.name} callback 中执行复杂操作 {match.group(0).rstrip('(')}，应只 notify/enqueue",
             ))
     return issues
 
@@ -213,16 +165,16 @@ def check_callback_isolation(path: Path, functions: list[dict[str, object]]) -> 
 def check_telemetry(path: Path, code: str) -> list[dict[str, str]]:
     lower = code.lower()
     if has_any(lower, SYNC_KEYWORDS) and not has_any(lower, TELEMETRY_KEYWORDS):
-        return [issue(path, 1, "C25.6", "P2", "A/V sync 代码缺少 drift/drop/underrun 等遥测计数")]
+        return [make_issue(path, 1, "C25.6", "P2", "A/V sync 代码缺少 drift/drop/underrun 等遥测计数")]
     return []
 
 
 def check_file(path: Path) -> list[dict[str, str]]:
-    try:
-        text = path.read_text(encoding="utf-8", errors="replace")
-    except OSError:
+    result = read_file(path)
+    if result is None:
         return []
 
+    _lines, text = result
     code = strip_comments(text)
     if not has_any(code, MEDIA_KEYWORDS):
         return []
@@ -238,57 +190,5 @@ def check_file(path: Path) -> list[dict[str, str]]:
     return issues
 
 
-def collect_targets(files: list[str], dir_path: str | None) -> list[Path]:
-    targets: list[Path] = []
-    for f in files:
-        p = Path(f)
-        if p.is_file():
-            targets.append(p)
-        elif p.is_dir():
-            targets.extend(sorted(p.rglob("*.c")))
-            targets.extend(sorted(p.rglob("*.cpp")))
-    if dir_path:
-        d = Path(dir_path)
-        if d.is_dir():
-            targets.extend(sorted(d.rglob("*.c")))
-            targets.extend(sorted(d.rglob("*.cpp")))
-
-    seen: set[Path] = set()
-    unique: list[Path] = []
-    for target in targets:
-        resolved = target.resolve()
-        if resolved not in seen:
-            seen.add(resolved)
-            unique.append(resolved)
-    return unique
-
-
-def main() -> int:
-    parser = argparse.ArgumentParser(description="C25 音视频管线 / A/V Sync 检查器")
-    parser.add_argument("files", nargs="*", help="待检查 .c/.cpp 文件")
-    parser.add_argument("--dir", "-d", help="递归检查目录")
-    args = parser.parse_args()
-
-    targets = collect_targets(args.files, args.dir)
-    if not targets:
-        print("[av_pipeline_checker] 无文件可检查")
-        return 0
-
-    all_issues: list[dict[str, str]] = []
-    for path in targets:
-        all_issues.extend(check_file(path))
-
-    if not all_issues:
-        print(f"[av_pipeline_checker] 已检查 {len(targets)} 个文件，未发现 C25 违规")
-        return 0
-
-    print(f"[av_pipeline_checker] 已检查 {len(targets)} 个文件，发现 {len(all_issues)} 个 C25 告警:\n")
-    for item in all_issues:
-        print(f"  [{item['severity']}] {item['id']} — {item['file']} — {item['issue']}")
-
-    print(f"\nSummary: {len(all_issues)} C25 A/V pipeline warnings")
-    return 1
-
-
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(run_checker(check_file, "C25 音视频管线 / A/V Sync 检查器", ("C25",)))

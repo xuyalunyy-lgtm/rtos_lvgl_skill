@@ -13,17 +13,20 @@ Queue 所有权 AST 审查（增强版，精确函数边界 + 跨变量追踪）
 """
 from __future__ import annotations
 
-import argparse
 import re
-import sys
 from pathlib import Path
 
-from checker_io import configure_stdout, output_json
+from checker_io import make_issue, read_file, run_checker
 
 
-def analyze_queue_ast(content: str, filename: str = "<stdin>") -> dict:
-    lines = content.splitlines()
-    errors = []
+def check_file(path: Path) -> list[dict]:
+    """检查单个文件的 Queue 所有权 AST 违规。"""
+    result = read_file(path)
+    if result is None:
+        return []
+
+    lines, text = result
+    errors: list[dict] = []
 
     # 精确函数边界检测
     functions = []
@@ -66,9 +69,9 @@ def analyze_queue_ast(content: str, filename: str = "<stdin>") -> dict:
     for func_name, start, end in functions:
         body = lines[start : end + 1]
 
-        stack_vars = set()
-        cjson_vars = set()
-        ptr_from_stack_map = {}
+        stack_vars: set[str] = set()
+        cjson_vars: set[str] = set()
+        ptr_from_stack_map: dict[str, str] = {}
 
         for line in body:
             for m in stack_decl.finditer(line):
@@ -87,31 +90,18 @@ def analyze_queue_ast(content: str, filename: str = "<stdin>") -> dict:
 
             # 检查 cJSON 在 xQueueSend 行
             if re.search(r"cJSON", line, re.I):
-                errors.append({
-                    "line": abs_line,
-                    "type": "cjson_in_queue_send",
-                    "message": f"{func_name}(): xQueueSend 行含 cJSON — 禁止",
-                    "func": func_name,
-                })
+                errors.append(make_issue(path, abs_line, "C2", "P0",
+                    f"{func_name}(): xQueueSend 行含 cJSON — 禁止"))
 
             # 检查 payload 赋值
             for m in payload_assign.finditer("\n".join(body)):
                 rhs = m.group(1)
-                assign_line = m.start() // 100 + start + 1  # approx
                 if rhs in stack_vars:
-                    errors.append({
-                        "line": abs_line,
-                        "type": "stack_payload",
-                        "message": f"{func_name}(): .payload 指向栈变量 '{rhs}'",
-                        "func": func_name,
-                    })
+                    errors.append(make_issue(path, abs_line, "C2", "P0",
+                        f"{func_name}(): .payload 指向栈变量 '{rhs}'"))
                 if rhs in cjson_vars:
-                    errors.append({
-                        "line": abs_line,
-                        "type": "cjson_payload",
-                        "message": f"{func_name}(): 字段赋值为 cJSON* '{rhs}'",
-                        "func": func_name,
-                    })
+                    errors.append(make_issue(path, abs_line, "C2", "P0",
+                        f"{func_name}(): 字段赋值为 cJSON* '{rhs}'"))
 
             # 检查 xQueueSend 第二个参数
             send_m = re.search(
@@ -120,88 +110,26 @@ def analyze_queue_ast(content: str, filename: str = "<stdin>") -> dict:
             if send_m:
                 arg = send_m.group(1)
                 if arg in cjson_vars:
-                    errors.append({
-                        "line": abs_line,
-                        "type": "cjson_queue_element",
-                        "message": f"{func_name}(): xQueueSend 传递 cJSON* '&{arg}'",
-                        "func": func_name,
-                    })
+                    errors.append(make_issue(path, abs_line, "C2", "P0",
+                        f"{func_name}(): xQueueSend 传递 cJSON* '&{arg}'"))
                 if arg in stack_vars:
-                    errors.append({
-                        "line": abs_line,
-                        "type": "stack_queue_element",
-                        "message": f"{func_name}(): xQueueSend 传递栈 buffer '&{arg}'",
-                        "func": func_name,
-                    })
+                    errors.append(make_issue(path, abs_line, "C2", "P0",
+                        f"{func_name}(): xQueueSend 传递栈 buffer '&{arg}'"))
                 if arg in ptr_from_stack_map:
-                    errors.append({
-                        "line": abs_line,
-                        "type": "stack_ptr_queue_element",
-                        "message": f"{func_name}(): 传递指向栈 '{ptr_from_stack_map[arg]}' 的指针 '&{arg}'",
-                        "func": func_name,
-                    })
+                    errors.append(make_issue(path, abs_line, "C2", "P0",
+                        f"{func_name}(): 传递指向栈 '{ptr_from_stack_map[arg]}' 的指针 '&{arg}'"))
 
     # 去重
-    seen = set()
-    unique = []
+    seen: set[tuple[str, int]] = set()
+    unique: list[dict] = []
     for e in errors:
-        key = (e["line"], e["type"])
+        key = (e["id"], int(e["file"].rsplit(":", 1)[-1]))
         if key not in seen:
             seen.add(key)
             unique.append(e)
-    errors = unique
 
-    return {
-        "checker": "queue_ast_checker",
-        "file": filename,
-        "summary": {"functions_analyzed": len(functions), "errors": len(errors)},
-        "violations": [{"severity": "error", "rule": "C2", **e} for e in errors],
-    }
-
-
-def format_report(result: dict) -> str:
-    lines = [
-        "=" * 60,
-        f"Queue 所有权 AST 审查: {result['file']}",
-        "=" * 60,
-        f"分析函数数: {result['summary']['functions_analyzed']}",
-        f"违规数: {result['summary']['errors']}",
-        "",
-    ]
-    if result["violations"]:
-        lines.append("🔴 铁律 #2 违规:")
-        for v in result["violations"]:
-            lines.append(f"  L{v.get('line', '?')} [{v['type']}]: {v['message']}")
-        lines.append("")
-        lines.append("正例: examples/good_presenter_consumer.c（heap payload + Presenter vPortFree）")
-    else:
-        lines.append("✅ 通过：未检测到栈指针/cJSON* 进 Queue。")
-    lines.append("")
-    lines.append("ℹ️  本工具基于函数级 AST 分析，精度高于正则版本。")
-    return "\n".join(lines)
-
-
-def main() -> int:
-    configure_stdout()
-    parser = argparse.ArgumentParser(description="Queue 所有权 AST 审查（增强版）")
-    parser.add_argument("file", help="待检查的 .c 文件")
-    parser.add_argument("--json", action="store_true", help="输出 JSON")
-    args = parser.parse_args()
-
-    path = Path(args.file)
-    if not path.exists():
-        print(f"错误: 文件不存在: {path}", file=sys.stderr)
-        return 1
-
-    content = path.read_text(encoding="utf-8", errors="replace")
-    result = analyze_queue_ast(content, str(path))
-
-    if args.json:
-        output_json(result)
-    else:
-        print(format_report(result))
-    return 1 if result["summary"]["errors"] > 0 else 0
+    return unique
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(run_checker(check_file, "Queue 所有权 AST 审查（增强版）", ("C2",)))

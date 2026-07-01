@@ -13,10 +13,10 @@ C23 显示驱动安全启发式检查器。
 
 from __future__ import annotations
 
-import argparse
 import re
-import sys
 from pathlib import Path
+
+from checker_io import make_issue, read_file, run_checker
 
 
 def check_framebuffer_alloc(path: Path, lines: list[str]) -> list[dict]:
@@ -63,12 +63,8 @@ def check_framebuffer_alloc(path: Path, lines: list[str]) -> list[dict]:
                             checked = True
                             break
                     if not checked:
-                        issues.append({
-                            "id": "C23.5",
-                            "file": f"{path}:{i}",
-                            "issue": f"帧缓冲 {api} 分配未检查返回值（可能为 NULL）",
-                            "severity": "P0",
-                        })
+                        issues.append(make_issue(path, i, "C23.5", "P0",
+                            f"帧缓冲 {api} 分配未检查返回值（可能为 NULL）"))
                 break
 
     return issues
@@ -111,97 +107,33 @@ def check_disp_drv_fields(path: Path, lines: list[str]) -> list[dict]:
             # End of init block
             if "lv_disp_drv_register" in stripped:
                 if not has_hor_res:
-                    issues.append({
-                        "id": "C23.6",
-                        "file": f"{path}:{init_start_line}",
-                        "issue": "lv_disp_drv_t 未设置 hor_res（渲染区域错误）",
-                        "severity": "P1",
-                    })
+                    issues.append(make_issue(path, init_start_line, "C23.6", "P1",
+                        "lv_disp_drv_t 未设置 hor_res（渲染区域错误）"))
                 if not has_ver_res:
-                    issues.append({
-                        "id": "C23.6",
-                        "file": f"{path}:{init_start_line}",
-                        "issue": "lv_disp_drv_t 未设置 ver_res（渲染区域错误）",
-                        "severity": "P1",
-                    })
+                    issues.append(make_issue(path, init_start_line, "C23.6", "P1",
+                        "lv_disp_drv_t 未设置 ver_res（渲染区域错误）"))
                 if not has_flush_cb:
-                    issues.append({
-                        "id": "C23.6",
-                        "file": f"{path}:{init_start_line}",
-                        "issue": "lv_disp_drv_t 未设置 flush_cb（无法刷新显示）",
-                        "severity": "P0",
-                    })
+                    issues.append(make_issue(path, init_start_line, "C23.6", "P0",
+                        "lv_disp_drv_t 未设置 flush_cb（无法刷新显示）"))
                 if not has_draw_buf:
-                    issues.append({
-                        "id": "C23.6",
-                        "file": f"{path}:{init_start_line}",
-                        "issue": "lv_disp_drv_t 未设置 draw_buf（无绘制缓冲）",
-                        "severity": "P0",
-                    })
+                    issues.append(make_issue(path, init_start_line, "C23.6", "P0",
+                        "lv_disp_drv_t 未设置 draw_buf（无绘制缓冲）"))
                 in_disp_drv_init = False
 
     return issues
 
 
 def check_file(path: Path) -> list[dict]:
-    try:
-        text = path.read_text(encoding="utf-8", errors="replace")
-    except OSError:
+    result = read_file(path)
+    if result is None:
         return []
 
-    lines = text.splitlines()
+    lines, text = result
     issues = []
     issues.extend(check_framebuffer_alloc(path, lines))
     issues.extend(check_disp_drv_fields(path, lines))
     return issues
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description="C23 显示驱动安全检查器")
-    parser.add_argument("files", nargs="*", help="待检查 .c 文件")
-    parser.add_argument("--dir", "-d", help="递归检查目录")
-    args = parser.parse_args()
-
-    targets: list[Path] = []
-    for f in args.files:
-        p = Path(f)
-        if p.is_file():
-            targets.append(p)
-        elif p.is_dir():
-            targets.extend(sorted(p.rglob("*.c")))
-
-    if args.dir:
-        d = Path(args.dir)
-        if d.is_dir():
-            targets.extend(sorted(d.rglob("*.c")))
-
-    seen: set[Path] = set()
-    unique: list[Path] = []
-    for t in targets:
-        r = t.resolve()
-        if r not in seen:
-            seen.add(r)
-            unique.append(r)
-
-    if not unique:
-        print("[display_driver_checker] 无文件可检查")
-        return 0
-
-    all_issues: list[dict] = []
-    for path in unique:
-        all_issues.extend(check_file(path))
-
-    if not all_issues:
-        print(f"[display_driver_checker] 已检查 {len(unique)} 个文件，未发现 C23 违规")
-        return 0
-
-    print(f"[display_driver_checker] 已检查 {len(unique)} 个文件，发现 {len(all_issues)} 个 C23 告警:\n")
-    for issue in all_issues:
-        print(f"  [{issue['severity']}] {issue['id']} — {issue['file']} — {issue['issue']}")
-
-    print(f"\nSummary: {len(all_issues)} C23 display-driver warnings")
-    return 1
-
-
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(run_checker(check_file, "C23 显示驱动安全检查器", ("C23",)))

@@ -7,18 +7,16 @@ cJSON 静态泄漏审查工具。
 
 用法:
     python tools/cjson_leak_checker.py path/to/file.c
-    python tools/cjson_leak_checker.py --stdin   # 从标准输入读取
+    python tools/cjson_leak_checker.py --dir path/to/dir
 """
 
 from __future__ import annotations
 
-import argparse
 import re
-import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from checker_io import configure_stdout
+from checker_io import make_issue, read_file, run_checker
 
 PARSE_PATTERNS = [
     re.compile(r"\bcJSON_ParseWithLength\s*\("),
@@ -316,197 +314,23 @@ def analyze(content: str, filename: str = "<stdin>") -> CheckResult:
     return result
 
 
-def format_report(result: CheckResult) -> str:
-    lines = [
-        "=" * 60,
-        f"cJSON 泄漏审查: {result.file}",
-        "=" * 60,
-        f"Parse  调用: {len(result.parse_sites)}",
-        f"Delete 调用: {result.delete_count}",
-        f"Create 调用: {result.create_count}",
-        "",
-    ]
-
-    if result.parse_sites:
-        lines.append("Parse 站点:")
-        for s in result.parse_sites:
-            lines.append(f"  L{s.line_no} [{s.func_name}()]: {s.line_text[:80]}")
-        lines.append("")
-
-    if result.errors:
-        lines.append("🔴 错误:")
-        for e in result.errors:
-            lines.append(f"  • {e}")
-        lines.append("")
-
-    if result.warnings:
-        lines.append("🟡 警告:")
-        for w in result.warnings:
-            lines.append(f"  • {w}")
-        lines.append("")
-
-    if not result.errors and not result.warnings:
-        lines.append("✅ 通过：Parse/Delete 比例正常，未发现明显泄漏模式。")
-    elif not result.errors:
-        lines.append("⚠️  有警告，请人工复核所有退出路径。")
-    else:
-        lines.append("❌ 未通过：请修复后重新运行本工具。")
-
-    lines.append("")
-    lines.append("ℹ️  本工具为静态启发式辅助，可能有误报/漏报，不能替代 Code Review。")
-    return "\n".join(lines)
-
-
-def format_report_json(result: CheckResult) -> dict:
-    """输出 JSON 格式（CI 集成）。"""
-    violations = []
+def check_file(path: Path) -> list[dict]:
+    """检查单个文件，返回 issue dict 列表。"""
+    data = read_file(path)
+    if data is None:
+        return []
+    _lines, text = data
+    result = analyze(text, str(path))
+    issues: list[dict] = []
     for e in result.errors:
-        violations.append({"severity": "error", "rule": "C3", "message": e})
+        m = re.search(r"L(\d+)", e)
+        line = int(m.group(1)) if m else 0
+        issues.append(make_issue(path, line, "C3", "P0", e))
     for w in result.warnings:
-        violations.append({"severity": "warning", "rule": "C3", "message": w})
-    return {
-        "checker": "cjson_leak_checker",
-        "file": result.file,
-        "summary": {
-            "parse_sites": len(result.parse_sites),
-            "delete_count": result.delete_count,
-            "create_count": result.create_count,
-            "errors": len(result.errors),
-            "warnings": len(result.warnings),
-        },
-        "parse_sites": [
-            {"line": s.line_no, "func": s.func_name, "text": s.line_text[:120]}
-            for s in result.parse_sites
-        ],
-        "violations": violations,
-    }
-
-
-def format_fix_suggest(result: CheckResult, content: str) -> str:
-    """Print a compact cleanup pattern after the normal report."""
-    del content
-    return "\n\n".join(
-        [
-            format_report(result),
-            """建议模板:
-
-```c
-int ret = -1;
-cJSON *root = cJSON_Parse(json);
-if (root == NULL) {
-    return -1;
-}
-
-/* parse fields; use goto cleanup on every failure after root is non-NULL */
-ret = 0;
-
-cleanup:
-if (root != NULL) {
-    cJSON_Delete(root);
-}
-return ret;
-```""",
-        ]
-    )
-
-
-def main() -> int:
-    configure_stdout()
-    parser = argparse.ArgumentParser(description="cJSON 静态泄漏审查")
-    parser.add_argument("file", nargs="?", help="待检查的 .c/.h 文件路径")
-    parser.add_argument("--dir", "-d", help="递归检查目录下的 .c/.h/.cpp 文件")
-    parser.add_argument(
-        "--platform",
-        help="兼容旧 workflow 参数；cJSON 泄漏检查不使用平台值",
-    )
-    parser.add_argument("--stdin", action="store_true", help="从标准输入读取")
-    parser.add_argument("--json", action="store_true", help="输出 JSON 格式（CI 集成）")
-    parser.add_argument("--fix-suggest", action="store_true", help="输出修复建议代码骨架")
-    args = parser.parse_args()
-
-    if args.stdin:
-        content = sys.stdin.read()
-        result = analyze(content)
-        if args.json:
-            from checker_io import output_json
-            output_json(format_report_json(result))
-        elif args.fix_suggest:
-            print(format_fix_suggest(result, content))
-        else:
-            print(format_report(result))
-        return 1 if result.errors else 0
-
-    targets: list[Path] = []
-    if args.file:
-        targets.append(Path(args.file))
-    if args.dir:
-        root = Path(args.dir)
-        if not root.is_dir():
-            print(f"错误: 目录不存在: {root}", file=sys.stderr)
-            return 1
-        for suffix in ("*.c", "*.h", "*.cpp"):
-            targets.extend(sorted(root.rglob(suffix)))
-
-    if not targets:
-        parser.print_help()
-        return 1
-
-    results: list[CheckResult] = []
-    contents: dict[str, str] = {}
-    seen: set[Path] = set()
-    for path in targets:
-        path = path.resolve()
-        if path in seen:
-            continue
-        seen.add(path)
-        if not path.exists():
-            print(f"错误: 文件不存在: {path}", file=sys.stderr)
-            return 1
-        content = path.read_text(encoding="utf-8", errors="replace")
-        contents[str(path)] = content
-        results.append(analyze(content, str(path)))
-
-    if args.json:
-        from checker_io import output_json
-        if len(results) == 1:
-            output_json(format_report_json(results[0]))
-        else:
-            output_json(
-                {
-                    "checker": "cjson_leak_checker",
-                    "files": [format_report_json(result) for result in results],
-                    "summary": {
-                        "files": len(results),
-                        "errors": sum(len(result.errors) for result in results),
-                        "warnings": sum(len(result.warnings) for result in results),
-                    },
-                }
-            )
-    elif args.fix_suggest:
-        shown = [r for r in results if r.parse_sites or r.errors or r.warnings]
-        for idx, result in enumerate(shown):
-            if idx:
-                print()
-            print(format_fix_suggest(result, contents[result.file]))
-    else:
-        shown = [r for r in results if r.parse_sites or r.errors or r.warnings]
-        for idx, result in enumerate(shown):
-            if idx:
-                print()
-            print(format_report(result))
-        if len(results) > 1:
-            clean = len(results) - len(shown)
-            print()
-            print("=" * 60)
-            print(
-                f"Summary: 扫描 {len(results)} 个文件；"
-                f"有 cJSON 站点/告警 {len(shown)} 个；"
-                f"无 cJSON 站点 {clean} 个；"
-                f"错误 {sum(len(result.errors) for result in results)} 个"
-            )
-            print("=" * 60)
-    return 1 if any(result.errors for result in results) else 0
+        issues.append(make_issue(path, 0, "C3", "P1", w))
+    return issues
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(run_checker(check_file, "cJSON 静态泄漏审查", ("C3",),
+                                 suffixes={".c", ".h", ".cpp"}))

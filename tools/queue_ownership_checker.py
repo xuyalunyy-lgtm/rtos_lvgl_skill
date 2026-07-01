@@ -5,20 +5,15 @@ Queue payload 所有权静态审查（铁律 #2）。
 检测 xQueueSend 链路中的违规：
   - 向 Queue 传递 cJSON* 或含 cJSON* 的字段
   - payload 指向栈上 buffer（函数返回后悬空）
-
-用法:
-    python tools/queue_ownership_checker.py path/to/file.c
 """
 
 from __future__ import annotations
 
-import argparse
 import re
-import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from checker_io import configure_stdout
+from checker_io import make_issue, read_file, run_checker
 
 QUEUE_SEND = re.compile(
     r"\bxQueue(?:Send|SendToBack|SendFromISR|Overwrite)\s*\("
@@ -201,47 +196,26 @@ def analyze(content: str, filename: str = "<stdin>") -> CheckResult:
     return result
 
 
-def format_report(result: CheckResult) -> str:
-    out = [
-        "=" * 60,
-        f"Queue payload 所有权审查: {result.file}",
-        "=" * 60,
-        f"违规数: {len(result.violations)}",
-        "",
-    ]
-
-    if result.violations:
-        out.append("🔴 铁律 #2 违规（参照 examples/bad_queue_stack_pointer.c）:")
-        for v in result.violations:
-            out.append(f"  L{v.line_no} [{v.kind}]: {v.detail}")
-            out.append(f"      {v.line_text}")
-        out.append("")
-        out.append("正例: examples/good_presenter_consumer.c（heap payload + Presenter vPortFree）")
-        out.append("❌ 未通过：请修复 Queue payload 所有权后重试。")
-    else:
-        out.append("✅ 通过：未检测到栈指针/cJSON* 进 Queue 的明显模式。")
-
-    out.append("")
-    out.append("ℹ️  本工具为静态启发式辅助，可能有误报/漏报，不能替代 Code Review。")
-    return "\n".join(out)
-
-
-def main() -> int:
-    configure_stdout()
-    parser = argparse.ArgumentParser(description="Queue payload 所有权审查（铁律 #2）")
-    parser.add_argument("file", help="待检查的 .c/.h 文件路径")
-    args = parser.parse_args()
-
-    path = Path(args.file)
-    if not path.exists():
-        print(f"错误: 文件不存在: {path}", file=sys.stderr)
-        return 1
-
-    content = path.read_text(encoding="utf-8", errors="replace")
-    result = analyze(content, str(path))
-    print(format_report(result))
-    return 1 if result.violations else 0
+def check_file(path: Path) -> list[dict]:
+    result = read_file(path)
+    if result is None:
+        return []
+    _lines, text = result
+    analysis = analyze(text, str(path))
+    issues = []
+    for v in analysis.violations:
+        cid = {
+            "cJSON_in_queue_send":   "C2.1",
+            "stack_payload":         "C2.2",
+            "cjson_payload":         "C2.3",
+            "cjson_queue_element":   "C2.4",
+            "stack_queue_element":   "C2.5",
+            "stack_ptr_queue_element": "C2.6",
+            "parse_to_queue":        "C2.7",
+        }.get(v.kind, "C2.0")
+        issues.append(make_issue(path, v.line_no, cid, "P0", f"[{v.kind}] {v.detail}"))
+    return issues
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(run_checker(check_file, "C2 Queue payload 所有权审查", ("C2",)))

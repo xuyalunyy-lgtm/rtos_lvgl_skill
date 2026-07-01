@@ -16,12 +16,10 @@ Usage:
 
 from __future__ import annotations
 
-import argparse
 import re
-import sys
 from pathlib import Path
 
-from static_c_scan import collect_c_like_files, extract_functions, line_at, make_issue, nearby, strip_comments
+from checker_io import make_issue, read_file, run_checker, strip_comments, extract_functions, line_at, nearby
 
 
 ENTER_RE = re.compile(
@@ -46,10 +44,6 @@ BUSY_LOOP_RE = re.compile(r"\b(?:while\s*\(|for\s*\()", re.IGNORECASE)
 RETURN_RE = re.compile(r"\breturn\b")
 CRITICAL_BUDGET_RE = re.compile(r"(critical_budget|irq_off_budget|max_irq_off|max_critical|bounded_critical|<=\s*\d+\s*(?:us|ms))", re.IGNORECASE)
 HOT_FUNC_RE = re.compile(r"(IRQHandler|ISR|_isr|Callback|Cplt|Done|flush|frame|audio|video|render|encode|decode|capture)", re.IGNORECASE)
-
-
-def issue(path: Path, line: int, cid: str, severity: str, msg: str) -> dict[str, str]:
-    return make_issue(path, line, cid, severity, msg)
 
 
 def count_code_lines(region: str) -> int:
@@ -85,83 +79,57 @@ def find_critical_regions(code: str) -> list[dict[str, object]]:
     return regions
 
 
-def function_for_pos(functions: list[dict[str, object]], code: str, pos: int) -> dict[str, object] | None:
+def function_for_pos(functions: list, code: str, pos: int):
     target_line = line_at(code, pos)
-    selected: dict[str, object] | None = None
+    selected = None
     for func in functions:
-        if int(func["line"]) <= target_line:
+        if func.line <= target_line:
             selected = func
         else:
             break
     return selected
 
 
-def check_regions(path: Path, code: str, raw_text: str, functions: list[dict[str, object]]) -> list[dict[str, str]]:
+def check_regions(path: Path, code: str, raw_text: str, functions: list) -> list[dict[str, str]]:
     issues: list[dict[str, str]] = []
     for region in find_critical_regions(code):
         line = int(region["line"])
         body = str(region["body"])
         start = int(region["start"])
         func = function_for_pos(functions, code, start)
-        func_name = str(func["name"]) if func else "<global>"
+        func_name = func.name if func else "<global>"
 
         if not bool(region["closed"]):
-            issues.append(issue(path, line, "C44.3", "P0", "critical section or IRQ-disable path has no matching exit/enable"))
+            issues.append(make_issue(path, line, "C44.3", "P0", "critical section or IRQ-disable path has no matching exit/enable"))
 
         if RETURN_RE.search(body):
-            issues.append(issue(path, line, "C44.3", "P0", "critical section contains return before restoring IRQ/exit"))
+            issues.append(make_issue(path, line, "C44.3", "P0", "critical section contains return before restoring IRQ/exit"))
 
         if HEAVY_RE.search(body):
-            issues.append(issue(path, line, "C44.2", "P0", "critical section contains blocking, allocation, logging, copy, IO, or heavy work"))
+            issues.append(make_issue(path, line, "C44.2", "P0", "critical section contains blocking, allocation, logging, copy, IO, or heavy work"))
 
         if BUSY_LOOP_RE.search(body):
-            issues.append(issue(path, line, "C44.4", "P1", "critical section contains a loop while interrupts may be masked"))
+            issues.append(make_issue(path, line, "C44.4", "P1", "critical section contains a loop while interrupts may be masked"))
 
         if HOT_FUNC_RE.search(func_name):
-            issues.append(issue(path, line, "C44.5", "P0", f"{func_name} enters a critical section on a hot path/callback"))
+            issues.append(make_issue(path, line, "C44.5", "P0", f"{func_name} enters a critical section on a hot path/callback"))
 
         if count_code_lines(body) > 6 and not CRITICAL_BUDGET_RE.search(nearby(raw_text, start, before=260, after=260)):
-            issues.append(issue(path, line, "C44.1", "P1", "critical section is longer than a short register/state update and lacks irq_off budget evidence"))
+            issues.append(make_issue(path, line, "C44.1", "P1", "critical section is longer than a short register/state update and lacks irq_off budget evidence"))
 
     return issues
 
 
 def check_file(path: Path) -> list[dict[str, str]]:
-    try:
-        raw_text = path.read_text(encoding="utf-8", errors="replace")
-    except OSError:
+    result = read_file(path)
+    if result is None:
         return []
 
+    _lines, raw_text = result
     code = strip_comments(raw_text)
     functions = extract_functions(code)
     return check_regions(path, code, raw_text, functions)
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description="C44 critical-section budget checker")
-    parser.add_argument("files", nargs="*", help="C/C++ files to check")
-    parser.add_argument("--dir", "-d", help="Directory to scan recursively")
-    args = parser.parse_args()
-
-    targets = collect_c_like_files(args.files, args.dir)
-    if not targets:
-        print("[critical_section_checker] no files to check")
-        return 0
-
-    all_issues: list[dict[str, str]] = []
-    for path in targets:
-        all_issues.extend(check_file(path))
-
-    if not all_issues:
-        print(f"[critical_section_checker] checked {len(targets)} files, no C44 warnings")
-        return 0
-
-    print(f"[critical_section_checker] checked {len(targets)} files, found {len(all_issues)} C44 warnings:\n")
-    for item in all_issues:
-        print(f"  [{item['severity']}] {item['id']} - {item['file']} - {item['issue']}")
-    print(f"\nSummary: {len(all_issues)} C44 critical-section budget warnings")
-    return 1
-
-
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(run_checker(check_file, "C44 critical-section budget checker", ("C44",)))

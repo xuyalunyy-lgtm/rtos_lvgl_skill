@@ -17,21 +17,13 @@ C26 音视频编解码 / 媒体格式一致性启发式检查器。
 
 from __future__ import annotations
 
-import argparse
 import re
-import sys
 from pathlib import Path
 
+from checker_io import extract_functions, make_issue, read_file, run_checker, strip_comments
 
-COMMENT_RE = re.compile(r"//.*?$|/\*.*?\*/", re.MULTILINE | re.DOTALL)
+
 DEFINE_RE = re.compile(r"^\s*#define\s+([A-Za-z_]\w*)\s+\(?([0-9]+)U?\)?", re.MULTILINE)
-FUNC_DEF_RE = re.compile(
-    r"(?:^|[\n;])\s*"
-    r"(?:static\s+)?(?:inline\s+)?"
-    r"(?:[A-Za-z_][\w\s\*]*\s+)+"
-    r"(?P<name>[A-Za-z_]\w*)\s*\([^;{}]*\)\s*\{",
-    re.MULTILINE,
-)
 
 MEDIA_KEYWORDS = (
     "audio", "pcm", "i2s", "aec", "asr", "opus", "aac", "codec",
@@ -56,51 +48,8 @@ CODEC_CREATE_RE = re.compile(
 TELEMETRY_RE = re.compile(r"(?:format_mismatch|codec_error|last_frame_size|max_encode|max_decode|mismatch_count)")
 
 
-def strip_comments(text: str) -> str:
-    return COMMENT_RE.sub(lambda m: "\n" * m.group(0).count("\n"), text)
-
-
-def line_at(text: str, pos: int) -> int:
-    return text[:pos].count("\n") + 1
-
-
-def find_matching_brace(text: str, open_pos: int) -> int:
-    depth = 0
-    for i in range(open_pos, len(text)):
-        if text[i] == "{":
-            depth += 1
-        elif text[i] == "}":
-            depth -= 1
-            if depth == 0:
-                return i
-    return -1
-
-
-def extract_functions(code: str) -> list[dict[str, object]]:
-    functions: list[dict[str, object]] = []
-    for match in FUNC_DEF_RE.finditer(code):
-        name = match.group("name")
-        if name in {"if", "for", "while", "switch", "return", "sizeof"}:
-            continue
-        open_pos = code.find("{", match.end() - 1)
-        close_pos = find_matching_brace(code, open_pos)
-        if open_pos < 0 or close_pos < 0:
-            continue
-        functions.append({
-            "name": name,
-            "body": code[open_pos + 1:close_pos],
-            "line": line_at(code, match.start("name")),
-        })
-    return functions
-
-
 def parse_defines(code: str) -> dict[str, int]:
     return {name: int(value) for name, value in DEFINE_RE.findall(code)}
-
-
-def issue(path: Path, line: int | str, cid: str, severity: str, msg: str) -> dict[str, str]:
-    loc = f"{path}:{line}" if isinstance(line, int) else str(path)
-    return {"id": cid, "file": loc, "severity": severity, "issue": msg}
 
 
 def is_media_file(code: str) -> bool:
@@ -129,7 +78,7 @@ def check_audio_format(path: Path, defines: dict[str, int], code: str) -> list[d
         unique = sorted(set(values.values()))
         if len(unique) > 1 and not converters_present:
             joined = ", ".join(f"{name}={value}" for name, value in sorted(values.items()))
-            issues.append(issue(
+            issues.append(make_issue(
                 path,
                 1,
                 "C26.1",
@@ -158,7 +107,7 @@ def check_frame_size(path: Path, defines: dict[str, int]) -> list[dict[str, str]
 
     expected = rate * ms * channel_count // 1000
     if expected != samples:
-        issues.append(issue(
+        issues.append(make_issue(
             path,
             1,
             "C26.2",
@@ -166,7 +115,7 @@ def check_frame_size(path: Path, defines: dict[str, int]) -> list[dict[str, str]
             f"{samples_name}={samples} 与 {rate}Hz/{ms}ms/{channel_count}ch 推导值 {expected} 不一致",
         ))
     if "OPUS_FRAME_MS" in defines and defines["OPUS_FRAME_MS"] not in {5, 10, 20, 40, 60}:
-        issues.append(issue(
+        issues.append(make_issue(
             path,
             1,
             "C26.2",
@@ -203,7 +152,7 @@ def check_video_stride(path: Path, defines: dict[str, int], code: str) -> list[d
     )
     bpp = infer_bpp(defines, code)
     if width and stride and bpp and stride < width * bpp:
-        return [issue(
+        return [make_issue(
             path,
             1,
             "C26.3",
@@ -213,43 +162,41 @@ def check_video_stride(path: Path, defines: dict[str, int], code: str) -> list[d
     return []
 
 
-def check_hot_path(path: Path, functions: list[dict[str, object]]) -> list[dict[str, str]]:
+def check_hot_path(path: Path, functions) -> list[dict[str, str]]:
     issues: list[dict[str, str]] = []
     for func in functions:
-        name = str(func["name"])
-        body = str(func["body"])
-        if not HOT_FUNC_RE.search(name):
+        if not HOT_FUNC_RE.search(func.name):
             continue
-        for match in ALLOC_LOG_RE.finditer(body):
-            issues.append(issue(
+        for match in ALLOC_LOG_RE.finditer(func.body):
+            issues.append(make_issue(
                 path,
-                int(func["line"]) + body[:match.start()].count("\n"),
+                func.line + func.body[:match.start()].count("\n"),
                 "C26.4",
                 "P1",
-                f"{name} 热路径中出现 {match.group(0).rstrip('(')}",
+                f"{func.name} 热路径中出现 {match.group(0).rstrip('(')}",
             ))
-        for match in CODEC_CREATE_RE.finditer(body):
-            issues.append(issue(
+        for match in CODEC_CREATE_RE.finditer(func.body):
+            issues.append(make_issue(
                 path,
-                int(func["line"]) + body[:match.start()].count("\n"),
+                func.line + func.body[:match.start()].count("\n"),
                 "C26.5",
                 "P0",
-                f"{name} 每帧路径中创建/初始化 codec: {match.group(0).rstrip('(')}",
+                f"{func.name} 每帧路径中创建/初始化 codec: {match.group(0).rstrip('(')}",
             ))
     return issues
 
 
 def check_telemetry(path: Path, code: str) -> list[dict[str, str]]:
     if re.search(r"(codec|opus|aac|jpeg|h264|format)", code, re.IGNORECASE) and not TELEMETRY_RE.search(code):
-        return [issue(path, 1, "C26.6", "P2", "媒体格式/codec 文件缺少 mismatch/error/last_frame_size 等遥测")]
+        return [make_issue(path, 1, "C26.6", "P2", "媒体格式/codec 文件缺少 mismatch/error/last_frame_size 等遥测")]
     return []
 
 
 def check_file(path: Path) -> list[dict[str, str]]:
-    try:
-        text = path.read_text(encoding="utf-8", errors="replace")
-    except OSError:
+    result = read_file(path)
+    if result is None:
         return []
+    _lines, text = result
 
     code = strip_comments(text)
     if not is_media_file(code):
@@ -266,57 +213,5 @@ def check_file(path: Path) -> list[dict[str, str]]:
     return issues
 
 
-def collect_targets(files: list[str], dir_path: str | None) -> list[Path]:
-    targets: list[Path] = []
-    for f in files:
-        p = Path(f)
-        if p.is_file():
-            targets.append(p)
-        elif p.is_dir():
-            targets.extend(sorted(p.rglob("*.c")))
-            targets.extend(sorted(p.rglob("*.cpp")))
-    if dir_path:
-        d = Path(dir_path)
-        if d.is_dir():
-            targets.extend(sorted(d.rglob("*.c")))
-            targets.extend(sorted(d.rglob("*.cpp")))
-
-    seen: set[Path] = set()
-    unique: list[Path] = []
-    for target in targets:
-        resolved = target.resolve()
-        if resolved not in seen:
-            seen.add(resolved)
-            unique.append(resolved)
-    return unique
-
-
-def main() -> int:
-    parser = argparse.ArgumentParser(description="C26 音视频编解码 / 媒体格式一致性检查器")
-    parser.add_argument("files", nargs="*", help="待检查 .c/.cpp 文件")
-    parser.add_argument("--dir", "-d", help="递归检查目录")
-    args = parser.parse_args()
-
-    targets = collect_targets(args.files, args.dir)
-    if not targets:
-        print("[media_format_checker] 无文件可检查")
-        return 0
-
-    all_issues: list[dict[str, str]] = []
-    for path in targets:
-        all_issues.extend(check_file(path))
-
-    if not all_issues:
-        print(f"[media_format_checker] 已检查 {len(targets)} 个文件，未发现 C26 违规")
-        return 0
-
-    print(f"[media_format_checker] 已检查 {len(targets)} 个文件，发现 {len(all_issues)} 个 C26 告警:\n")
-    for item in all_issues:
-        print(f"  [{item['severity']}] {item['id']} — {item['file']} — {item['issue']}")
-
-    print(f"\nSummary: {len(all_issues)} C26 media-format warnings")
-    return 1
-
-
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(run_checker(check_file, "C26 音视频编解码 / 媒体格式一致性检查器", ("C26",), {".c", ".cpp", ".h"}))

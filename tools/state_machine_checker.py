@@ -13,10 +13,10 @@ C13 状态机启发式检查器。
 
 from __future__ import annotations
 
-import argparse
 import re
-import sys
 from pathlib import Path
+
+from checker_io import make_issue, read_file, run_checker
 
 
 def check_switch_default(path: Path, lines: list[str]) -> list[dict]:
@@ -53,12 +53,8 @@ def check_switch_default(path: Path, lines: list[str]) -> list[dict]:
                 if not has_default and switch_var:
                     # Only flag if switch variable looks like a state
                     if any(kw in switch_var.lower() for kw in ["state", "status", "mode", "phase", "step"]):
-                        issues.append({
-                            "id": "C13.3",
-                            "file": f"{path}:{switch_start_line}",
-                            "issue": f"switch({switch_var}) 缺少 default 分支（非法状态未处理）",
-                            "severity": "P1",
-                        })
+                        issues.append(make_issue(path, switch_start_line, "C13.3", "P1",
+                            f"switch({switch_var}) 缺少 default 分支（非法状态未处理）"))
                 in_switch = False
 
     return issues
@@ -95,76 +91,24 @@ def check_state_enum(path: Path, lines: list[str]) -> list[dict]:
         # Find the task function line
         for i, line in enumerate(lines, 1):
             if re.search(r"void\s+\w+_task\s*\(", line):
-                issues.append({
-                    "id": "C13.1",
-                    "file": f"{path}:{i}",
-                    "issue": "长生命周期任务未见显式状态枚举（建议定义 enum xxx_state）",
-                    "severity": "P1",
-                })
+                issues.append(make_issue(path, i, "C13.1", "P1",
+                    "长生命周期任务未见显式状态枚举（建议定义 enum xxx_state）"))
                 break
 
     return issues
 
 
 def check_file(path: Path) -> list[dict]:
-    try:
-        text = path.read_text(encoding="utf-8", errors="replace")
-    except OSError:
+    result = read_file(path)
+    if result is None:
         return []
 
-    lines = text.splitlines()
+    lines, text = result
     issues = []
     issues.extend(check_switch_default(path, lines))
     issues.extend(check_state_enum(path, lines))
     return issues
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description="C13 状态机检查器")
-    parser.add_argument("files", nargs="*", help="待检查 .c 文件")
-    parser.add_argument("--dir", "-d", help="递归检查目录")
-    args = parser.parse_args()
-
-    targets: list[Path] = []
-    for f in args.files:
-        p = Path(f)
-        if p.is_file():
-            targets.append(p)
-        elif p.is_dir():
-            targets.extend(sorted(p.rglob("*.c")))
-
-    if args.dir:
-        d = Path(args.dir)
-        if d.is_dir():
-            targets.extend(sorted(d.rglob("*.c")))
-
-    seen: set[Path] = set()
-    unique: list[Path] = []
-    for t in targets:
-        r = t.resolve()
-        if r not in seen:
-            seen.add(r)
-            unique.append(r)
-
-    if not unique:
-        print("[state_machine_checker] 无文件可检查")
-        return 0
-
-    all_issues: list[dict] = []
-    for path in unique:
-        all_issues.extend(check_file(path))
-
-    if not all_issues:
-        print(f"[state_machine_checker] 已检查 {len(unique)} 个文件，未发现 C13 违规")
-        return 0
-
-    print(f"[state_machine_checker] 已检查 {len(unique)} 个文件，发现 {len(all_issues)} 个 C13 告警:\n")
-    for issue in all_issues:
-        print(f"  [{issue['severity']}] {issue['id']} — {issue['file']} — {issue['issue']}")
-
-    print(f"\nSummary: {len(all_issues)} C13 state-machine warnings")
-    return 1
-
-
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(run_checker(check_file, "C13 状态机检查器", ("C13",)))
