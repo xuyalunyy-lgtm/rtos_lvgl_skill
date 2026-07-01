@@ -1,19 +1,19 @@
 ---
 name: freertos-embedded-architect
 metadata:
-  version: 4.13.4
+  version: 4.13.5
 description: >-
   FreeRTOS embedded architecture specialist for MVP firmware, board bring-up,
   runtime reliability, memory safety, LVGL/DMA/ISR safety, SDK trimming, crash
   debugging, and Zephyr-style RTOS project skeletons. Use when the user asks
   for FreeRTOS, embedded C, GPIO, LCD/OLED, frame buffer, camera, audio/video,
-  A/V sync, codec/sample-rate, zero-copy, DMA cache, frame pool, WDT, OTA,
-  HardFault, stack overflow, Guru Meditation, code review, or git commit help.
+  A/V sync, codec/sample-rate, zero-copy, DMA cache, frame pool, logging, WDT,
+  OTA, HardFault, stack overflow, Guru Meditation, code review, or git commit help.
 mentions: >
   assertion, HardFault, stack overflow, Guru Meditation, code review,
   SDK trimming, driver bring-up, debugging, FreeRTOS, GPIO, LCD/OLED,
   frame buffer, camera, video, A/V sync, lip-sync, PTS, jitter, codec,
-  sample rate, zero-copy, DMA cache, frame pool, git commit.
+  sample rate, logging, observability, zero-copy, DMA cache, frame pool, git commit.
 ---
 
 # FreeRTOS 嵌入式架构专家（Lite 版）

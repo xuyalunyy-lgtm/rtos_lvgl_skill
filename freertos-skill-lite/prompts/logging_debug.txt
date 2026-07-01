@@ -1,6 +1,7 @@
 # 日志与调试规范专精提示词
 
-> 约束 ID：C14.1–C14.5 → [constraint_detail.md](../references/constraint_detail.md)
+> 约束 ID：C14.1–C14.9 → [constraint_detail.md](../references/constraint_detail.md)
+> 系统约束：日志架构、profile、限频、结构化、ring buffer → [logging_management_constraints.md](../references/logging_management_constraints.md)
 
 ## 适用场景
 
@@ -98,3 +99,7 @@ void HardFault_Handler(void) {
 - [ ] 日志是否打印了密码/token/密钥明文？
 - [ ] 每模块是否有独立 `TAG` 和可配置日志级别？
 - [ ] HardFault handler 是否采集了 PC/LR/寄存器？
+- [ ] 高频/周期日志是否限频、状态变化触发或改成计数器？
+- [ ] 关键链路是否有 event_id、state、err、seq/generation 等结构化字段？
+- [ ] 最近日志 ring buffer 是否有界、crash 可 dump，且不在 ISR 中阻塞写 flash/上传？
+- [ ] 量产 profile 是否默认 WARN/ERROR，关闭 verbose 和敏感字段？

@@ -119,6 +119,10 @@
 | C14.3 | 0 | ISR/DMA/LVGL timer 内禁止日志 |
 | C14.4 | 1 | 日志禁止打印密码/token 明文 |
 | C14.5 | 1 | HardFault handler 须采集 PC/LR/寄存器 |
+| C14.6 | 1 | 高频/周期日志必须限频或计数聚合 |
+| C14.7 | 2 | 关键链路日志必须结构化并带 event_id |
+| C14.8 | 1 | 最近日志 ring buffer 有界且 crash 可 dump |
+| C14.9 | 1 | Debug/Release/Production 日志 profile 明确 |
 
 ## C15 任务优先级与通信
 | ID | P | 一句话 |

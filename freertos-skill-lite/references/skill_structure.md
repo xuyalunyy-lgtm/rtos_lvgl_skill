@@ -78,7 +78,7 @@ Workflow 索引 → [workflows/README.md](../workflows/README.md)
 | C11 | 编码规范 | [coding_style.txt](../prompts/coding_style.txt) |
 | C12 | 错误处理 | [error_handling.txt](../prompts/error_handling.txt) |
 | C13 | 状态机 | [state_machine_patterns.txt](../prompts/state_machine_patterns.txt) |
-| C14 | 日志规范 | [logging_debug.txt](../prompts/logging_debug.txt) |
+| C14 | 日志规范 | [logging_debug.txt](../prompts/logging_debug.txt) · 系统约束 [logging_management_constraints.md](logging_management_constraints.md) |
 | C15 | 优先级与通信 | [inter_task_communication.txt](../prompts/inter_task_communication.txt) |
 | C16 | 定时器管理 | [timer_management.txt](../prompts/timer_management.txt) |
 | C17 | 多核 IPC | [multi_core_ipc.txt](../prompts/multi_core_ipc.txt) |

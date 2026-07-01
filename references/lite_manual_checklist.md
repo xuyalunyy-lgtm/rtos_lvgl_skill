@@ -91,6 +91,10 @@ Code Review 或 L3 校验时逐条核对。违规项引用 `C#.#`（完整矩阵
 - [ ] C14.1 无裸 printf，用 LOG_* + TAG
 - [ ] C14.3 ISR/DMA/LVGL timer 内无日志
 - [ ] C14.4 日志不打印密码/token 明文
+- [ ] C14.6 高频/周期日志已限频或改计数聚合
+- [ ] C14.7 关键链路日志含 event_id/state/err/seq 等结构化字段
+- [ ] C14.8 crash 可 dump 最近日志 ring，ring buffer 有界不阻塞
+- [ ] C14.9 量产日志 profile 默认 WARN/ERROR，无 verbose/敏感日志
 
 ## C15 — 优先级与通信
 

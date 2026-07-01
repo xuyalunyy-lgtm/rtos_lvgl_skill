@@ -1,5 +1,11 @@
 # Changelog
 
+## 4.13.5 — 2026-07-01
+
+- **C14 日志管理系统约束**：新增 `references/logging_management_constraints.md`，覆盖日志 profile、TAG/级别、上下文安全、限频预算、结构化事件、crash ring buffer、脱敏与量产发布门槛
+- **C14 规则扩展**：新增 C14.6–C14.9（限频、结构化、ring buffer、量产 profile），并同步 `constraint_index/detail/graph`、`core_rules`、Lite checklist 与 workflow 路由
+- **版本升至 4.13.5**
+
 ## 4.13.4 — 2026-07-01
 
 - **C7 allocator 工程化闭环**：新增 C7.11 统一 allocator/free 封装、C7.12 largest free block + heap kind 遥测、C7.13 固定块池 / ring buffer 模板约束
