@@ -1,6 +1,6 @@
 # 内存分配与优化专精（通用 · C7）
 
-> 约束 ID：C7.1–C7.9 → [constraint_detail.md](../references/constraint_detail.md)
+> 约束 ID：C7.1–C7.10 → [constraint_detail.md](../references/constraint_detail.md)
 > 平台堆/PSRAM/LwIP Kconfig → 对应 `platforms/xxx.md`
 
 ## 铁律
@@ -82,6 +82,52 @@ Agent 输出优化建议时**须附当前基线或「未实测」标注**。
 
 ---
 
+## 外部 RAM 优先（C7.10）
+
+有 PSRAM / SPIRAM / external RAM 的平台，普通堆申请默认先尝试外部 RAM，失败再回退 internal SRAM。例外优先级高于本规则：ISR、DMA、音视频实时热路径、WiFi 低延迟 buffer 仍按 C7.8 / C28 放 fast/DMA-capable RAM。
+
+| 对象 | 优先策略 | 备注 |
+|------|----------|------|
+| URL / JSON response / WebSocket 普通帧缓存 | 外部 RAM → internal fallback | 结构体记录 `heap_kind` / `in_psram` |
+| TTS PCM backlog / 低频音频缓存 | 外部 RAM → internal fallback | 播放 DMA 前按平台要求 copy 到 DMA buffer |
+| LVGL 图片资源 / 非 DMA staging buffer | 外部 RAM | 仍需检查分配失败 |
+| queue node / mutex / 控制结构 | internal 小对象或对象池 | 避免跨堆 free 混乱 |
+| I2S/LCD/Camera DMA buffer、ISR 触达 buffer | fast/DMA RAM | 不走外部 RAM 优先 |
+
+```c
+/* ESP32 形态示例；其他平台用等价 psram_malloc/os_malloc 封装 */
+typedef enum {
+    APP_HEAP_INTERNAL,
+    APP_HEAP_EXTERNAL,
+} app_heap_kind_t;
+
+void *app_heap_alloc_normal(size_t size, app_heap_kind_t *kind)
+{
+    void *p = NULL;
+
+#if CONFIG_SPIRAM
+    p = heap_caps_malloc(size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    if (p != NULL) {
+        if (kind != NULL) {
+            *kind = APP_HEAP_EXTERNAL;
+        }
+        return p;
+    }
+#endif
+    p = heap_caps_malloc(size, MALLOC_CAP_8BIT);
+    if (p != NULL) {
+        if (kind != NULL) {
+            *kind = APP_HEAP_INTERNAL;
+        }
+    }
+    return p;
+}
+```
+
+跨任务传递对象必须携带 heap kind，释放时按 allocator family matched free；不要让「PSRAM 分配、通用 free 释放」混入错误恢复路径。
+
+---
+
 ## TLS 栈唯一（C7.7）
 
 主工程只链入 **一个** TLS 实现（mbedtls / wolfssl / psa_mbedtls 择一）。多栈并存是 Flash+RAM 双重浪费。
@@ -115,3 +161,4 @@ SDK 裁剪 Phase C 末尾才是「缩内存池和任务栈」（见 [sdk_trim_pr
 - [ ] C7.7 仅一个 TLS 栈？
 - [ ] C7.8 ISR/DMA 缓冲在 fast RAM？
 - [ ] C7.9 重连有退避？
+- [ ] C7.10 普通堆申请优先外部 RAM，失败 fallback，且 matched free 可追踪？

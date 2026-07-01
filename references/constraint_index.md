@@ -56,6 +56,7 @@
 | C7.1 | 0 | 缩池/栈前须有基线 |
 | C7.5 | 0 | WSS 栈 ≥4096 bytes |
 | C7.9 | 1 | 重连指数退避 |
+| C7.10 | 1 | 普通堆申请优先外部 RAM，失败再回退 internal |
 | C8.1 | 0 | Queue/Presenter 先于网络回调 |
 | C8.3 | 1 | Presenter 禁 `portMAX_DELAY` 等 Queue |
 | C8.6 | 0 | init 禁同步 TLS/大 Parse |

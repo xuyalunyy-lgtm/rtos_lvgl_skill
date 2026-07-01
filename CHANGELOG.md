@@ -1,5 +1,11 @@
 # Changelog
 
+## 4.13.3 — 2026-07-01
+
+- **C7.10 外部 RAM 优先**：新增普通/大块/低频堆申请优先 PSRAM/SPIRAM/external RAM、失败回退 internal SRAM 的规则，并明确 DMA/ISR/实时热路径仍按 C7.8/C28 使用 fast/DMA-capable RAM
+- **内存专项 workflow**：`l2_memory_analysis.md` 在缩池前增加外部 RAM 分类迁移步骤，要求记录 heap kind / matched free
+- **规则同步**：更新 `core_rules`、`constraint_index/detail/graph`、Lite checklist 与规则计数
+
 ## 4.13.2 — 2026-07-01
 
 - **Lite 元数据修复**：用 `sync_lite.py` 重写 `freertos-skill-lite/SKILL.md`，移除 BOM、同步 `metadata.version` 至 4.13.2，并恢复可校验 frontmatter

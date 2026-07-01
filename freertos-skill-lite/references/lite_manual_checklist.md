@@ -41,6 +41,7 @@ Code Review 或 L3 校验时逐条核对。违规项引用 `C#.#`（完整矩阵
 - [ ] C7.5 WSS 栈 ≥ 4096 bytes（TLS 建议 6144–8192）
 - [ ] C7.6 缩 LwIP/TLS/LVGL 池后有 WiFi+WSS 冒烟说明
 - [ ] C7.9 重连指数退避，无 tight loop 握手
+- [ ] C7.10 普通/大块/低频内存优先外部 RAM，DMA/ISR/实时路径仍在 fast/DMA RAM
 
 ## C8 — 启动 / WDT
 

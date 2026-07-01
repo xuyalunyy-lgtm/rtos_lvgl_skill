@@ -110,7 +110,7 @@ python tools/stack_calculator.py --describe "WSS TLS cJSON" --platform jl
 | 4 | 音频 DMA | ISR 仅 `*FromISR`；Cache 一致性 → [audio_dma_pingpong.txt](../prompts/audio_dma_pingpong.txt) | 8 |
 | 5 | 测试宏 | 每模块 `APP_TEST_MODE_*` → [test_mode_macro.txt](../prompts/test_mode_macro.txt) | 3 |
 | 6 | SDK 裁剪 | 先问卷再动刀；JL/BK 先扫描 → [sdk_trim_prune.txt](../prompts/sdk_trim_prune.txt) | 5 |
-| 7 | 内存分配优化 | 先量后改；缩池顺序 → [memory_alloc_optimize.txt](../prompts/memory_alloc_optimize.txt) | 9 |
+| 7 | 内存分配优化 | 先量后改；普通堆优先外部 RAM；缩池顺序 → [memory_alloc_optimize.txt](../prompts/memory_alloc_optimize.txt) | 10 |
 | 8 | 启动 / WDT | Queue 先于回调；有限 timeout → [boot_wdt_lifecycle.txt](../prompts/boot_wdt_lifecycle.txt) | 6 |
 | 9 | 密钥 / 凭证 | config.secrets 不入库 → [secrets_kconfig.txt](../prompts/secrets_kconfig.txt) | 6 |
 | 10 | 语音 / ASR / Uplink | prompt detach + settle + generation → [voice_asr_uplink.txt](../prompts/voice_asr_uplink.txt) | 6 |

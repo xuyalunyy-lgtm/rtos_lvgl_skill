@@ -168,6 +168,15 @@ static void heap_monitor_task(void *arg)
 
 ## Step 3 — 堆/池优化
 
+### 3.0 外部 RAM 优先（C7.10）
+
+缩池前先分类现有堆申请：普通/大块/低频对象优先迁到外部 RAM，失败再回退 internal SRAM，并在 payload 结构体中记录 `heap_kind` / `in_psram`，保证释放路径 matched free。不要把 I2S/LCD/Camera DMA buffer、ISR 触达 buffer、音视频实时热路径 buffer 迁到 PSRAM；这些仍按 C7.8/C28 使用 fast/DMA-capable RAM。
+
+优先外移对象：
+- URL、JSON response、WebSocket 普通帧缓存
+- TTS PCM backlog、非 DMA staging buffer
+- LVGL 图片资源、低频大缓存
+
 ### 3.1 LwIP 池优化
 
 ```c
@@ -290,6 +299,7 @@ python tools/stack_calculator.py --describe "WSS TLS cJSON" --platform <平台>
 - 释放：__ KB Flash / __ KB RAM
 
 ### 堆/池优化（Step 3）
+- 外部 RAM：____
 - LwIP：____
 - mbedTLS：____
 - LVGL：____
