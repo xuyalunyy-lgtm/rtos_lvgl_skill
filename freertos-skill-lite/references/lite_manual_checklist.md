@@ -277,6 +277,21 @@ Code Review 或 L3 校验时逐条核对。违规项引用 `C#.#`（完整矩阵
 - [ ] C43.4 多锁嵌套声明 `lock_order` / `lock_rank`
 - [ ] C43.5 ISR/callback/LVGL flush/audio/video hot path 不拿 mutex
 
+## C44 — 临界区/关中断预算
+
+- [ ] C44.1 critical section / IRQ mask 区域短小并声明 `irq_off` / critical budget
+- [ ] C44.2 关中断期间无阻塞、分配、日志、memcpy、大 IO、解析或 codec 创建
+- [ ] C44.3 enter/disable 路径都有 exit/enable，错误路径不提前 return
+- [ ] C44.4 关中断期间无 busy loop / poll loop
+- [ ] C44.5 ISR/callback/LVGL flush/audio/video hot path 不制造长临界区
+
+## C45 — 传感器集成契约
+- [ ] C45.1 init/probe 有 datasheet/register map 依据并校验 `WHO_AM_I` / `chip_id`
+- [ ] C45.2 I2C/SPI 事务有有限 timeout、retry/backoff 和错误分类
+- [ ] C45.3 data-ready/DRDY/status 等待事件驱动或有界轮询，无 tight poll
+- [ ] C45.4 sample 输出含 timestamp、单位、量程、scale/offset 或 calibration version
+- [ ] C45.5 calibration/self-test/warm-up 不在采样 hot path，生命周期和失效策略明确
+
 ## 堆栈 / WSS / MVP
 
 - [ ] 相对优先级表已输出（见 [core_rules.md](core_rules.md)）

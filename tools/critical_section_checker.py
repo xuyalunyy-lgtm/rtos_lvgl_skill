@@ -1,0 +1,167 @@
+#!/usr/bin/env python3
+"""
+C44 critical-section / IRQ-mask budget heuristic checker.
+
+Checks:
+  C44.1 critical sections and IRQ-masked regions should be short and budgeted
+  C44.2 critical sections must not contain blocking or heavy work
+  C44.3 every enter/disable path should restore IRQ/exit before return
+  C44.4 busy loops are forbidden while interrupts are masked
+  C44.5 ISR/callback/hot paths must not create long critical sections
+
+Usage:
+    python tools/critical_section_checker.py <file.c> [file2.c ...]
+    python tools/critical_section_checker.py --dir src/
+"""
+
+from __future__ import annotations
+
+import argparse
+import re
+import sys
+from pathlib import Path
+
+from static_c_scan import collect_c_like_files, extract_functions, line_at, make_issue, nearby, strip_comments
+
+
+ENTER_RE = re.compile(
+    r"\b(?:taskENTER_CRITICAL|portENTER_CRITICAL|portDISABLE_INTERRUPTS|__disable_irq|"
+    r"irq_disable|local_irq_disable|GLOBAL_INT_DISABLE|CPU_CRITICAL_ENTER)\s*\(",
+    re.IGNORECASE,
+)
+EXIT_RE = re.compile(
+    r"\b(?:taskEXIT_CRITICAL|portEXIT_CRITICAL|portENABLE_INTERRUPTS|__enable_irq|"
+    r"irq_enable|local_irq_enable|GLOBAL_INT_RESTORE|GLOBAL_INT_ENABLE|CPU_CRITICAL_EXIT)\s*\(",
+    re.IGNORECASE,
+)
+HEAVY_RE = re.compile(
+    r"\b(?:vTaskDelay|vTaskDelayUntil|xQueue(?:Send|Receive)|xSemaphore(?:Take|Give)|"
+    r"mbedtls_ssl_(?:read|write|handshake)|recv|send|connect|select|poll|"
+    r"malloc|calloc|pvPortMalloc|free|vPortFree|memcpy|memmove|memset|"
+    r"printf|puts|LOG_[A-Z]+|cJSON_Parse|fopen|fread|fwrite|nvs_commit|"
+    r"flash_erase|flash_write|lv_timer_handler|codec_(?:open|create))\s*\(",
+    re.IGNORECASE,
+)
+BUSY_LOOP_RE = re.compile(r"\b(?:while\s*\(|for\s*\()", re.IGNORECASE)
+RETURN_RE = re.compile(r"\breturn\b")
+CRITICAL_BUDGET_RE = re.compile(r"(critical_budget|irq_off_budget|max_irq_off|max_critical|bounded_critical|<=\s*\d+\s*(?:us|ms))", re.IGNORECASE)
+HOT_FUNC_RE = re.compile(r"(IRQHandler|ISR|_isr|Callback|Cplt|Done|flush|frame|audio|video|render|encode|decode|capture)", re.IGNORECASE)
+
+
+def issue(path: Path, line: int, cid: str, severity: str, msg: str) -> dict[str, str]:
+    return make_issue(path, line, cid, severity, msg)
+
+
+def count_code_lines(region: str) -> int:
+    return sum(1 for line in region.splitlines() if line.strip())
+
+
+def find_critical_regions(code: str) -> list[dict[str, object]]:
+    regions: list[dict[str, object]] = []
+    pos = 0
+    while True:
+        enter = ENTER_RE.search(code, pos)
+        if not enter:
+            break
+        exit_match = EXIT_RE.search(code, enter.end())
+        if not exit_match:
+            regions.append({
+                "start": enter.start(),
+                "end": len(code),
+                "body": code[enter.end():],
+                "closed": False,
+                "line": line_at(code, enter.start()),
+            })
+            pos = enter.end()
+            continue
+        regions.append({
+            "start": enter.start(),
+            "end": exit_match.end(),
+            "body": code[enter.end():exit_match.start()],
+            "closed": True,
+            "line": line_at(code, enter.start()),
+        })
+        pos = exit_match.end()
+    return regions
+
+
+def function_for_pos(functions: list[dict[str, object]], code: str, pos: int) -> dict[str, object] | None:
+    target_line = line_at(code, pos)
+    selected: dict[str, object] | None = None
+    for func in functions:
+        if int(func["line"]) <= target_line:
+            selected = func
+        else:
+            break
+    return selected
+
+
+def check_regions(path: Path, code: str, raw_text: str, functions: list[dict[str, object]]) -> list[dict[str, str]]:
+    issues: list[dict[str, str]] = []
+    for region in find_critical_regions(code):
+        line = int(region["line"])
+        body = str(region["body"])
+        start = int(region["start"])
+        func = function_for_pos(functions, code, start)
+        func_name = str(func["name"]) if func else "<global>"
+
+        if not bool(region["closed"]):
+            issues.append(issue(path, line, "C44.3", "P0", "critical section or IRQ-disable path has no matching exit/enable"))
+
+        if RETURN_RE.search(body):
+            issues.append(issue(path, line, "C44.3", "P0", "critical section contains return before restoring IRQ/exit"))
+
+        if HEAVY_RE.search(body):
+            issues.append(issue(path, line, "C44.2", "P0", "critical section contains blocking, allocation, logging, copy, IO, or heavy work"))
+
+        if BUSY_LOOP_RE.search(body):
+            issues.append(issue(path, line, "C44.4", "P1", "critical section contains a loop while interrupts may be masked"))
+
+        if HOT_FUNC_RE.search(func_name):
+            issues.append(issue(path, line, "C44.5", "P0", f"{func_name} enters a critical section on a hot path/callback"))
+
+        if count_code_lines(body) > 6 and not CRITICAL_BUDGET_RE.search(nearby(raw_text, start, before=260, after=260)):
+            issues.append(issue(path, line, "C44.1", "P1", "critical section is longer than a short register/state update and lacks irq_off budget evidence"))
+
+    return issues
+
+
+def check_file(path: Path) -> list[dict[str, str]]:
+    try:
+        raw_text = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return []
+
+    code = strip_comments(raw_text)
+    functions = extract_functions(code)
+    return check_regions(path, code, raw_text, functions)
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="C44 critical-section budget checker")
+    parser.add_argument("files", nargs="*", help="C/C++ files to check")
+    parser.add_argument("--dir", "-d", help="Directory to scan recursively")
+    args = parser.parse_args()
+
+    targets = collect_c_like_files(args.files, args.dir)
+    if not targets:
+        print("[critical_section_checker] no files to check")
+        return 0
+
+    all_issues: list[dict[str, str]] = []
+    for path in targets:
+        all_issues.extend(check_file(path))
+
+    if not all_issues:
+        print(f"[critical_section_checker] checked {len(targets)} files, no C44 warnings")
+        return 0
+
+    print(f"[critical_section_checker] checked {len(targets)} files, found {len(all_issues)} C44 warnings:\n")
+    for item in all_issues:
+        print(f"  [{item['severity']}] {item['id']} - {item['file']} - {item['issue']}")
+    print(f"\nSummary: {len(all_issues)} C44 critical-section budget warnings")
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

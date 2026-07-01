@@ -177,6 +177,24 @@ Cache 一致性细则 → [audio_dma_pingpong.txt](../prompts/audio_dma_pingpong
 
 深细节 → [runtime_efficiency_contracts.txt](../prompts/runtime_efficiency_contracts.txt)
 
+## C44 — 临界区/关中断预算
+
+| | 文件 | ID | Checker |
+|---|------|-----|---------|
+| ✅ | [good_critical_section.c](../tools/fixtures/good_critical_section.c) | C44.1, C44.3 | `critical_section_checker.py` |
+| ❌ | [bad_critical_section.c](../tools/fixtures/bad_critical_section.c) | C44.1, C44.2, C44.3, C44.4, C44.5 | `critical_section_checker.py` |
+
+深细节 → [runtime_efficiency_contracts.txt](../prompts/runtime_efficiency_contracts.txt)
+
+## C45 — 传感器集成契约
+
+| | 文件 | ID | Checker |
+|---|------|-----|---------|
+| ✅ | [good_sensor_integration.c](../tools/fixtures/good_sensor_integration.c) | C45.1, C45.2, C45.3, C45.4, C45.5 | `sensor_integration_checker.py` |
+| ❌ | [bad_sensor_integration.c](../tools/fixtures/bad_sensor_integration.c) | C45.1, C45.2, C45.3, C45.4, C45.5 | `sensor_integration_checker.py` |
+
+深细节 → [runtime_efficiency_contracts.txt](../prompts/runtime_efficiency_contracts.txt)
+
 ## MVP 分层闭环
 
 | | 文件 |
@@ -191,7 +209,7 @@ Cache 一致性细则 → [audio_dma_pingpong.txt](../prompts/audio_dma_pingpong
 # checker fixtures 自测
 python tools/run_review.py --self-test
 
-# 铁律 C1–C4 + C10 + C25 + C26 + C27 + C28 + C31 + C36/C37 + C43 范例 good/bad 约束
+# 铁律 C1–C4 + C10 + C25 + C26 + C27 + C28 + C31 + C36/C37 + C43 + C44 + C45 范例 good/bad 约束
 python tools/run_review.py --validate-examples
 
 # 审查用户源码（含 queue 所有权）

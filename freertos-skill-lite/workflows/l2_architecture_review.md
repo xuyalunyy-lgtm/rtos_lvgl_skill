@@ -49,7 +49,7 @@
 4. 是否可替换芯片实现且核心层不改
 5. 错误码和生命周期是否统一（init/start/stop/deinit）
 
-### D. C29-C43 运行时效率契约
+### D. C29-C45 运行时效率契约
 1. 每个模块是否声明 context/blocking/ownership/lifecycle/error（C29）
 2. 是否有 task/queue topology：priority/stack/depth/producer/consumer/backpressure/exit（C30）
 3. 所有等待是否有 timeout budget，永久等待是否满足例外条件（C31）
@@ -64,6 +64,8 @@
 12. 新约束/bugfix 是否有通用 good/bad 回归样本（C41）
 13. GPIO/DMA/clock/IRQ/cache/heap/PSRAM 是否有板级资源契约（C42）
 14. 锁等待、持锁预算、lock_order 和优先级继承是否明确（C43）
+15. 临界区/关中断是否短小、对称、有预算且无重活（C44）
+16. 传感器 init/probe、总线 timeout、data-ready、sample metadata 与校准生命周期是否明确（C45）
 
 ## Step 4：架构评分门禁（必须给出）
 
@@ -121,7 +123,7 @@
 - A. I/P/O 三层：PASS/WARN/FAIL
 - B. FSM/HFSM：PASS/WARN/FAIL
 - C. HAL + 组件化：PASS/WARN/FAIL
-- D. C29-C43 运行时效率契约：PASS/WARN/FAIL
+- D. C29-C45 运行时效率契约：PASS/WARN/FAIL
 
 ### 1. 评分明细
 - 实时性与正确性：xx/40

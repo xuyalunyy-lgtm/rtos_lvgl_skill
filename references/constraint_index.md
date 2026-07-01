@@ -376,6 +376,24 @@
 | C43.4 | 1 | 多锁嵌套必须声明 lock_order/lock_rank，禁止隐式锁顺序 |
 | C43.5 | 0 | ISR/callback/LVGL flush/audio/video hot path 禁止拿 mutex |
 
+## C44 临界区/关中断预算
+| ID | P | 一句话 |
+|----|---|--------|
+| C44.1 | 1 | `taskENTER_CRITICAL` / 关中断区域必须短小并声明 `irq_off` / critical budget |
+| C44.2 | 0 | 临界区/关中断期间禁止阻塞、分配、日志、memcpy、大 IO、解析和 codec 创建 |
+| C44.3 | 0 | 每个 enter/disable 路径必须保证 exit/enable，禁止提前 return 泄漏关中断状态 |
+| C44.4 | 1 | 临界区/关中断期间禁止 busy loop / poll loop |
+| C44.5 | 0 | ISR/callback/LVGL flush/audio/video hot path 禁止制造长临界区或再次关中断 |
+
+## C45 传感器集成契约
+| ID | P | 一句话 |
+|----|---|--------|
+| C45.1 | 0 | 传感器 init/probe 必须有 datasheet/register map 依据并校验 WHO_AM_I/chip_id |
+| C45.2 | 0 | I2C/SPI 传感器事务必须有有限 timeout、retry/backoff 和错误分类 |
+| C45.3 | 1 | data-ready/DRDY/status 等待必须事件驱动或有界轮询，禁止 tight poll |
+| C45.4 | 1 | sample 输出必须携带 timestamp、单位、量程、scale/offset 或校准版本 |
+| C45.5 | 2 | calibration/self-test/warm-up 不得放在采样热路径，须有生命周期与失效策略 |
+
 ## 症状 → ID（Crash 用）
 
 → [debug_crash.md](../workflows/debug_crash.md) Step 2 症状路由表（与 `constraint_detail.md` 末尾同步）。

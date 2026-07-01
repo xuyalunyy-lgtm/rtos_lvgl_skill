@@ -1,5 +1,21 @@
 # Changelog
 
+## 4.17.0 — 2026-07-01
+
+- **C45 传感器集成契约**：新增通用 RTOS 传感器约束，覆盖 datasheet/register map、WHO_AM_I/chip_id 校验、I2C/SPI timeout、data-ready 有界等待、sample metadata 与 calibration lifecycle
+- **新增默认 checker**：`tools/sensor_integration_checker.py` 接入 `tools/checker_registry.py`、`run_review.py --self-test`、`--validate-examples` 与 good/bad fixture
+- **whole-skill-refactor: yes**：继续复用 `tools/static_c_scan.py`，同步约束索引、详情、知识图、核心规则、runtime prompt、workflow、profiles、examples、Lite 分发脚本和默认 agent 入口
+- **20x-impact:** 将“传感器偶发总线卡死、读数单位错、data-ready tight poll、采样无 timestamp、校准塞进热路径”前移到默认静态扫描，减少 bring-up、现场漂移和融合链路排查成本
+- **版本升至 4.17.0**
+
+## 4.16.0 — 2026-07-01
+
+- **C44 临界区/关中断预算**：新增通用 RTOS 临界区约束，覆盖短临界区预算、关中断期间禁重活、enter/exit 对称、禁 busy loop、callback/hot path 禁长关中断
+- **新增默认 checker**：`tools/critical_section_checker.py` 接入 `tools/checker_registry.py`、`run_review.py --self-test`、`--validate-examples` 与 good/bad fixture
+- **whole-skill-refactor: yes**：复用 `tools/static_c_scan.py` 的函数解析、去注释、C/C++ 文件收集和 issue 格式，继续收敛新增 checker 的维护方式
+- **20x-impact:** 将“偶发音频爆音/视频掉帧/WDT/中断延迟尖峰”从现场示波器和日志猜测前移到默认静态扫描，减少 RTOS 实时性排查长尾成本
+- **版本升至 4.16.0**
+
 ## 4.15.0 — 2026-07-01
 
 - **C43 锁预算与优先级反转防护**：新增通用 RTOS 锁约束，覆盖有限等锁、持锁禁阻塞 IO、binary semaphore 不当作 mutex、嵌套锁顺序、热路径禁拿 mutex

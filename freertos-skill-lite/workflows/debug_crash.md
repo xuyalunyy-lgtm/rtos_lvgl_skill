@@ -41,6 +41,8 @@
 | 启动/联网/音视频/UI 某阶段偶发超时 | **C35.1–C35.5**, C31, C32 | [runtime_efficiency_contracts.txt](../prompts/runtime_efficiency_contracts.txt) | 阶段 max time / timeout counter |
 | 内存抖动、旧帧、DMA 数据错 | **C36.1–C36.5**, C2, C28, C42 | [runtime_efficiency_contracts.txt](../prompts/runtime_efficiency_contracts.txt) | media/DMA checkers + 人工 |
 | 偶发死锁、WDT、网络差时 UI/音视频抖动 | **C43.1–C43.5**, C15, C31, C34, C37 | [runtime_efficiency_contracts.txt](../prompts/runtime_efficiency_contracts.txt) | `lock_budget_checker.py` + 人工 |
+| 音频爆音、视频掉帧、周期性中断延迟尖峰 | **C44.1–C44.5**, C4, C34, C35 | [runtime_efficiency_contracts.txt](../prompts/runtime_efficiency_contracts.txt) | `critical_section_checker.py` + 人工 |
+| 传感器读数漂移、I2C/SPI 偶发卡死、采样时间轴错乱 | **C45.1–C45.5**, C18, C31, C32, C34, C42 | [runtime_efficiency_contracts.txt](../prompts/runtime_efficiency_contracts.txt) | `sensor_integration_checker.py` + 人工 |
 | 队列满后延迟堆积或系统假死 | **C37.1–C37.5**, C30, C31 | [runtime_efficiency_contracts.txt](../prompts/runtime_efficiency_contracts.txt) | `blocking_wait_checker.py` + 水位计数 |
 | 断网/外设异常后只能重启恢复 | **C38.1–C38.5**, C20, C24, C33 | [runtime_efficiency_contracts.txt](../prompts/runtime_efficiency_contracts.txt) | health counter / retry counter |
 | 某配置或某板才崩溃 | **C39.1–C39.5**, C42 | [runtime_efficiency_contracts.txt](../prompts/runtime_efficiency_contracts.txt) | profile/config matrix |

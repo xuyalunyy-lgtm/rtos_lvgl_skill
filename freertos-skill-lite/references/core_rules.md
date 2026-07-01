@@ -19,7 +19,7 @@ Agent 在 L2/L3 或 workflow 要求时读取本文件。L1 概念问答可跳过
 | **全权改代码** | Agent **自行决定**所有实现改动（`.c/.h`、CMake/Makefile、Kconfig、工程配置），**无需逐步向用户确认** |
 | **跑通为止** | 持续实现 → 编译 → 修错，直至 **用户指定功能完成** 且 **工程编译通过** |
 | **编译** | 命令以 `platforms/xxx.md` 为准；编译失败则读日志、修复、重编，**禁止**留半成品让用户收尾 |
-| **铁律仍生效** | 改动须满足 C1–C43；L2+ 可跑 `run_review.py` 自检 |
+| **铁律仍生效** | 改动须满足 C1–C45；L2+ 可跑 `run_review.py` 自检 |
 | **改动范围声明** | L3 开始前简述计划改动文件/模块；除高风险项外直接执行，不等待逐项确认 |
 | **编译重试上限** | 最多 **5 次**编译失败后暂停，输出错误摘要请用户介入 |
 | **不可触碰清单** | 用户可标记 `.gitignore`、`partitions.csv`、`sdkconfig` 等为只读；Agent 禁止修改 |
@@ -63,6 +63,8 @@ Agent 在 L2/L3 或 workflow 要求时读取本文件。L1 概念问答可跳过
 - C40 一键复现闭环（新人接手和现场复盘成本风险）
 - C42 板级资源契约（GPIO/DMA/IRQ/cache/heap 冲突风险）
 - C43 锁预算与优先级反转防护（死锁/WDT/实时任务被低优先级拖住风险）
+- C44 临界区/关中断预算（中断延迟/实时性抖动/WDT 风险）
+- C45 传感器集成契约（总线卡死/单位错误/采样抖动/融合漂移风险）
 
 **使用方式：** 用户在 prompt 中明确说「测试阶段」「联调阶段」「凭据可以硬编码」时，Agent 按此规则降级 C9/C14/C5/C7 的审查严格度。
 
@@ -111,9 +113,9 @@ python tools/stack_calculator.py --describe "WSS TLS cJSON" --platform jl
 
 共享类型：`examples/app_mvp.h`（与 `mvp_codegen` 输出一致）；Queue 设计 → [queue_event_bus.txt](../prompts/queue_event_bus.txt)
 
-## 四十二条硬性约束（摘要）
+## 四十四条硬性约束（摘要）
 
-**细粒度 ID 矩阵（C1.1–C43.5）** → [constraint_detail.md](constraint_detail.md)（L2+ 违规报告须引用 `C#.#`）
+**细粒度 ID 矩阵（C1.1–C45.5）** → [constraint_detail.md](constraint_detail.md)（L2+ 违规报告须引用 `C#.#`）
 
 | # | 主题 | 细则 | 子约束数 |
 |---|------|------|----------|
@@ -159,6 +161,8 @@ python tools/stack_calculator.py --describe "WSS TLS cJSON" --platform jl
 | 41 | 回归样本优先 | 新约束/checker/bugfix 必须沉淀 good/bad 样本并接入自测或 checklist → [runtime_efficiency_contracts.txt](../prompts/runtime_efficiency_contracts.txt) | 5 |
 | 42 | 板级资源契约 | GPIO/DMA/clock/IRQ/cache/heap/PSRAM owner、冲突检查、power domain → [runtime_efficiency_contracts.txt](../prompts/runtime_efficiency_contracts.txt) | 5 |
 | 43 | 锁预算与优先级反转防护 | 有限等锁、持锁禁阻塞 IO、mutex 优先级继承、lock_order、热路径禁锁 → [runtime_efficiency_contracts.txt](../prompts/runtime_efficiency_contracts.txt) · `lock_budget_checker.py` | 5 |
+| 44 | 临界区/关中断预算 | 短 critical section、关中断禁重活、enter/exit 对称、禁 busy loop、hot path 禁长关中断 → [runtime_efficiency_contracts.txt](../prompts/runtime_efficiency_contracts.txt) · `critical_section_checker.py` | 5 |
+| 45 | 传感器集成契约 | datasheet/WHO_AM_I、I2C/SPI timeout、data-ready 有界等待、sample 元数据、校准生命周期 → [runtime_efficiency_contracts.txt](../prompts/runtime_efficiency_contracts.txt) · `sensor_integration_checker.py` | 5 |
 
 ## 文件归属惯例
 

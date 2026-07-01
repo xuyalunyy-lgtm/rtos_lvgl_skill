@@ -64,7 +64,7 @@ WINDSURF_HEADER = """# FreeRTOS Embedded Architect Rules
 - 配置文件独立：禁止直接复用原项目配置
 
 ## 完整约束
--> references/constraint_index.md（C1-C43，带屏音视频与运行时效率优先）
+-> references/constraint_index.md（C1-C45，带屏音视频与运行时效率优先）
 
 ## Workflow
 -> SKILL.md 快速路由表
@@ -72,7 +72,7 @@ WINDSURF_HEADER = """# FreeRTOS Embedded Architect Rules
 
 COPILOT_HEADER = """# FreeRTOS Embedded Architect Instructions
 
-遵循 FreeRTOS IoT 固件约束体系（C1-C43）。
+遵循 FreeRTOS IoT 固件约束体系（C1-C45）。
 
 ## 关键规则
 - UI 仅在 LVGL Task 或 lv_async_call 回调中更新（C1）
@@ -80,7 +80,7 @@ COPILOT_HEADER = """# FreeRTOS Embedded Architect Instructions
 - cJSON goto cleanup 模板（C3）
 - ISR 禁止阻塞 API / malloc / printf（C4）
 - A/V sync、codec 格式、jitter buffer、DMA/cache buffer 生命周期（C25-C28）
-- 模块契约、任务拓扑、超时预算、可观测性、生命周期、热路径禁区、关键路径预算、数据拷贝预算、背压降级、故障恢复、配置矩阵、一键复现、回归样本、板级资源契约、锁预算与优先级反转防护（C29-C43）
+- 模块契约、任务拓扑、超时预算、可观测性、生命周期、热路径禁区、关键路径预算、数据拷贝预算、背压降级、故障恢复、配置矩阵、一键复现、回归样本、板级资源契约、锁预算与优先级反转防护、临界区/关中断预算、传感器集成契约（C29-C45）
 - 配置文件独立：新项目只能参考格式，严格按用户输入编写
 
 ## 平台专档

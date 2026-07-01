@@ -337,6 +337,8 @@ Presenter Looper（等待 Queue）
 - [ ] C41 回归样本：新增约束或 bugfix 有 good/bad 样本或最小复现
 - [ ] C42 板级资源：GPIO/DMA/clock/IRQ/cache/heap/PSRAM owner 和冲突检查明确
 - [ ] C43 锁预算：等锁 timeout、持锁预算、lock_order 与优先级继承明确
+- [ ] C44 临界区/关中断：critical section 短小、对称、有预算，且无阻塞/分配/日志/大拷贝
+- [ ] C45 传感器集成：probe/WHO_AM_I、总线 timeout、data-ready、sample metadata、calibration lifecycle 明确
 - [ ] Stack watermark 全任务 > 20% 剩余
 - [ ] 堆最低水位 > 20% 总量
 - [ ] Flash/RAM 占比记录
