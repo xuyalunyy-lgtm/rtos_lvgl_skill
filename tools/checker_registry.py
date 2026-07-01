@@ -186,6 +186,7 @@ def checker_count_by_suite() -> dict[str, int]:
 
 
 SELF_TEST_CASES: tuple[CheckerCase, ...] = (
+    # ── fixtures/ 目录 ──────────────────────────────────────────────────
     CheckerCase("cjson_leak_checker.py", "fixtures/good_cjson.c", 0, "cjson good"),
     CheckerCase("cjson_leak_checker.py", "fixtures/bad_cjson.c", 1, "cjson bad"),
     CheckerCase("isr_safety_checker.py", "fixtures/good_isr.c", 0, "isr good"),
@@ -226,6 +227,18 @@ SELF_TEST_CASES: tuple[CheckerCase, ...] = (
     CheckerCase("observability_checker.py", "fixtures/bad_observability.c", 1, "observability bad"),
     CheckerCase("config_matrix_checker.py", "fixtures/good_config_matrix.c", 0, "config matrix good"),
     CheckerCase("config_matrix_checker.py", "fixtures/bad_config_matrix.c", 1, "config matrix bad"),
+    CheckerCase("state_machine_checker.py", "fixtures/good_state_machine.c", 0, "state machine good"),
+    CheckerCase("state_machine_checker.py", "fixtures/bad_state_machine.c", 1, "state machine bad"),
+    CheckerCase("timer_checker.py", "fixtures/good_timer.c", 0, "timer good"),
+    CheckerCase("timer_checker.py", "fixtures/bad_timer.c", 1, "timer bad"),
+    CheckerCase("log_desensitize_checker.py", "fixtures/good_log_desensitize.c", 0, "log desensitize good"),
+    CheckerCase("log_desensitize_checker.py", "fixtures/bad_log_desensitize.c", 1, "log desensitize bad"),
+    CheckerCase("test_macro_checker.py", "fixtures/good_test_macro.c", 0, "test macro good"),
+    CheckerCase("test_macro_checker.py", "fixtures/bad_test_macro.c", 1, "test macro bad"),
+    CheckerCase("coding_style_checker.py", "fixtures/good_coding_style.c", 0, "coding style good"),
+    CheckerCase("coding_style_checker.py", "fixtures/bad_coding_style.c", 1, "coding style bad"),
+    CheckerCase("board_resource_checker.py", "fixtures/good_board_resource.c", 0, "board resource good"),
+    CheckerCase("board_resource_checker.py", "fixtures/bad_board_resource.c", 1, "board resource bad"),
 )
 
 
