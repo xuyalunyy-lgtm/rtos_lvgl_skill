@@ -113,7 +113,7 @@ python tools/stack_calculator.py --describe "WSS TLS cJSON" --platform jl
 
 共享类型：`examples/app_mvp.h`（与 `mvp_codegen` 输出一致）；Queue 设计 → [queue_event_bus.txt](../prompts/queue_event_bus.txt)
 
-## 四十四条硬性约束（摘要）
+## 四十五条硬性约束（摘要）
 
 **细粒度 ID 矩阵（C1.1–C45.5）** → [constraint_detail.md](constraint_detail.md)（L2+ 违规报告须引用 `C#.#`）
 
@@ -140,6 +140,7 @@ python tools/stack_calculator.py --describe "WSS TLS cJSON" --platform jl
 | 19 | Flash/NVS 安全 | NVS commit/Flash 擦写/OTA 回滚 → [flash_nvs_safety.txt](../prompts/flash_nvs_safety.txt) | 5 |
 | 20 | 网络韧性 | 重连退避/超时/DNS/降级策略 → [network_resilience.txt](../prompts/network_resilience.txt) | 5 |
 | 21 | 低功耗管理 | 睡眠前保存状态/唤醒恢复/Tickless Idle/外设断电 → [low_power_management.txt](../prompts/low_power_management.txt) | 5 |
+| 22 | OTA / 固件升级安全 | 签名验证/回滚/分区表/断电恢复/超时重试 → [ota_update_safety.txt](../prompts/ota_update_safety.txt) · **`ota_safety_checker.py`** | 6 |
 | 23 | 显示驱动 | LCD 初始化时序/背光 PWM/帧率/撕裂防护/帧缓冲 → [lcd_display_driver.txt](../prompts/lcd_display_driver.txt) | 6 |
 | 24 | 外设关闭安全 | 异常收尾/可重入/超时释放/DMA 等待/idle vs deinit/电源门控 → [peripheral_shutdown_safety.txt](../prompts/peripheral_shutdown_safety.txt) | 5 |
 | 25 | 音视频管线 | audio clock master/帧元数据/有界队列/callback 隔离/遥测 → [av_pipeline_sync.txt](../prompts/av_pipeline_sync.txt) | 6 |

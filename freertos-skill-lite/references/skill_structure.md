@@ -90,6 +90,7 @@ Workflow 索引 → [workflows/README.md](../workflows/README.md)
 | C19 | Flash/NVS 安全 | [flash_nvs_safety.txt](../prompts/flash_nvs_safety.txt) |
 | C20 | 网络韧性 | [network_resilience.txt](../prompts/network_resilience.txt) |
 | C21 | 低功耗管理 | [low_power_management.txt](../prompts/low_power_management.txt) |
+| C22 | OTA / 固件升级安全 | [ota_update_safety.txt](../prompts/ota_update_safety.txt) |
 | C23 | 显示驱动 | [lcd_display_driver.txt](../prompts/lcd_display_driver.txt) |
 | C24 | 外设关闭安全 | [peripheral_shutdown_safety.txt](../prompts/peripheral_shutdown_safety.txt) |
 | C25 | 音视频管线 / A/V Sync | [av_pipeline_sync.txt](../prompts/av_pipeline_sync.txt) |

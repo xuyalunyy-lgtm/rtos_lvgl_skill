@@ -1,5 +1,15 @@
 # Changelog
 
+## 8.0.7 — 2026-07-01
+
+- **v8.0.1**：修绿基线门禁 — secret_scan --git-remotes 恢复 + extensionless 文件扫描 + efficiency_scorecard 违规数解析修复
+- **v8.0.2**：统一 checker registry — CheckerSpec 新增 suites 字段，ALL_CHECKERS 41 个全量注册，DEFAULT_CHECKERS 34 个，7 个 suite 分组
+- **v8.0.3**：补齐 fixture 覆盖 — 新增 12 个 fixture 文件，SELF_TEST_CASES 52 个用例，34 个 default checker 全覆盖
+- **v8.0.4**：稳定机器可读报告 — `run_review.py --json` 输出结构化 JSON，`--list-checkers --json` 输出 checker 元数据
+- **v8.0.5**：仪表盘 registry-driven — metrics_dashboard 移除硬编码 9 个 checker，改为从 registry 读取 + --suite 支持
+- **v8.0.6**：watch_mode + auto_fix_engine 接入 registry — 移除硬编码列表，支持 --suite/--domain
+- **v8.0.7**：SKILL.md 版本升至 8.0.7，skill_structure 更新为 v8 suite 体系
+
 ## 7.0.7 — 2026-07-01
 
 - **Checker 基础设施统一**：40 个 checker 全部迁移到 `checker_io.py` 统一框架，净减 ~3000 行重复代码

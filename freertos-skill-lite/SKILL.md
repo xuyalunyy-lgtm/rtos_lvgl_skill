@@ -1,7 +1,7 @@
 ---
 name: freertos-embedded-architect
 metadata:
-  version: 7.0.7
+  version: 8.0.7
 description: >-
   FreeRTOS embedded architecture specialist for MVP firmware, board bring-up,
   runtime reliability, memory safety, module contracts, task topology, timeout
@@ -9,9 +9,10 @@ description: >-
   backpressure, recovery, config matrices, reproducible bring-up, regression samples,
   board resource contracts, lock budgets, priority inversion prevention, critical-section budgets,
   sensor bus/sample/calibration contracts, LVGL/DMA/ISR safety, SDK trimming, crash debugging,
-  release governance, and Zephyr-style RTOS project skeletons. Use when the user
+  release governance, OTA firmware update safety, and Zephyr-style RTOS project skeletons. Use when the user
   asks for FreeRTOS, embedded C, GPIO, LCD/OLED, camera, audio/video, A/V sync,
-  zero-copy, DMA cache, logging, WDT, HardFault, code review, or git commit audit help.
+  zero-copy, DMA cache, logging, WDT, HardFault, code review, OTA update,
+  firmware upgrade, rollback, or git commit audit help.
 mentions: >
   assertion, HardFault, stack overflow, Guru Meditation, code review,
   SDK trimming, driver bring-up, debugging, FreeRTOS, GPIO, LCD/OLED,
@@ -20,7 +21,8 @@ mentions: >
   lifecycle, hot path, critical path, copy budget, backpressure, recovery,
   config matrix, reproduce, regression sample, board resource, lock budget, priority inversion,
   critical section, irq mask, interrupt latency, sensor, i2c, spi, data-ready,
-  sample metadata, calibration lifecycle, zero-copy, DMA cache, frame pool, git commit, release audit.
+  sample metadata, calibration lifecycle, zero-copy, DMA cache, frame pool, git commit, release audit,
+  OTA, firmware update, rollback, partition, secure boot.
 ---
 
 # FreeRTOS 嵌入式架构专家（Lite 版）
