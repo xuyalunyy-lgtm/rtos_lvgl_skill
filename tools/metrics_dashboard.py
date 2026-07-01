@@ -30,31 +30,23 @@ if sys.platform == "win32":
         sys.stdout.reconfigure(encoding="utf-8")
 
 
-def collect_metrics(project_dir: Path) -> dict:
-    """收集项目度量数据"""
+def collect_metrics(project_dir: Path, suite: str = "default") -> dict:
+    """收集项目度量数据，从 checker_registry 读取 checker 列表。"""
+    from checker_registry import get_suite
+
     tools_dir = Path(__file__).parent
 
     # Count files
     c_files = list(project_dir.rglob("*.c"))
     h_files = list(project_dir.rglob("*.h"))
 
-    # Run checkers
+    # Run checkers from registry
     checker_results = {}
-    checkers = [
-        ("cjson_leak_checker.py", "C3"),
-        ("isr_safety_checker.py", "C4"),
-        ("lvgl_thread_checker.py", "C1"),
-        ("queue_ownership_checker.py", "C2"),
-        ("ota_safety_checker.py", "C22"),
-        ("boot_sequence_checker.py", "C8"),
-        ("lifecycle_checker.py", "C33"),
-        ("priority_checker.py", "C15"),
-        ("blocking_wait_checker.py", "C31"),
-    ]
+    specs = get_suite(suite)
 
     total_violations = 0
-    for checker, domain in checkers:
-        checker_path = tools_dir / checker
+    for spec in specs:
+        checker_path = tools_dir / spec.script
         if not checker_path.exists():
             continue
 
@@ -72,17 +64,23 @@ def collect_metrics(project_dir: Path) -> dict:
                 if line.strip().startswith("[P") and "]" in line:
                     violations += 1
 
-            checker_results[domain] = {
-                "checker": checker,
+            checker_results[spec.name] = {
+                "checker": spec.script,
+                "domains": list(spec.domains),
                 "violations": violations,
             }
             total_violations += violations
         except Exception:
-            checker_results[domain] = {"checker": checker, "violations": -1}
+            checker_results[spec.name] = {
+                "checker": spec.script,
+                "domains": list(spec.domains),
+                "violations": -1,
+            }
 
     return {
         "timestamp": datetime.now().isoformat(),
         "project": str(project_dir),
+        "suite": suite,
         "files": {
             "c_files": len(c_files),
             "h_files": len(h_files),
@@ -178,7 +176,7 @@ h2 {{ color: #663; }}
 <body>
 <h1>FreeRTOS Skill Metrics Dashboard</h1>
 <p>Generated: {metrics.get("timestamp", "N/A")}</p>
-<p>Project: {metrics.get("project", "N/A")}</p>
+<p>Project: {metrics.get("project", "N/A")} · Suite: {metrics.get("suite", "default")}</p>
 
 <div class="card">
 <h2>Health Score</h2>
@@ -248,6 +246,9 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="全链路度量仪表盘")
     parser.add_argument("--project", "-p", help="项目目录")
     parser.add_argument("--output", "-o", help="HTML 输出文件")
+    parser.add_argument("--suite", default="default",
+                        choices=["default", "all", "security", "media", "platform", "realtime", "enhanced"],
+                        help="checker suite (default: default)")
     parser.add_argument("--self-test", action="store_true", help="运行自测")
     args = parser.parse_args()
 
@@ -264,8 +265,8 @@ def main() -> int:
         return 1
 
     # Collect metrics
-    print(f"[metrics_dashboard] Collecting metrics from {project_dir}...")
-    metrics = collect_metrics(project_dir)
+    print(f"[metrics_dashboard] Collecting metrics from {project_dir} (suite={args.suite})...")
+    metrics = collect_metrics(project_dir, suite=args.suite)
 
     # Calculate health
     health = calculate_health_score(metrics)
