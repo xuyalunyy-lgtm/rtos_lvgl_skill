@@ -1,7 +1,7 @@
 ---
 name: freertos-embedded-architect
 metadata:
-  version: 5.0.6
+  version: 5.0.7
 description: >-
   FreeRTOS embedded architecture specialist for MVP firmware, board bring-up,
   runtime reliability, memory safety, module contracts, task topology, timeout
@@ -51,10 +51,8 @@ Choose one workflow first, then load only required references, platform docs, an
 ## Required Context
 
 - Platforms: [esp32](platforms/esp32.md), [stm32](platforms/stm32.md), [jl](platforms/jl.md), [bk](platforms/bk.md)
-- Core rules: [core_rules](references/core_rules.md), [constraint_index](references/constraint_index.md), [constraint_detail](references/constraint_detail.md)
-- Skill structure: [skill_structure](references/skill_structure.md)
-- Release governance: [release_governance](references/release_governance.md)
-- Assistant guidance: [claude_code](references/claude_code.md), [cursor rule](templates/cursor-rule.embedded.mdc)
+- Core rules: [core_rules](references/core_rules.md), [constraint_index](references/constraint_index.md), [constraint_detail](references/constraint_detail.md), [skill_structure](references/skill_structure.md)
+- Release governance: [release_governance](references/release_governance.md), [claude_code](references/claude_code.md), [cursor rule](templates/cursor-rule.embedded.mdc)
 
 ## Prompt Index
 
