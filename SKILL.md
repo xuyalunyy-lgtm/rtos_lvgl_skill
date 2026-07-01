@@ -1,7 +1,7 @@
 ---
 name: freertos-embedded-architect
 metadata:
-  version: 4.17.0
+  version: 5.0.6
 description: >-
   FreeRTOS embedded architecture specialist for MVP firmware, board bring-up,
   runtime reliability, memory safety, module contracts, task topology, timeout
@@ -9,9 +9,10 @@ description: >-
   backpressure, recovery, config matrices, reproducible bring-up, regression samples,
   board resource contracts, lock budgets, priority inversion prevention, critical-section budgets,
   sensor bus/sample/calibration contracts, LVGL/DMA/ISR safety, SDK trimming, crash debugging,
-  release governance, and Zephyr-style RTOS project skeletons. Use when the user
+  release governance, OTA firmware update safety, and Zephyr-style RTOS project skeletons. Use when the user
   asks for FreeRTOS, embedded C, GPIO, LCD/OLED, camera, audio/video, A/V sync,
-  zero-copy, DMA cache, logging, WDT, HardFault, code review, or git commit audit help.
+  zero-copy, DMA cache, logging, WDT, HardFault, code review, OTA update,
+  firmware upgrade, rollback, or git commit audit help.
 mentions: >
   assertion, HardFault, stack overflow, Guru Meditation, code review,
   SDK trimming, driver bring-up, debugging, FreeRTOS, GPIO, LCD/OLED,
@@ -20,7 +21,8 @@ mentions: >
   lifecycle, hot path, critical path, copy budget, backpressure, recovery,
   config matrix, reproduce, regression sample, board resource, lock budget, priority inversion,
   critical section, irq mask, interrupt latency, sensor, i2c, spi, data-ready,
-  sample metadata, calibration lifecycle, zero-copy, DMA cache, frame pool, git commit, release audit.
+  sample metadata, calibration lifecycle, zero-copy, DMA cache, frame pool, git commit, release audit,
+  OTA, firmware update, rollback, partition, secure boot.
 ---
 
 # FreeRTOS Embedded Architect
@@ -64,7 +66,7 @@ Load only prompts needed by the selected workflow or suspected constraint:
 - JSON/error/style/logging: [cjson_safe_parse](prompts/cjson_safe_parse.txt), [error_handling](prompts/error_handling.txt), [coding_style](prompts/coding_style.txt), [logging_debug](prompts/logging_debug.txt)
 - ISR/DMA/audio/video: [audio_dma_pingpong](prompts/audio_dma_pingpong.txt), [lcd_display_driver](prompts/lcd_display_driver.txt), [voice_asr_uplink](prompts/voice_asr_uplink.txt)
 - Audio/WSS field triage: [voice_asr_uplink](prompts/voice_asr_uplink.txt), [mbedtls_wss_memory](prompts/mbedtls_wss_memory.txt), [peripheral_shutdown_safety](prompts/peripheral_shutdown_safety.txt)
-- Boot/config/security: [boot_wdt_lifecycle](prompts/boot_wdt_lifecycle.txt), [secrets_kconfig](prompts/secrets_kconfig.txt), [flash_nvs_safety](prompts/flash_nvs_safety.txt)
+- Boot/config/security: [boot_wdt_lifecycle](prompts/boot_wdt_lifecycle.txt), [secrets_kconfig](prompts/secrets_kconfig.txt), [flash_nvs_safety](prompts/flash_nvs_safety.txt), [ota_update_safety](prompts/ota_update_safety.txt)
 - Runtime patterns: [state_machine_patterns](prompts/state_machine_patterns.txt), [timer_management](prompts/timer_management.txt), [multi_core_ipc](prompts/multi_core_ipc.txt)
 - Robustness: [memory_alloc_optimize](prompts/memory_alloc_optimize.txt), [network_resilience](prompts/network_resilience.txt), [low_power_management](prompts/low_power_management.txt), [peripheral_driver_safety](prompts/peripheral_driver_safety.txt)
 - Efficiency contracts: [runtime_efficiency_contracts](prompts/runtime_efficiency_contracts.txt)

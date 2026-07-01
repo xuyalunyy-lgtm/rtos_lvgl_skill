@@ -1,6 +1,6 @@
 # FreeRTOS Embedded Architect Skill
 
-Cursor Agent Skill：FreeRTOS 物联网固件架构（MVP 分层、LVGL 线程安全、I2S DMA、音视频管线/A-V sync、编解码格式一致性、时钟漂移/jitter buffer、DMA cache/零拷贝 buffer 生命周期、模块契约、任务/队列拓扑、超时预算、可观测性、生命周期对称、热路径禁区、关键路径预算、数据拷贝预算、背压降级、故障恢复、配置矩阵、一键复现、回归样本、板级资源契约、锁预算与优先级反转防护、临界区/关中断预算、传感器集成契约、cJSON 防泄漏、WSS/mbedTLS、SDK 裁剪、错误处理、状态机、日志规范、任务优先级、定时器管理、多核 IPC、低功耗、显示驱动、软硬联调 IO 口规划）。约束体系 C1–C45（当前 44 个约束域，C22 预留）。
+Cursor Agent Skill：FreeRTOS 物联网固件架构（MVP 分层、LVGL 线程安全、I2S DMA、音视频管线/A-V sync、编解码格式一致性、时钟漂移/jitter buffer、DMA cache/零拷贝 buffer 生命周期、模块契约、任务/队列拓扑、超时预算、可观测性、生命周期对称、热路径禁区、关键路径预算、数据拷贝预算、背压降级、故障恢复、配置矩阵、一键复现、回归样本、板级资源契约、锁预算与优先级反转防护、临界区/关中断预算、传感器集成契约、OTA 固件升级安全、cJSON 防泄漏、WSS/mbedTLS、SDK 裁剪、错误处理、状态机、日志规范、任务优先级、定时器管理、多核 IPC、低功耗、显示驱动、软硬联调 IO 口规划）。约束体系 C1–C45（当前 45 个约束域，248 条规则）。
 
 ## 快速开始
 
@@ -66,4 +66,6 @@ python scripts/skill_iterate.py --check
 | 反例 DMA/cache buffer | [examples/bad_av_dma_buffer_lifecycle.c](examples/bad_av_dma_buffer_lifecycle.c) |
 | 反例 C12 返回值 | [examples/bad_unchecked_return.c](examples/bad_unchecked_return.c) |
 | 反例 C14 日志 | [examples/bad_isr_printf.c](examples/bad_isr_printf.c) |
+| 正例 C22 OTA | [examples/good_ota_update.c](examples/good_ota_update.c) |
+| 反例 C22 OTA | [examples/bad_ota_no_rollback.c](examples/bad_ota_no_rollback.c) |
 | 共享类型 | [examples/app_mvp.h](examples/app_mvp.h) |

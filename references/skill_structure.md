@@ -90,6 +90,7 @@ Workflow 索引 → [workflows/README.md](../workflows/README.md)
 | C19 | Flash/NVS 安全 | [flash_nvs_safety.txt](../prompts/flash_nvs_safety.txt) |
 | C20 | 网络韧性 | [network_resilience.txt](../prompts/network_resilience.txt) |
 | C21 | 低功耗管理 | [low_power_management.txt](../prompts/low_power_management.txt) |
+| C22 | OTA / 固件升级安全 | [ota_update_safety.txt](../prompts/ota_update_safety.txt) |
 | C23 | 显示驱动 | [lcd_display_driver.txt](../prompts/lcd_display_driver.txt) |
 | C24 | 外设关闭安全 | [peripheral_shutdown_safety.txt](../prompts/peripheral_shutdown_safety.txt) |
 | C25 | 音视频管线 / A/V Sync | [av_pipeline_sync.txt](../prompts/av_pipeline_sync.txt) |
@@ -177,6 +178,7 @@ Agent 在 L3 开始前**推荐**加载产品 profile：自动获取必选约束�
 | C19 Flash/NVS | `python tools/flash_nvs_checker.py --dir src/` |
 | C20 网络韧性 | `python tools/network_resilience_checker.py --dir src/` |
 | C21 低功耗 | `python tools/low_power_checker.py --dir src/` |
+| C22 OTA 安全 | `python tools/ota_safety_checker.py --dir src/` |
 | C23 显示驱动 | `python tools/display_driver_checker.py --dir src/` |
 | C25 音视频管线 | `python tools/av_pipeline_checker.py --dir src/` |
 | C26 编解码格式 | `python tools/media_format_checker.py --dir src/` |

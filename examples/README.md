@@ -117,6 +117,7 @@ Cache 一致性细则 → [audio_dma_pingpong.txt](../prompts/audio_dma_pingpong
 | | 文件 | ID | Checker |
 |---|------|-----|---------|
 | ❌ | [bad_unchecked_return.c](bad_unchecked_return.c) | C12.1, C12.2, C12.4, C12.5 | `return_check_checker.py` |
+| ✅ | [good_checked_return.c](good_checked_return.c) 返回值检查 + goto cleanup + malloc fallback | C12.1–C12.4 | `return_check_checker.py` |
 
 深细节 → [error_handling.txt](../prompts/error_handling.txt)
 
@@ -125,6 +126,7 @@ Cache 一致性细则 → [audio_dma_pingpong.txt](../prompts/audio_dma_pingpong
 | | 文件 | ID | Checker |
 |---|------|-----|---------|
 | ❌ | [bad_isr_printf.c](bad_isr_printf.c) | C14.1, C14.3, C14.4 | `logging_checker.py` |
+| ✅ | [good_logging.c](good_logging.c) LOG_* 宏 + TAG + 脱敏 + 限频 | C14.1, C14.4, C14.6 | `logging_checker.py` |
 
 深细节 → [logging_debug.txt](../prompts/logging_debug.txt)
 
@@ -133,6 +135,7 @@ Cache 一致性细则 → [audio_dma_pingpong.txt](../prompts/audio_dma_pingpong
 | | 文件 | ID | Checker |
 |---|------|-----|---------|
 | ❌ | [bad_gpio_no_config.c](bad_gpio_no_config.c) | C18.1, C18.2, C18.4 | `peripheral_driver_checker.py` |
+| ✅ | [good_gpio_config.c](good_gpio_config.c) GPIO 方向配置 + I2C 地址文档 | C18.1, C18.2 | `peripheral_driver_checker.py` |
 
 深细节 → [peripheral_driver_safety.txt](../prompts/peripheral_driver_safety.txt)
 
@@ -141,6 +144,7 @@ Cache 一致性细则 → [audio_dma_pingpong.txt](../prompts/audio_dma_pingpong
 | | 文件 | ID | Checker |
 |---|------|-----|---------|
 | ❌ | [bad_nvs_no_commit.c](bad_nvs_no_commit.c) | C19.1, C21.1 | `flash_nvs_checker.py` |
+| ✅ | [good_nvs_commit.c](good_nvs_commit.c) NVS commit + 返回值检查 | C19.1 | `flash_nvs_checker.py` |
 
 深细节 → [flash_nvs_safety.txt](../prompts/flash_nvs_safety.txt)
 
@@ -149,6 +153,7 @@ Cache 一致性细则 → [audio_dma_pingpong.txt](../prompts/audio_dma_pingpong
 | | 文件 | ID | Checker |
 |---|------|-----|---------|
 | ❌ | [bad_reconnect_no_backoff.c](bad_reconnect_no_backoff.c) | C20.1, C20.2 | `network_resilience_checker.py` |
+| ✅ | [good_reconnect_backoff.c](good_reconnect_backoff.c) 指数退避 + 超时 + DNS fallback | C20.1–C20.3 | `network_resilience_checker.py` |
 
 深细节 → [network_resilience.txt](../prompts/network_resilience.txt)
 
@@ -157,14 +162,25 @@ Cache 一致性细则 → [audio_dma_pingpong.txt](../prompts/audio_dma_pingpong
 | | 文件 | ID | Checker |
 |---|------|-----|---------|
 | ❌ | [bad_sleep_no_save.c](bad_sleep_no_save.c) | C21.1, C21.2, C21.4 | `low_power_checker.py` |
+| ✅ | [good_sleep_save.c](good_sleep_save.c) 状态保存 + 外设断电 + 唤醒恢复 | C21.1, C21.4 | `low_power_checker.py` |
 
 深细节 → [low_power_management.txt](../prompts/low_power_management.txt)
+
+## C22 — OTA / 固件升级安全
+
+| | 文件 | ID | Checker |
+|---|------|-----|---------|
+| ❌ | [bad_ota_no_rollback.c](bad_ota_no_rollback.c) | C22.1, C22.2, C22.4, C22.5 | `ota_safety_checker.py` |
+| ✅ | [good_ota_update.c](good_ota_update.c) 签名验证 + 回滚 + 超时 + 断电恢复 | C22.1–C22.5 | `ota_safety_checker.py` |
+
+深细节 → [ota_update_safety.txt](../prompts/ota_update_safety.txt)
 
 ## C23 — 显示驱动安全
 
 | | 文件 | ID | Checker |
 |---|------|-----|---------|
 | ❌ | [bad_display_no_init.c](bad_display_no_init.c) | C23.1, C23.5, C23.6 | `display_driver_checker.py` |
+| ✅ | [good_display_init.c](good_display_init.c) LCD 时序 + 帧缓冲检查 + lv_disp_drv 完整注册 | C23.1, C23.5, C23.6 | `display_driver_checker.py` |
 
 深细节 → [lcd_display_driver.txt](../prompts/lcd_display_driver.txt)
 
@@ -209,7 +225,7 @@ Cache 一致性细则 → [audio_dma_pingpong.txt](../prompts/audio_dma_pingpong
 # checker fixtures 自测
 python tools/run_review.py --self-test
 
-# 铁律 C1–C4 + C10 + C25 + C26 + C27 + C28 + C31 + C36/C37 + C43 + C44 + C45 范例 good/bad 约束
+# 铁律 C1–C4 + C10 + C22 + C25 + C26 + C27 + C28 + C31 + C36/C37 + C43 + C44 + C45 范例 good/bad 约束
 python tools/run_review.py --validate-examples
 
 # 审查用户源码（含 queue 所有权）

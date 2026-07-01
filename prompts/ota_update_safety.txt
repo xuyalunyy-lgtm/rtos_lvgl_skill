@@ -1,0 +1,73 @@
+<!-- OTA 安全约束 (C22.1–C22.6) — 用于 OTA 升级模块设计与审查 -->
+
+# OTA / 固件升级安全约束
+
+## C22.1 固件签名验证
+- OTA 镜像必须经过签名验证后才能写入 Flash
+- ESP32：启用 `CONFIG_SECURE_BOOT_V2_ENABLED` 或调用 `esp_ota_verify()`
+- STM32：使用 HAL CRC / crypto 校验固件完整性
+- 签名验证失败必须拒绝升级并记录日志
+
+```c
+/* 正例：OTA 前验证签名 */
+esp_app_desc_t new_app_info;
+esp_ota_get_app_description(ota_partition, &new_app_info);
+if (new_app_info.secure_version < current_secure_version) {
+    ESP_LOGE(TAG, "OTA rollback attack detected: %d < %d",
+             new_app_info.secure_version, current_secure_version);
+    return ESP_ERR_OTA_DOWNGRADE;
+}
+```
+
+## C22.2 回滚机制
+- OTA 升级后首次启动必须调用 `esp_ota_mark_app_valid_cancel_rollback()`
+- 若新固件启动失败（WDT / HardFault / 自检不通过），必须自动回滚到旧固件
+- 回滚触发条件必须在代码中明确（health check / boot count / self-test）
+
+```c
+/* 正例：首次启动标记有效 */
+void app_main(void) {
+    // ... 初始化 ...
+    esp_err_t err = esp_ota_mark_app_valid_cancel_rollback();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to mark OTA valid: %s", esp_err_to_name(err));
+    }
+}
+```
+
+## C22.3 分区表一致性
+- OTA 产品分区表必须包含 `ota_0` + `ota_1` 两个 app 分区
+- NVS 分区不可删除（存储 WiFi 凭证、设备状态）
+- 分区表变更必须同步文档和 OTA 流程
+
+```csv
+# 正例：标准 OTA 分区表
+nvs,      data, nvs,     0x9000,  0x6000,
+otadata,  data, ota,     0xf000,  0x2000,
+ota_0,    app,  ota_0,   0x10000, 0x1F0000,
+ota_1,    app,  ota_1,   0x200000,0x1F0000,
+```
+
+## C22.4 断电恢复
+- OTA 下载和写入过程中断电，必须能回退到旧固件继续运行
+- 使用双分区（ota_0/ota_1）实现：新固件写入非活动分区，验证后才切换
+- 禁止在 OTA 过程中擦除当前运行分区
+
+## C22.5 OTA 超时与重试
+- HTTP 下载必须有连接超时和读取超时（建议 connect=10s, read=30s）
+- 重试必须有上限（建议 max_retry=3）和指数退避
+- 超时/重试失败后必须回滚到当前固件
+
+```c
+/* 正例：HTTP 客户端配置超时 */
+esp_http_client_config_t config = {
+    .url = firmware_url,
+    .timeout_ms = 30000,
+    .keep_alive_enable = true,
+};
+```
+
+## C22.6 差分升级安全
+- 若使用差分升级（bspatch / delta），必须校验 patch 文件的完整性
+- 差分升级失败必须能回退到全量升级路径
+- patch 文件必须声明源固件版本和目标版本

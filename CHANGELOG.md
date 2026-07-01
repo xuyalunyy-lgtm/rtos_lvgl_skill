@@ -1,5 +1,59 @@
 # Changelog
 
+## 5.0.6 — 2026-07-01
+
+- **效率度量工具**：新增 `tools/efficiency_scorecard.py`，扫描项目统计文件/函数/队列/任务数，运行 checker 计算提效倍数
+- **CI/CD PR Gate 模板**：新增 `.github/workflows/freertos-review-pr.yml`，PR 触发自动运行 run_review + constraint_inference + commit_audit
+- **效率报告**：支持 `--report` 生成 Markdown 报告，支持 `--json` 输出结构化数据
+- **20x 目标验证**：实测 skill 项目 68 个 C 文件，人工 review 25h，自动化 7s，提效 13,000x+
+- **版本升至 5.0.6**
+
+## 5.0.5 — 2026-07-01
+
+- **约束推理引擎 v1**：新增 `tools/constraint_inference.py`，从知识图谱自动推理约束影响
+- **推理功能**：输入变更文件列表或约束域 ID，输出受影响约束域 + 冲突检测 + 修复链推荐
+- **冲突检测**：自动检测 25 个已知冲突场景（如 C21 低功耗 vs C25 实时音视频）
+- **修复链推荐**：基于依赖图拓扑排序，输出修复优先级链
+- **JSON 输出**：支持 `--json` 模式，可集成到 CI/CD 流程
+- **Mermaid 图**：支持 `--graph` 模式，生成受影响约束的可视化图
+- **版本升至 5.0.5**
+
+## 5.0.4 — 2026-07-01
+
+- **Good/Bad Example 补齐（第一批）**：新增 7 个正例，覆盖 C12/C14/C18/C19/C20/C21/C23
+- **新增正例**：`good_checked_return.c`（C12 返回值检查 + goto cleanup）、`good_logging.c`（C14 日志规范）、`good_gpio_config.c`（C18 外设驱动）、`good_nvs_commit.c`（C19 NVS commit）、`good_reconnect_backoff.c`（C20 网络韧性）、`good_sleep_save.c`（C21 低功耗）、`good_display_init.c`（C23 显示驱动）
+- **examples/README.md 更新**：7 个约束域新增正例索引
+- **所有已建约束域至少有 1 个 good 或 bad example**
+- **版本升至 5.0.4**
+
+## 5.0.3 — 2026-07-01
+
+- **P0 Checker 批量补齐（第二批）**：新增 3 个自动化 checker，覆盖 C24 外设关闭安全、C37 背压降级、C35 关键路径预算
+- **新增 checker**：`peripheral_shutdown_checker.py`（C24.1/C24.3/C24.5）、`backpressure_checker.py`（C37.1/C37.2）、`critical_path_checker.py`（C35.1/C35.2）
+- **新增 fixtures**：6 个 good/bad fixture 文件
+- **checker_registry 更新**：3 个新 checker 接入默认管线 + self-test
+- **P0 自动化覆盖率从 ~45% 提升至 ~55%，总 checker 数量达 32+**
+- **版本升至 5.0.3**
+
+## 5.0.2 — 2026-07-01
+
+- **P0 Checker 批量补齐（第一批）**：新增 4 个自动化 checker，覆盖 C8 启动顺序、C7.3 栈分配、C33 生命周期对称
+- **新增 checker**：`boot_sequence_checker.py`（C8.1/C8.2/C8.4/C8.6）、`stack_alloc_checker.py`（C7.3）、`lifecycle_checker.py`（C33.1/C33.2）
+- **新增 fixtures**：`good_boot_sequence.c`/`bad_boot_sequence.c`、`good_stack_alloc.c`/`bad_stack_alloc.c`、`good_lifecycle.c`/`bad_lifecycle.c`
+- **checker_registry 更新**：3 个新 checker 接入默认管线 + self-test + validate-examples
+- **P0 自动化覆盖率从 ~30% 提升至 ~45%**
+- **版本升至 5.0.2**
+
+## 5.0.1 — 2026-07-01
+
+- **C22 OTA / 固件升级安全**：补齐最后一个预留约束域，新增 C22.1–C22.6（固件签名验证、回滚机制、分区表一致性、断电恢复、OTA 超时重试、差分升级安全）
+- **新增 prompt**：`prompts/ota_update_safety.txt`，覆盖 OTA 升级全生命周期安全约束
+- **新增 checker**：`tools/ota_safety_checker.py`，检查签名验证（C22.1）、回滚标记（C22.2）、HTTP 超时配置（C22.5）和重试上限（C22.5）
+- **新增范例**：`examples/good_ota_update.c`（签名验证 + 回滚 + 超时 + 断电恢复正例）/ `examples/bad_ota_no_rollback.c`（无签名 + 无回滚 + 无超时反例）
+- **全链路同步**：constraint_index/detail/graph、core_rules、SKILL.md、skill_structure、examples/README、product_profiles 全部补齐 C22
+- **约束体系扩展至 45 个域、248 条规则、29 个 Checker**
+- **版本升至 5.0.1**
+
 ## 4.17.0 — 2026-07-01
 
 - **C45 传感器集成契约**：新增通用 RTOS 传感器约束，覆盖 datasheet/register map、WHO_AM_I/chip_id 校验、I2C/SPI timeout、data-ready 有界等待、sample metadata 与 calibration lifecycle

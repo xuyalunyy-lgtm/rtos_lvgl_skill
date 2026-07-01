@@ -182,6 +182,16 @@
 | C21.4 | 1 | 深度睡眠前必须关闭外设电源（LCD/音频/WiFi） |
 | C21.5 | 2 | 多唤醒源同时配置时须确认不冲突 |
 
+## C22 OTA / 固件升级安全
+| ID | P | 一句话 |
+|----|---|--------|
+| C22.1 | 0 | OTA 镜像必须有签名验证（secure boot / image verify） |
+| C22.2 | 0 | OTA 升级后必须 mark_valid_cancel_rollback；失败必须可回滚 |
+| C22.3 | 1 | OTA 分区表须含 ota_0 + ota_1；NVS 分区不可删 |
+| C22.4 | 0 | OTA 断电恢复：写入非活动分区，断电后旧固件仍可运行 |
+| C22.5 | 1 | OTA HTTP 下载必须有超时（connect/read）和重试上限 |
+| C22.6 | 2 | 差分升级必须有 patch 校验和回退策略 |
+
 ## C23 显示驱动
 | ID | P | 一句话 |
 |----|---|--------|
@@ -395,6 +405,11 @@
 | C45.5 | 2 | calibration/self-test/warm-up 不得放在采样热路径，须有生命周期与失效策略 |
 
 ## 症状 → ID（Crash 用）
+
+| 症状 | 优先核查 ID |
+|------|-------------|
+| OTA 后设备变砖 / 回滚失败 | **C22.1, C22.2, C22.4** |
+| OTA 下载卡死 / 反复重试 | **C22.5** |
 
 → [debug_crash.md](../workflows/debug_crash.md) Step 2 症状路由表（与 `constraint_detail.md` 末尾同步）。
 
