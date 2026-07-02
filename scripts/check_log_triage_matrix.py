@@ -25,68 +25,63 @@ LOGS_DIR = TOOLS / "fixtures" / "logs"
 MATRIX = [
     {
         "log": "good_boot.log",
-        "expected_ids": [],
-        "forbidden_ids": ["WDT_RESET", "HARDFAULT", "HEAP_EXHAUSTION", "BROWNOUT_RESET"],
-        "expected_exit": 1,  # 无症状
-        "expected_category_counts": {"software": 0, "hardware": 0},
+        "allowed_ids": [],  # 精确：不允许任何症状
+        "expected_exit": 1,
+        "expected_category_counts": {"software": 0, "hardware": 0, "architecture": 0},
     },
     {
         "log": "bad_wdt_queue_full.log",
-        "expected_ids": ["WDT_RESET"],
-        "forbidden_ids": ["BROWNOUT_RESET", "PERIPHERAL_NO_ACK"],
+        "allowed_ids": ["WDT_RESET", "HARDFAULT"],  # 精确：只允许这两个
         "expected_exit": 0,
-        "expected_category_counts": {"software": 2},  # WDT_RESET + HARDFAULT
+        "expected_category_counts": {"software": 2, "hardware": 0, "architecture": 2},
     },
     {
         "log": "bad_heap_drop.log",
-        "expected_ids": ["HEAP_EXHAUSTION"],
+        "allowed_ids": ["HEAP_EXHAUSTION"],
         "expected_exit": 0,
-        "expected_category_counts": {"software": 1},
+        "expected_category_counts": {"software": 1, "hardware": 0, "architecture": 1},
     },
     {
         "log": "bad_audio_underrun.log",
-        "expected_ids": ["AUDIO_UNDERRUN"],
+        "allowed_ids": ["AUDIO_UNDERRUN"],
         "expected_exit": 0,
-        "expected_category_counts": {"software": 1},
+        "expected_category_counts": {"software": 1, "hardware": 0, "architecture": 1},
     },
     {
         "log": "bad_sensor_timeout.log",
-        "expected_ids": ["SENSOR_TIMEOUT"],
+        "allowed_ids": ["SENSOR_TIMEOUT"],
         "expected_exit": 0,
-        "expected_category_counts": {"software": 1, "hardware": 1},
+        "expected_category_counts": {"software": 1, "hardware": 1, "architecture": 1},
     },
     {
         "log": "bad_ota_rollback.log",
-        "expected_ids": ["OTA_ROLLBACK"],
+        "allowed_ids": ["OTA_ROLLBACK"],
         "expected_exit": 0,
-        "expected_category_counts": {"software": 1},
+        "expected_category_counts": {"software": 1, "hardware": 0, "architecture": 1},
     },
     {
         "log": "bad_brownout.log",
-        "expected_ids": ["BROWNOUT_RESET"],
-        "forbidden_ids": ["QUEUE_FULL", "WDT_RESET"],
+        "allowed_ids": ["BROWNOUT_RESET"],  # 精确：不允许 WDT_RESET 等误报
         "expected_exit": 0,
-        "expected_category_counts": {"hardware": 1},
+        "expected_category_counts": {"software": 0, "hardware": 1, "architecture": 0},
     },
     {
         "log": "bad_i2c_no_ack.log",
-        "expected_ids": ["PERIPHERAL_NO_ACK"],
+        "allowed_ids": ["PERIPHERAL_NO_ACK"],
         "expected_exit": 0,
-        "expected_category_counts": {"hardware": 1},
+        "expected_category_counts": {"software": 0, "hardware": 1, "architecture": 0},
     },
     {
         "log": "bad_lifecycle_chaos.log",
-        "expected_ids": ["LIFECYCLE_CHAOS"],
-        "forbidden_ids": ["WDT_RESET", "BROWNOUT_RESET"],
+        "allowed_ids": ["LIFECYCLE_CHAOS"],
         "expected_exit": 0,
-        "expected_category_counts": {"architecture": 1},
+        "expected_category_counts": {"software": 0, "hardware": 0, "architecture": 1},
     },
     {
         "log": "bad_priority_inversion.log",
-        "expected_ids": ["UNCLEAR_TOPOLOGY"],
-        "forbidden_ids": ["BROWNOUT_RESET", "PERIPHERAL_NO_ACK"],
+        "allowed_ids": ["UNCLEAR_TOPOLOGY", "WDT_RESET"],  # WDT 是联动症状
         "expected_exit": 0,
-        "expected_category_counts": {"software": 1, "architecture": 2},  # WDT_RESET(sw) + UNCLEAR_TOPOLOGY(arch) + arch flags
+        "expected_category_counts": {"software": 1, "hardware": 0, "architecture": 2},
     },
 ]
 
@@ -153,12 +148,18 @@ def check_all() -> dict:
             for s in r.get(key, []):
                 all_ids.add(s.get("symptom_id", ""))
 
-        # expected_ids
-        for eid in case.get("expected_ids", []):
-            if eid not in all_ids:
-                errors.append(f"expected {eid} not found")
+        # allowed_ids（精确集合）：多出的 symptom 直接 fail
+        allowed = case.get("allowed_ids")
+        if allowed is not None:
+            allowed_set = set(allowed)
+            extra = all_ids - allowed_set
+            if extra:
+                errors.append(f"unexpected symptoms: {sorted(extra)}")
+            missing = allowed_set - all_ids
+            if missing:
+                errors.append(f"expected symptoms missing: {sorted(missing)}")
 
-        # forbidden_ids
+        # forbidden_ids（向后兼容）
         for fid in case.get("forbidden_ids", []):
             if fid in all_ids:
                 errors.append(f"forbidden {fid} found")
