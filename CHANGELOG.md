@@ -1,5 +1,19 @@
 # Changelog
 
+## 10.0.8 — 2026-07-02
+
+V10 大版本：从"可交付固件工程实验室"升级为"可托管固件工程代理系统"。
+Major refactor: codex_supervisor.py 从单 --task 重构为 plan/gate/run/verify/status/queue 六子命令架构，20x 托管效率提升。
+
+- **v10.0.1**：托管协议定型 — 新增 `job.schema.json`、`gate_decision.schema.json`、`supervisor_report.schema.json`，5 个 schema 完整覆盖 Job→Plan→Gate→AgentResult→Report 全链路
+- **v10.0.2**：Codex Supervisor MVP — `codex_supervisor.py` 重构为 `plan`/`gate`/`run`/`verify`/`status`/`queue` 子命令架构，每次运行生成 `run_id`、JSONL 日志、完整报告
+- **v10.0.3**：工作区隔离与脏树保护 — 运行前 `git status` 检测脏树，执行阶段强制 branch 隔离，保护 `.git`/secrets/credentials/SDK 等路径
+- **v10.0.4**：自动门禁策略引擎 — 8 道门禁（保护路径/危险命令/风险偏好/critical 阻断/destructive/网络/文件范围/修改量），综合风险评分 0-100
+- **v10.0.5**：交付报告聚合 — `supervisor_report.json` + `.md`，聚合 Plan+Gate+AgentResult+Evidence+diff+验证，包含复现命令和回滚方式
+- **v10.0.6**：失败恢复与有界重试 — 失败带验证错误重试，每轮重新 gate，最多 N 轮，保留 run 目录/diff/日志
+- **v10.0.7**：启动 Hook 与托管队列 — `.codex/jobs/*.json` 任务队列约定，SessionStart hook 做 preflight/status 提醒
+- **v10.0.8**：V10 收口 — `codex_supervisor.py --self-test` 12 项全绿，forward tests 增加托管场景，SKILL/Lite/CHANGELOG 更新
+
 ## 9.0.8 — 2026-07-02
 
 V9 大版本：从"可信自动化控制平面"升级为"可交付固件工程实验室"。

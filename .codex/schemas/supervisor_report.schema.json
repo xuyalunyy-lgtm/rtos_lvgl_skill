@@ -1,0 +1,147 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://freertos-skill.dev/schemas/supervisor_report.json",
+  "title": "Codex Supervisor — Supervisor Report",
+  "description": "最终托管交付报告。聚合 Plan、Gate、AgentResult、Evidence、ReproBundle、diff、验证结果。",
+  "type": "object",
+  "required": ["run_id", "job_id", "status", "started_at"],
+  "properties": {
+    "run_id": {
+      "type": "string",
+      "description": "本次运行唯一 ID"
+    },
+    "job_id": {
+      "type": "string",
+      "description": "关联的 Job ID"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["success", "failed", "aborted", "dry_run", "needs_confirmation", "timeout"],
+      "description": "最终状态"
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "finished_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "duration_seconds": {
+      "type": "number"
+    },
+    "iterations": {
+      "type": "integer",
+      "description": "实际迭代次数"
+    },
+    "max_iterations": {
+      "type": "integer",
+      "description": "最大允许迭代次数"
+    },
+    "branch": {
+      "type": "string",
+      "description": "执行分支名"
+    },
+    "isolation_mode": {
+      "type": "string",
+      "enum": ["branch", "worktree", "none"]
+    },
+    "plan": {
+      "type": "object",
+      "description": "Plan 阶段输出（符合 plan.schema.json）"
+    },
+    "gate_decisions": {
+      "type": "array",
+      "description": "每轮的门禁决策历史",
+      "items": {
+        "type": "object",
+        "description": "符合 gate_decision.schema.json"
+      }
+    },
+    "agent_results": {
+      "type": "array",
+      "description": "每轮的执行结果历史",
+      "items": {
+        "type": "object",
+        "description": "符合 agent_result.schema.json"
+      }
+    },
+    "verification_results": {
+      "type": "array",
+      "description": "每轮的验证结果历史",
+      "items": {
+        "type": "object",
+        "properties": {
+          "iteration": {"type": "integer"},
+          "all_passed": {"type": "boolean"},
+          "checks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {"type": "string"},
+                "passed": {"type": "boolean"},
+                "output": {"type": "string"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "diff_stat": {
+      "type": "string",
+      "description": "git diff --stat 输出"
+    },
+    "diff_summary": {
+      "type": "object",
+      "description": "diff 摘要统计",
+      "properties": {
+        "files_changed": {"type": "integer"},
+        "insertions": {"type": "integer"},
+        "deletions": {"type": "integer"}
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "description": "关联的 DeliveryEvidence（符合 evidence_schema）"
+    },
+    "repro_bundle": {
+      "type": "object",
+      "description": "关联的 ReproBundle（符合 repro_bundle schema）"
+    },
+    "reproduce_commands": {
+      "type": "array",
+      "description": "复现此运行的命令列表",
+      "items": {
+        "type": "object",
+        "properties": {
+          "cmd": {"type": "string"},
+          "description": {"type": "string"}
+        }
+      }
+    },
+    "rollback_command": {
+      "type": "string",
+      "description": "回滚此运行的命令"
+    },
+    "remaining_risks": {
+      "type": "array",
+      "description": "运行后仍存在的风险",
+      "items": {"type": "string"}
+    },
+    "errors": {
+      "type": "array",
+      "description": "运行过程中的错误",
+      "items": {"type": "string"}
+    },
+    "warnings": {
+      "type": "array",
+      "description": "运行过程中的警告",
+      "items": {"type": "string"}
+    },
+    "log_path": {
+      "type": "string",
+      "description": "JSONL 日志文件路径"
+    }
+  }
+}

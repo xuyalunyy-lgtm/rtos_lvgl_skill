@@ -1,0 +1,2 @@
+{"timestamp": "2026-07-02T02:13:57.459339+00:00", "event": "info", "message": "开始: 修复 cjson_leak_checker 对空 JSON 字符串的误报：空字符串不应触发 C3 泄漏警告"}
+{"timestamp": "2026-07-02T02:13:57.496207+00:00", "event": "dirty_tree_detected", "files": "M scripts/codex_supervisor.py\n?? .codex/jobs/\n?? .codex/runs/\n?? .codex/schemas/gate_decision.schema.json\n?? .codex/schemas/job.schema.json\n?? .codex/schemas/supervisor_report.schema.json"}

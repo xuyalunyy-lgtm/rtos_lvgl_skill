@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://freertos-skill.dev/schemas/job.json",
+  "title": "Codex Supervisor — Job Definition",
+  "description": "任务定义文件。描述一个可托管执行的 Codex 任务，放在 .codex/jobs/ 下。",
+  "type": "object",
+  "required": ["job_id", "intent", "created_at"],
+  "properties": {
+    "job_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]{4,64}$",
+      "description": "任务唯一 ID（小写字母+数字+连字符）"
+    },
+    "intent": {
+      "type": "string",
+      "description": "任务意图的自然语言描述",
+      "minLength": 5,
+      "maxLength": 1000
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "任务创建时间（ISO 8601）"
+    },
+    "priority": {
+      "type": "string",
+      "enum": ["low", "normal", "high", "urgent"],
+      "default": "normal",
+      "description": "任务优先级"
+    },
+    "allowed_paths": {
+      "type": "array",
+      "description": "允许修改的路径前缀列表（空=使用默认白名单）",
+      "items": {"type": "string"}
+    },
+    "blocked_paths": {
+      "type": "array",
+      "description": "额外禁止修改的路径（叠加到默认保护列表）",
+      "items": {"type": "string"}
+    },
+    "allowed_commands": {
+      "type": "array",
+      "description": "允许运行的命令前缀列表（空=使用默认白名单）",
+      "items": {"type": "string"}
+    },
+    "blocked_commands": {
+      "type": "array",
+      "description": "额外禁止的命令模式",
+      "items": {"type": "string"}
+    },
+    "risk_preference": {
+      "type": "string",
+      "enum": ["auto_low", "auto_medium", "manual_high", "reject_critical"],
+      "default": "auto_low",
+      "description": "风险偏好：auto_low=低风险自动执行，auto_medium=中风险也自动，manual_high=高风险需确认，reject_critical=拒绝关键风险"
+    },
+    "max_iterations": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 10,
+      "default": 3,
+      "description": "最大重试次数"
+    },
+    "require_clean_worktree": {
+      "type": "boolean",
+      "default": true,
+      "description": "是否要求干净工作区"
+    },
+    "isolation_mode": {
+      "type": "string",
+      "enum": ["branch", "worktree", "none"],
+      "default": "branch",
+      "description": "隔离模式：branch=新分支，worktree=独立 worktree，none=不隔离（危险）"
+    },
+    "verification_commands": {
+      "type": "array",
+      "description": "自定义验证命令列表（追加到默认验证套件）",
+      "items": {
+        "type": "object",
+        "required": ["cmd"],
+        "properties": {
+          "cmd": {"type": "string"},
+          "description": {"type": "string"},
+          "timeout_seconds": {"type": "integer", "default": 120}
+        }
+      }
+    },
+    "acceptance_criteria": {
+      "type": "array",
+      "description": "验收条件（自然语言描述，供报告引用）",
+      "items": {"type": "string"}
+    },
+    "rollback_strategy": {
+      "type": "string",
+      "enum": ["delete_branch", "revert_commit", "stash", "none"],
+      "default": "delete_branch",
+      "description": "回滚策略"
+    },
+    "context": {
+      "type": "string",
+      "description": "额外上下文信息（文件路径、issue 链接等）",
+      "maxLength": 5000
+    },
+    "tags": {
+      "type": "array",
+      "description": "任务标签（用于过滤和分组）",
+      "items": {"type": "string"}
+    },
+    "depends_on": {
+      "type": "array",
+      "description": "依赖的其他 job_id",
+      "items": {"type": "string"}
+    },
+    "timeout_seconds": {
+      "type": "integer",
+      "default": 600,
+      "description": "整个任务的超时时间"
+    }
+  }
+}

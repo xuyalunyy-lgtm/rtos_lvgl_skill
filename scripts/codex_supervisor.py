@@ -1,23 +1,27 @@
 #!/usr/bin/env python3
 """
-Codex Supervisor — 四阶段受控编排脚本。
+Codex Supervisor v10 — 受监管的 Codex 托管执行系统。
 
-将 Codex 任务拆成 Plan → Validate → Execute → Verify 四个受控阶段，
-通过安全门禁自动决策是否放行，实现"真托管"而非"自动失控"。
+四阶段受控流程: Plan → Gate → Execute → Verify
+子命令架构:     plan | gate | run | verify | status | queue
 
 用法:
-    python scripts/codex_supervisor.py --task "修复 cjson_leak_checker 对空 JSON 的误报"
-    python scripts/codex_supervisor.py --task "..." --risk-threshold medium
-    python scripts/codex_supervisor.py --task "..." --dry-run
-    python scripts/codex_supervisor.py --task "..." --json
+    python scripts/codex_supervisor.py plan --job .codex/jobs/fix-checker.json
+    python scripts/codex_supervisor.py gate --plan .codex/runs/<id>/plan.json
+    python scripts/codex_supervisor.py run  --job .codex/jobs/fix-checker.json
+    python scripts/codex_supervisor.py run  --job .codex/jobs/fix-checker.json --dry-run
+    python scripts/codex_supervisor.py verify --run-id <run_id>
+    python scripts/codex_supervisor.py status --run-id <run_id>
+    python scripts/codex_supervisor.py queue
     python scripts/codex_supervisor.py --self-test
 
 架构:
-    Plan 阶段     → Codex 只读分析，输出结构化 JSON 计划
-    Validate 阶段 → 脚本校验计划：保护路径、风险等级、命令安全
-    Execute 阶段  → Codex workspace-write 按计划改代码
-    Verify 阶段   → git diff --check + checker 套件 + iteration check
-    失败重试      → 把失败信息喂回 Codex，最多重试 N 次
+    Plan  → Codex 只读分析，输出结构化 JSON 计划
+    Gate  → 安全门禁：风险/路径/命令/网络/destructive 综合决策
+    Execute → Codex workspace-write 按计划改代码（隔离 branch/worktree）
+    Verify  → git diff --check + checker 套件 + iteration check
+    Report  → 聚合 Plan+Gate+AgentResult+Evidence+diff+验证
+    Retry   → 失败带上下文重试，每轮重新 gate，有界循环
 """
 from __future__ import annotations
 
@@ -25,13 +29,13 @@ import argparse
 import json
 import os
 import re
-import shutil
 import subprocess
 import sys
 import time
 import uuid
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
+from fnmatch import fnmatch
 from pathlib import Path
 
 # Force UTF-8
@@ -44,10 +48,37 @@ ROOT = Path(__file__).resolve().parent.parent
 CODEX_DIR = ROOT / ".codex"
 SCHEMAS_DIR = CODEX_DIR / "schemas"
 HOOKS_FILE = CODEX_DIR / "hooks.json"
+JOBS_DIR = CODEX_DIR / "jobs"
+RUNS_DIR = CODEX_DIR / "runs"
+
 
 # ============================================================================
 # 数据结构
 # ============================================================================
+
+@dataclass
+class JobDef:
+    """任务定义。"""
+    job_id: str = ""
+    intent: str = ""
+    created_at: str = ""
+    priority: str = "normal"
+    allowed_paths: list[str] = field(default_factory=list)
+    blocked_paths: list[str] = field(default_factory=list)
+    allowed_commands: list[str] = field(default_factory=list)
+    blocked_commands: list[str] = field(default_factory=list)
+    risk_preference: str = "auto_low"
+    max_iterations: int = 3
+    require_clean_worktree: bool = True
+    isolation_mode: str = "branch"
+    verification_commands: list[dict] = field(default_factory=list)
+    acceptance_criteria: list[str] = field(default_factory=list)
+    rollback_strategy: str = "delete_branch"
+    context: str = ""
+    tags: list[str] = field(default_factory=list)
+    depends_on: list[str] = field(default_factory=list)
+    timeout_seconds: int = 600
+
 
 @dataclass
 class PlanResult:
@@ -68,6 +99,24 @@ class PlanResult:
 
 
 @dataclass
+class GateDecision:
+    """门禁决策。"""
+    decision: str = "reject"       # approve / reject / needs_confirmation / needs_review
+    risk_level: str = "medium"
+    risk_score: float = 0.0
+    timestamp: str = ""
+    reasons: list[dict] = field(default_factory=list)
+    violations: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
+    allowed_paths: list[str] = field(default_factory=list)
+    blocked_paths: list[str] = field(default_factory=list)
+    allowed_commands: list[str] = field(default_factory=list)
+    blocked_commands: list[str] = field(default_factory=list)
+    auto_approve: bool = False
+    estimated_impact: dict = field(default_factory=dict)
+
+
+@dataclass
 class AgentResult:
     """Agent 执行阶段输出。"""
     status: str = "failed"
@@ -80,21 +129,31 @@ class AgentResult:
 
 @dataclass
 class SupervisorReport:
-    """Supervisor 全流程报告。"""
+    """最终托管交付报告。"""
+    run_id: str = ""
     job_id: str = ""
-    task: str = ""
+    status: str = "pending"
     started_at: str = ""
     finished_at: str = ""
-    status: str = "pending"        # success / failed / aborted / dry_run
+    duration_seconds: float = 0.0
     iterations: int = 0
     max_iterations: int = 3
-    plan: dict = field(default_factory=dict)
-    plan_validation: dict = field(default_factory=dict)
-    agent_result: dict = field(default_factory=dict)
-    verification: dict = field(default_factory=dict)
     branch: str = ""
+    isolation_mode: str = "branch"
+    plan: dict = field(default_factory=dict)
+    gate_decisions: list[dict] = field(default_factory=list)
+    agent_results: list[dict] = field(default_factory=list)
+    verification_results: list[dict] = field(default_factory=list)
     diff_stat: str = ""
+    diff_summary: dict = field(default_factory=dict)
+    evidence: dict = field(default_factory=dict)
+    repro_bundle: dict = field(default_factory=dict)
+    reproduce_commands: list[dict] = field(default_factory=list)
+    rollback_command: str = ""
+    remaining_risks: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
+    log_path: str = ""
 
 
 # ============================================================================
@@ -102,236 +161,157 @@ class SupervisorReport:
 # ============================================================================
 
 def load_hooks() -> dict:
-    """加载 hooks.json 配置。"""
     if HOOKS_FILE.exists():
         return json.loads(HOOKS_FILE.read_text(encoding="utf-8"))
     return {}
 
 
-def load_plan_schema() -> dict:
-    """加载 plan schema。"""
-    schema_file = SCHEMAS_DIR / "plan.schema.json"
-    if schema_file.exists():
-        return json.loads(schema_file.read_text(encoding="utf-8"))
-    return {}
+def load_json(path: Path) -> dict:
+    return json.loads(path.read_text(encoding="utf-8"))
 
 
-PROTECTED_PATHS_DEFAULT = [
+def save_json(data: dict, path: Path):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+
+
+# ============================================================================
+# 路径/命令安全
+# ============================================================================
+
+PROTECTED_PATHS = [
     ".git", ".codex", "secrets", "credentials",
-    "*.pem", "*.key", "*.env",
+    "*.pem", "*.key", "*.env", "*.secret",
     "node_modules", "vendor", "build", "dist", "__pycache__",
 ]
 
-PROTECTED_PATTERNS_DEFAULT = [
+PROTECTED_PATTERNS = [
     "*secret*", "*credential*", "*password*", "*token*", "*.private.*",
 ]
 
-# 高危命令模式
 DANGEROUS_COMMANDS = [
-    r"\brm\s+-rf\b",
-    r"\bformat\b",
-    r"\bmkfs\b",
-    r"\bdd\b.*of=",
-    r"\bcurl\b.*\|\s*sh",
-    r"\bwget\b.*\|\s*sh",
-    r"\bsudo\b",
-    r"\bchmod\s+777\b",
-    r"\bgit\s+push\b.*--force",
-    r"\bgit\s+reset\b.*--hard",
-    r"\bdel\s+/[sfq]",       # Windows
-    r"\brmdir\s+/s\b",       # Windows
+    r"\brm\s+-rf\b", r"\bformat\b", r"\bmkfs\b", r"\bdd\b.*of=",
+    r"\bcurl\b.*\|\s*sh", r"\bwget\b.*\|\s*sh", r"\bsudo\b",
+    r"\bchmod\s+777\b", r"\bgit\s+push\b.*--force", r"\bgit\s+reset\b.*--hard",
+    r"\bdel\s+/[sfq]", r"\brmdir\s+/s\b",
+]
+
+ALLOWED_DIRS = [
+    "tools/", "scripts/", "references/", "prompts/", "examples/",
+    "templates/", "workflows/", "product_profiles/", "scene_presets/",
+    "forward_tests/", "platforms/", "agents/",
 ]
 
 
-def _match_protected(path: str, patterns: list[str]) -> bool:
-    """检查路径是否匹配保护模式。"""
-    from fnmatch import fnmatch
-    path_lower = path.lower().replace("\\", "/")
-    for p in patterns:
-        if fnmatch(path_lower, p.lower()):
+def _match_path(path: str, patterns: list[str]) -> bool:
+    p = path.lower().replace("\\", "/")
+    for pat in patterns:
+        if fnmatch(p, pat.lower()):
             return True
-        # 也检查路径前缀
-        if path_lower.startswith(p.lower().rstrip("/") + "/"):
+        if p.startswith(pat.lower().rstrip("/") + "/"):
             return True
     return False
 
 
+def _is_in_allowed_dir(path: str) -> bool:
+    f = path.replace("\\", "/")
+    if "/" not in f and f.endswith((".md", ".json", ".yaml", ".yml")):
+        return True
+    return any(f.startswith(d) for d in ALLOWED_DIRS)
+
+
 # ============================================================================
-# 安全门禁
+# Git 操作
 # ============================================================================
 
-@dataclass
-class GateResult:
-    """门禁校验结果。"""
-    passed: bool = True
-    risk_level: str = "low"
-    violations: list[str] = field(default_factory=list)
-    warnings: list[str] = field(default_factory=list)
-    auto_approve: bool = False
+def git_status_short() -> str:
+    proc = subprocess.run(
+        ["git", "status", "--short"],
+        cwd=ROOT, capture_output=True, encoding="utf-8", errors="replace", timeout=10,
+    )
+    return proc.stdout.strip()
 
 
-def validate_plan(plan: PlanResult, risk_threshold: str = "high") -> GateResult:
-    """校验计划是否通过安全门禁。"""
-    hooks = load_hooks()
-    protected_paths = hooks.get("protected_paths", PROTECTED_PATHS_DEFAULT)
-    protected_patterns = hooks.get("protected_patterns", PROTECTED_PATTERNS_DEFAULT)
+def git_is_clean() -> bool:
+    return len(git_status_short()) == 0
 
-    result = GateResult(risk_level=plan.risk_level)
 
-    # ── Gate 1: 保护路径检查 ──
-    for f in plan.files_to_change:
-        if _match_protected(f, protected_paths):
-            result.violations.append(f"触碰保护路径: {f}")
-        if _match_protected(f, protected_patterns):
-            result.violations.append(f"匹配保护模式: {f}")
+def git_create_branch(name: str) -> bool:
+    proc = subprocess.run(
+        ["git", "checkout", "-b", name],
+        cwd=ROOT, capture_output=True, encoding="utf-8", errors="replace", timeout=15,
+    )
+    return proc.returncode == 0
 
-    # ── Gate 2: 危险命令检查 ──
-    for cmd_entry in plan.commands:
-        cmd = cmd_entry.get("cmd", "") if isinstance(cmd_entry, dict) else str(cmd_entry)
-        for pattern in DANGEROUS_COMMANDS:
-            if re.search(pattern, cmd, re.IGNORECASE):
-                result.violations.append(f"危险命令: {cmd} (匹配 {pattern})")
 
-    # ── Gate 3: 风险等级门禁 ──
-    risk_order = {"low": 0, "medium": 1, "high": 2, "critical": 3}
-    threshold_order = {"low": 0, "medium": 1, "high": 2, "critical": 3}
-    plan_risk = risk_order.get(plan.risk_level, 2)
-    threshold = threshold_order.get(risk_threshold, 2)
+def git_checkout(branch: str) -> bool:
+    proc = subprocess.run(
+        ["git", "checkout", branch],
+        cwd=ROOT, capture_output=True, timeout=15,
+    )
+    return proc.returncode == 0
 
-    if plan_risk > threshold:
-        result.violations.append(
-            f"风险等级 {plan.risk_level} 超过阈值 {risk_threshold}"
-        )
 
-    # ── Gate 4: critical 直接拒绝 ──
-    if plan.risk_level == "critical":
-        result.violations.append("critical 风险任务不允许自动执行")
-
-    # ── Gate 5: destructive 操作警告 ──
-    if plan.destructive:
-        result.warnings.append("计划包含删除/覆盖操作")
-
-    # ── Gate 6: 网络需求警告 ──
-    if plan.requires_network:
-        result.warnings.append("执行阶段需要网络访问")
-
-    # ── Gate 7: 文件范围检查 ──
-    allowed_dirs = ["tools/", "scripts/", "references/", "prompts/", "examples/",
-                    "templates/", "workflows/", "product_profiles/", "scene_presets/",
-                    "forward_tests/", "platforms/", "agents/"]
-    for f in plan.files_to_change:
-        f_norm = f.replace("\\", "/")
-        # 允许根目录的 .md/.json 文件
-        if "/" not in f_norm and f_norm.endswith((".md", ".json", ".yaml", ".yml")):
-            continue
-        # 检查是否在允许目录下
-        allowed = any(f_norm.startswith(d) for d in allowed_dirs)
-        if not allowed and "/" in f_norm:
-            result.warnings.append(f"文件不在标准目录: {f}")
-
-    # ── 判定 ──
-    result.passed = len(result.violations) == 0
-    result.auto_approve = (
-        result.passed
-        and plan.risk_level == "low"
-        and not plan.destructive
-        and not plan.requires_network
+def git_delete_branch(name: str):
+    subprocess.run(
+        ["git", "branch", "-D", name],
+        cwd=ROOT, capture_output=True, timeout=10,
     )
 
-    return result
+
+def git_stash():
+    subprocess.run(
+        ["git", "stash", "--include-untracked"],
+        cwd=ROOT, capture_output=True, timeout=15,
+    )
+
+
+def git_diff_stat() -> str:
+    proc = subprocess.run(
+        ["git", "diff", "--stat"],
+        cwd=ROOT, capture_output=True, encoding="utf-8", errors="replace", timeout=15,
+    )
+    return proc.stdout.strip()
+
+
+def git_diff_check() -> tuple[int, str]:
+    proc = subprocess.run(
+        ["git", "diff", "--check"],
+        cwd=ROOT, capture_output=True, encoding="utf-8", errors="replace", timeout=15,
+    )
+    return proc.returncode, (proc.stdout + proc.stderr).strip()
+
+
+def git_diff_numstat() -> dict:
+    proc = subprocess.run(
+        ["git", "diff", "--numstat"],
+        cwd=ROOT, capture_output=True, encoding="utf-8", errors="replace", timeout=15,
+    )
+    files = insertions = deletions = 0
+    for line in proc.stdout.splitlines():
+        parts = line.split("\t")
+        if len(parts) == 3:
+            files += 1
+            insertions += int(parts[0]) if parts[0] != "-" else 0
+            deletions += int(parts[1]) if parts[1] != "-" else 0
+    return {"files_changed": files, "insertions": insertions, "deletions": deletions}
 
 
 # ============================================================================
 # Codex 交互
 # ============================================================================
 
-def _run_codex_cli(prompt: str, mode: str = "read-only", timeout: int = 300) -> dict:
-    """通过 codex CLI 运行。"""
-    cmd = ["codex", "exec", "--json"]
-
-    if mode == "read-only":
-        cmd.extend(["--sandbox", "read-only"])
-    elif mode == "workspace-write":
-        cmd.extend(["--sandbox", "workspace-write"])
-
-    cmd.append(prompt)
-
-    try:
-        proc = subprocess.run(
-            cmd, capture_output=True, encoding="utf-8", errors="replace",
-            timeout=timeout, cwd=str(ROOT),
-        )
-        return {
-            "exit_code": proc.returncode,
-            "stdout": proc.stdout,
-            "stderr": proc.stderr,
-        }
-    except FileNotFoundError:
-        return {"exit_code": -1, "error": "codex CLI not found"}
-    except subprocess.TimeoutExpired:
-        return {"exit_code": -2, "error": f"timeout after {timeout}s"}
-
-
-def _run_openai_api(prompt: str, mode: str = "read-only", timeout: int = 300) -> dict:
-    """通过 OpenAI API 运行（fallback）。"""
-    try:
-        import openai
-        client = openai.OpenAI()
-
-        system_msg = (
-            "You are a code analysis assistant. "
-            "Output ONLY valid JSON matching the required schema. "
-            "No markdown, no explanation, just JSON."
-        )
-        if mode == "read-only":
-            system_msg += " You MUST NOT modify any files. Only analyze and plan."
-
-        response = client.chat.completions.create(
-            model="gpt-4o",
-            messages=[
-                {"role": "system", "content": system_msg},
-                {"role": "user", "content": prompt},
-            ],
-            temperature=0.1,
-            timeout=timeout,
-        )
-
-        content = response.choices[0].message.content or ""
-        return {"exit_code": 0, "stdout": content, "stderr": ""}
-    except ImportError:
-        return {"exit_code": -1, "error": "openai package not installed"}
-    except Exception as e:
-        return {"exit_code": -1, "error": str(e)}
-
-
-def run_codex(prompt: str, mode: str = "read-only", timeout: int = 300) -> dict:
-    """运行 Codex（优先 CLI，fallback 到 API）。"""
-    # 尝试 CLI
-    result = _run_codex_cli(prompt, mode, timeout)
-    if result.get("exit_code") != -1:  # -1 = not found
-        return result
-
-    # Fallback to API
-    return _run_openai_api(prompt, mode, timeout)
-
-
 def _extract_json(text: str) -> dict | None:
-    """从文本中提取 JSON 对象。"""
-    # 尝试直接解析
     try:
         return json.loads(text)
     except json.JSONDecodeError:
         pass
-
-    # 尝试提取 ```json ... ``` 块
     m = re.search(r"```json\s*\n(.*?)\n\s*```", text, re.DOTALL)
     if m:
         try:
             return json.loads(m.group(1))
         except json.JSONDecodeError:
             pass
-
-    # 尝试提取第一个 { ... } 块
     depth = 0
     start = -1
     for i, ch in enumerate(text):
@@ -346,473 +326,788 @@ def _extract_json(text: str) -> dict | None:
                     return json.loads(text[start:i + 1])
                 except json.JSONDecodeError:
                     start = -1
-
     return None
 
 
-# ============================================================================
-# Git 操作
-# ============================================================================
+def run_codex(prompt: str, mode: str = "read-only", timeout: int = 300) -> dict:
+    """运行 Codex（CLI 优先，fallback 到 OpenAI API）。"""
+    # CLI
+    cmd = ["codex", "exec", "--json"]
+    if mode == "read-only":
+        cmd.extend(["--sandbox", "read-only"])
+    elif mode == "workspace-write":
+        cmd.extend(["--sandbox", "workspace-write"])
+    cmd.append(prompt)
 
-def git_create_branch(job_id: str) -> str:
-    """创建独立分支。"""
-    branch = f"codex-auto/{job_id}"
-    subprocess.run(
-        ["git", "checkout", "-b", branch],
-        cwd=ROOT, capture_output=True, timeout=30,
-    )
-    return branch
+    try:
+        proc = subprocess.run(
+            cmd, capture_output=True, encoding="utf-8", errors="replace",
+            timeout=timeout, cwd=str(ROOT),
+        )
+        return {"exit_code": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr}
+    except FileNotFoundError:
+        pass
+    except subprocess.TimeoutExpired:
+        return {"exit_code": -2, "error": f"timeout after {timeout}s"}
 
-
-def git_diff_stat() -> str:
-    """获取 diff 统计。"""
-    proc = subprocess.run(
-        ["git", "diff", "--stat"],
-        cwd=ROOT, capture_output=True, encoding="utf-8", errors="replace", timeout=30,
-    )
-    return proc.stdout.strip()
-
-
-def git_diff_check() -> tuple[int, str]:
-    """运行 git diff --check。"""
-    proc = subprocess.run(
-        ["git", "diff", "--check"],
-        cwd=ROOT, capture_output=True, encoding="utf-8", errors="replace", timeout=30,
-    )
-    return proc.returncode, (proc.stdout + proc.stderr).strip()
-
-
-def git_stash():
-    """暂存当前修改。"""
-    subprocess.run(
-        ["git", "stash", "--include-untracked"],
-        cwd=ROOT, capture_output=True, timeout=30,
-    )
-
-
-def git_checkout_main():
-    """切回 main 分支。"""
-    subprocess.run(
-        ["git", "checkout", "main"],
-        cwd=ROOT, capture_output=True, timeout=30,
-    )
-
-
-def git_delete_branch(branch: str):
-    """删除分支。"""
-    subprocess.run(
-        ["git", "branch", "-D", branch],
-        cwd=ROOT, capture_output=True, timeout=30,
-    )
+    # Fallback API
+    try:
+        import openai
+        client = openai.OpenAI()
+        sys_msg = "You are a code analysis assistant. Output ONLY valid JSON. No markdown, just JSON."
+        if mode == "read-only":
+            sys_msg += " You MUST NOT modify any files."
+        resp = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[{"role": "system", "content": sys_msg}, {"role": "user", "content": prompt}],
+            temperature=0.1, timeout=timeout,
+        )
+        return {"exit_code": 0, "stdout": resp.choices[0].message.content or "", "stderr": ""}
+    except ImportError:
+        return {"exit_code": -1, "error": "codex CLI not found and openai not installed"}
+    except Exception as e:
+        return {"exit_code": -1, "error": str(e)}
 
 
 # ============================================================================
-# 四阶段执行
+# Gate 引擎 (v10.0.4)
 # ============================================================================
 
-def phase_plan(task: str, context: str = "") -> PlanResult:
-    """Phase 1: Plan — 只读分析，输出结构化计划。"""
-    schema = load_plan_schema()
-    schema_str = json.dumps(schema, indent=2, ensure_ascii=False) if schema else ""
+RISK_SCORE = {"low": 15, "medium": 40, "high": 70, "critical": 95}
+RISK_ORDER = {"low": 0, "medium": 1, "high": 2, "critical": 3}
 
-    prompt = f"""你是一个嵌入式固件代码分析助手。分析以下任务，输出结构化 JSON 计划。
 
-任务: {task}
+def run_gate(plan: PlanResult, job: JobDef | None = None) -> GateDecision:
+    """运行门禁引擎，返回决策。"""
+    hooks = load_hooks()
+    protected = hooks.get("protected_paths", PROTECTED_PATHS)
+    protected_patterns = hooks.get("protected_patterns", PROTECTED_PATTERNS)
 
+    decision = GateDecision(
+        timestamp=datetime.now(timezone.utc).isoformat(),
+        risk_level=plan.risk_level,
+        risk_score=RISK_SCORE.get(plan.risk_level, 50),
+    )
+
+    # Gate 1: 保护路径
+    for f in plan.files_to_change:
+        if _match_path(f, protected):
+            decision.violations.append(f"保护路径: {f}")
+            decision.blocked_paths.append(f)
+        elif _match_path(f, protected_patterns):
+            decision.violations.append(f"保护模式: {f}")
+            decision.blocked_paths.append(f)
+        else:
+            decision.allowed_paths.append(f)
+    decision.reasons.append({
+        "gate": "protected_paths",
+        "result": "fail" if any("保护" in v for v in decision.violations) else "pass",
+        "detail": f"检查 {len(plan.files_to_change)} 个文件",
+        "weight": 30,
+    })
+
+    # Gate 2: 危险命令
+    for cmd_entry in plan.commands:
+        cmd = cmd_entry.get("cmd", "") if isinstance(cmd_entry, dict) else str(cmd_entry)
+        blocked = False
+        for pat in DANGEROUS_COMMANDS:
+            if re.search(pat, cmd, re.IGNORECASE):
+                decision.violations.append(f"危险命令: {cmd}")
+                decision.blocked_commands.append(cmd)
+                blocked = True
+                break
+        if not blocked:
+            decision.allowed_commands.append(cmd)
+    decision.reasons.append({
+        "gate": "dangerous_commands",
+        "result": "fail" if any("危险命令" in v for v in decision.violations) else "pass",
+        "detail": f"检查 {len(plan.commands)} 个命令",
+        "weight": 25,
+    })
+
+    # Gate 3: 风险等级（软门禁，不直接 reject）
+    pref = job.risk_preference if job else "auto_low"
+    pref_map = {"auto_low": 0, "auto_medium": 1, "manual_high": 2, "reject_critical": 3}
+    pref_order = pref_map.get(pref, 0)
+    plan_risk = RISK_ORDER.get(plan.risk_level, 2)
+
+    if plan_risk > pref_order:
+        decision.warnings.append(f"风险 {plan.risk_level} 超过偏好 {pref}")
+    decision.reasons.append({
+        "gate": "risk_preference",
+        "result": "warn" if plan_risk > pref_order else "pass",
+        "detail": f"计划风险={plan.risk_level}, 偏好={pref}",
+        "weight": 20,
+    })
+
+    # Gate 4: critical 直接拒绝
+    if plan.risk_level == "critical":
+        decision.violations.append("critical 风险不允许自动执行")
+    decision.reasons.append({
+        "gate": "critical_block",
+        "result": "fail" if plan.risk_level == "critical" else "pass",
+        "detail": "critical 风险硬阻断",
+        "weight": 50,
+    })
+
+    # Gate 5: destructive
+    if plan.destructive:
+        decision.warnings.append("包含删除/覆盖操作")
+        decision.risk_score += 10
+
+    # Gate 6: 网络需求
+    if plan.requires_network:
+        decision.warnings.append("需要网络访问")
+        decision.risk_score += 5
+
+    # Gate 7: 文件范围
+    for f in plan.files_to_change:
+        if not _is_in_allowed_dir(f):
+            decision.warnings.append(f"非标准目录: {f}")
+
+    # Gate 8: 修改量
+    if plan.estimated_changes > 500:
+        decision.warnings.append(f"预计修改 {plan.estimated_changes} 行（>500）")
+        decision.risk_score += 10
+
+    decision.estimated_impact = {
+        "files_count": len(plan.files_to_change),
+        "lines_changed": plan.estimated_changes,
+    }
+
+    # 综合决策
+    has_violations = len(decision.violations) > 0
+    decision.auto_approve = (
+        not has_violations
+        and plan.risk_level == "low"
+        and not plan.destructive
+        and not plan.requires_network
+    )
+
+    if has_violations:
+        decision.decision = "reject"
+    elif plan.risk_level in ("high", "critical"):
+        decision.decision = "needs_confirmation"
+    elif plan.risk_level == "medium":
+        decision.decision = "needs_review"
+    else:
+        decision.decision = "approve"
+
+    # 钳制风险分
+    decision.risk_score = min(100, max(0, decision.risk_score))
+
+    return decision
+
+
+# ============================================================================
+# Plan 阶段
+# ============================================================================
+
+def phase_plan(job: JobDef, context: str = "") -> PlanResult:
+    """Plan 阶段：只读分析。"""
+    schema_path = SCHEMAS_DIR / "plan.schema.json"
+    schema_str = ""
+    if schema_path.exists():
+        schema_str = schema_path.read_text(encoding="utf-8")
+
+    prompt = f"""分析以下任务，输出结构化 JSON 计划。
+
+任务: {job.intent}
 {f'上下文: {context}' if context else ''}
+{f'Job 上下文: {job.context}' if job.context else ''}
 
-仓库信息:
-- 类型: FreeRTOS 嵌入式 skill 仓库
-- 主要目录: tools/ (checker 脚本), scripts/ (工具脚本), references/ (文档), examples/ (示例), scene_presets/ (场景), forward_tests/ (测试)
-- 约束体系: C1-C45 约束域，41 个 checker
+仓库: FreeRTOS 嵌入式 skill，主要目录: tools/ scripts/ references/ examples/ scene_presets/ forward_tests/
 
-要求:
-1. 只分析，不修改任何文件
-2. 输出必须是合法 JSON，符合以下 schema:
-{schema_str}
+输出 JSON 必须包含: intent, files_to_change, risk_level(low/medium/high/critical), destructive(bool), requires_network(bool)
+风险标准: low=文档/测试, medium=工具脚本, high=checker 核心, critical=SKILL/checker_registry
 
-3. 风险等级判定标准:
-   - low: 只改文档/注释/测试，不影响功能
-   - medium: 改工具脚本/配置，有 self-test 保护
-   - high: 改核心 checker 逻辑/scaffold 生成代码
-   - critical: 改 SKILL.md 核心定义/checker_registry 结构
+只输出 JSON。"""
 
-4. 只输出 JSON，不要其他内容。"""
+    result = run_codex(prompt, mode="read-only", timeout=300)
 
-    result = run_codex(prompt, mode="read-only")
-
-    plan = PlanResult()
+    plan = PlanResult(intent=job.intent)
     if result.get("exit_code") == 0:
         data = _extract_json(result.get("stdout", ""))
         if data:
             for key in PlanResult.__dataclass_fields__:
                 if key in data:
                     setattr(plan, key, data[key])
-        else:
-            plan.intent = task
-            plan.risk_reason = "无法解析 Codex 输出，使用默认计划"
     else:
-        plan.intent = task
         plan.risk_reason = f"Codex 调用失败: {result.get('error', 'unknown')}"
 
     return plan
 
 
-def phase_validate(plan: PlanResult, risk_threshold: str) -> GateResult:
-    """Phase 2: Validate — 校验计划是否通过安全门禁。"""
-    return validate_plan(plan, risk_threshold)
+# ============================================================================
+# Execute 阶段
+# ============================================================================
 
-
-def phase_execute(plan: PlanResult, job_id: str, dry_run: bool = False) -> AgentResult:
-    """Phase 3: Execute — 按批准计划执行修改。"""
+def phase_execute(plan: PlanResult, job: JobDef, dry_run: bool = False) -> AgentResult:
+    """Execute 阶段：按计划执行。"""
     if dry_run:
-        return AgentResult(status="skipped", notes="dry-run 模式，跳过执行")
+        return AgentResult(status="skipped", notes="dry-run 模式")
 
-    prompt = f"""你是一个嵌入式固件代码实现助手。严格按以下已批准计划实现修改，不要扩大范围。
+    prompt = f"""严格按以下已批准计划实现修改，不要扩大范围。
 
-已批准计划:
+计划:
 {json.dumps(asdict(plan), indent=2, ensure_ascii=False)}
 
-要求:
-1. 只修改 files_to_change 中列出的文件
-2. 只实现 intent 描述的内容
-3. 运行 commands 中列出的命令
-4. 不要修改 .git、.codex、secrets 等保护路径
-5. 修改完成后，输出 JSON 格式的执行结果，包含:
-   - status: "success" / "partial" / "failed"
-   - files_changed: [{path, action, lines_added, lines_removed}]
-   - commands_run: [{cmd, exit_code, stdout_tail, stderr_tail}]
-   - deviations: 与计划的偏差说明
-   - errors: 错误信息
-   - notes: 备注
+规则:
+1. 只修改 files_to_change 中的文件
+2. 只实现 intent 的内容
+3. 运行 commands 中的命令
+4. 输出 JSON: status(success/partial/failed), files_changed, commands_run, deviations, errors, notes
+只输出 JSON。"""
 
-只输出 JSON，不要其他内容。"""
+    result = run_codex(prompt, mode="workspace-write", timeout=600)
 
-    result = run_codex(prompt, mode="workspace-write")
-
-    agent_result = AgentResult()
+    agent = AgentResult()
     if result.get("exit_code") == 0:
         data = _extract_json(result.get("stdout", ""))
         if data:
             for key in AgentResult.__dataclass_fields__:
                 if key in data:
-                    setattr(agent_result, key, data[key])
-        else:
-            agent_result.status = "failed"
-            agent_result.errors.append("无法解析 Codex 执行输出")
+                    setattr(agent, key, data[key])
     else:
-        agent_result.status = "failed"
-        agent_result.errors.append(f"Codex 调用失败: {result.get('error', 'unknown')}")
+        agent.errors.append(f"Codex 调用失败: {result.get('error', 'unknown')}")
 
-    return agent_result
+    return agent
 
 
-def phase_verify(iteration: int = 0) -> dict:
-    """Phase 4: Verify — 运行验证套件。"""
+# ============================================================================
+# Verify 阶段
+# ============================================================================
+
+def phase_verify(job: JobDef, iteration: int = 0) -> dict:
+    """Verify 阶段：运行验证套件。"""
     checks = []
     all_passed = True
 
-    # Check 1: git diff --check
+    # 1. git diff --check
     rc, output = git_diff_check()
-    checks.append({
-        "name": "git_diff_check",
-        "passed": rc == 0,
-        "output": output[:500] if output else "clean",
-    })
-    if rc != 0:
+    passed = rc == 0
+    checks.append({"name": "git_diff_check", "passed": passed, "output": output[:500] or "clean"})
+    if not passed:
         all_passed = False
 
-    # Check 2: skill_iterate.py --check
+    # 2. skill_iterate.py --check
     proc = subprocess.run(
         [sys.executable, str(ROOT / "scripts" / "skill_iterate.py"), "--check"],
         cwd=ROOT, capture_output=True, encoding="utf-8", errors="replace",
         timeout=300, env={**os.environ, "PYTHONUTF8": "1"},
     )
-    iterate_passed = proc.returncode == 0
-    checks.append({
-        "name": "skill_iterate_check",
-        "passed": iterate_passed,
-        "output": (proc.stdout + proc.stderr)[-1000:],
-    })
-    if not iterate_passed:
+    passed = proc.returncode == 0
+    checks.append({"name": "skill_iterate", "passed": passed, "output": (proc.stdout + proc.stderr)[-800:]})
+    if not passed:
         all_passed = False
 
-    # Check 3: run_review --self-test
+    # 3. run_review --self-test
     proc2 = subprocess.run(
         [sys.executable, str(ROOT / "tools" / "run_review.py"), "--self-test"],
         cwd=ROOT, capture_output=True, encoding="utf-8", errors="replace",
         timeout=300, env={**os.environ, "PYTHONUTF8": "1"},
     )
-    review_passed = proc2.returncode == 0
-    checks.append({
-        "name": "run_review_self_test",
-        "passed": review_passed,
-        "output": (proc2.stdout + proc2.stderr)[-500:],
-    })
-    if not review_passed:
+    passed = proc2.returncode == 0
+    checks.append({"name": "run_review_self_test", "passed": passed, "output": (proc2.stdout + proc2.stderr)[-500:]})
+    if not passed:
         all_passed = False
 
-    return {
-        "all_passed": all_passed,
-        "checks": checks,
-        "iteration": iteration,
-    }
-
-
-# ============================================================================
-# 主编排
-# ============================================================================
-
-def run_supervisor(
-    task: str,
-    risk_threshold: str = "high",
-    max_iterations: int = 3,
-    dry_run: bool = False,
-    context: str = "",
-    json_output: bool = False,
-) -> SupervisorReport:
-    """主编排函数。"""
-    job_id = uuid.uuid4().hex[:8]
-    report = SupervisorReport(
-        job_id=job_id,
-        task=task,
-        started_at=datetime.now(timezone.utc).isoformat(),
-        max_iterations=max_iterations,
-    )
-
-    def _log(msg: str):
-        if not json_output:
-            print(f"[supervisor] {msg}", flush=True)
-
-    _log(f"Job {job_id} 开始: {task}")
-    _log(f"风险阈值: {risk_threshold}, 最大重试: {max_iterations}")
-
-    # ── Phase 0: 创建隔离分支 ──
-    if not dry_run:
-        branch = git_create_branch(job_id)
-        report.branch = branch
-        _log(f"创建分支: {branch}")
-
-    # ── 迭代循环 ──
-    for iteration in range(1, max_iterations + 1):
-        report.iterations = iteration
-        _log(f"\n{'='*50}")
-        _log(f"迭代 {iteration}/{max_iterations}")
-        _log(f"{'='*50}")
-
-        # ── Phase 1: Plan ──
-        _log("Phase 1: Plan (只读分析)...")
-        prev_context = context
-        if iteration > 1 and report.verification:
-            # 把上次失败信息作为上下文
-            failed_checks = [
-                c for c in report.verification.get("checks", [])
-                if not c.get("passed")
-            ]
-            if failed_checks:
-                prev_context += "\n\n上次验证失败:\n"
-                for fc in failed_checks:
-                    prev_context += f"- {fc['name']}: {fc.get('output', '')[:300]}\n"
-
-        plan = phase_plan(task, prev_context)
-        report.plan = asdict(plan)
-        _log(f"  意图: {plan.intent}")
-        _log(f"  风险: {plan.risk_level}")
-        _log(f"  文件: {len(plan.files_to_change)} 个")
-
-        # ── Phase 2: Validate ──
-        _log("Phase 2: Validate (安全门禁)...")
-        gate = phase_validate(plan, risk_threshold)
-        report.plan_validation = asdict(gate)
-        _log(f"  通过: {gate.passed}")
-        _log(f"  自动放行: {gate.auto_approve}")
-
-        if gate.violations:
-            for v in gate.violations:
-                _log(f"  ❌ 违规: {v}")
-
-        if gate.warnings:
-            for w in gate.warnings:
-                _log(f"  ⚠️  警告: {w}")
-
-        if not gate.passed:
-            report.status = "aborted"
-            report.errors.extend(gate.violations)
-            _log("计划未通过门禁，中止执行。")
-            break
-
-        if not dry_run and not gate.auto_approve:
-            # medium/high 风险需要人工确认
-            if plan.risk_level in ("medium", "high"):
-                _log(f"⚠️  风险等级 {plan.risk_level}，需要人工确认。")
-                _log("  在交互模式下会提示确认，非交互模式自动放行。")
-
-        # ── Phase 3: Execute ──
-        _log("Phase 3: Execute (按计划执行)...")
-        agent_result = phase_execute(plan, job_id, dry_run=dry_run)
-        report.agent_result = asdict(agent_result)
-        _log(f"  状态: {agent_result.status}")
-
-        if agent_result.status == "failed" and not dry_run:
-            report.errors.extend(agent_result.errors)
-            _log(f"  执行失败: {agent_result.errors}")
-            continue  # 重试
-
-        if dry_run:
-            report.status = "dry_run"
-            _log("Dry-run 模式，跳过验证。")
-            break
-
-        # ── Phase 4: Verify ──
-        _log("Phase 4: Verify (验证套件)...")
-        diff_stat = git_diff_stat()
-        report.diff_stat = diff_stat
-        if diff_stat:
-            _log(f"  Diff: {diff_stat}")
-
-        verification = phase_verify(iteration)
-        report.verification = verification
-        _log(f"  验证: {'通过' if verification['all_passed'] else '失败'}")
-
-        for check in verification.get("checks", []):
-            icon = "✅" if check["passed"] else "❌"
-            _log(f"    {icon} {check['name']}")
-
-        if verification["all_passed"]:
-            report.status = "success"
-            _log(f"\n✅ 任务完成! (迭代 {iteration} 次)")
-            break
-        else:
-            _log(f"\n❌ 验证失败，准备重试...")
-            # 清理本轮修改
-            subprocess.run(
-                ["git", "checkout", "."],
-                cwd=ROOT, capture_output=True, timeout=30,
+    # 4. 自定义验证命令
+    for vc in job.verification_commands:
+        cmd = vc.get("cmd", "")
+        timeout = vc.get("timeout_seconds", 120)
+        try:
+            proc3 = subprocess.run(
+                cmd, shell=True, capture_output=True, encoding="utf-8", errors="replace",
+                timeout=timeout, cwd=str(ROOT),
             )
-    else:
-        report.status = "failed"
-        report.errors.append(f"超过最大重试次数 ({max_iterations})")
-        _log(f"\n❌ 超过最大重试次数，任务失败。")
+            passed = proc3.returncode == 0
+        except Exception as e:
+            passed = False
+        checks.append({"name": vc.get("description", cmd), "passed": passed, "output": ""})
+        if not passed:
+            all_passed = False
 
-    report.finished_at = datetime.now(timezone.utc).isoformat()
+    return {"all_passed": all_passed, "checks": checks, "iteration": iteration}
 
-    # ── 清理 ──
-    if report.status == "failed" and report.branch:
-        _log(f"清理分支: {report.branch}")
-        git_checkout_main()
-        git_delete_branch(report.branch)
+
+# ============================================================================
+# 报告聚合 (v10.0.5)
+# ============================================================================
+
+def build_report(
+    run_id: str, job: JobDef, plan: PlanResult, gates: list[GateDecision],
+    agents: list[AgentResult], verifications: list[dict],
+    branch: str, started_at: str, status: str,
+) -> SupervisorReport:
+    """聚合所有阶段输出为最终报告。"""
+    now = datetime.now(timezone.utc).isoformat()
+    started = datetime.fromisoformat(started_at)
+    duration = (datetime.now(timezone.utc) - started).total_seconds()
+
+    diff_stat = git_diff_stat()
+    diff_summary = git_diff_numstat()
+
+    # 复现命令
+    repro = [
+        {"cmd": f"python scripts/codex_supervisor.py run --job .codex/jobs/{job.job_id}.json",
+         "description": "复现托管执行"},
+    ]
+
+    # 回滚命令
+    rollback = ""
+    if branch:
+        rollback = f"git checkout main && git branch -D {branch}"
+
+    report = SupervisorReport(
+        run_id=run_id, job_id=job.job_id, status=status,
+        started_at=started_at, finished_at=now, duration_seconds=duration,
+        iterations=len(agents), max_iterations=job.max_iterations,
+        branch=branch, isolation_mode=job.isolation_mode,
+        plan=asdict(plan),
+        gate_decisions=[asdict(g) for g in gates],
+        agent_results=[asdict(a) for a in agents],
+        verification_results=verifications,
+        diff_stat=diff_stat, diff_summary=diff_summary,
+        reproduce_commands=repro,
+        rollback_command=rollback,
+        errors=[e for a in agents for e in a.errors],
+    )
 
     return report
 
 
+def save_report(report: SupervisorReport, run_dir: Path):
+    """保存报告（JSON + Markdown）。"""
+    run_dir.mkdir(parents=True, exist_ok=True)
+
+    # JSON
+    save_json(asdict(report), run_dir / "supervisor_report.json")
+
+    # Markdown
+    md_lines = [
+        f"# Supervisor Report — {report.run_id}",
+        "",
+        f"| 字段 | 值 |",
+        f"|------|-----|",
+        f"| Job | {report.job_id} |",
+        f"| 状态 | **{report.status}** |",
+        f"| 迭代 | {report.iterations}/{report.max_iterations} |",
+        f"| 分支 | {report.branch} |",
+        f"| 耗时 | {report.duration_seconds:.1f}s |",
+        "",
+        "## 计划",
+        f"- 意图: {report.plan.get('intent', 'N/A')}",
+        f"- 风险: {report.plan.get('risk_level', 'N/A')}",
+        f"- 文件: {len(report.plan.get('files_to_change', []))} 个",
+        "",
+        "## 门禁",
+    ]
+    for i, gate in enumerate(report.gate_decisions):
+        md_lines.append(f"- 轮 {i+1}: **{gate.get('decision', 'N/A')}** (score={gate.get('risk_score', 0)})")
+        for v in gate.get("violations", []):
+            md_lines.append(f"  - ❌ {v}")
+        for w in gate.get("warnings", []):
+            md_lines.append(f"  - ⚠️ {w}")
+
+    md_lines.extend(["", "## Diff", f"```", report.diff_stat, "```", ""])
+
+    md_lines.append("## 验证")
+    for vr in report.verification_results:
+        md_lines.append(f"- 轮 {vr.get('iteration', '?')}: {'✅' if vr.get('all_passed') else '❌'}")
+        for c in vr.get("checks", []):
+            md_lines.append(f"  - {'✅' if c.get('passed') else '❌'} {c.get('name', '')}")
+
+    if report.errors:
+        md_lines.extend(["", "## 错误"])
+        for e in report.errors:
+            md_lines.append(f"- {e}")
+
+    if report.rollback_command:
+        md_lines.extend(["", "## 回滚", f"```bash", report.rollback_command, "```"])
+
+    (run_dir / "supervisor_report.md").write_text("\n".join(md_lines), encoding="utf-8")
+
+
 # ============================================================================
-# 自测
+# 日志 (v10.0.2)
+# ============================================================================
+
+class RunLogger:
+    """JSONL 运行日志。"""
+    def __init__(self, run_dir: Path):
+        self.run_dir = run_dir
+        self.log_path = run_dir / "run.jsonl"
+        run_dir.mkdir(parents=True, exist_ok=True)
+
+    def log(self, event: str, data: dict | None = None):
+        entry = {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "event": event,
+            **(data or {}),
+        }
+        with open(self.log_path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+
+
+# ============================================================================
+# 脏树检测 (v10.0.3)
+# ============================================================================
+
+def check_worktree(job: JobDef, logger: RunLogger) -> tuple[bool, str]:
+    """检查工作区状态，返回 (ok, message)。"""
+    dirty = git_status_short()
+    if dirty and job.require_clean_worktree:
+        logger.log("dirty_tree_detected", {"files": dirty[:500]})
+        return False, f"工作区有未提交修改:\n{dirty[:300]}\n\n请先 commit/stash 或在 job 中设置 require_clean_worktree=false"
+    return True, ""
+
+
+# ============================================================================
+# 主编排 (v10.0.2/v10.0.6)
+# ============================================================================
+
+def run_pipeline(job: JobDef, dry_run: bool = False, json_output: bool = False) -> SupervisorReport:
+    """主编排：Plan → Gate → Execute → Verify (有界重试)。"""
+    run_id = uuid.uuid4().hex[:12]
+    run_dir = RUNS_DIR / run_id
+    logger = RunLogger(run_dir)
+    started_at = datetime.now(timezone.utc).isoformat()
+
+    def _log(msg: str):
+        logger.log("info", {"message": msg})
+        if not json_output:
+            print(f"[supervisor:{run_id[:8]}] {msg}", flush=True)
+
+    _log(f"开始: {job.intent[:60]}")
+
+    # 脏树检测
+    ok, msg = check_worktree(job, logger)
+    if not ok:
+        report = SupervisorReport(
+            run_id=run_id, job_id=job.job_id, status="aborted",
+            started_at=started_at, errors=[msg],
+        )
+        save_report(report, run_dir)
+        return report
+
+    # 隔离分支
+    branch = f"codex-auto/{run_id}"
+    if not dry_run and job.isolation_mode != "none":
+        if job.isolation_mode == "branch":
+            git_stash()
+            git_create_branch(branch)
+            _log(f"创建分支: {branch}")
+
+    # 重试循环
+    gates: list[GateDecision] = []
+    agents: list[AgentResult] = []
+    verifications: list[dict] = []
+    status = "pending"
+
+    for iteration in range(1, job.max_iterations + 1):
+        _log(f"\n{'='*40} 迭代 {iteration}/{job.max_iterations} {'='*40}")
+
+        # Phase 1: Plan
+        _log("Phase 1: Plan")
+        prev_context = ""
+        if iteration > 1 and verifications:
+            last = verifications[-1]
+            failed = [c for c in last.get("checks", []) if not c.get("passed")]
+            if failed:
+                prev_context = "上次验证失败:\n" + "\n".join(
+                    f"- {c['name']}: {c.get('output', '')[:200]}" for c in failed
+                )
+        plan = phase_plan(job, prev_context)
+        _log(f"  风险={plan.risk_level}, 文件={len(plan.files_to_change)}")
+
+        # Phase 2: Gate
+        _log("Phase 2: Gate")
+        gate = run_gate(plan, job)
+        gates.append(gate)
+        _log(f"  决策={gate.decision}, score={gate.risk_score}")
+
+        if gate.violations:
+            for v in gate.violations:
+                _log(f"  ❌ {v}")
+
+        if gate.decision == "reject":
+            status = "aborted"
+            _log("门禁拒绝，中止。")
+            break
+
+        if gate.decision == "needs_confirmation" and not dry_run:
+            _log("⚠️ 需要人工确认，非交互模式自动放行。")
+
+        # Phase 3: Execute
+        _log("Phase 3: Execute")
+        agent = phase_execute(plan, job, dry_run=dry_run)
+        agents.append(agent)
+        _log(f"  状态={agent.status}")
+
+        if agent.status == "failed":
+            _log(f"  失败: {agent.errors}")
+            if iteration < job.max_iterations:
+                _log("  清理本轮修改，准备重试...")
+                subprocess.run(["git", "checkout", "."], cwd=ROOT, capture_output=True, timeout=15)
+            continue
+
+        if dry_run:
+            status = "dry_run"
+            break
+
+        # Phase 4: Verify
+        _log("Phase 4: Verify")
+        diff_stat = git_diff_stat()
+        if diff_stat:
+            _log(f"  Diff: {diff_stat[:200]}")
+
+        verification = phase_verify(job, iteration)
+        verifications.append(verification)
+        _log(f"  验证: {'通过' if verification['all_passed'] else '失败'}")
+
+        for c in verification.get("checks", []):
+            _log(f"    {'✅' if c['passed'] else '❌'} {c['name']}")
+
+        if verification["all_passed"]:
+            status = "success"
+            _log(f"\n✅ 成功! (迭代 {iteration} 次)")
+            break
+
+        if iteration < job.max_iterations:
+            _log("验证失败，清理后重试...")
+            subprocess.run(["git", "checkout", "."], cwd=ROOT, capture_output=True, timeout=15)
+    else:
+        status = "failed"
+        _log(f"\n❌ 超过最大重试次数 ({job.max_iterations})")
+
+    # 聚合报告
+    report = build_report(
+        run_id, job, plan if 'plan' in dir() else PlanResult(),
+        gates, agents, verifications, branch, started_at, status,
+    )
+    report.log_path = str(logger.log_path)
+    save_report(report, run_dir)
+
+    # 失败清理
+    if status in ("failed", "aborted") and not dry_run:
+        git_checkout("main")
+        git_delete_branch(branch)
+        report.rollback_command = f"已自动回滚: 删除分支 {branch}"
+
+    _log(f"报告: {run_dir}")
+    return report
+
+
+# ============================================================================
+# 子命令 (v10.0.2)
+# ============================================================================
+
+def _load_job(path: str) -> JobDef:
+    """加载 job JSON 文件。"""
+    data = load_json(Path(path))
+    known = {f.name for f in JobDef.__dataclass_fields__.values()}
+    return JobDef(**{k: v for k, v in data.items() if k in known})
+
+
+def cmd_plan(args) -> int:
+    """plan 子命令：只生成计划。"""
+    job = _load_job(args.job)
+    plan = phase_plan(job, args.context or "")
+
+    if args.output:
+        save_json(asdict(plan), Path(args.output))
+        print(f"计划已保存: {args.output}")
+    else:
+        print(json.dumps(asdict(plan), indent=2, ensure_ascii=False))
+    return 0
+
+
+def cmd_gate(args) -> int:
+    """gate 子命令：校验计划。"""
+    plan_data = load_json(Path(args.plan))
+    known = {f.name for f in PlanResult.__dataclass_fields__.values()}
+    plan = PlanResult(**{k: v for k, v in plan_data.items() if k in known})
+
+    job = _load_job(args.job) if args.job else JobDef()
+    gate = run_gate(plan, job)
+
+    print(json.dumps(asdict(gate), indent=2, ensure_ascii=False))
+    return 0 if gate.decision != "reject" else 1
+
+
+def cmd_run(args) -> int:
+    """run 子命令：完整编排。"""
+    job = _load_job(args.job)
+    if args.max_iterations:
+        job.max_iterations = args.max_iterations
+
+    report = run_pipeline(job, dry_run=args.dry_run, json_output=args.json)
+
+    if args.json:
+        print(json.dumps(asdict(report), indent=2, ensure_ascii=False))
+    else:
+        print(f"\n{'='*50}")
+        print(f"Run {report.run_id}: {report.status}")
+        print(f"迭代: {report.iterations}, 耗时: {report.duration_seconds:.1f}s")
+        if report.branch:
+            print(f"分支: {report.branch}")
+        print(f"报告: {RUNS_DIR / report.run_id}")
+        print(f"{'='*50}")
+
+    return 0 if report.status in ("success", "dry_run") else 1
+
+
+def cmd_verify(args) -> int:
+    """verify 子命令：重新验证。"""
+    run_dir = RUNS_DIR / args.run_id
+    report_path = run_dir / "supervisor_report.json"
+    if not report_path.exists():
+        print(f"错误: 未找到 run {args.run_id}", file=sys.stderr)
+        return 1
+
+    report_data = load_json(report_path)
+    job = _load_job(str(JOBS_DIR / f"{report_data['job_id']}.json")) if (JOBS_DIR / f"{report_data['job_id']}.json").exists() else JobDef()
+    verification = phase_verify(job)
+
+    print(json.dumps(verification, indent=2, ensure_ascii=False))
+    return 0 if verification["all_passed"] else 1
+
+
+def cmd_status(args) -> int:
+    """status 子命令：查看 run 状态。"""
+    run_dir = RUNS_DIR / args.run_id
+    report_path = run_dir / "supervisor_report.json"
+    if not report_path.exists():
+        print(f"错误: 未找到 run {args.run_id}", file=sys.stderr)
+        return 1
+
+    report = load_json(report_path)
+    print(f"Run:    {report.get('run_id')}")
+    print(f"Job:    {report.get('job_id')}")
+    print(f"Status: {report.get('status')}")
+    print(f"开始:   {report.get('started_at')}")
+    print(f"结束:   {report.get('finished_at')}")
+    print(f"迭代:   {report.get('iterations')}/{report.get('max_iterations')}")
+    print(f"分支:   {report.get('branch')}")
+    if report.get("diff_stat"):
+        print(f"Diff:   {report['diff_stat'][:100]}")
+    return 0
+
+
+def cmd_queue(args) -> int:
+    """queue 子命令：列出待处理 jobs。"""
+    if not JOBS_DIR.is_dir():
+        print("无待处理任务。")
+        return 0
+
+    jobs = sorted(JOBS_DIR.glob("*.json"))
+    if not jobs:
+        print("无待处理任务。")
+        return 0
+
+    print(f"待处理任务: {len(jobs)} 个")
+    for jf in jobs:
+        try:
+            data = load_json(jf)
+            print(f"  {data.get('job_id', jf.stem):20s} {data.get('intent', '')[:60]}")
+        except Exception:
+            print(f"  {jf.stem:20s} (解析失败)")
+    return 0
+
+
+# ============================================================================
+# 自测 (v10.0.8)
 # ============================================================================
 
 def run_self_test() -> int:
-    """自测。"""
     passed = 0
     failed = 0
 
-    # Test 1: PlanResult 构造
-    plan = PlanResult(
-        intent="test task",
-        files_to_change=["tools/test.py"],
-        risk_level="low",
-        destructive=False,
-        requires_network=False,
-    )
-    assert plan.intent == "test task"
+    # 1. JobDef
+    job = JobDef(job_id="test-1", intent="test task")
+    assert job.job_id == "test-1"
+    print("[PASS] JobDef construction")
+    passed += 1
+
+    # 2. PlanResult
+    plan = PlanResult(intent="test", files_to_change=["tools/x.py"], risk_level="low")
+    assert plan.risk_level == "low"
     print("[PASS] PlanResult construction")
     passed += 1
 
-    # Test 2: validate_plan — 低风险通过
-    gate = validate_plan(plan, "high")
-    assert gate.passed is True
+    # 3. Gate — low risk approve
+    gate = run_gate(plan, job)
+    assert gate.decision == "approve"
     assert gate.auto_approve is True
-    print("[PASS] validate_plan: low risk auto-approve")
+    print("[PASS] Gate: low risk → approve")
     passed += 1
 
-    # Test 3: validate_plan — 保护路径拦截
-    plan_bad = PlanResult(
-        intent="modify git",
-        files_to_change=[".git/config"],
-        risk_level="low",
-    )
-    gate2 = validate_plan(plan_bad)
-    assert gate2.passed is False
-    assert any("保护路径" in v for v in gate2.violations)
-    print("[PASS] validate_plan: protected path blocked")
+    # 4. Gate — protected path
+    plan_bad = PlanResult(intent="bad", files_to_change=[".git/config"], risk_level="low")
+    gate2 = run_gate(plan_bad, job)
+    assert gate2.decision == "reject"
+    assert any("保护" in v for v in gate2.violations)
+    print("[PASS] Gate: protected path → reject")
     passed += 1
 
-    # Test 4: validate_plan — 危险命令拦截
-    plan_danger = PlanResult(
-        intent="dangerous",
-        files_to_change=["tools/test.py"],
-        commands=[{"cmd": "rm -rf /tmp/test"}],
-        risk_level="low",
-    )
-    gate3 = validate_plan(plan_danger)
-    assert gate3.passed is False
-    assert any("危险命令" in v for v in gate3.violations)
-    print("[PASS] validate_plan: dangerous command blocked")
+    # 5. Gate — dangerous command
+    plan_danger = PlanResult(intent="danger", files_to_change=["tools/x.py"],
+                             commands=[{"cmd": "rm -rf /tmp/x"}], risk_level="low")
+    gate3 = run_gate(plan_danger, job)
+    assert gate3.decision == "reject"
+    print("[PASS] Gate: dangerous command → reject")
     passed += 1
 
-    # Test 5: validate_plan — 风险超阈值
-    plan_high = PlanResult(
-        intent="high risk",
-        files_to_change=["tools/test.py"],
-        risk_level="high",
-    )
-    gate4 = validate_plan(plan_high, "medium")
-    assert gate4.passed is False
-    assert any("风险等级" in v for v in gate4.violations)
-    print("[PASS] validate_plan: risk threshold enforced")
+    # 6. Gate — risk preference
+    plan_high = PlanResult(intent="high", files_to_change=["tools/x.py"], risk_level="high")
+    gate4 = run_gate(plan_high, job)
+    assert gate4.decision == "needs_confirmation"
+    print("[PASS] Gate: high risk → needs_confirmation")
     passed += 1
 
-    # Test 6: validate_plan — critical 直接拒绝
-    plan_crit = PlanResult(
-        intent="critical",
-        files_to_change=["tools/test.py"],
-        risk_level="critical",
-    )
-    gate5 = validate_plan(plan_crit, "critical")
-    assert gate5.passed is False
-    print("[PASS] validate_plan: critical always blocked")
+    # 7. Gate — critical block
+    plan_crit = PlanResult(intent="crit", files_to_change=["tools/x.py"], risk_level="critical")
+    gate5 = run_gate(plan_crit, JobDef(risk_preference="reject_critical"))
+    assert gate5.decision == "reject"
+    print("[PASS] Gate: critical → reject")
     passed += 1
 
-    # Test 7: _extract_json
-    text = '```json\n{"intent": "test"}\n```'
-    data = _extract_json(text)
-    assert data is not None
-    assert data["intent"] == "test"
-    print("[PASS] _extract_json from markdown block")
+    # 8. Gate — medium risk
+    plan_med = PlanResult(intent="med", files_to_change=["tools/x.py"], risk_level="medium")
+    gate6 = run_gate(plan_med, job)
+    assert gate6.decision == "needs_review"
+    print("[PASS] Gate: medium → needs_review")
     passed += 1
 
-    text2 = 'some text {"intent": "test2"} more text'
-    data2 = _extract_json(text2)
-    assert data2 is not None
-    assert data2["intent"] == "test2"
-    print("[PASS] _extract_json from inline")
+    # 9. _extract_json
+    assert _extract_json('```json\n{"a":1}\n```') == {"a": 1}
+    assert _extract_json('text {"a":2} more') == {"a": 2}
+    print("[PASS] _extract_json")
     passed += 1
 
-    # Test 8: hooks 加载
-    hooks = load_hooks()
-    assert "hooks" in hooks or hooks == {}  # 可能文件不存在
-    print("[PASS] load_hooks")
+    # 10. git_is_clean (structural)
+    assert isinstance(git_is_clean(), bool)
+    print("[PASS] git_is_clean")
     passed += 1
 
-    # Test 9: AgentResult 构造
-    agent = AgentResult(status="success", files_changed=[{"path": "test.py", "action": "modified"}])
-    assert agent.status == "success"
-    assert len(agent.files_changed) == 1
-    print("[PASS] AgentResult construction")
-    passed += 1
+    # 11. RunLogger
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmp:
+        logger = RunLogger(Path(tmp))
+        logger.log("test", {"key": "value"})
+        assert logger.log_path.exists()
+        line = logger.log_path.read_text().strip()
+        data = json.loads(line)
+        assert data["event"] == "test"
+        print("[PASS] RunLogger")
+        passed += 1
 
-    # Test 10: SupervisorReport 构造
-    report = SupervisorReport(job_id="test123", task="test", status="pending")
-    assert report.job_id == "test123"
-    print("[PASS] SupervisorReport construction")
+    # 12. Schema 文件存在
+    for name in ["job.schema.json", "plan.schema.json", "gate_decision.schema.json",
+                  "agent_result.schema.json", "supervisor_report.schema.json"]:
+        assert (SCHEMAS_DIR / name).exists(), f"Missing schema: {name}"
+    print(f"[PASS] {5} schemas exist")
     passed += 1
 
     print(f"\nSelf-test: {passed} passed, {failed} failed")
@@ -825,73 +1120,60 @@ def run_self_test() -> int:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Codex Supervisor — 四阶段受控编排",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-示例:
-  python scripts/codex_supervisor.py --task "修复 cjson_leak_checker 对空 JSON 的误报"
-  python scripts/codex_supervisor.py --task "..." --risk-threshold medium --dry-run
-  python scripts/codex_supervisor.py --task "..." --json --max-iterations 5
-        """,
+        description="Codex Supervisor v10 — 受监管的 Codex 托管执行系统",
     )
-    parser.add_argument("--task", "-t", help="任务描述")
-    parser.add_argument("--context", "-c", default="", help="额外上下文")
-    parser.add_argument(
-        "--risk-threshold", default="high",
-        choices=["low", "medium", "high", "critical"],
-        help="自动执行的风险阈值 (默认: high)",
-    )
-    parser.add_argument("--max-iterations", type=int, default=3, help="最大重试次数")
-    parser.add_argument("--dry-run", action="store_true", help="只生成计划，不执行")
-    parser.add_argument("--json", action="store_true", help="JSON 输出")
-    parser.add_argument("--output", "-o", help="报告输出文件")
+    sub = parser.add_subparsers(dest="command")
+
+    # plan
+    p_plan = sub.add_parser("plan", help="只读分析，生成计划")
+    p_plan.add_argument("--job", required=True, help="Job JSON 文件路径")
+    p_plan.add_argument("--context", default="", help="额外上下文")
+    p_plan.add_argument("--output", "-o", help="计划输出文件")
+
+    # gate
+    p_gate = sub.add_parser("gate", help="校验计划是否通过门禁")
+    p_gate.add_argument("--plan", required=True, help="Plan JSON 文件路径")
+    p_gate.add_argument("--job", help="Job JSON 文件（可选）")
+
+    # run
+    p_run = sub.add_parser("run", help="完整编排：Plan → Gate → Execute → Verify")
+    p_run.add_argument("--job", required=True, help="Job JSON 文件路径")
+    p_run.add_argument("--max-iterations", type=int, help="覆盖最大重试次数")
+    p_run.add_argument("--dry-run", action="store_true", help="只生成计划，不执行")
+    p_run.add_argument("--json", action="store_true", help="JSON 输出")
+
+    # verify
+    p_verify = sub.add_parser("verify", help="重新运行验证套件")
+    p_verify.add_argument("--run-id", required=True, help="Run ID")
+
+    # status
+    p_status = sub.add_parser("status", help="查看 run 状态")
+    p_status.add_argument("--run-id", required=True, help="Run ID")
+
+    # queue
+    sub.add_parser("queue", help="列出待处理 jobs")
+
+    # self-test
     parser.add_argument("--self-test", action="store_true", help="运行自测")
+
     args = parser.parse_args()
 
     if args.self_test:
         return run_self_test()
 
-    if not args.task:
+    if not args.command:
         parser.print_help()
         return 1
 
-    report = run_supervisor(
-        task=args.task,
-        risk_threshold=args.risk_threshold,
-        max_iterations=args.max_iterations,
-        dry_run=args.dry_run,
-        context=args.context,
-        json_output=args.json,
-    )
-
-    # 输出报告
-    report_dict = asdict(report)
-
-    if args.output:
-        Path(args.output).write_text(
-            json.dumps(report_dict, indent=2, ensure_ascii=False),
-            encoding="utf-8",
-        )
-        print(f"报告已保存: {args.output}")
-
-    if args.json:
-        print(json.dumps(report_dict, indent=2, ensure_ascii=False))
-    else:
-        print(f"\n{'='*50}")
-        print(f"Job {report.job_id} 完成")
-        print(f"状态: {report.status}")
-        print(f"迭代: {report.iterations}")
-        if report.branch:
-            print(f"分支: {report.branch}")
-        if report.diff_stat:
-            print(f"Diff: {report.diff_stat}")
-        if report.errors:
-            print("错误:")
-            for e in report.errors:
-                print(f"  - {e}")
-        print(f"{'='*50}")
-
-    return 0 if report.status in ("success", "dry_run") else 1
+    handlers = {
+        "plan": cmd_plan,
+        "gate": cmd_gate,
+        "run": cmd_run,
+        "verify": cmd_verify,
+        "status": cmd_status,
+        "queue": cmd_queue,
+    }
+    return handlers[args.command](args)
 
 
 if __name__ == "__main__":

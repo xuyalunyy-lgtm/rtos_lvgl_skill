@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://freertos-skill.dev/schemas/gate_decision.json",
+  "title": "Codex Supervisor — Gate Decision",
+  "description": "门禁决策结果。由 gate 引擎根据计划和 job 配置生成。",
+  "type": "object",
+  "required": ["decision", "risk_level", "timestamp"],
+  "properties": {
+    "decision": {
+      "type": "string",
+      "enum": ["approve", "reject", "needs_confirmation", "needs_review"],
+      "description": "门禁决策：approve=放行，reject=拒绝，needs_confirmation=需人工确认，needs_review=需 review 报告"
+    },
+    "risk_level": {
+      "type": "string",
+      "enum": ["low", "medium", "high", "critical"],
+      "description": "综合风险等级"
+    },
+    "risk_score": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "风险评分（0-100，越高越危险）"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "决策时间"
+    },
+    "reasons": {
+      "type": "array",
+      "description": "决策原因列表",
+      "items": {
+        "type": "object",
+        "required": ["gate", "result", "detail"],
+        "properties": {
+          "gate": {
+            "type": "string",
+            "description": "门禁名称"
+          },
+          "result": {
+            "type": "string",
+            "enum": ["pass", "warn", "fail"]
+          },
+          "detail": {
+            "type": "string",
+            "description": "详细说明"
+          },
+          "weight": {
+            "type": "number",
+            "description": "此门禁对总分的权重"
+          }
+        }
+      }
+    },
+    "violations": {
+      "type": "array",
+      "description": "导致拒绝/需确认的违规项",
+      "items": {"type": "string"}
+    },
+    "warnings": {
+      "type": "array",
+      "description": "非阻断性警告",
+      "items": {"type": "string"}
+    },
+    "allowed_paths": {
+      "type": "array",
+      "description": "最终允许修改的路径",
+      "items": {"type": "string"}
+    },
+    "blocked_paths": {
+      "type": "array",
+      "description": "被阻断的路径",
+      "items": {"type": "string"}
+    },
+    "allowed_commands": {
+      "type": "array",
+      "description": "最终允许的命令",
+      "items": {"type": "string"}
+    },
+    "blocked_commands": {
+      "type": "array",
+      "description": "被阻断的命令",
+      "items": {"type": "string"}
+    },
+    "auto_approve": {
+      "type": "boolean",
+      "description": "是否满足自动放行条件"
+    },
+    "estimated_impact": {
+      "type": "object",
+      "description": "预计影响范围",
+      "properties": {
+        "files_count": {"type": "integer"},
+        "lines_changed": {"type": "integer"},
+        "checkers_affected": {"type": "array", "items": {"type": "string"}}
+      }
+    }
+  }
+}
