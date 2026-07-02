@@ -19,6 +19,50 @@ Agent 或维护者在发现新的 anti-pattern 或现场经验时追加条目。
 
 ---
 
+### 2026-07-02 — WSS 销毁后异步任务仍访问 client
+
+- **来源：** BK7258 app_paltte 现场重启与提交前审查
+- **平台：** BK
+- **症状：** WiFi 断线、语音子系统 stop 或 WSS 重连后，设备偶发重启、堆异常或 stale event
+- **根因：** WebSocket SDK 任务尚未退出时 destroy/free client 或 config；socket 未主动唤醒，回调缺少当前 client/generation 过滤，任务与 destroy 路径所有权边界不清
+- **修复模式：** 为 WSS client 建立显式 state/generation；destroy 先标记 disconnecting 并 abort/close fd 唤醒任务，再有界等待 task exit；只允许一个路径释放 client/config；回调过滤 stale client；锁内不做可能阻塞的 close/send
+- **约束映射：** C24.1, C31.3, C33.1, C36.1, C43.1
+- **频率：** 高
+- **影响：** P0
+
+### 2026-07-02 — TTS/speaker 热路径缺少池防护和可中断反压
+
+- **来源：** BK7258 app_paltte 音频链路现场重启
+- **平台：** BK
+- **症状：** 多轮 TTS、打断或 speaker stop 后出现随机重启、payload/PCM 越界、播放拖住 stop
+- **根因：** 音频 queue payload 所有权和池 slot 生命周期不够硬；变长 TTS payload/PCM 缺少首尾 guard；speaker 写入热路径持锁调用底层阻塞 API，stop/interruption 无法及时抢占
+- **修复模式：** 固定池 slot 加 head/tail canary，入队/出队/free 前校验；记录 queued/played/dropped/backpressure/high-water；speaker 写入使用 generation interrupt、短超时锁和有限重试；stop 只请求任务退出并有界等待
+- **约束映射：** C2.1, C31.1, C33.1, C43.5, C44.1
+- **频率：** 高
+- **影响：** P0
+
+### 2026-07-02 — LVGL deinit API 存在但配置矩阵未链接
+
+- **来源：** BK7258 app_paltte 提交前编译
+- **平台：** BK
+- **症状：** 为补生命周期对称性调用 `lv_deinit()` 后，链接失败：`undefined reference to lv_mem_deinit`
+- **根因：** LVGL 头文件导出了 `lv_deinit()`，但当前 `LV_USE_STDLIB_MALLOC=LV_STDLIB_CUSTOM` 配置没有提供 `lv_mem_deinit()` 实现；只看源码 API 会误判可用性
+- **修复模式：** LVGL 全局 deinit 必须经过目标工程链接验证；若内存 backend 不完整，应用层只删除 display/object 并停止平台 display driver；不要为通过 checker 硬调用未闭合的 SDK API
+- **约束映射：** C1.2, C24.1, C36.1, C39.1
+- **频率：** 中
+- **影响：** P1
+
+### 2026-07-02 — Kconfig secret overlay 与提交配置边界
+
+- **来源：** BK7258 app_paltte secret scan 与构建脚本
+- **平台：** 通用
+- **症状：** secret scan 同时报出已提交 `config` 和本地 `config.secrets` 中的云端密钥
+- **根因：** 真实凭据曾落入 tracked Kconfig；本地 overlay 虽被 ignore，但扫描器默认仍会扫到 ignored 文件，容易把“可构建本地密钥”和“入库泄漏”混在一起
+- **修复模式：** tracked `config` 中敏感 Kconfig 永远为空；真实值只放 ignored `config.secrets`，由构建脚本临时 overlay 并在结束后恢复；提交前必须检查 `git check-ignore`、`git ls-files`、staged diff，并轮换曾入库的密钥
+- **约束映射：** C9.1, C9.6, C36.1
+- **频率：** 高
+- **影响：** P0
+
 ### 2026-07-01 — OTA 断电回滚失败
 
 - **来源：** 量产设备 OTA 升级后断电，重启后无法回滚
@@ -113,12 +157,18 @@ Agent 或维护者在发现新的 anti-pattern 或现场经验时追加条目。
 
 | 约束域 | 经验数 | 频率 | 说明 |
 |--------|--------|------|------|
-| C1 LVGL | 1 | 高 | 跨线程调用 |
+| C1 LVGL | 2 | 高 | 跨线程调用 / deinit 配置矩阵 |
 | C3 cJSON | 1 | 高 | 泄漏 |
+| C9 secrets | 1 | 高 | Kconfig secret overlay |
 | C10 语音 | 1 | 高 | 打断后失效 |
 | C15 优先级 | 1 | 中 | 优先级反转 |
 | C20 网络 | 1 | 高 | 重连风暴 |
 | C21 低功耗 | 1 | 中 | 状态丢失 |
 | C22 OTA | 1 | 高 | 断电回滚 |
-| C24 外设关闭 | 1 | 高 | 共享 backend |
+| C24 外设关闭 | 3 | 高 | 共享 backend / WSS task / LVGL display |
+| C31 有界等待 | 2 | 高 | WSS/audio stop 有界化 |
+| C33 生命周期 | 2 | 高 | 任务退出与 stop/deinit 对称 |
+| C36 配置矩阵 | 3 | 高 | secret overlay / SDK API 链接验证 |
+| C43 锁预算 | 2 | 高 | WSS close/send / speaker write 热路径 |
+| C44 临界路径 | 1 | 高 | speaker 反压可中断 |
 | C28 DMA | 1 | 中 | cache 脏数据 |
