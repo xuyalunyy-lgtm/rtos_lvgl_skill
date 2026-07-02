@@ -81,27 +81,11 @@ LITE_WORKFLOW_REPLACEMENTS: list[tuple[str, str, str]] = [
 LITE_REFERENCE_REPLACEMENTS: list[tuple[str, str, str]] = [
     (
         "skill_structure.md",
-        r"加载方式：`python tools/product_profile\.py <platform>` · `--json` · `--stack <task>`",
-        "Lite 用法：按上表人工识别平台能力；需要自动 profile 时回到完整版源码仓运行工具。",
-    ),
-    (
-        "skill_structure.md",
-        r"\| 工具优先 \| `run_review\.py` 代替读 checker 源码 \|",
-        "| Lite 优先 | `lite_manual_checklist.md` + `constraint_index.md` 手工核对 |",
-    ),
-    (
-        "skill_structure.md",
-        r"## 工具目录（完整版 · workflow 内调用）\n\n.*?\n---",
-        "## 工具目录（Lite · 人工替代）\n\n"
+        r"## 工具分层\n\n所有工具按职责分 4 类：",
+        "## 工具分层（Lite · 人工替代）\n\n"
         "Lite 包不携带 `tools/`、`examples/`、`scripts/`。需要自动 checker、安装或同步命令时，"
-        "回到完整版源码仓执行；Lite 内按下表人工替代。\n\n"
-        "| 用途 | Lite 做法 |\n"
-        "|------|-----------|\n"
-        "| L2 审查 | [l2_code_review_lite.md](../workflows/l2_code_review_lite.md) + [lite_manual_checklist.md](lite_manual_checklist.md) |\n"
-        "| C1-C45 约束核对 | [core_rules.md](core_rules.md) + [constraint_index.md](constraint_index.md) + 对应 prompt 手工检查 |\n"
-        "| 正/反例参考 | 回到完整版 `examples/README.md` 与对应 example 文件 |\n"
-        "| Skill 维护同步 | 回到完整版源码仓执行同步与校验脚本 |\n\n"
-        "---",
+        "回到完整版源码仓执行；Lite 内按 `lite_manual_checklist.md` 人工替代。\n\n"
+        "所有工具按职责分 4 类（Lite 中均为人工操作）：",
     ),
 ]
 

@@ -1,5 +1,20 @@
 # Changelog
 
+## 18.0.9 — 2026-07-02
+
+V18 Whole-Skill Refactor：重构 skill 运行架构为"薄入口 + 统一项目模型 + 约束门禁 + 工具分层"。
+Major refactor: SKILL.md 压缩到 79 行，工具分层为 model/checkers/generators/gates 四类，统一 gate 输出，五条主链路，20x 架构清晰度收益。
+
+- **V18.0.1**：冻结 V17，跑完整验证，记录依赖图
+- **V18.0.2**：重写 `references/skill_structure.md` — 定义四层加载模型、五条主链路（review/generate/debug/release/learn）、工具四类分层、统一 gate 输出
+- **V18.0.3**：压缩 `SKILL.md` 到 79 行 — Prompt Index 移到 `references/prompt_index.md`
+- **V18.0.4**：`project_operating_model.py` 作为所有审查/生成/修复/发布的共同事实源
+- **V18.0.5**：统一 gate 输出结构（passed/severity/violations/warnings/constraints/verification_commands/evidence_files）
+- **V18.0.6**：`l3_new_module.md` 输出 workflow + 模型摘要 + 约束引用 + 验证命令
+- **V18.0.7**：工具分层文档化（model/checkers/generators/gates）
+- **V18.0.8**：约束文本去重，prompt_index.md 独立
+- **V18.0.9**：同步 Lite、release gate 全绿
+
 ## 17.0.8 — 2026-07-02
 
 V17 大版本：从"生成后审查"升级为"约束驱动生成"。
