@@ -1,0 +1,42 @@
+---
+description: FreeRTOS Embedded Architect — 嵌入式固件工程 skill
+globs: ["**/*.c", "**/*.h", "**/CMakeLists.txt", "**/sdkconfig*", "**/Kconfig*"]
+alwaysApply: false
+---
+
+# FreeRTOS Embedded Architect Skill
+
+本项目使用 freertos-embedded-architect skill 管理 RTOS/固件/嵌入式任务。
+
+## 平台
+
+- 目标平台：ESP32
+- 框架：ESP-IDF、LVGL、mbedTLS
+
+## 规则
+
+1. 代码审查必须运行 `python tools/run_review.py`
+2. 新模块必须生成 contract header + state machine
+3. 所有代码修改必须有验证计划
+4. 引用相关约束域（C1-C45 或框架约束）
+
+## 关键约束
+
+- C1: LVGL 线程安全
+- C2: Queue payload 所有权
+- C3: cJSON 泄漏检查
+- C4: ISR 安全
+- C8: 启动顺序
+- C12: 返回值检查
+- C14: 日志规范
+- C29: 模块契约
+- C33: 生命周期对称
+- C35: 关键路径预算
+- C43: 锁预算
+
+## 验证
+
+每次修改后运行：
+```bash
+python scripts/skill_iterate.py --check
+```

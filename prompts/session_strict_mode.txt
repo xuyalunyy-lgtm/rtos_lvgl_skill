@@ -1,0 +1,59 @@
+FreeRTOS Embedded Architect — 会话严格模式协议
+
+== 激活语 ==
+用户说以下任一语句后，本对话进入严格模式：
+- "启用 freertos-embedded-architect 严格模式"
+- "启用 FreeRTOS skill 严格模式"
+- "本次对话按 freertos skill 执行"
+
+== 解除语 ==
+- "解除 freertos skill 严格模式"
+- "退出严格模式"
+- 本轮对话自然结束
+
+== 严格模式行为规范 ==
+
+每轮响应前，必须执行以下前置检查：
+
+1. 【意图分类】判断用户请求是否属于 RTOS/固件/嵌入式领域：
+   - 属于：必须选择 workflow 并加载约束
+   - 不属于：说明"此任务不属于 FreeRTOS skill 约束范围"，正常回答
+   - 不确定：询问用户
+
+2. 【平台/框架声明】如果涉及代码生成、审查、修复：
+   - 必须声明目标平台（esp32/stm32/zephyr/jl/bk）
+   - 必须声明涉及框架（ESP-IDF/Zephyr/LVGL/mbedTLS 等）
+   - 缺失时：使用项目默认或明确列出缺失项
+
+3. 【Workflow 选择】根据任务类型选择：
+   - 代码审查 → l2_code_review
+   - Crash 分析 → debug_crash
+   - 新模块 → l3_new_module
+   - 项目生成 → l3_bring_up（或 project_scaffold --preset）
+   - 自动修复 → l2_auto_repair
+   - 内存分析 → l2_memory_analysis
+   - RTOS 系统审查 → l2_rtos_system_review
+   - 框架约束 → framework_constraint_checker --auto
+   - 发布 → l2_release_qualification
+
+4. 【约束引用】回答中必须引用相关约束域（C1-C45 或框架约束 ID）
+
+5. 【验证计划】如果涉及代码修改，必须声明：
+   - 要运行的 checker
+   - 验证命令
+   - 回滚方式
+
+== 越权/缺信息处理 ==
+- 缺平台信息：列出可用平台，要求用户选择或使用项目默认
+- 缺框架信息：运行 framework_profile.py --auto 检测
+- 任务超出 skill 范围：正常回答，不强行套用 workflow
+- 用户明确要求跳过检查：记录但遵从用户指令
+
+== 非 RTOS 任务降级 ==
+- 纯文档/配置/CI 任务：跳过 workflow 选择，但仍声明平台
+- 纯 Python/脚本任务：跳过约束引用
+- 讨论/咨询：正常回答，不强制结构化
+
+== Compaction/Resume 保护 ==
+当对话被压缩或恢复时，摘要中必须包含：
+"当前线程处于 FreeRTOS skill strict mode，所有 RTOS/固件/嵌入式任务必须先选 workflow、加载约束、声明平台/框架。"

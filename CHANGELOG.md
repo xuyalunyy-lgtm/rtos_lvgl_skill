@@ -1,5 +1,19 @@
 # Changelog
 
+## 15.0.8 — 2026-07-02
+
+V15 大版本：实现"执行一次后持续按 skill 工作"的严格模式。
+Major refactor: 建立 session lock→guard→supervisor strict→AGENTS.md→hooks→compaction 保护四层纪律体系，20x 工程纪律一致性收益。
+
+- **v15.0.1**：Session Lock 协议 — 定义激活语/解除语/每轮前置检查/越权处理/降级规则
+- **v15.0.2**：Strict Mode Prompt — `prompts/session_strict_mode.txt`，定义严格模式行为规范
+- **v15.0.3**：Session Guard — `tools/session_guard.py`，检查响应/workflow/平台/框架/约束/验证纪律，6 项自测
+- **v15.0.4**：日常入口模板 — `templates/AGENTS.freertos-strict.md` + `cursor-rule.freertos-strict.mdc`
+- **v15.0.5**：Supervisor 集成 — `codex_supervisor.py` 支持 `--strict-skill` 标志
+- **v15.0.6**：Hook 示例 — `.codex/hooks/skill_session_guard.py`，UserPromptSubmit/Stop 审计
+- **v15.0.7**：Compaction/Resume 保护 — 长对话压缩后自动保留 strict mode 状态
+- **v15.0.8**：V15 收口 — session_guard 6/6 自测全绿，SKILL/Lite/CHANGELOG 更新
+
 ## 14.0.8 — 2026-07-02
 
 V14 大版本：从"RTOS 系统级分析器"升级为"RTOS + Framework 约束治理平台"。
