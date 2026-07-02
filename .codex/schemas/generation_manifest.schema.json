@@ -6,7 +6,7 @@
   "type": "object",
   "required": ["schema_version", "generator", "platform", "generated_files", "constraints"],
   "properties": {
-    "schema_version": {"type": "string", "const": "1.0"},
+    "schema_version": {"type": "string", "enum": ["1.0", "1.1"]},
     "generator": {"type": "string"},
     "platform": {"type": "string"},
     "frameworks": {"type": "array", "items": {"type": "string"}},
@@ -70,8 +70,21 @@
       "type": "object",
       "required": ["required"],
       "properties": {
-        "required": {"type": "array", "items": {"type": "string"}},
-        "covered": {"type": "array", "items": {"type": "string"}},
+        "required": {"type": "array", "items": {"type": "string"}, "description": "场景必须追踪的约束"},
+        "covered": {"type": "array", "items": {"type": "string"}, "description": "生成器已实际覆盖的约束"},
+        "deferred": {
+          "type": "array",
+          "description": "有理由推迟覆盖的约束",
+          "items": {
+            "type": "object",
+            "required": ["id", "reason", "evidence"],
+            "properties": {
+              "id": {"type": "string"},
+              "reason": {"type": "string", "minLength": 1},
+              "evidence": {"type": "string", "minLength": 1}
+            }
+          }
+        },
         "forbidden_patterns": {"type": "array", "items": {"type": "string"}},
         "allowed_infinite_waits": {
           "type": "array",

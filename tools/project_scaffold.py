@@ -67,10 +67,36 @@ PLATFORM_TEMPLATES = {
 
 # ── Preset / Platform 加载 ──
 
+def _normalize_preset_id(preset_id: str) -> str:
+    """规范化 preset ID：支持 - 和 _ 互转。"""
+    # 先尝试原样匹配
+    presets_dir = Path(__file__).resolve().parent.parent / "scene_presets"
+    if (presets_dir / f"{preset_id}.json").exists():
+        return preset_id
+    # 尝试 - 转 _
+    alt = preset_id.replace("-", "_")
+    if (presets_dir / f"{alt}.json").exists():
+        return alt
+    # 尝试 _ 转 -
+    alt = preset_id.replace("_", "-")
+    if (presets_dir / f"{alt}.json").exists():
+        return alt
+    # 扫描 JSON id 字段
+    for f in presets_dir.glob("*.json"):
+        try:
+            data = json.loads(f.read_text(encoding="utf-8"))
+            if data.get("id") == preset_id or data.get("id") == alt:
+                return f.stem
+        except Exception:
+            pass
+    return preset_id
+
+
 def _load_preset(preset_id: str) -> dict | None:
     """加载场景 preset，不存在返回 None。"""
     presets_dir = Path(__file__).resolve().parent.parent / "scene_presets"
-    path = presets_dir / f"{preset_id}.json"
+    normalized = _normalize_preset_id(preset_id)
+    path = presets_dir / f"{normalized}.json"
     if not path.exists():
         return None
     return json.loads(path.read_text(encoding="utf-8"))
@@ -569,12 +595,16 @@ def main() -> int:
     if args.list_presets:
         presets_dir = Path(__file__).resolve().parent.parent / "scene_presets"
         if presets_dir.is_dir():
+            print(f"{'File':20s} {'ID':20s} {'Name'}")
+            print(f"{'-'*20} {'-'*20} {'-'*30}")
             for p in sorted(presets_dir.glob("*.json")):
                 try:
                     data = json.loads(p.read_text(encoding="utf-8"))
-                    print(f"  {p.stem:20s} {data.get('name', p.stem)}")
+                    pid = data.get("id", p.stem)
+                    name = data.get("name", p.stem)
+                    print(f"{p.stem:20s} {pid:20s} {name}")
                 except Exception:
-                    print(f"  {p.stem:20s} (解析失败)")
+                    print(f"{p.stem:20s} {'(解析失败)':20s}")
         else:
             print("scene_presets/ 目录不存在（将在 v9.0.4 创建）")
         return 0
@@ -658,9 +688,23 @@ def main() -> int:
     (outdir / "constraint_manifest.json").write_text(manifest_str, encoding="utf-8")
     generated.append("constraint_manifest.json")
 
-    # generation_manifest.json（V17 新增）
+    # generation_manifest.json（V17/V18.1）
+    # scaffold 直接覆盖的约束
+    directly_covered = ["C8", "C12", "C14", "C29", "C33"]
+    # preset 要求的约束
+    required_constraints = preset.get("required_constraints", directly_covered) if preset else directly_covered
+    # 未直接覆盖的约束生成 deferred 项
+    deferred = []
+    for cid in required_constraints:
+        if cid not in directly_covered:
+            deferred.append({
+                "id": cid,
+                "reason": "scaffold 仅生成骨架，此约束需在具体模块实现时覆盖",
+                "evidence": f"task_topology.h + constraint_manifest.json 声明了 {cid} 适用场景",
+            })
+
     gen_manifest = {
-        "schema_version": "1.0",
+        "schema_version": "1.1",
         "generator": "project_scaffold",
         "platform": args.platform,
         "frameworks": [],
@@ -670,8 +714,9 @@ def main() -> int:
         "locks": [],
         "timers": [],
         "constraints": {
-            "required": preset.get("required_constraints", ["C8", "C12", "C14", "C29", "C33"]) if preset else ["C8", "C12", "C14", "C29", "C33"],
-            "covered": ["C8", "C12", "C14", "C29", "C33"],
+            "required": required_constraints,
+            "covered": directly_covered,
+            "deferred": deferred,
         },
         "verification_commands": [
             f"python tools/codegen_gate.py --dir {outdir} --manifest {outdir}/generation_manifest.json --platform {args.platform} --strict",

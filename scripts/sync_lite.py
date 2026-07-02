@@ -87,6 +87,16 @@ LITE_REFERENCE_REPLACEMENTS: list[tuple[str, str, str]] = [
         "回到完整版源码仓执行；Lite 内按 `lite_manual_checklist.md` 人工替代。\n\n"
         "所有工具按职责分 4 类（Lite 中均为人工操作）：",
     ),
+    (
+        "skill_structure.md",
+        r"\| `run_review\.py` \| 一键静态审查（驱动 41 checker） \|",
+        "| `lite_manual_checklist.md` | 人工逐条核对 C1-C45 约束 |",
+    ),
+    (
+        "skill_structure.md",
+        r"\"verification_commands\": \[\"python tools/run_review\.py --self-test\"\],",
+        '"verification_commands": ["回到完整版源码仓运行审查工具"],',
+    ),
 ]
 
 

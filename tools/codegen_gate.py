@@ -160,10 +160,26 @@ def check_constraint_coverage(manifest: dict, base_dir: str) -> list[str]:
     errors = []
     required = set(manifest.get("constraints", {}).get("required", []))
     covered = set(manifest.get("constraints", {}).get("covered", []))
-    missing = required - covered
+    deferred = manifest.get("constraints", {}).get("deferred", [])
+
+    # 收集 deferred 的约束 ID
+    deferred_ids = set()
+    for d in deferred:
+        did = d.get("id", "")
+        if did:
+            deferred_ids.add(did)
+        # 校验 deferred 必须有 reason 和 evidence
+        if not d.get("reason"):
+            errors.append(f"deferred 约束 {did} 缺少 reason")
+        if not d.get("evidence"):
+            errors.append(f"deferred 约束 {did} 缺少 evidence")
+
+    # required 必须被 covered ∪ deferred.id 完整解释
+    explained = covered | deferred_ids
+    missing = required - explained
 
     if missing:
-        errors.append(f"约束未覆盖: {', '.join(sorted(missing))}")
+        errors.append(f"约束未覆盖也未推迟: {', '.join(sorted(missing))}")
 
     return errors
 
@@ -293,6 +309,68 @@ def run_self_test() -> int:
         assert r["passed"] is False
         assert any("未覆盖" in e for e in r["errors"])
         print("[PASS] uncovered constraint (strict) → fail")
+        passed += 1
+
+    # 6. deferred 约束通过
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = Path(tmp)
+        (tmp / "ok.c").write_text('void f() {}\n', encoding="utf-8")
+        manifest = {
+            "schema_version": "1.1", "generator": "test", "platform": "esp32",
+            "generated_files": [{"path": "ok.c"}],
+            "constraints": {
+                "required": ["C8", "C29", "C33"],
+                "covered": ["C8"],
+                "deferred": [{"id": "C29", "reason": "scaffold only", "evidence": "task_topology.h"}, {"id": "C33", "reason": "scaffold only", "evidence": "constraint_manifest.json"}],
+            },
+        }
+        manifest_path = tmp / "manifest.json"
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        r = run_gate(str(tmp), str(manifest_path), strict=True)
+        assert r["passed"] is True
+        print("[PASS] deferred constraints → pass")
+        passed += 1
+
+    # 7. deferred 缺 reason 失败
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = Path(tmp)
+        (tmp / "ok.c").write_text('void f() {}\n', encoding="utf-8")
+        manifest = {
+            "schema_version": "1.1", "generator": "test", "platform": "esp32",
+            "generated_files": [{"path": "ok.c"}],
+            "constraints": {
+                "required": ["C8", "C29"],
+                "covered": ["C8"],
+                "deferred": [{"id": "C29", "reason": "", "evidence": "test"}],
+            },
+        }
+        manifest_path = tmp / "manifest.json"
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        r = run_gate(str(tmp), str(manifest_path), strict=True)
+        assert r["passed"] is False
+        assert any("reason" in e for e in r["errors"])
+        print("[PASS] deferred missing reason → fail")
+        passed += 1
+
+    # 8. deferred 缺 evidence 失败
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = Path(tmp)
+        (tmp / "ok.c").write_text('void f() {}\n', encoding="utf-8")
+        manifest = {
+            "schema_version": "1.1", "generator": "test", "platform": "esp32",
+            "generated_files": [{"path": "ok.c"}],
+            "constraints": {
+                "required": ["C8", "C29"],
+                "covered": ["C8"],
+                "deferred": [{"id": "C29", "reason": "test", "evidence": ""}],
+            },
+        }
+        manifest_path = tmp / "manifest.json"
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        r = run_gate(str(tmp), str(manifest_path), strict=True)
+        assert r["passed"] is False
+        assert any("evidence" in e for e in r["errors"])
+        print("[PASS] deferred missing evidence → fail")
         passed += 1
 
     print(f"\nSelf-test: {passed} passed, {failed} failed")
