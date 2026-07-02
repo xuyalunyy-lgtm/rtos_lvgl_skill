@@ -292,6 +292,37 @@ Code Review 或 L3 校验时逐条核对。违规项引用 `C#.#`（完整矩阵
 - [ ] C45.4 sample 输出含 timestamp、单位、量程、scale/offset 或 calibration version
 - [ ] C45.5 calibration/self-test/warm-up 不在采样 hot path，生命周期和失效策略明确
 
+## Codegen Gate — 代码生成门禁
+
+生成代码后逐条核对（对应 `tools/codegen_gate.py` 自动检查）：
+
+- [ ] `generation_manifest.json` 存在且包含 schema_version、generator、platform、generated_files、constraints
+- [ ] 所有 generated_files 中列出的文件实际存在
+- [ ] constraints.required 中每个约束都有对应覆盖（constraints.covered 或代码注释）
+- [ ] 无裸 `portMAX_DELAY`（除非 manifest 声明 allowed_infinite_waits + reason）
+- [ ] ISR/callback 中无 blocking API（xQueueReceive、sem Take、vTaskDelay、printf）
+- [ ] ISR 中无 malloc/free/cJSON_Parse
+- [ ] Queue 无栈指针、cJSON*、裸 DMA 指针传入
+- [ ] LVGL API 仅在 UI 任务中调用（非网络/音频/sensor 任务）
+- [ ] 每个 init/start 有对应 stop/deinit（C33 对称）
+- [ ] Queue depth > 0 时有 backpressure/drop/timeout 策略（C37）
+
+## Framework 约束
+
+- [ ] 已识别项目使用的框架（ESP-IDF/LVGL/mbedTLS/lwIP/Zephyr 等）
+- [ ] 框架特定约束已检查（参见 `frameworks/*.json`）
+- [ ] 框架间冲突已评估（参见 `references/framework_conflict_matrix.md`）
+
+## RTOS 系统审查
+
+- [ ] 任务拓扑表已输出（task/queue/mutex/timer/ISR）
+- [ ] 无循环等待或潜在死锁
+- [ ] 高优先级任务不消费低优先级生产的队列（除非有优先级继承）
+- [ ] 无孤儿任务（既不生产也不消费，且非周期）
+- [ ] 无消费者队列已标记或移除
+- [ ] Timer 回调执行时间 < timer 周期
+- [ ] 内存池有明确 owner 和释放责任
+
 ## 堆栈 / WSS / MVP
 
 - [ ] 相对优先级表已输出（见 [core_rules.md](core_rules.md)）

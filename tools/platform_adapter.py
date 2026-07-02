@@ -236,6 +236,8 @@ class PlatformAdapter:
                 "name": "ui_cmd_queue",
                 "item_size": 16,
                 "depth": 8,
+                "backpressure": "drop_oldest",
+                "timeout_ms": 50,
                 "description": "UI 命令队列",
             })
 
@@ -244,6 +246,8 @@ class PlatformAdapter:
                 "name": "audio_frame_queue",
                 "item_size": 128,
                 "depth": 4,
+                "backpressure": "drop_oldest",
+                "timeout_ms": 100,
                 "description": "音频帧队列",
             })
 
@@ -252,6 +256,8 @@ class PlatformAdapter:
                 "name": "asr_result_queue",
                 "item_size": 64,
                 "depth": 4,
+                "backpressure": "drop_oldest",
+                "timeout_ms": 200,
                 "description": "ASR 识别结果队列",
             })
 

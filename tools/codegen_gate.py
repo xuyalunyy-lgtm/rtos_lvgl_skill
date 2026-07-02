@@ -133,12 +133,22 @@ def check_forbidden_patterns(base_dir: str, manifest: dict) -> list[str]:
             # 其他规则
             for m in re.finditer(rule["pattern"], content):
                 line_num = content[:m.start()].count("\n") + 1
-                # 检查是否在特定上下文中
+                # 检查是否在特定上下文中（函数签名级别，非注释级别）
                 if "contexts" in rule:
-                    # 检查函数名或注释中是否包含上下文关键词
-                    func_start = content.rfind("\n", 0, m.start())
-                    func_body = content[max(0, func_start - 500):m.start()]
-                    if not any(ctx in func_body.lower() for ctx in rule["contexts"]):
+                    # 找到当前函数的签名行
+                    func_sig_start = content.rfind("\n", 0, m.start())
+                    # 向上找函数签名（最多 20 行）
+                    for _ in range(20):
+                        prev_line_start = content.rfind("\n", 0, func_sig_start)
+                        if prev_line_start < 0:
+                            break
+                        func_sig_start = prev_line_start
+                    func_sig = content[func_sig_start:m.start()].lower()
+                    # 只检查函数签名中的关键词，不检查注释
+                    # 排除注释行
+                    sig_lines = [l.strip() for l in func_sig.split("\n") if l.strip() and not l.strip().startswith("//") and not l.strip().startswith("/*")]
+                    sig_text = " ".join(sig_lines)
+                    if not any(ctx in sig_text for ctx in rule["contexts"]):
                         continue
                 errors.append(f"[{rule['constraint']}] {rule['message']} at {f.name}:{line_num}")
 
@@ -312,9 +322,9 @@ def main() -> int:
         print(json.dumps(r, indent=2, ensure_ascii=False))
     else:
         if r["passed"]:
-            print("✅ Codegen gate: PASS")
+            print("[PASS] Codegen gate: PASS")
         else:
-            print("❌ Codegen gate: FAIL")
+            print("[FAIL] Codegen gate: FAIL")
             for e in r["errors"]:
                 print(f"  - {e}")
 

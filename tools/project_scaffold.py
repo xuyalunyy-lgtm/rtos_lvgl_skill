@@ -666,7 +666,7 @@ def main() -> int:
         "frameworks": [],
         "generated_files": [{"path": g, "type": Path(g).suffix.lstrip("."), "description": ""} for g in generated],
         "tasks": [t if isinstance(t, dict) else {"name": t, "stack_bytes": 4096, "priority": 5} for t in tasks],
-        "queues": [q if isinstance(q, dict) else {"name": q, "depth": 8, "item_size": 16} for q in queues],
+        "queues": [q if isinstance(q, dict) else {"name": q, "depth": 8, "item_size": 16, "backpressure": "drop_oldest", "timeout_ms": 50} for q in queues],
         "locks": [],
         "timers": [],
         "constraints": {
