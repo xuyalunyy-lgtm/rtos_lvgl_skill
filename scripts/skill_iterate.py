@@ -97,7 +97,8 @@ def check_checker_registry() -> list[str]:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Skill 自我迭代验证")
     parser.add_argument("--check", action="store_true", help="仓库内快速门禁（默认）")
-    parser.add_argument("--release", action="store_true", help="完整发布门禁（含安装版同步、dirty tree）")
+    parser.add_argument("--release", action="store_true", help="完整发布门禁（含安装版同步）")
+    parser.add_argument("--install", action="store_true", help="--release 时先安装到 Codex skill 目录")
     parser.add_argument("--sync", action="store_true", help="验证通过后执行 sync_lite.py")
     parser.add_argument("--skip-self-test", action="store_true")
     args = parser.parse_args()
@@ -232,8 +233,14 @@ def main() -> int:
     else:
         print("  跳过（未指定 --sync）")
 
-    # ── 16. Release-only: installed sync ──
+    # ── 16. Release-only: install + sync check ──
     if args.release:
+        if args.install:
+            _step("install_release_skill")
+            rc = run([sys.executable, str(ROOT / "scripts" / "install_release_skill.py")], ROOT)
+            if rc != 0:
+                errors.append("安装失败")
+
         _step("check_installed_skill_sync --strict")
         rc = run([sys.executable, str(ROOT / "scripts" / "check_installed_skill_sync.py"), "--strict"], ROOT)
         if rc != 0:

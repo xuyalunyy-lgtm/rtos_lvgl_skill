@@ -25,61 +25,71 @@ LOGS_DIR = TOOLS / "fixtures" / "logs"
 MATRIX = [
     {
         "log": "good_boot.log",
-        "allowed_ids": [],  # 精确：不允许任何症状
+        "expected_ids": [],
+        "allowed_extra_ids": [],
         "expected_exit": 1,
         "expected_category_counts": {"software": 0, "hardware": 0, "architecture": 0},
     },
     {
         "log": "bad_wdt_queue_full.log",
-        "allowed_ids": ["WDT_RESET", "HARDFAULT"],  # 精确：只允许这两个
+        "expected_ids": ["WDT_RESET"],
+        "allowed_extra_ids": ["HARDFAULT"],  # 联动症状
         "expected_exit": 0,
         "expected_category_counts": {"software": 2, "hardware": 0, "architecture": 2},
     },
     {
         "log": "bad_heap_drop.log",
-        "allowed_ids": ["HEAP_EXHAUSTION"],
+        "expected_ids": ["HEAP_EXHAUSTION"],
+        "allowed_extra_ids": [],
         "expected_exit": 0,
         "expected_category_counts": {"software": 1, "hardware": 0, "architecture": 1},
     },
     {
         "log": "bad_audio_underrun.log",
-        "allowed_ids": ["AUDIO_UNDERRUN"],
+        "expected_ids": ["AUDIO_UNDERRUN"],
+        "allowed_extra_ids": [],
         "expected_exit": 0,
         "expected_category_counts": {"software": 1, "hardware": 0, "architecture": 1},
     },
     {
         "log": "bad_sensor_timeout.log",
-        "allowed_ids": ["SENSOR_TIMEOUT"],
+        "expected_ids": ["SENSOR_TIMEOUT"],
+        "allowed_extra_ids": [],
         "expected_exit": 0,
         "expected_category_counts": {"software": 1, "hardware": 1, "architecture": 1},
     },
     {
         "log": "bad_ota_rollback.log",
-        "allowed_ids": ["OTA_ROLLBACK"],
+        "expected_ids": ["OTA_ROLLBACK"],
+        "allowed_extra_ids": [],
         "expected_exit": 0,
         "expected_category_counts": {"software": 1, "hardware": 0, "architecture": 1},
     },
     {
         "log": "bad_brownout.log",
-        "allowed_ids": ["BROWNOUT_RESET"],  # 精确：不允许 WDT_RESET 等误报
+        "expected_ids": ["BROWNOUT_RESET"],
+        "allowed_extra_ids": [],
         "expected_exit": 0,
         "expected_category_counts": {"software": 0, "hardware": 1, "architecture": 0},
     },
     {
         "log": "bad_i2c_no_ack.log",
-        "allowed_ids": ["PERIPHERAL_NO_ACK"],
+        "expected_ids": ["PERIPHERAL_NO_ACK"],
+        "allowed_extra_ids": [],
         "expected_exit": 0,
         "expected_category_counts": {"software": 0, "hardware": 1, "architecture": 0},
     },
     {
         "log": "bad_lifecycle_chaos.log",
-        "allowed_ids": ["LIFECYCLE_CHAOS"],
+        "expected_ids": ["LIFECYCLE_CHAOS"],
+        "allowed_extra_ids": [],
         "expected_exit": 0,
         "expected_category_counts": {"software": 0, "hardware": 0, "architecture": 1},
     },
     {
         "log": "bad_priority_inversion.log",
-        "allowed_ids": ["UNCLEAR_TOPOLOGY", "WDT_RESET"],  # WDT 是联动症状
+        "expected_ids": ["UNCLEAR_TOPOLOGY"],
+        "allowed_extra_ids": ["WDT_RESET"],  # 联动症状
         "expected_exit": 0,
         "expected_category_counts": {"software": 1, "hardware": 0, "architecture": 2},
     },
@@ -148,16 +158,20 @@ def check_all() -> dict:
             for s in r.get(key, []):
                 all_ids.add(s.get("symptom_id", ""))
 
-        # allowed_ids（精确集合）：多出的 symptom 直接 fail
-        allowed = case.get("allowed_ids")
-        if allowed is not None:
-            allowed_set = set(allowed)
-            extra = all_ids - allowed_set
-            if extra:
-                errors.append(f"unexpected symptoms: {sorted(extra)}")
-            missing = allowed_set - all_ids
-            if missing:
-                errors.append(f"expected symptoms missing: {sorted(missing)}")
+        # expected_ids + allowed_extra_ids 精确合同
+        expected = set(case.get("expected_ids", []))
+        allowed_extra = set(case.get("allowed_extra_ids", []))
+        allowed_all = expected | allowed_extra
+
+        # 必须包含 expected_ids
+        missing = expected - all_ids
+        if missing:
+            errors.append(f"expected symptoms missing: {sorted(missing)}")
+
+        # 不允许超出 allowed_all 的额外症状
+        extra = all_ids - allowed_all
+        if extra:
+            errors.append(f"unexpected symptoms: {sorted(extra)}")
 
         # forbidden_ids（向后兼容）
         for fid in case.get("forbidden_ids", []):

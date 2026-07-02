@@ -1,5 +1,16 @@
 # Changelog
 
+## 26.0.8 — 2026-07-02
+
+V26：Installable Release and Exact Triage Contract。
+把"仓库内 check 可信"推进到"安装后真实可用"。
+
+- **V26.0.1**：`scripts/install_release_skill.py` — 从仓库安装到 Codex skill 目录（排除 .git/cache/test 输出）
+- **V26.0.2**：`skill_iterate.py --release --install` — 先安装再验证
+- **V26.0.3**：`check_log_triage_matrix.py` 精确合同 — expected_ids + allowed_extra_ids，未声明的额外症状 fail
+- **V26.0.4**：安装 smoke test — 安装后验证 SKILL.md 版本、关键引用文件
+- **V26.0.8**：Release Gate 通过（安装版 26.0.8 同步）
+
 ## 25.0.8 — 2026-07-02
 
 V25：Unified Release Gate and Strict Triage Matrix。
