@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Codex Supervisor hooks 配置。定义各阶段的前置/后置钩子。",
+  "hooks": {
+    "pre_plan": {
+      "description": "Plan 阶段前执行",
+      "commands": [
+        "git status --porcelain",
+        "python scripts/skill_iterate.py --check --skip-self-test"
+      ],
+      "fail_policy": "abort"
+    },
+    "post_plan": {
+      "description": "Plan 阶段后执行（校验 plan JSON）",
+      "commands": [],
+      "fail_policy": "abort",
+      "validation": "codex_supervisor.validate_plan"
+    },
+    "pre_execute": {
+      "description": "Agent 执行前执行",
+      "commands": [
+        "git stash --include-untracked || true",
+        "git checkout -b codex-auto/{job_id}"
+      ],
+      "fail_policy": "abort"
+    },
+    "post_execute": {
+      "description": "Agent 执行后执行",
+      "commands": [
+        "git diff --stat"
+      ],
+      "fail_policy": "warn"
+    },
+    "pre_verify": {
+      "description": "验证阶段前执行",
+      "commands": [
+        "git diff --check"
+      ],
+      "fail_policy": "abort"
+    },
+    "post_verify": {
+      "description": "验证阶段后执行",
+      "commands": [
+        "python tools/run_review.py --dir . --json"
+      ],
+      "fail_policy": "warn"
+    },
+    "on_success": {
+      "description": "全流程成功后执行",
+      "commands": [
+        "git log --oneline -5"
+      ],
+      "fail_policy": "ignore"
+    },
+    "on_failure": {
+      "description": "全流程失败后执行",
+      "commands": [
+        "git checkout main",
+        "git branch -D codex-auto/{job_id} || true"
+      ],
+      "fail_policy": "ignore"
+    }
+  },
+  "protected_paths": [
+    ".git",
+    ".codex",
+    "secrets",
+    "credentials",
+    "*.pem",
+    "*.key",
+    "*.env",
+    "node_modules",
+    "vendor",
+    "build",
+    "dist",
+    "__pycache__"
+  ],
+  "protected_patterns": [
+    "*secret*",
+    "*credential*",
+    "*password*",
+    "*token*",
+    "*.private.*"
+  ],
+  "max_iterations": 3,
+  "timeout_per_phase_seconds": 300
+}

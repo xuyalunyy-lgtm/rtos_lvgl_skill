@@ -1,0 +1,180 @@
+{
+  "version": "9.0.6",
+  "timestamp": "2026-07-02T01:59:57.256248+00:00",
+  "workflow": "debug_crash",
+  "platform": "esp32",
+  "platform_profile": {
+    "name": "ESP32 / ESP-IDF",
+    "platform": "esp32",
+    "description": "乐鑫 ESP32 系列（ESP32/S3/S2/C3/C6/H2），WiFi+BLE 双核 Xtensa/RISC-V",
+    "required_constraints": [
+      "C1",
+      "C2",
+      "C3",
+      "C4",
+      "C7",
+      "C8",
+      "C9",
+      "C11",
+      "C12",
+      "C14",
+      "C15",
+      "C22",
+      "C23",
+      "C25",
+      "C26",
+      "C27",
+      "C28",
+      "C29",
+      "C30",
+      "C31",
+      "C32",
+      "C33",
+      "C34",
+      "C35",
+      "C36",
+      "C37",
+      "C38",
+      "C39",
+      "C40",
+      "C41",
+      "C42",
+      "C43",
+      "C44",
+      "C45"
+    ],
+    "optional_constraints": [
+      "C5",
+      "C6",
+      "C10",
+      "C13",
+      "C16",
+      "C17"
+    ],
+    "excluded_constraints": [],
+    "features": {
+      "wifi": true,
+      "ble": true,
+      "lvgl": true,
+      "i2s_audio": true,
+      "wss_tls": true,
+      "voice_asr": false,
+      "camera": true,
+      "video_preview": true,
+      "av_sync": true,
+      "dual_core": true,
+      "psram": true,
+      "ota": true
+    },
+    "task_priority_style": "higher_is_higher",
+    "common_pitfalls": [
+      "Core 0 WiFi/LwIP 协议栈不可抢占，用户任务建议绑 Core 1",
+      "PSRAM DMA 限制：SPI DMA 不支持 PSRAM，I2S DMA 缓冲必须在 Internal SRAM",
+      "Task WDT 默认监控 esp_timer + main（app_main），长时间阻塞会触发 WDT 复位",
+      "esp_websocket_client 回调在 esp_event 任务上下文（非 UI 线程），禁止 lv_obj_*",
+      "ESP32-S3 有 USB Serial/JTAG 可用于 OTA，无需额外 USB 芯片",
+      "CONFIG_FREERTOS_HZ 默认 1000（tick=1ms），影响 vTaskDelay 精度",
+      "xTaskCreate 栈单位为 words（4 bytes/word），非 bytes",
+      "heap_caps_malloc 的 MALLOC_CAP_SPIRAM 与 MALLOC_CAP_DMA 不可混用",
+      "Camera/LCD/I2S DMA buffer 需确认 internal SRAM、MALLOC_CAP_DMA 与 cache clean/invalidate 方向",
+      "idf.py build 后用 idf.py size-components 检查各组件 Flash/RAM 占用",
+      "BLE + WiFi 共存时 BLE 优先级高于 WiFi，可能影响 WSS 实时性"
+    ],
+    "stack_recommendations": {
+      "wss_tls": {
+        "min_bytes": 6144,
+        "recommended_bytes": 8192,
+        "note": "mbedTLS 握手峰值高，ESP-IDF 5.x 建议 ≥6144"
+      },
+      "lvgl": {
+        "min_bytes": 4096,
+        "recommended_bytes": 8192,
+        "note": "大屏/复杂 UI 需 8192"
+      },
+      "audio": {
+        "min_bytes": 2048,
+        "recommended_bytes": 4096,
+        "note": "I2S + esp-sr AEC"
+      },
+      "av_sync": {
+        "min_bytes": 3072,
+        "recommended_bytes": 6144,
+        "note": "audio clock master + camera/video frame queue"
+      },
+      "media_codec": {
+        "min_bytes": 4096,
+        "recommended_bytes": 6144,
+        "note": "Opus/JPEG/H264 wrapper + format checks"
+      },
+      "av_clock_jitter": {
+        "min_bytes": 3072,
+        "recommended_bytes": 6144,
+        "note": "jitter buffer + drift correction + telemetry"
+      },
+      "media_dma_buffer": {
+        "min_bytes": 2048,
+        "recommended_bytes": 4096,
+        "note": "DMA-capable frame pool + cache sync bookkeeping"
+      },
+      "presenter": {
+        "min_bytes": 2048,
+        "recommended_bytes": 3072,
+        "note": "逻辑简单，2048 够用"
+      },
+      "main": {
+        "min_bytes": 3584,
+        "recommended_bytes": 4096,
+        "note": "CONFIG_ESP_MAIN_TASK_STACK_SIZE"
+      }
+    },
+    "strictness": "standard",
+    "key_sdk_config": {
+      "CONFIG_FREERTOS_HZ": "1000（tick=1ms）",
+      "CONFIG_FREERTOS_CHECK_STACKOVERFLOW_CANARY": "y（栈溢出检测）",
+      "CONFIG_FREERTOS_CHECK_MUTEX_GIVEN_BY_OWNER": "y（互斥锁所有权检查）",
+      "CONFIG_ESP_MAIN_TASK_STACK_SIZE": "3584（main 任务栈）",
+      "CONFIG_ESP_SYSTEM_EVENT_TASK_STACK_SIZE": "4096（系统事件任务栈）",
+      "CONFIG_SPIRAM": "y（启用 PSRAM）",
+      "CONFIG_SPIRAM_MODE_OCT": "y（ESP32-S3 OCT 模式）",
+      "CONFIG_ESP_TASK_WDT_TIMEOUT_S": "5（WDT 超时秒数）",
+      "CONFIG_LWIP_MAX_SOCKETS": "4（按需缩小）",
+      "CONFIG_MBEDTLS_SSL_MAX_CONTENT_LEN": "4096（TLS 内容长度上限）"
+    },
+    "build_commands": {
+      "set_target": "idf.py set-target esp32s3",
+      "build": "idf.py build",
+      "flash_monitor": "idf.py flash monitor",
+      "size": "idf.py size",
+      "size_components": "idf.py size-components",
+      "menuconfig": "idf.py menuconfig",
+      "crash_decode": "xtensa-esp32s3-elf-addr2line -pfiaC -e build/<project>.elf <address>"
+    },
+    "pinmux_notes": {
+      "gpio_0": "BOOT strapping pin，上电时需高电平",
+      "gpio_6_11": "SPI0/SPI1 Flash，不可用作普通 GPIO",
+      "gpio_12": "Strapping pin（Flash 电压选择），boot 时需低电平",
+      "gpio_34_39": "Input only（ADC2/WiFi），不可配置为输出"
+    }
+  },
+  "logs": [],
+  "config_snapshot": {},
+  "commands": [],
+  "addr2line": [],
+  "memory_baseline": {},
+  "checker_json": [
+    {
+      "checker": "run_review",
+      "exit_code": 1,
+      "total_issues": 123,
+      "files_checked": 19
+    }
+  ],
+  "evidence": {},
+  "environment": {
+    "os": "Windows",
+    "os_version": "10.0.26200",
+    "python": "3.14.6",
+    "arch": "AMD64",
+    "timestamp": "2026-07-02T01:59:57.417509+00:00"
+  }
+}

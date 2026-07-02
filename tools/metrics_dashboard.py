@@ -252,6 +252,8 @@ def main() -> int:
     parser.add_argument("--suite", default="default",
                         choices=["default", "all", "security", "media", "platform", "realtime", "enhanced"],
                         help="checker suite (default: default)")
+    parser.add_argument("--evidence", metavar="FILE", help="输出交付证据包到指定文件")
+    parser.add_argument("--evidence-dir", metavar="DIR", help="读取证据包目录做趋势分析")
     parser.add_argument("--self-test", action="store_true", help="运行自测")
     args = parser.parse_args()
 
@@ -292,6 +294,55 @@ def main() -> int:
     print(f"\n=== Health Score: {health['score']}/100 (Grade {health['grade']}) ===")
     for issue in health.get("issues", []):
         print(f"  - {issue}")
+
+    # ── 交付证据包输出 ──
+    if args.evidence:
+        from evidence_schema import issue_entry, make_evidence, save_evidence
+
+        ev_issues = []
+        for checker_name, checker_data in metrics.get("checkers", {}).items():
+            violations = checker_data.get("violations", 0)
+            if violations > 0:
+                ev_issues.append(issue_entry(
+                    cid=checker_name, severity="P2",
+                    file=str(project_dir),
+                    message=f"{violations} 个违规",
+                    checker=checker_name,
+                ))
+
+        ev = make_evidence(
+            source_tool="metrics_dashboard",
+            suite=args.suite,
+            issues=ev_issues,
+            metadata={
+                "tool_version": "9.0.1",
+                "health_score": health["score"],
+                "health_grade": health["grade"],
+                "total_violations": metrics.get("total_violations", 0),
+                "files_total": metrics.get("files", {}).get("total", 0),
+            },
+        )
+        save_evidence(ev, args.evidence)
+        print(f"[evidence] 已保存交付证据包: {args.evidence}")
+
+    # ── 证据目录趋势分析 ──
+    if args.evidence_dir:
+        from evidence_schema import load_evidence
+        evidence_dir = Path(args.evidence_dir)
+        if evidence_dir.is_dir():
+            ev_files = sorted(evidence_dir.glob("*.json"))
+            if ev_files:
+                print(f"\n=== 证据趋势分析 ({len(ev_files)} 个证据包) ===")
+                for ef in ev_files[-5:]:  # 最近 5 个
+                    try:
+                        ev = load_evidence(ef)
+                        score = ev.metadata.get("health_score", "N/A")
+                        issues = len(ev.issues)
+                        print(f"  {ef.name}: score={score}, issues={issues}")
+                    except Exception as exc:
+                        print(f"  {ef.name}: 解析失败 ({exc})")
+            else:
+                print(f"[evidence-dir] 目录为空: {evidence_dir}")
 
     return 0
 

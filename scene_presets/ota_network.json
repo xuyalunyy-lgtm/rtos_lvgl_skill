@@ -1,0 +1,32 @@
+{
+  "name": "OTA 网络设备",
+  "id": "ota-network",
+  "description": "需要远程升级的网络连接设备，如网关、路由器、工业控制器",
+  "platforms": ["esp32", "stm32", "zephyr"],
+  "required_constraints": [
+    "C2", "C3", "C8", "C9", "C12", "C14",
+    "C19", "C20", "C22", "C29", "C33", "C39"
+  ],
+  "recommended_prompts": [
+    "prompts/ota_update_safety.txt",
+    "prompts/network_resilience_review.txt"
+  ],
+  "checker_suite": "security",
+  "generator_params": {
+    "display": false,
+    "audio": false,
+    "network": true,
+    "ota": true,
+    "tasks": ["ota_task", "network_task", "monitor_task"],
+    "queues": ["ota_cmd_q", "net_event_q"]
+  },
+  "acceptance_checklist": [
+    "OTA 固件签名验证通过（C22.1）",
+    "Rollback 机制：首次启动 mark_valid（C22.2）",
+    "OTA 超时配置：HTTP 30s, TLS 10s（C22.5）",
+    "WiFi/BLE 断连后指数退避重连（C20）",
+    "NVS 存储写入前擦除，读取后校验（C19）",
+    "配置矩阵覆盖所有硬件变体（C39）",
+    "Secret 未硬编码在源码中（C9）"
+  ]
+}

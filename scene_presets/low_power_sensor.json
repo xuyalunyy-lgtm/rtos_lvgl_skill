@@ -1,0 +1,30 @@
+{
+  "name": "低功耗传感器",
+  "id": "low-power-sensor",
+  "description": "电池供电的传感器节点，如温湿度、烟感、门窗传感器",
+  "platforms": ["esp32", "stm32"],
+  "required_constraints": [
+    "C4", "C8", "C9", "C12", "C14", "C16",
+    "C21", "C29", "C32", "C33", "C45"
+  ],
+  "recommended_prompts": [
+    "prompts/low_power_review.txt",
+    "prompts/sensor_integration_review.txt"
+  ],
+  "checker_suite": "platform",
+  "generator_params": {
+    "display": false,
+    "audio": false,
+    "network": true,
+    "tasks": ["sensor_task", "network_task"],
+    "queues": ["sensor_data_q"]
+  },
+  "acceptance_checklist": [
+    "Deep sleep 电流 < 10μA（C21）",
+    "传感器采样周期与 wake source 对齐（C45）",
+    "WiFi 连接后立即发送，发完即睡（C20/C21）",
+    "看门狗在 sleep 前暂停，wake 后恢复（C16）",
+    "OTA 升级期间保持清醒，完成后重启（C22）",
+    "日志在量产版本中关闭或降级（C14）"
+  ]
+}

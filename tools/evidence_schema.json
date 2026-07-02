@@ -1,0 +1,219 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://freertos-skill.dev/schemas/delivery_evidence.json",
+  "title": "FreeRTOS Skill Delivery Evidence",
+  "description": "统一交付证据包格式，用于串联审查、修复、验证闭环。",
+  "type": "object",
+  "required": [
+    "version",
+    "timestamp",
+    "source_tool"
+  ],
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "证据格式版本"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 时间戳"
+    },
+    "source_tool": {
+      "type": "string",
+      "description": "产出此 evidence 的工具名"
+    },
+    "project_profile": {
+      "type": "object",
+      "properties": {
+        "platform": {
+          "type": "string"
+        },
+        "preset": {
+          "type": "string"
+        },
+        "features": {
+          "type": "object"
+        }
+      }
+    },
+    "suite_run": {
+      "type": "object",
+      "properties": {
+        "suite": {
+          "type": "string"
+        },
+        "checkers_run": {
+          "type": "integer"
+        },
+        "checkers_skipped": {
+          "type": "integer"
+        }
+      }
+    },
+    "issues": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "severity"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "P0",
+              "P1",
+              "P2"
+            ]
+          },
+          "file": {
+            "type": "string"
+          },
+          "line": {
+            "type": "integer"
+          },
+          "constraint": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "checker": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "generated_files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "path"
+        ],
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "file_type": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "fix_suggestions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "constraint",
+          "fix_type"
+        ],
+        "properties": {
+          "constraint": {
+            "type": "string"
+          },
+          "fix_type": {
+            "type": "string"
+          },
+          "risk_level": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ]
+          },
+          "file": {
+            "type": "string"
+          },
+          "line_range": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "minItems": 2,
+            "maxItems": 2
+          },
+          "suggestion": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "pre_checks": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "post_checkers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "diff": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "reproduce_commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "command"
+        ],
+        "properties": {
+          "command": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "expected_exit": {
+            "type": "integer"
+          }
+        }
+      }
+    },
+    "verification_results": {
+      "type": "object",
+      "properties": {
+        "post_fix_checkers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "all_passed": {
+          "type": "boolean"
+        },
+        "remaining_issues": {
+          "type": "integer"
+        }
+      }
+    },
+    "assumptions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "metadata": {
+      "type": "object"
+    }
+  }
+}

@@ -1,5 +1,18 @@
 # Changelog
 
+## 9.0.8 — 2026-07-02
+
+V9 大版本：从"可信自动化控制平面"升级为"可交付固件工程实验室"。
+
+- **v9.0.1**：交付证据包规范 — `tools/evidence_schema.py` 定义统一 `DeliveryEvidence` 格式，`run_review`/`auto_fix`/`constraint_discovery`/`scaffold`/`metrics_dashboard` 均支持 `--evidence` 输出
+- **v9.0.2**：生成器平台化 — `tools/platform_adapter.py` 统一平台模板接口，`project_scaffold.py --preset` 支持场景 preset，生成 `task_topology.h` + `constraint_manifest.json` + Kconfig，`module_contract_gen.py --modules` 支持多模块 scaffolding + `modules_init.c`
+- **v9.0.3**：Auto-Fix 可审查补丁计划 — `auto_fix_engine.py --plan` 输出结构化 `FixPlan` JSON（风险分级 low/medium/high、pre_checks、post_checkers、confidence），默认不写文件，`--apply` 显式确认才写入
+- **v9.0.4**：场景交付包 — `scene_presets/` 新增 5 个产品场景 preset（voice-screen、audio-video、low-power-sensor、ota-network、pure-controller），每个绑定约束、checker suite、生成器参数、验收清单
+- **v9.0.5**：约束发现 v2 — `constraint_discovery.py --registry-aware` 从 checker_registry 读取已有 C1-C45，提案编号从 C46+ 开始，三类输出（覆盖/漏检/候选），severity 加权排序
+- **v9.0.6**：可复现验证包 — `tools/repro_bundle.py` 打包日志、配置、命令、checker 结果，支持 debug_crash/bring_up/memory/project_review 四种工作流
+- **v9.0.7**：Skill 前向测试体系 — `forward_tests/` 5 个端到端测试（代码审查、crash 分析、生成模块、生成项目、自动修复计划），40 项 check 全绿
+- **v9.0.8**：V9 大版本收口 — SKILL.md 版本 9.0.8，CHANGELOG/iteration_log 更新，`skill_iterate.py --check` 12 步全绿
+
 ## 8.0.7 — 2026-07-01
 
 - **v8.0.1**：修绿基线门禁 — secret_scan --git-remotes 恢复 + extensionless 文件扫描 + efficiency_scorecard 违规数解析修复

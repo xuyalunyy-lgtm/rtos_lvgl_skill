@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://freertos-skill.dev/schemas/agent_result.json",
+  "title": "Codex Supervisor — Agent Execution Phase Output",
+  "description": "Agent 执行阶段输出。Codex 在 workspace-write 模式下按批准计划实现修改后输出此 JSON。",
+  "type": "object",
+  "required": ["status", "files_changed"],
+  "properties": {
+    "status": {
+      "type": "string",
+      "enum": ["success", "partial", "failed", "skipped"],
+      "description": "执行状态"
+    },
+    "files_changed": {
+      "type": "array",
+      "description": "实际修改的文件列表",
+      "items": {
+        "type": "object",
+        "required": ["path", "action"],
+        "properties": {
+          "path": {"type": "string"},
+          "action": {
+            "type": "string",
+            "enum": ["created", "modified", "deleted", "renamed"]
+          },
+          "lines_added": {"type": "integer"},
+          "lines_removed": {"type": "integer"}
+        }
+      }
+    },
+    "commands_run": {
+      "type": "array",
+      "description": "实际执行的命令及结果",
+      "items": {
+        "type": "object",
+        "required": ["cmd", "exit_code"],
+        "properties": {
+          "cmd": {"type": "string"},
+          "exit_code": {"type": "integer"},
+          "stdout_tail": {"type": "string", "description": "stdout 最后 500 字符"},
+          "stderr_tail": {"type": "string", "description": "stderr 最后 500 字符"}
+        }
+      }
+    },
+    "deviations": {
+      "type": "array",
+      "description": "与批准计划的偏差说明",
+      "items": {"type": "string"}
+    },
+    "errors": {
+      "type": "array",
+      "description": "执行过程中遇到的错误",
+      "items": {"type": "string"}
+    },
+    "notes": {
+      "type": "string",
+      "description": "执行备注"
+    }
+  }
+}

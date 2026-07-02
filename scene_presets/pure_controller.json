@@ -1,0 +1,31 @@
+{
+  "name": "纯控制器",
+  "id": "pure-controller",
+  "description": "无显示/无网络的纯逻辑控制器，如电机驱动、PLC、继电器控制",
+  "platforms": ["stm32", "esp32", "zephyr"],
+  "required_constraints": [
+    "C4", "C8", "C12", "C14", "C15", "C16",
+    "C18", "C24", "C29", "C33", "C44"
+  ],
+  "recommended_prompts": [
+    "prompts/peripheral_driver_review.txt",
+    "prompts/realtime_constraint_review.txt"
+  ],
+  "checker_suite": "realtime",
+  "generator_params": {
+    "display": false,
+    "audio": false,
+    "network": false,
+    "tasks": ["control_task", "monitor_task"],
+    "queues": ["cmd_q", "status_q"]
+  },
+  "acceptance_checklist": [
+    "ISR 中无阻塞调用（C4）",
+    "任务优先级合理，无优先级反转（C15）",
+    "定时器精度满足控制周期（C16）",
+    "外设驱动 init/deinit 对称（C18/C24）",
+    "临界区最短化，irq mask 时间 < 10μs（C44）",
+    "GPIO 配置在 init 阶段完成，运行时只读写（C18）",
+    "看门狗独立于控制任务，feed 周期 < timeout/2"
+  ]
+}

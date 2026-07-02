@@ -1,0 +1,15 @@
+menu "test_voice Configuration"
+
+    config APP_WIFI_SSID
+        string "WiFi SSID"
+        default "myssid"
+
+    config APP_WIFI_PASSWORD
+        string "WiFi Password"
+        default "mypassword"
+
+    config APP_LVGL_THEME
+        int "LVGL Theme (0=dark, 1=light)"
+        default 0
+
+endmenu

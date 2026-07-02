@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import sys
 from pathlib import Path
@@ -350,19 +351,171 @@ def run_self_test() -> int:
     return 1 if failed > 0 else 0
 
 
+def generate_modules_init_c(modules: list[dict]) -> str:
+    """生成 modules_init.c — 多模块初始化顺序（按拓扑排序）。"""
+    lines = [
+        '/**',
+        ' * @file modules_init.c',
+        ' * @brief 多模块初始化入口（自动生成）',
+        ' *',
+        ' * 初始化顺序按模块依赖拓扑排序：',
+        ' *   1. 基础设施（通信、存储）',
+        ' *   2. 驱动层（传感器、显示、音频）',
+        ' *   3. 业务层（UI、ASR、网络）',
+        ' */',
+        '',
+        '#include <stdio.h>',
+        '#include "esp_log.h"',
+        '#include "freertos/FreeRTOS.h"',
+        '#include "freertos/task.h"',
+        '',
+    ]
+
+    # include 所有模块契约头文件
+    for mod in modules:
+        name = mod if isinstance(mod, str) else mod.get("name", "unknown")
+        lines.append(f'#include "{name}_contract.h"')
+    lines.append('')
+    lines.append('static const char *TAG = "modules_init";')
+    lines.append('')
+
+    # 初始化函数
+    lines.append('esp_err_t modules_init_all(void)')
+    lines.append('{')
+    lines.append('    esp_err_t err;')
+    lines.append('')
+
+    for mod in modules:
+        name = mod if isinstance(mod, str) else mod.get("name", "unknown")
+        desc = "" if isinstance(mod, str) else mod.get("description", name)
+        lines.append(f'    /* {desc} */')
+        lines.append(f'    err = {name}_init();')
+        lines.append(f'    if (err != {name.upper()}_OK) {{')
+        lines.append(f'        ESP_LOGE(TAG, "{name}_init failed: %d", err);')
+        lines.append(f'        return err;')
+        lines.append(f'    }}')
+        lines.append('')
+
+    lines.append('    ESP_LOGI(TAG, "All modules initialized");')
+    lines.append('    return ESP_OK;')
+    lines.append('}')
+    lines.append('')
+
+    # 启动函数
+    lines.append('esp_err_t modules_start_all(void)')
+    lines.append('{')
+    lines.append('    esp_err_t err;')
+    lines.append('')
+
+    for mod in modules:
+        name = mod if isinstance(mod, str) else mod.get("name", "unknown")
+        lines.append(f'    err = {name}_start();')
+        lines.append(f'    if (err != {name.upper()}_OK) {{')
+        lines.append(f'        ESP_LOGE(TAG, "{name}_start failed: %d", err);')
+        lines.append(f'    }}')
+        lines.append('')
+
+    lines.append('    return ESP_OK;')
+    lines.append('}')
+    lines.append('')
+
+    # 停止函数（反序）
+    lines.append('void modules_stop_all(void)')
+    lines.append('{')
+    for mod in reversed(modules):
+        name = mod if isinstance(mod, str) else mod.get("name", "unknown")
+        lines.append(f'    {name}_stop();')
+    lines.append('}')
+    lines.append('')
+
+    # 反初始化函数（反序）
+    lines.append('void modules_deinit_all(void)')
+    lines.append('{')
+    for mod in reversed(modules):
+        name = mod if isinstance(mod, str) else mod.get("name", "unknown")
+        lines.append(f'    {name}_deinit();')
+    lines.append('}')
+
+    return '\n'.join(lines)
+
+
 def main() -> int:
-    parser = argparse.ArgumentParser(description="模块契约生成器")
-    parser.add_argument("--name", help="模块名")
+    parser = argparse.ArgumentParser(description="模块契约生成器 v9.0.2")
+    parser.add_argument("--name", help="模块名（单模块模式）")
     parser.add_argument("--input", help="输入描述")
     parser.add_argument("--output", help="输出描述")
     parser.add_argument("--tasks", type=int, default=1, help="任务数")
+    parser.add_argument("--modules", nargs="+",
+                        help="多模块模式：模块名列表（如 audio_player display_mgr network_svc）")
+    parser.add_argument("--preset", help="从 scene_presets/ 读取模块定义")
     parser.add_argument("--outdir", "-o", help="输出目录")
+    parser.add_argument("--evidence", metavar="FILE", help="输出交付证据包到指定文件")
     parser.add_argument("--self-test", action="store_true", help="运行自测")
     args = parser.parse_args()
 
     if args.self_test:
         return run_self_test()
 
+    # ── Preset 模式 ──
+    if args.preset:
+        presets_dir = Path(__file__).resolve().parent.parent / "scene_presets"
+        preset_path = presets_dir / f"{args.preset}.json"
+        if not preset_path.exists():
+            print(f"错误: preset '{args.preset}' 不存在", file=sys.stderr)
+            return 1
+        preset = json.loads(preset_path.read_text(encoding="utf-8"))
+        tasks = preset.get("generator_params", {}).get("tasks", [])
+        if tasks:
+            args.modules = tasks
+
+    # ── 多模块模式 ──
+    if args.modules:
+        outdir = Path(args.outdir) if args.outdir else Path(".")
+        outdir.mkdir(parents=True, exist_ok=True)
+
+        module_list = []
+        for mod_name in args.modules:
+            mod = {"name": mod_name, "input": "data", "output": "result"}
+            module_list.append(mod)
+
+            # 生成每个模块的契约头文件
+            header = generate_contract_header(mod_name, mod["input"], mod["output"], 1)
+            header_path = outdir / f"{mod_name}_contract.h"
+            header_path.write_text(header, encoding="utf-8")
+            print(f"[OK] Generated {header_path}")
+
+            # 生成状态机
+            code = generate_state_machine(mod_name)
+            code_path = outdir / f"{mod_name}_fsm.c"
+            code_path.write_text(code, encoding="utf-8")
+            print(f"[OK] Generated {code_path}")
+
+        # 生成 modules_init.c
+        init_code = generate_modules_init_c(module_list)
+        init_path = outdir / "modules_init.c"
+        init_path.write_text(init_code, encoding="utf-8")
+        print(f"[OK] Generated {init_path}")
+
+        # 证据包
+        if args.evidence:
+            from evidence_schema import generated_file, make_evidence, save_evidence
+            gen_files = []
+            for mod in module_list:
+                gen_files.append(generated_file(str(outdir / f"{mod['name']}_contract.h"), "h", f"{mod['name']} 契约头文件"))
+                gen_files.append(generated_file(str(outdir / f"{mod['name']}_fsm.c"), "c", f"{mod['name']} 状态机"))
+            gen_files.append(generated_file(str(init_path), "c", "多模块初始化入口"))
+
+            ev = make_evidence(
+                source_tool="module_contract_gen",
+                generated_files=gen_files,
+                metadata={"tool_version": "9.0.2", "modules": args.modules},
+            )
+            save_evidence(ev, args.evidence)
+            print(f"[evidence] 已保存交付证据包: {args.evidence}")
+
+        return 0
+
+    # ── 单模块模式 ──
     if not args.name or not args.input or not args.output:
         parser.print_help()
         return 1

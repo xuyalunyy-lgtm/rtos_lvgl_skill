@@ -323,6 +323,11 @@ def main() -> int:
         action="store_true",
         help="输出 JSON 格式摘要（CI 集成 / 机器可读）",
     )
+    parser.add_argument(
+        "--evidence",
+        metavar="FILE",
+        help="输出交付证据包 (delivery_evidence.json) 到指定文件",
+    )
     args = parser.parse_args()
 
     if args.list_checkers:
@@ -428,6 +433,56 @@ def main() -> int:
         else:
             print(f"Summary: 存在告警/失败 (exit={exit_code})，请人工核对")
         print(f"{'=' * 60}\n")
+
+    # ── 交付证据包输出 ──
+    if args.evidence:
+        from evidence_schema import (
+            DeliveryEvidence,
+            issue_entry,
+            make_evidence,
+            save_evidence,
+        )
+
+        # 收集所有 checker 的 issues（从 JSON 模式结果中提取）
+        ev_issues: list[dict] = []
+        if args.json:
+            for r in all_results:
+                checker_name = r.get("checker", "")
+                # issues 字段可能是 int（摘要）或 list（详细）
+                if isinstance(r.get("issues"), list):
+                    for iss in r["issues"]:
+                        ev_issues.append(issue_entry(
+                            cid=iss.get("id", ""),
+                            severity=iss.get("severity", "P2"),
+                            file=iss.get("file", ""),
+                            line=iss.get("line", 0),
+                            constraint=iss.get("id", "").split(".")[0] if "." in iss.get("id", "") else "",
+                            message=iss.get("issue", ""),
+                            checker=checker_name,
+                        ))
+
+        # 生成复现命令
+        repro_cmd = f"python tools/run_review.py --dir {args.dir}" if args.dir else f"python tools/run_review.py {' '.join(args.files)}"
+        if args.platform != "freertos":
+            repro_cmd += f" --platform {args.platform}"
+
+        ev = make_evidence(
+            source_tool="run_review",
+            platform=args.platform,
+            suite="default",
+            issues=ev_issues,
+            reproduce_commands=[{"command": repro_cmd, "description": "复现审查"}],
+            metadata={
+                "tool_version": "9.0.1",
+                "files_checked": len(c_files),
+                "exit_code": exit_code,
+                "total_checkers_run": sum(1 for r in (all_results if args.json else []) if not r.get("skipped")),
+            },
+        )
+        save_evidence(ev, args.evidence)
+        if not args.json:
+            print(f"[evidence] 已保存交付证据包: {args.evidence}")
+
     return exit_code
 
 

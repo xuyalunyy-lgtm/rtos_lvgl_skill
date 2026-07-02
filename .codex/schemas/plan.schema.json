@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://freertos-skill.dev/schemas/codex_plan.json",
+  "title": "Codex Supervisor — Plan Phase Output",
+  "description": "Plan 阶段输出结构。Codex 在只读模式下分析任务，输出此 JSON。",
+  "type": "object",
+  "required": ["intent", "files_to_change", "risk_level", "destructive", "requires_network"],
+  "properties": {
+    "intent": {
+      "type": "string",
+      "description": "任务意图的自然语言描述",
+      "minLength": 5,
+      "maxLength": 500
+    },
+    "analysis": {
+      "type": "string",
+      "description": "对当前代码/问题的分析摘要"
+    },
+    "files_to_change": {
+      "type": "array",
+      "description": "预计修改的文件列表（相对于仓库根目录）",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 1
+    },
+    "files_to_read": {
+      "type": "array",
+      "description": "需要读取但不修改的文件",
+      "items": {"type": "string"}
+    },
+    "commands": {
+      "type": "array",
+      "description": "执行阶段需要运行的命令",
+      "items": {
+        "type": "object",
+        "required": ["cmd"],
+        "properties": {
+          "cmd": {"type": "string", "description": "shell 命令"},
+          "description": {"type": "string"},
+          "timeout_seconds": {"type": "integer", "default": 120}
+        }
+      }
+    },
+    "risk_level": {
+      "type": "string",
+      "enum": ["low", "medium", "high", "critical"],
+      "description": "风险等级。low=自动执行，medium=自动review，high=人工确认，critical=拒绝"
+    },
+    "risk_reason": {
+      "type": "string",
+      "description": "风险等级判定理由"
+    },
+    "destructive": {
+      "type": "boolean",
+      "description": "是否包含删除/覆盖操作"
+    },
+    "requires_network": {
+      "type": "boolean",
+      "description": "执行阶段是否需要网络访问"
+    },
+    "touches_protected": {
+      "type": "array",
+      "description": "触碰的保护区域列表",
+      "items": {
+        "type": "string",
+        "enum": [".git", ".codex", "secrets", "credentials", "build_output", "sdk_config", "node_modules", "vendor"]
+      }
+    },
+    "acceptance_tests": {
+      "type": "array",
+      "description": "验收条件列表",
+      "items": {"type": "string"}
+    },
+    "rollback": {
+      "type": "string",
+      "description": "回滚方式描述"
+    },
+    "estimated_changes": {
+      "type": "integer",
+      "description": "预计修改行数"
+    },
+    "dependencies": {
+      "type": "array",
+      "description": "依赖的外部工具/库",
+      "items": {"type": "string"}
+    }
+  }
+}

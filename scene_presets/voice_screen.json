@@ -1,0 +1,31 @@
+{
+  "name": "带屏语音助手",
+  "id": "voice-screen",
+  "description": "带 LVGL 屏幕的语音交互设备，如智能音箱、语音面板",
+  "platforms": ["esp32", "jl"],
+  "required_constraints": [
+    "C1", "C2", "C3", "C4", "C8", "C9", "C10", "C12", "C14",
+    "C23", "C25", "C29", "C30", "C31", "C32", "C33", "C35", "C43"
+  ],
+  "recommended_prompts": [
+    "prompts/voice_asr_review.txt",
+    "prompts/lvgl_ui_review.txt"
+  ],
+  "checker_suite": "media",
+  "generator_params": {
+    "display": true,
+    "audio": true,
+    "voice_asr": true,
+    "network": true,
+    "tasks": ["ui_task", "audio_task", "asr_task", "net_task"],
+    "queues": ["audio_q", "ui_cmd_q", "asr_result_q"]
+  },
+  "acceptance_checklist": [
+    "LVGL 仅在 UI 任务调用（C1）",
+    "音频 DMA buffer 在 internal SRAM（C28）",
+    "ASR 结果通过队列传递，不在回调中操作 UI（C2/C10）",
+    "OTA 签名校验通过（C22）",
+    "语音唤醒 → ASR → 结果展示 全链路 < 2s",
+    "WSS 断连后自动重连，UI 显示连接状态（C20）"
+  ]
+}
