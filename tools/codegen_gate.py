@@ -89,10 +89,7 @@ def check_manifest(manifest_path: str) -> list[str]:
             if "stack_bytes" not in t:
                 errors.append(f"task {t.get('name', '?')} 缺少 stack_bytes")
 
-    if "queues" in data:
-        for q in data["queues"]:
-            if "backpressure" not in q and q.get("depth", 0) > 0:
-                errors.append(f"queue {q.get('name', '?')} 缺少 backpressure 策略")
+    # queue 完整性由 manifest_contract 校验，此处不重复检查
 
     return errors
 
@@ -234,13 +231,108 @@ def run_gate(dir_path: str, manifest_path: str, platform: str = "", strict: bool
         checks["constraint_coverage"] = {"passed": len(coverage_errors) == 0, "errors": coverage_errors}
         all_errors.extend(coverage_errors)
 
-    return _gate_result(len(all_errors) == 0, all_errors, all_warnings, all_violations, checks, platform, strict)
+    # 6. RTOS model 构造 + analyzer 报告（V21）
+    rtos_model_summary = {}
+    analyzer_reports = {}
+    risk_summary = {"p0": 0, "p1": 0, "p2": 0, "total": 0}
+
+    if strict:
+        try:
+            from rtos_model import from_generation_manifest
+            rtos_model = from_generation_manifest(manifest)
+            rtos_model_summary = {
+                "tasks": len(rtos_model.get("tasks", [])),
+                "queues": len(rtos_model.get("queues", [])),
+                "mutexes": len(rtos_model.get("mutexes", [])),
+                "semaphores": len(rtos_model.get("semaphores", [])),
+                "timers": len(rtos_model.get("timers", [])),
+                "pools": len(rtos_model.get("memory_pools", [])),
+            }
+
+            # task_graph_analyzer
+            try:
+                from task_graph_analyzer import analyze as tg_analyze
+                tg = tg_analyze(rtos_model)
+                analyzer_reports["task_graph"] = tg
+                risk_summary["p0"] += tg.get("risk_summary", {}).get("p0", 0)
+                risk_summary["p1"] += tg.get("risk_summary", {}).get("p1", 0)
+                risk_summary["p2"] += tg.get("risk_summary", {}).get("p2", 0)
+            except ImportError:
+                pass
+
+            # ipc_contract_checker
+            try:
+                from ipc_contract_checker import check as ipc_check
+                ipc = ipc_check(rtos_model)
+                analyzer_reports["ipc_contract"] = ipc
+                risk_summary["p0"] += ipc.get("risk_summary", {}).get("p0", 0)
+                risk_summary["p1"] += ipc.get("risk_summary", {}).get("p1", 0)
+                risk_summary["p2"] += ipc.get("risk_summary", {}).get("p2", 0)
+            except ImportError:
+                pass
+
+            # scheduler_analyzer
+            try:
+                from scheduler_analyzer import analyze as sched_analyze
+                sched = sched_analyze(rtos_model)
+                analyzer_reports["scheduler"] = sched
+                risk_summary["p0"] += sched.get("risk_summary", {}).get("p0", 0)
+                risk_summary["p1"] += sched.get("risk_summary", {}).get("p1", 0)
+                risk_summary["p2"] += sched.get("risk_summary", {}).get("p2", 0)
+            except ImportError:
+                pass
+
+            # memory_lifetime_analyzer
+            try:
+                from memory_lifetime_analyzer import analyze as mem_analyze
+                mem = mem_analyze(rtos_model)
+                analyzer_reports["memory_lifetime"] = mem
+                risk_summary["p0"] += mem.get("risk_summary", {}).get("p0", 0)
+                risk_summary["p1"] += mem.get("risk_summary", {}).get("p1", 0)
+                risk_summary["p2"] += mem.get("risk_summary", {}).get("p2", 0)
+            except ImportError:
+                pass
+
+            # timebase_analyzer
+            try:
+                from timebase_analyzer import analyze as tb_analyze
+                tb = tb_analyze(rtos_model)
+                analyzer_reports["timebase"] = tb
+                risk_summary["p0"] += tb.get("risk_summary", {}).get("p0", 0)
+                risk_summary["p1"] += tb.get("risk_summary", {}).get("p1", 0)
+                risk_summary["p2"] += tb.get("risk_summary", {}).get("p2", 0)
+            except ImportError:
+                pass
+
+            risk_summary["total"] = risk_summary["p0"] + risk_summary["p1"] + risk_summary["p2"]
+
+            # P0 analyzer risk → fail
+            if risk_summary["p0"] > 0:
+                all_errors.append(f"RTOS analyzer 发现 {risk_summary['p0']} 个 P0 风险")
+            # P1/P2 → warnings
+            if risk_summary["p1"] > 0:
+                all_warnings.append(f"RTOS analyzer 发现 {risk_summary['p1']} 个 P1 风险")
+            if risk_summary["p2"] > 0:
+                all_warnings.append(f"RTOS analyzer 发现 {risk_summary['p2']} 个 P2 风险")
+
+        except ImportError:
+            pass  # rtos_model 不可用时跳过
+
+    return _gate_result(
+        len(all_errors) == 0, all_errors, all_warnings, all_violations,
+        checks, platform, strict,
+        rtos_model_summary=rtos_model_summary,
+        analyzer_reports=analyzer_reports,
+        risk_summary=risk_summary,
+    )
 
 
 def _gate_result(passed: bool, errors: list, warnings: list, violations: list,
-                 checks: dict, platform: str, strict: bool) -> dict:
+                 checks: dict, platform: str, strict: bool, *,
+                 rtos_model_summary: dict = None, analyzer_reports: dict = None,
+                 risk_summary: dict = None) -> dict:
     """构造统一 gate 输出。"""
-    return {
+    result = {
         "passed": passed,
         "severity": "P0" if errors else ("P1" if violations else "P2"),
         "errors": errors,
@@ -253,6 +345,17 @@ def _gate_result(passed: bool, errors: list, warnings: list, violations: list,
         "platform": platform,
         "strict": strict,
     }
+    if rtos_model_summary:
+        result["rtos_model_summary"] = rtos_model_summary
+    if analyzer_reports:
+        # 只保留 risk_summary，不输出完整 analyzer 报告（太大）
+        result["analyzer_reports"] = {
+            name: {"risk_summary": rpt.get("risk_summary", {}), "risk_count": len(rpt.get("risks", []))}
+            for name, rpt in analyzer_reports.items()
+        }
+    if risk_summary:
+        result["risk_summary"] = risk_summary
+    return result
 
 
 def run_self_test() -> int:

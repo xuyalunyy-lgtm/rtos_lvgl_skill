@@ -688,56 +688,7 @@ def main() -> int:
     (outdir / "constraint_manifest.json").write_text(manifest_str, encoding="utf-8")
     generated.append("constraint_manifest.json")
 
-    # generation_manifest.json（V19 — schema 1.2）
-    from manifest_normalizer import normalize_manifest
-
-    directly_covered = ["C8", "C12", "C14", "C29", "C33"]
-    required_constraints = preset.get("required_constraints", directly_covered) if preset else directly_covered
-    deferred = []
-    for cid in required_constraints:
-        if cid not in directly_covered:
-            deferred.append({
-                "id": cid,
-                "reason": "scaffold 仅生成骨架，此约束需在具体模块实现时覆盖",
-                "evidence": f"task_topology.h + constraint_manifest.json 声明了 {cid} 适用场景",
-            })
-
-    # 从 preset 提取 locks/timers/pools
-    preset_locks = preset.get("generator_params", {}).get("locks", []) if preset else []
-    preset_timers = preset.get("generator_params", {}).get("timers", []) if preset else []
-    preset_pools = preset.get("generator_params", {}).get("memory_pools", []) if preset else []
-
-    raw_manifest = {
-        "schema_version": "1.1",
-        "generator": "project_scaffold",
-        "platform": args.platform,
-        "frameworks": [],
-        "generated_files": [{"path": g, "type": Path(g).suffix.lstrip("."), "description": ""} for g in generated],
-        "tasks": tasks,
-        "queues": queues,
-        "locks": preset_locks,
-        "timers": preset_timers,
-        "memory_pools": preset_pools,
-        "constraints": {
-            "required": required_constraints,
-            "covered": directly_covered,
-            "deferred": deferred,
-        },
-        "verification_commands": [
-            f"python tools/codegen_gate.py --dir {outdir} --manifest {outdir}/generation_manifest.json --platform {args.platform} --strict",
-            f"python tools/rtos_model.py --from-generation-manifest {outdir}/generation_manifest.json --output {outdir}/rtos_model.json",
-            f"python tools/task_graph_analyzer.py --model {outdir}/rtos_model.json",
-            f"python tools/ipc_contract_checker.py --model {outdir}/rtos_model.json",
-            f"python tools/run_review.py --dir {outdir} --platform {args.platform}",
-        ],
-    }
-    gen_manifest = normalize_manifest(raw_manifest)
-    (outdir / "generation_manifest.json").write_text(
-        json.dumps(gen_manifest, indent=2, ensure_ascii=False), encoding="utf-8"
-    )
-    generated.append("generation_manifest.json")
-
-    # README.md
+    # README.md（先于 manifest 生成）
     (outdir / "README.md").write_text(
         generate_readme(args.name, args.platform, args.display, args.audio, args.network, preset=preset),
         encoding="utf-8"
@@ -765,6 +716,68 @@ def main() -> int:
         if kconfig:
             (outdir / "Kconfig.projbuild").write_text(kconfig, encoding="utf-8")
             generated.append("Kconfig.projbuild")
+
+    # generation_manifest.json（最后生成，包含完整 generated_files）
+    from manifest_normalizer import normalize_manifest
+
+    directly_covered = ["C8", "C12", "C14", "C29", "C33"]
+    required_constraints = preset.get("required_constraints", directly_covered) if preset else directly_covered
+    deferred = []
+    for cid in required_constraints:
+        if cid not in directly_covered:
+            deferred.append({
+                "id": cid,
+                "reason": "scaffold 仅生成骨架，此约束需在具体模块实现时覆盖",
+                "evidence": f"task_topology.h + constraint_manifest.json 声明了 {cid} 适用场景",
+            })
+
+    preset_locks = preset.get("generator_params", {}).get("locks", []) if preset else []
+    preset_timers = preset.get("generator_params", {}).get("timers", []) if preset else []
+    preset_pools = preset.get("generator_params", {}).get("memory_pools", []) if preset else []
+
+    raw_manifest = {
+        "schema_version": "1.2",
+        "generator": "project_scaffold",
+        "platform": args.platform,
+        "frameworks": [],
+        "generated_files": [{"path": g, "type": Path(g).suffix.lstrip("."), "description": ""} for g in generated],
+        "tasks": tasks,
+        "queues": queues,
+        "locks": preset_locks,
+        "timers": preset_timers,
+        "memory_pools": preset_pools,
+        "constraints": {
+            "required": required_constraints,
+            "covered": directly_covered,
+            "deferred": deferred,
+        },
+        "verification_commands": [
+            f"python tools/codegen_gate.py --dir {outdir} --manifest {outdir}/generation_manifest.json --platform {args.platform} --strict",
+            f"python tools/rtos_model.py --from-generation-manifest {outdir}/generation_manifest.json --output {outdir}/rtos_model.json",
+            f"python tools/task_graph_analyzer.py --model {outdir}/rtos_model.json",
+            f"python tools/ipc_contract_checker.py --model {outdir}/rtos_model.json",
+            f"python tools/scheduler_analyzer.py --model {outdir}/rtos_model.json",
+            f"python tools/memory_lifetime_analyzer.py --model {outdir}/rtos_model.json",
+            f"python tools/timebase_analyzer.py --model {outdir}/rtos_model.json",
+            f"python tools/run_review.py --dir {outdir} --platform {args.platform}",
+        ],
+    }
+    gen_manifest = normalize_manifest(raw_manifest)
+    (outdir / "generation_manifest.json").write_text(
+        json.dumps(gen_manifest, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+    generated.append("generation_manifest.json")
+
+    # constraint_manifest.json 从 generation_manifest 派生
+    constraint_manifest = {
+        "project": args.name,
+        "platform": args.platform,
+        "required_constraints": gen_manifest["constraints"]["required"],
+        "recommended_suite": preset.get("checker_suite", "default") if preset else "default",
+    }
+    (outdir / "constraint_manifest.json").write_text(
+        json.dumps(constraint_manifest, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
 
     # ── 输出 ──
     print(f"[OK] Project scaffold generated: {outdir}")

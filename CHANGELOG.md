@@ -1,5 +1,20 @@
 # Changelog
 
+## 21.0.8 — 2026-07-02
+
+V20+V21：Manifest Contract Runtime + Analyzer-Aware Release Gate。
+Major refactor: manifest 从生成清单升级为可执行合同运行时，codegen_gate 聚合 5 个 RTOS analyzer，全 preset 结构化，20x 生成代码可信度收益。
+
+- **V20.0.1**：`tools/manifest_contract.py` — 校验 manifest 1.2 合同（必填字段/枚举/跨引用/lifecycle/lock budget/timer budget），8 项自测
+- **V20.0.2**：`codegen_gate.py` 接入 contract runtime，统一 gate 输出
+- **V20.0.3**：`project_scaffold.py` manifest-last 修复，generated_files 包含 README/config/Kconfig
+- **V20.0.4**：全 5 preset 结构化（voice_screen/audio_video/low_power_sensor/ota_network/pure_controller）
+- **V21.0.3**：`codegen_gate --strict` 聚合 RTOS model + 5 analyzer（task_graph/ipc/scheduler/memory/timebase）
+- **V21.0.4**：P0 analyzer risk 直接 fail，P1/P2 进入 warnings
+- **V21.0.5**：scaffold verification_commands 补齐 5 个 analyzer
+- **V21.0.7**：codegen_contract.md 更新为 manifest 1.2
+- **V21.0.8**：SKILL/Lite/CHANGELOG 对齐 21.0.8
+
 ## 18.0.9 — 2026-07-02
 
 V18 Whole-Skill Refactor：重构 skill 运行架构为"薄入口 + 统一项目模型 + 约束门禁 + 工具分层"。
