@@ -1,5 +1,19 @@
 # Changelog
 
+## 13.0.8 — 2026-07-02
+
+V13 大版本：从"固件行为验证闭环"升级为"RTOS 系统级设计与运行时正确性分析器"。
+Major refactor: 建立 task graph→scheduler→IPC→memory→timebase→simulation RTOS 系统分析闭环，20x 系统设计分析效率收益。
+
+- **v13.0.1**：RTOS System Model — `tools/rtos_model.py` + `rtos_system_model.schema.json`，统一描述 task/queue/mutex/semaphore/timer/ISR/memory_pool/core_affinity，4 项自测
+- **v13.0.2**：Task Graph Analyzer — `tools/task_graph_analyzer.py`，分析依赖/生产消费链路/循环等待/孤儿任务/无消费者队列/无背压 producer，4 项自测
+- **v13.0.3**：Scheduler Analyzer — `tools/scheduler_analyzer.py`，检查优先级反转/饥饿/core_affinity/锁持有时间，3 项自测
+- **v13.0.4**：IPC Contract Checker — `tools/ipc_contract_checker.py`，检查 payload owner/timeout/backpressure/ISR-safe/跨核同步，3 项自测
+- **v13.0.5**：Memory Lifetime Analyzer — `tools/memory_lifetime_analyzer.py`，分析 heap/pool/zero-copy/task delete cleanup/泄漏风险，3 项自测
+- **v13.0.6**：Timebase Analyzer — `tools/timebase_analyzer.py`，检查 timer callback/jitter/永久等待/低功耗超时，3 项自测
+- **v13.0.7**：RTOS Simulator — `tools/rtos_sim.py`，what-if 模拟（优先级/queue 深度/周期变化），CPU 利用率/队列溢出/优先级建议，3 项自测
+- **v13.0.8**：V13 收口 — 全工具自测 23/23 通过，新增 `workflows/l2_rtos_system_review.md`，SKILL/Lite/CHANGELOG 更新
+
 ## 12.0.8 — 2026-07-02
 
 V12 大版本：从"会积累工程经验的固件代理操作系统"升级为"能验证真实固件行为的工程闭环系统"。

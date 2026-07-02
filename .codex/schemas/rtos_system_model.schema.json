@@ -1,0 +1,121 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://freertos-skill.dev/schemas/rtos_system_model.json",
+  "title": "RTOS System Model",
+  "description": "统一 RTOS 系统模型：task、queue、mutex、semaphore、timer、event group、memory pool、ISR、core affinity。",
+  "type": "object",
+  "required": ["tasks"],
+  "properties": {
+    "project": {"type": "string"},
+    "platform": {"type": "string"},
+    "tasks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "priority", "stack_bytes"],
+        "properties": {
+          "name": {"type": "string"},
+          "priority": {"type": "integer"},
+          "stack_bytes": {"type": "integer"},
+          "core_affinity": {"type": "integer", "description": "-1=any, 0/1=specific core"},
+          "period_ms": {"type": "integer", "description": "周期任务周期，0=事件驱动"},
+          "deadline_ms": {"type": "integer"},
+          "wcet_ms": {"type": "integer", "description": "最坏执行时间"},
+          "produces": {"type": "array", "items": {"type": "string"}, "description": "生产的 queue/event"},
+          "consumes": {"type": "array", "items": {"type": "string"}, "description": "消费的 queue/event"},
+          "holds": {"type": "array", "items": {"type": "string"}, "description": "持有的 mutex/semaphore"},
+          "description": {"type": "string"}
+        }
+      }
+    },
+    "queues": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "depth", "item_size"],
+        "properties": {
+          "name": {"type": "string"},
+          "depth": {"type": "integer"},
+          "item_size": {"type": "integer"},
+          "producer_tasks": {"type": "array", "items": {"type": "string"}},
+          "consumer_tasks": {"type": "array", "items": {"type": "string"}},
+          "backpressure": {"type": "string", "enum": ["block", "drop_newest", "drop_oldest", "overwrite"]},
+          "timeout_ms": {"type": "integer"},
+          "isr_safe": {"type": "boolean"},
+          "description": {"type": "string"}
+        }
+      }
+    },
+    "mutexes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": {"type": "string"},
+          "holder_tasks": {"type": "array", "items": {"type": "string"}},
+          "max_hold_ms": {"type": "integer"},
+          "priority_ceiling": {"type": "integer"},
+          "recursive": {"type": "boolean"},
+          "description": {"type": "string"}
+        }
+      }
+    },
+    "semaphores": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "type"],
+        "properties": {
+          "name": {"type": "string"},
+          "type": {"type": "string", "enum": ["binary", "counting", "mutex"]},
+          "max_count": {"type": "integer"},
+          "isr_safe": {"type": "boolean"},
+          "description": {"type": "string"}
+        }
+      }
+    },
+    "timers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "period_ms"],
+        "properties": {
+          "name": {"type": "string"},
+          "period_ms": {"type": "integer"},
+          "callback_max_ms": {"type": "integer", "description": "回调最大执行时间"},
+          "auto_reload": {"type": "boolean"},
+          "description": {"type": "string"}
+        }
+      }
+    },
+    "isrs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": {"type": "string"},
+          "priority": {"type": "integer"},
+          "max_duration_us": {"type": "integer"},
+          "notifies_tasks": {"type": "array", "items": {"type": "string"}},
+          "description": {"type": "string"}
+        }
+      }
+    },
+    "memory_pools": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "block_size", "num_blocks"],
+        "properties": {
+          "name": {"type": "string"},
+          "block_size": {"type": "integer"},
+          "num_blocks": {"type": "integer"},
+          "owner_tasks": {"type": "array", "items": {"type": "string"}},
+          "description": {"type": "string"}
+        }
+      }
+    }
+  }
+}
