@@ -1,5 +1,20 @@
 # Changelog
 
+## 27.0.8 — 2026-07-02
+
+V27：Runtime-Proven Skill Behavior and Payload Drift Gate。
+Major refactor: 安装后内容可证明、运行行为可回归、payload 漂移可检测，20x 发布可信度收益。
+
+- **V27.0.1**：`scripts/check_installed_runtime.py` — 安装目录审计（文件清单/必需文件/禁止目录/hash 校验），6 项自测
+- **V27.0.2**：Release manifest — `install_release_skill.py` 生成 manifest（skill name/version/file count/payload hash）
+- **V27.0.3**：`scripts/skill_forward_eval.py` — 离线确定性行为回归（5 eval cases），3 项自测
+  - crash_triage: WDT 日志 → 证据链
+  - hardware_challenge: brownout → 硬件质疑
+  - architecture_refactor: lifecycle → 重构建议
+  - codegen_contract: manifest contract 校验
+  - release_usage: 文档覆盖
+- **V27.0.8**：SKILL/Lite/CHANGELOG 对齐 27.0.8
+
 ## 26.0.8 — 2026-07-02
 
 V26：Installable Release and Exact Triage Contract。

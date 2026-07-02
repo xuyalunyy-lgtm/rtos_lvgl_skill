@@ -1,7 +1,7 @@
 ---
 name: freertos-embedded-architect
 metadata:
-  version: 26.0.8
+  version: 27.0.8
 description: >-
   FreeRTOS embedded architecture specialist for MVP firmware, board bring-up,
   runtime reliability, memory safety, module contracts, task topology, timeout
