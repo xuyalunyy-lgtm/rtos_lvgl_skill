@@ -19,6 +19,17 @@ Agent 或维护者在发现新的 anti-pattern 或现场经验时追加条目。
 
 ---
 
+### 2026-07-03 — BK 录音结束恢复 STA 省电触发 IPC 心跳重启
+
+- **来源：** BK7258 app_paltte 录音停止后重启现场日志
+- **平台：** BK
+- **症状：** AI 录音 stop / `CLIENT_AUDIO_FINISH` 后约 8s 重启，日志出现 `IPC[1]heartbeat timeout ...` 与 `Assert at: mb_ipc_task:275`，无 HardFault；若强行 stop/restart voice read，第二轮录音可能刷 `AEL_IO_ABORT`
+- **根因：** 录音结束立即调用 `bk_wifi_sta_pm_enable()` 恢复 STA power save，使 WiFi/音频/IPC 跨核状态切换时 CPU1 心跳停止；BK CP 侧 `CONFIG_INT_WDT_PERIOD_MS=8000` 到期后 assert 重启
+- **修复模式：** 录音期间 `bk_wifi_sta_pm_disable()` 后，不要在 capture stop 立即恢复 STA 省电；保持 voice/read handle 只进入 gated idle，避免 stop 后重启 reader；只在 deinit 或经长测验证的安全窗口恢复 PM；验收日志要求无 `IPC heartbeat timeout`、无 `AEL_IO_ABORT` 连刷，且多轮 `CLIENT_AUDIO_FINISH ok=1`
+- **约束映射：** C8.3, C20.1, C24.4, C31.3, C33.1, C38.4
+- **频率：** 中
+- **影响：** P0
+
 ### 2026-07-02 — WSS 销毁后异步任务仍访问 client
 
 - **来源：** BK7258 app_paltte 现场重启与提交前审查
