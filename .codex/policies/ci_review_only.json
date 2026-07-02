@@ -1,0 +1,24 @@
+{
+  "policy_id": "ci_review_only",
+  "name": "CI 审查策略",
+  "description": "CI 环境只生成 review 报告，不自动修改代码",
+  "risk_preference": "reject_critical",
+  "max_iterations": 1,
+  "require_clean_worktree": true,
+  "isolation_mode": "none",
+  "allowed_path_prefixes": [],
+  "blocked_path_prefixes": [".git", ".codex", "secrets", "credentials", "tools/", "scripts/"],
+  "blocked_patterns": ["*"],
+  "allowed_command_prefixes": ["python scripts/skill_iterate.py", "python tools/run_review.py", "git diff", "git status"],
+  "blocked_command_patterns": ["rm", "sudo", "format", "git push", "git reset", "git checkout"],
+  "verification_commands": [
+    {"cmd": "python scripts/skill_iterate.py --check", "description": "iteration check"}
+  ],
+  "auto_approve_conditions": {
+    "risk_level": [],
+    "destructive": false,
+    "requires_network": false,
+    "max_files_changed": 0,
+    "max_lines_changed": 0
+  }
+}

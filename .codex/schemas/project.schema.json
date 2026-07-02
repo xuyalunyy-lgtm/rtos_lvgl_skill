@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://freertos-skill.dev/schemas/project.json",
+  "title": "Codex Supervisor — Project Definition",
+  "description": "项目注册定义。记录项目平台、产品场景、允许路径、默认 suite、托管策略。",
+  "type": "object",
+  "required": ["project_id", "name", "platform"],
+  "properties": {
+    "project_id": {"type": "string", "pattern": "^[a-z0-9-]{2,64}$"},
+    "name": {"type": "string"},
+    "description": {"type": "string"},
+    "platform": {"type": "string", "enum": ["esp32", "stm32", "zephyr", "jl", "bk"]},
+    "preset": {"type": "string", "description": "关联的 scene preset ID"},
+    "default_suite": {"type": "string", "enum": ["default", "all", "security", "media", "platform", "realtime"]},
+    "default_policy": {"type": "string", "description": "默认策略 ID"},
+    "allowed_paths": {"type": "array", "items": {"type": "string"}},
+    "blocked_paths": {"type": "array", "items": {"type": "string"}},
+    "verification_commands": {"type": "array", "items": {"type": "object", "properties": {"cmd": {"type": "string"}, "description": {"type": "string"}}}},
+    "privacy_level": {"type": "string", "enum": ["public", "internal", "confidential"]},
+    "tags": {"type": "array", "items": {"type": "string"}},
+    "created_at": {"type": "string", "format": "date-time"},
+    "updated_at": {"type": "string", "format": "date-time"}
+  }
+}

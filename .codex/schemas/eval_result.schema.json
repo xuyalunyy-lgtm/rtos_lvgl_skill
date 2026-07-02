@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://freertos-skill.dev/schemas/eval_result.json",
+  "title": "Evaluation Result",
+  "description": "评估运行结果。",
+  "type": "object",
+  "required": ["eval_id", "suite", "timestamp"],
+  "properties": {
+    "eval_id": {"type": "string"},
+    "suite": {"type": "string", "description": "评估套件名"},
+    "timestamp": {"type": "string", "format": "date-time"},
+    "total_cases": {"type": "integer"},
+    "passed": {"type": "integer"},
+    "failed": {"type": "integer"},
+    "skipped": {"type": "integer"},
+    "success_rate": {"type": "number", "minimum": 0, "maximum": 1},
+    "avg_iterations": {"type": "number"},
+    "block_reasons": {
+      "type": "object",
+      "description": "阻断原因分布",
+      "additionalProperties": {"type": "integer"}
+    },
+    "cases": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {"type": "string"},
+          "status": {"type": "string", "enum": ["pass", "fail", "skip"]},
+          "iterations": {"type": "integer"},
+          "block_reason": {"type": "string"},
+          "duration_seconds": {"type": "number"}
+        }
+      }
+    }
+  }
+}

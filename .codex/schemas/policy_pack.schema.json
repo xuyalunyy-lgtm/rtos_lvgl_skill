@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://freertos-skill.dev/schemas/policy_pack.json",
+  "title": "Policy Pack",
+  "description": "可复用门禁策略包定义。",
+  "type": "object",
+  "required": ["policy_id", "name", "risk_preference"],
+  "properties": {
+    "policy_id": {"type": "string"},
+    "name": {"type": "string"},
+    "description": {"type": "string"},
+    "risk_preference": {"type": "string", "enum": ["auto_low", "auto_medium", "manual_high", "reject_critical"]},
+    "max_iterations": {"type": "integer", "minimum": 1, "maximum": 10},
+    "require_clean_worktree": {"type": "boolean"},
+    "isolation_mode": {"type": "string", "enum": ["branch", "worktree", "none"]},
+    "allowed_path_prefixes": {"type": "array", "items": {"type": "string"}},
+    "blocked_path_prefixes": {"type": "array", "items": {"type": "string"}},
+    "blocked_patterns": {"type": "array", "items": {"type": "string"}},
+    "allowed_command_prefixes": {"type": "array", "items": {"type": "string"}},
+    "blocked_command_patterns": {"type": "array", "items": {"type": "string"}},
+    "verification_commands": {"type": "array", "items": {"type": "object", "properties": {"cmd": {"type": "string"}, "description": {"type": "string"}}}},
+    "auto_approve_conditions": {
+      "type": "object",
+      "properties": {
+        "risk_level": {"type": "array", "items": {"type": "string"}},
+        "destructive": {"type": "boolean"},
+        "requires_network": {"type": "boolean"},
+        "max_files_changed": {"type": "integer"},
+        "max_lines_changed": {"type": "integer"}
+      }
+    }
+  }
+}

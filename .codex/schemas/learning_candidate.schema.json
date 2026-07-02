@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://freertos-skill.dev/schemas/learning_candidate.json",
+  "title": "Learning Candidate",
+  "description": "从 evidence store 中挖掘出的学习候选提案。",
+  "type": "object",
+  "required": ["candidate_id", "type", "title", "evidence_refs"],
+  "properties": {
+    "candidate_id": {"type": "string"},
+    "type": {
+      "type": "string",
+      "enum": ["new_checker", "checker_precision", "preset_enhancement", "constraint_candidate", "workflow_optimization"]
+    },
+    "title": {"type": "string"},
+    "description": {"type": "string"},
+    "evidence_refs": {
+      "type": "array",
+      "description": "支撑此候选的 evidence record ID 列表",
+      "items": {"type": "string"}
+    },
+    "frequency": {"type": "integer", "description": "相关 pattern 出现次数"},
+    "severity": {"type": "string", "enum": ["P0", "P1", "P2"]},
+    "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+    "proposed_action": {
+      "type": "object",
+      "description": "建议的 skill 更新操作",
+      "properties": {
+        "target": {"type": "string", "enum": ["checker", "preset", "constraint", "workflow", "prompt", "rule"]},
+        "target_id": {"type": "string"},
+        "action": {"type": "string", "enum": ["add", "modify", "deprecate"]},
+        "detail": {"type": "string"}
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": ["proposed", "approved", "rejected", "implemented"],
+      "default": "proposed"
+    },
+    "created_at": {"type": "string", "format": "date-time"}
+  }
+}

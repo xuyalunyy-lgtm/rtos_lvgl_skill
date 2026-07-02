@@ -1,0 +1,24 @@
+{
+  "policy_id": "auto_low_risk",
+  "name": "低风险自动执行策略",
+  "description": "低风险任务自动执行并验证，中风险也自动执行但需 review 报告",
+  "risk_preference": "auto_medium",
+  "max_iterations": 2,
+  "require_clean_worktree": false,
+  "isolation_mode": "branch",
+  "allowed_path_prefixes": ["tools/", "scripts/", "references/", "prompts/", "examples/", "templates/", "workflows/", "product_profiles/", "scene_presets/", "forward_tests/", "platforms/", "agents/"],
+  "blocked_path_prefixes": [".git", ".codex", "secrets", "credentials"],
+  "blocked_patterns": ["*secret*", "*credential*", "*password*", "*token*"],
+  "allowed_command_prefixes": ["python", "git"],
+  "blocked_command_patterns": ["rm -rf /", "sudo", "format", "mkfs", "git push --force"],
+  "verification_commands": [
+    {"cmd": "python tools/run_review.py --self-test", "description": "checker self-test"}
+  ],
+  "auto_approve_conditions": {
+    "risk_level": ["low", "medium"],
+    "destructive": false,
+    "requires_network": false,
+    "max_files_changed": 20,
+    "max_lines_changed": 500
+  }
+}

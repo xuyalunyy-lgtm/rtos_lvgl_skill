@@ -1,0 +1,26 @@
+{
+  "policy_id": "release_strict",
+  "name": "发布严格策略",
+  "description": "发布前严格审查：只允许文档和版本号修改，所有修改需人工确认",
+  "risk_preference": "reject_critical",
+  "max_iterations": 1,
+  "require_clean_worktree": true,
+  "isolation_mode": "branch",
+  "allowed_path_prefixes": ["SKILL.md", "CHANGELOG.md", "references/iteration_log.md", "references/skill_structure.md", "freertos-skill-lite/"],
+  "blocked_path_prefixes": [".git", ".codex", "secrets", "credentials", "tools/", "scripts/"],
+  "blocked_patterns": ["*secret*", "*credential*", "*password*", "*token*", "*.pem", "*.key"],
+  "allowed_command_prefixes": ["python scripts/skill_iterate.py", "python scripts/commit_audit.py", "python scripts/sync_lite.py", "python scripts/check_lite_sync.py", "git diff", "git status", "git log"],
+  "blocked_command_patterns": ["rm", "sudo", "format", "git push", "git reset --hard"],
+  "verification_commands": [
+    {"cmd": "python scripts/skill_iterate.py --check", "description": "full iteration check"},
+    {"cmd": "python scripts/commit_audit.py --strict-release", "description": "release audit"},
+    {"cmd": "python scripts/sync_lite.py --dry-run", "description": "lite sync check"}
+  ],
+  "auto_approve_conditions": {
+    "risk_level": [],
+    "destructive": false,
+    "requires_network": false,
+    "max_files_changed": 0,
+    "max_lines_changed": 0
+  }
+}

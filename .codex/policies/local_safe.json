@@ -1,0 +1,25 @@
+{
+  "policy_id": "local_safe",
+  "name": "本地安全策略",
+  "description": "默认本地开发策略：低风险自动执行，中风险需 review，高风险需确认，critical 拒绝",
+  "risk_preference": "auto_low",
+  "max_iterations": 3,
+  "require_clean_worktree": true,
+  "isolation_mode": "branch",
+  "allowed_path_prefixes": ["tools/", "scripts/", "references/", "prompts/", "examples/", "templates/", "workflows/", "product_profiles/", "scene_presets/", "forward_tests/", "platforms/", "agents/"],
+  "blocked_path_prefixes": [".git", ".codex", "secrets", "credentials"],
+  "blocked_patterns": ["*secret*", "*credential*", "*password*", "*token*", "*.pem", "*.key", "*.env"],
+  "allowed_command_prefixes": ["python", "git status", "git diff", "git log"],
+  "blocked_command_patterns": ["rm -rf", "sudo", "format", "mkfs", "git push --force", "git reset --hard"],
+  "verification_commands": [
+    {"cmd": "python scripts/skill_iterate.py --check", "description": "iteration check"},
+    {"cmd": "git diff --check", "description": "diff check"}
+  ],
+  "auto_approve_conditions": {
+    "risk_level": ["low"],
+    "destructive": false,
+    "requires_network": false,
+    "max_files_changed": 10,
+    "max_lines_changed": 200
+  }
+}

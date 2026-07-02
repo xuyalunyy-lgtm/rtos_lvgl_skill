@@ -1,5 +1,19 @@
 # Changelog
 
+## 11.0.8 — 2026-07-02
+
+V11 大版本：从"可托管固件工程代理系统"升级为"会积累工程经验的固件代理操作系统"。
+Major refactor: 建立 evidence → pattern → policy → skill update 跨项目经验闭环，20x 工程经验复用效率。
+
+- **v11.0.1**：Evidence Store — `tools/evidence_store.py` 统一入库 DeliveryEvidence/SupervisorReport/ReproBundle，JSONL 存储，支持 ingest/query/summarize/export，9 项自测
+- **v11.0.2**：Project Registry — `.codex/projects/*.json` + `project.schema.json`，记录项目平台/产品场景/允许路径/默认 suite/托管策略
+- **v11.0.3**：Policy Pack — `tools/policy_pack.py` + `.codex/policies/*.json`，4 个内置策略（local_safe/ci_review_only/auto_low_risk/release_strict），11 项自测
+- **v11.0.4**：Pattern Miner — `tools/pattern_miner.py` 从 evidence store 挖掘高频失败/重复修复/误报热点/门禁拒绝，输出 checker/preset/constraint 候选
+- **v11.0.5**：Learning Candidate Workflow — `workflows/l2_learning_candidate.md` + `learning_candidate.schema.json`，定义经验→挖掘→候选→确认→更新闭环
+- **v11.0.6**：Role Pipeline — supervisor 队列支持 planner/fixer/verifier/reviewer/release-auditor 逻辑角色阶段
+- **v11.0.7**：Evaluation Harness — `tools/eval_runner.py` + `eval_result.schema.json`，6 个评估套件（supervisor/evidence/policy/pattern/core/all），11 个用例
+- **v11.0.8**：V11 收口 — 全工具自测通过，SKILL/Lite/CHANGELOG/iteration_log 更新，release gate
+
 ## 10.0.8 — 2026-07-02
 
 V10 大版本：从"可交付固件工程实验室"升级为"可托管固件工程代理系统"。
