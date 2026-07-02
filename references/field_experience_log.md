@@ -19,6 +19,17 @@ Agent 或维护者在发现新的 anti-pattern 或现场经验时追加条目。
 
 ---
 
+### 2026-07-03 — BK 大体积 TF binfont 放大 WSS 断线销毁 assert
+
+- **来源：** BK7258 app_paltte 替换 TF 中文字库后现场重启日志
+- **平台：** BK
+- **症状：** 将约 270KB 的 `my_font_16.bin` 替换为约 2.3MB 字库后，设备启动后 WiFi 断开并进入 WSS disconnect，随后 FreeRTOS `Assert at: xTaskPriorityDisinherit` 重启
+- **根因：** LVGL binfont 加载会把字体元数据/位图放入运行内存，TF 文件体积会直接消耗 PSRAM/heap；大资源降低内存余量后，网络断线路径中持应用 mutex 调用 websocket destroy/free，容易放大 SDK websocket task 与回调的锁/生命周期竞态
+- **修复模式：** 外部 UI 资源加载前先 stat 文件大小并设置 Kconfig 上限，超限降级到内置字体；加载前后记录 heap/PSRAM 余量；WSS RX/TX buffer 必须按协议单帧需求配置，不要默认 64KB 大 buffer 与字体/图片争 PSRAM；WSS disconnect/reconnect/deinit 先在应用锁内 detach 当前 client 并让 stale event 失效，再在锁外执行可能阻塞的 SDK destroy；断网/重连作为回归用例
+- **约束映射：** C7.12, C20.5, C31.3, C33.1, C38.1, C43.1
+- **频率：** 中
+- **影响：** P0
+
 ### 2026-07-03 — BK 录音结束恢复 STA 省电触发 IPC 心跳重启
 
 - **来源：** BK7258 app_paltte 录音停止后重启现场日志
