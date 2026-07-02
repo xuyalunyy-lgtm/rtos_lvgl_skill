@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://freertos-skill.dev/schemas/hil_scenario.json",
+  "title": "HIL Scenario",
+  "description": "硬件在环测试场景定义。",
+  "type": "object",
+  "required": ["scenario_id", "name", "timeout_seconds", "expected_events"],
+  "properties": {
+    "scenario_id": {"type": "string"},
+    "name": {"type": "string"},
+    "description": {"type": "string"},
+    "timeout_seconds": {"type": "integer", "minimum": 1},
+    "preconditions": {
+      "type": "array",
+      "description": "前置条件",
+      "items": {"type": "string"}
+    },
+    "steps": {
+      "type": "array",
+      "description": "执行步骤",
+      "items": {
+        "type": "object",
+        "required": ["action"],
+        "properties": {
+          "action": {"type": "string", "enum": ["flash", "reset", "wait", "send_cmd", "wait_event", "inject_fault", "power_off", "power_on"]},
+          "value": {"type": "string"},
+          "timeout_seconds": {"type": "integer"},
+          "description": {"type": "string"}
+        }
+      }
+    },
+    "expected_events": {
+      "type": "array",
+      "description": "期望在日志中出现的事件（按顺序）",
+      "items": {
+        "type": "object",
+        "required": ["pattern"],
+        "properties": {
+          "pattern": {"type": "string", "description": "日志匹配正则"},
+          "required": {"type": "boolean", "default": true},
+          "timeout_seconds": {"type": "integer"},
+          "description": {"type": "string"}
+        }
+      }
+    },
+    "fault_injection": {
+      "type": "array",
+      "description": "故障注入步骤",
+      "items": {
+        "type": "object",
+        "properties": {
+          "type": {"type": "string", "enum": ["serial_cmd", "network_disconnect", "network_restore", "power_off", "power_on", "sensor_timeout"]},
+          "value": {"type": "string"},
+          "delay_seconds": {"type": "number"},
+          "required_capability": {"type": "string"}
+        }
+      }
+    },
+    "failure_attribution": {
+      "type": "object",
+      "description": "失败归因映射",
+      "properties": {
+        "boot_fail": {"type": "string"},
+        "watchdog_reset": {"type": "string"},
+        "heap_exhaustion": {"type": "string"},
+        "network_timeout": {"type": "string"},
+        "ota_rollback": {"type": "string"}
+      }
+    },
+    "related_constraints": {
+      "type": "array",
+      "description": "关联的约束域",
+      "items": {"type": "string"}
+    },
+    "required_capabilities": {
+      "type": "array",
+      "items": {"type": "string"}
+    }
+  }
+}

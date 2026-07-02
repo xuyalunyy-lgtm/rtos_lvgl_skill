@@ -1,0 +1,23 @@
+{
+  "scenario_id": "boot_smoke",
+  "name": "启动冒烟测试",
+  "description": "验证固件能正常启动、通过 WDT、连接网络",
+  "timeout_seconds": 60,
+  "preconditions": ["固件已烧录", "串口已连接"],
+  "steps": [
+    {"action": "reset", "description": "复位板卡"},
+    {"action": "wait", "timeout_seconds": 30, "description": "等待启动完成"}
+  ],
+  "expected_events": [
+    {"pattern": "boot_ok|starting|initialized", "required": true, "timeout_seconds": 15, "description": "启动成功"},
+    {"pattern": "heap.*free|HEAP", "required": false, "description": "堆信息输出"},
+    {"pattern": "wifi.*connected|WIFI_CONNECTED|sta_connected", "required": false, "timeout_seconds": 30, "description": "WiFi 连接"}
+  ],
+  "failure_attribution": {
+    "boot_fail": "C8 启动顺序问题",
+    "watchdog_reset": "C31 阻塞等待/优先级问题",
+    "heap_exhaustion": "C3 内存泄漏"
+  },
+  "related_constraints": ["C8", "C12", "C14", "C31", "C32"],
+  "required_capabilities": ["monitor", "reset"]
+}

@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://freertos-skill.dev/schemas/hil_result.json",
+  "title": "HIL Result",
+  "description": "HIL 运行结果。",
+  "type": "object",
+  "required": ["run_id", "board_id", "scenario_id", "status", "timestamp"],
+  "properties": {
+    "run_id": {"type": "string"},
+    "board_id": {"type": "string"},
+    "scenario_id": {"type": "string"},
+    "status": {"type": "string", "enum": ["pass", "fail", "skip", "timeout", "error"]},
+    "timestamp": {"type": "string", "format": "date-time"},
+    "duration_seconds": {"type": "number"},
+    "dry_run": {"type": "boolean"},
+    "events_matched": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "pattern": {"type": "string"},
+          "matched": {"type": "boolean"},
+          "actual_line": {"type": "string"},
+          "timestamp": {"type": "string"}
+        }
+      }
+    },
+    "faults_injected": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "type": {"type": "string"},
+          "success": {"type": "boolean"},
+          "response": {"type": "string"}
+        }
+      }
+    },
+    "telemetry_summary": {
+      "type": "object",
+      "properties": {
+        "boot_ok": {"type": "boolean"},
+        "reset_reason": {"type": "string"},
+        "heap_free_min": {"type": "integer"},
+        "stack_hwm_min": {"type": "integer"},
+        "wdt_triggered": {"type": "boolean"},
+        "network_connected": {"type": "boolean"}
+      }
+    },
+    "failure_reason": {"type": "string"},
+    "failure_attribution": {"type": "string"},
+    "related_constraints": {"type": "array", "items": {"type": "string"}},
+    "raw_log_path": {"type": "string"}
+  }
+}

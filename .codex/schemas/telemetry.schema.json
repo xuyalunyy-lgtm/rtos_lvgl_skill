@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://freertos-skill.dev/schemas/telemetry.json",
+  "title": "Telemetry Entry",
+  "description": "从串口日志中解析出的遥测条目。",
+  "type": "object",
+  "required": ["event_type", "raw_line"],
+  "properties": {
+    "event_type": {
+      "type": "string",
+      "enum": ["boot_ok", "boot_fail", "reset_reason", "heap_info", "stack_hwm", "wdt_trigger", "task_alive", "network_connect", "network_disconnect", "ota_start", "ota_complete", "ota_rollback", "audio_underrun", "sensor_timeout", "error", "warning", "info"]
+    },
+    "raw_line": {"type": "string"},
+    "timestamp": {"type": "string"},
+    "value": {"type": ["string", "number", "boolean"]},
+    "unit": {"type": "string"},
+    "task_name": {"type": "string"},
+    "details": {"type": "object"}
+  }
+}

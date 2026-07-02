@@ -1,5 +1,19 @@
 # Changelog
 
+## 12.0.8 — 2026-07-02
+
+V12 大版本：从"会积累工程经验的固件代理操作系统"升级为"能验证真实固件行为的工程闭环系统"。
+Major refactor: 建立 build→flash→monitor→telemetry→scenario→golden trace→release qualification 硬件在环验证闭环，20x 现场验证效率收益。
+
+- **v12.0.1**：Board Registry — `.codex/boards/*.json` + `board.schema.json`，记录串口/烧录/监控/复位/电源/能力/安全标志，fake-esp32 测试板卡
+- **v12.0.2**：HIL Runner MVP — `tools/hil_runner.py`，probe/build/flash/monitor/smoke/run 子命令，默认 dry-run，board safety_flags 控制真实操作，8 项自测
+- **v12.0.3**：Telemetry Parser — `tools/telemetry_parser.py` + `telemetry.schema.json`，解析 boot/heap/WDT/reset/network/OTA/audio/sensor 14 种事件，4 项自测
+- **v12.0.4**：HIL Scenario DSL — `.codex/hil_scenarios/*.json` + `hil_scenario.schema.json`，内置 boot_smoke/network_reconnect 场景，步骤/期望事件/故障注入/失败归因
+- **v12.0.5**：故障注入 — 集成到 HIL scenario DSL，支持 serial_cmd/network_disconnect/power_off/sensor_timeout，必须由 board capabilities 声明
+- **v12.0.6**：Golden Trace 对比 — `tools/trace_compare.py`，日志脱敏/时间戳归一化/地址掩码/容忍窗口/事件顺序检查，5 项自测
+- **v12.0.7**：Release Qualification Gate — `tools/release_qualifier.py` + `release_qualification.schema.json`，聚合 supervisor/HIL/Eval/pattern 输出 pass/warn/fail，5 项自测
+- **v12.0.8**：V12 收口 — 全工具自测 22/22 通过，SKILL/Lite/CHANGELOG/iteration_log 更新
+
 ## 11.0.8 — 2026-07-02
 
 V11 大版本：从"可托管固件工程代理系统"升级为"会积累工程经验的固件代理操作系统"。

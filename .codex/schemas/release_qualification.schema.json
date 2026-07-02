@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://freertos-skill.dev/schemas/release_qualification.json",
+  "title": "Release Qualification",
+  "description": "发布资格评估结果。",
+  "type": "object",
+  "required": ["qualification_id", "conclusion", "timestamp"],
+  "properties": {
+    "qualification_id": {"type": "string"},
+    "conclusion": {"type": "string", "enum": ["pass", "warn", "fail"]},
+    "timestamp": {"type": "string", "format": "date-time"},
+    "inputs": {
+      "type": "object",
+      "properties": {
+        "supervisor_report": {"type": "string"},
+        "hil_result": {"type": "string"},
+        "eval_result": {"type": "string"},
+        "evidence_summary": {"type": "string"}
+      }
+    },
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {"type": "string"},
+          "result": {"type": "string", "enum": ["pass", "warn", "fail", "skip"]},
+          "detail": {"type": "string"},
+          "blocking": {"type": "boolean"}
+        }
+      }
+    },
+    "blockers": {"type": "array", "items": {"type": "string"}},
+    "acceptable_risks": {"type": "array", "items": {"type": "string"}},
+    "reproduce_commands": {"type": "array", "items": {"type": "string"}}
+  }
+}

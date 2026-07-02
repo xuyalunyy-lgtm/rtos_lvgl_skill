@@ -1,0 +1,23 @@
+{
+  "scenario_id": "network_reconnect",
+  "name": "网络断连恢复测试",
+  "description": "验证 WiFi 断连后能自动重连",
+  "timeout_seconds": 120,
+  "preconditions": ["固件已启动", "WiFi 已连接"],
+  "steps": [
+    {"action": "wait_event", "value": "wifi.*connected|WIFI_CONNECTED", "timeout_seconds": 30, "description": "确认初始连接"},
+    {"action": "send_cmd", "value": "wifi_disconnect", "description": "断开 WiFi"},
+    {"action": "wait", "timeout_seconds": 10, "description": "等待断连生效"},
+    {"action": "send_cmd", "value": "wifi_reconnect", "description": "触发重连"},
+    {"action": "wait_event", "value": "wifi.*connected|WIFI_CONNECTED|reconnect", "timeout_seconds": 60, "description": "等待重连成功"}
+  ],
+  "expected_events": [
+    {"pattern": "disconnect|DISCONNECTED", "required": true, "timeout_seconds": 15, "description": "检测到断连"},
+    {"pattern": "reconnect|CONNECTED|got_ip", "required": true, "timeout_seconds": 60, "description": "重连成功"}
+  ],
+  "failure_attribution": {
+    "network_timeout": "C20 网络韧性问题"
+  },
+  "related_constraints": ["C20", "C31", "C32"],
+  "required_capabilities": ["serial_cmd", "monitor"]
+}

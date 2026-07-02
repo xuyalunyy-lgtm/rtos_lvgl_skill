@@ -1,0 +1,24 @@
+{
+  "board_id": "fake-esp32",
+  "name": "Fake ESP32 (测试用)",
+  "description": "用于自测的虚拟 ESP32 板卡，不连接真实硬件",
+  "platform": "esp32",
+  "serial_port": "FAKE_COM0",
+  "baudrate": 115200,
+  "flash_cmd": "echo '[DRY-RUN] flash {firmware}'",
+  "build_cmd": "echo '[DRY-RUN] build'",
+  "monitor_cmd": "echo '[DRY-RUN] monitor'",
+  "reset_cmd": "echo '[DRY-RUN] reset'",
+  "power_cmd": "echo '[DRY-RUN] power {action}'",
+  "probe_cmd": "echo '[DRY-RUN] probe: fake-esp32 connected'",
+  "capabilities": ["flash", "monitor", "reset", "power", "serial_cmd"],
+  "safety_flags": {
+    "allow_flash": true,
+    "allow_reset": true,
+    "allow_power": true,
+    "require_confirmation": false,
+    "max_flash_per_hour": 100
+  },
+  "tags": ["fake", "test", "esp32"],
+  "notes": "仅用于自测，所有命令为 echo dry-run"
+}
