@@ -235,8 +235,17 @@ def run_gate(dir_path: str, manifest_path: str, platform: str = "", strict: bool
     rtos_model_summary = {}
     analyzer_reports = {}
     risk_summary = {"p0": 0, "p1": 0, "p2": 0, "total": 0}
+    missing_analyzers = []
+    REQUIRED_ANALYZERS = [
+        ("task_graph", "task_graph_analyzer", "analyze"),
+        ("ipc_contract", "ipc_contract_checker", "check"),
+        ("scheduler", "scheduler_analyzer", "analyze"),
+        ("memory_lifetime", "memory_lifetime_analyzer", "analyze"),
+        ("timebase", "timebase_analyzer", "analyze"),
+    ]
 
     if strict:
+        # RTOS model 构造（必须成功）
         try:
             from rtos_model import from_generation_manifest
             rtos_model = from_generation_manifest(manifest)
@@ -248,61 +257,26 @@ def run_gate(dir_path: str, manifest_path: str, platform: str = "", strict: bool
                 "timers": len(rtos_model.get("timers", [])),
                 "pools": len(rtos_model.get("memory_pools", [])),
             }
+        except Exception as e:
+            all_errors.append(f"RTOS model 构造失败: {e}")
+            rtos_model = None
 
-            # task_graph_analyzer
-            try:
-                from task_graph_analyzer import analyze as tg_analyze
-                tg = tg_analyze(rtos_model)
-                analyzer_reports["task_graph"] = tg
-                risk_summary["p0"] += tg.get("risk_summary", {}).get("p0", 0)
-                risk_summary["p1"] += tg.get("risk_summary", {}).get("p1", 0)
-                risk_summary["p2"] += tg.get("risk_summary", {}).get("p2", 0)
-            except ImportError:
-                pass
-
-            # ipc_contract_checker
-            try:
-                from ipc_contract_checker import check as ipc_check
-                ipc = ipc_check(rtos_model)
-                analyzer_reports["ipc_contract"] = ipc
-                risk_summary["p0"] += ipc.get("risk_summary", {}).get("p0", 0)
-                risk_summary["p1"] += ipc.get("risk_summary", {}).get("p1", 0)
-                risk_summary["p2"] += ipc.get("risk_summary", {}).get("p2", 0)
-            except ImportError:
-                pass
-
-            # scheduler_analyzer
-            try:
-                from scheduler_analyzer import analyze as sched_analyze
-                sched = sched_analyze(rtos_model)
-                analyzer_reports["scheduler"] = sched
-                risk_summary["p0"] += sched.get("risk_summary", {}).get("p0", 0)
-                risk_summary["p1"] += sched.get("risk_summary", {}).get("p1", 0)
-                risk_summary["p2"] += sched.get("risk_summary", {}).get("p2", 0)
-            except ImportError:
-                pass
-
-            # memory_lifetime_analyzer
-            try:
-                from memory_lifetime_analyzer import analyze as mem_analyze
-                mem = mem_analyze(rtos_model)
-                analyzer_reports["memory_lifetime"] = mem
-                risk_summary["p0"] += mem.get("risk_summary", {}).get("p0", 0)
-                risk_summary["p1"] += mem.get("risk_summary", {}).get("p1", 0)
-                risk_summary["p2"] += mem.get("risk_summary", {}).get("p2", 0)
-            except ImportError:
-                pass
-
-            # timebase_analyzer
-            try:
-                from timebase_analyzer import analyze as tb_analyze
-                tb = tb_analyze(rtos_model)
-                analyzer_reports["timebase"] = tb
-                risk_summary["p0"] += tb.get("risk_summary", {}).get("p0", 0)
-                risk_summary["p1"] += tb.get("risk_summary", {}).get("p1", 0)
-                risk_summary["p2"] += tb.get("risk_summary", {}).get("p2", 0)
-            except ImportError:
-                pass
+        # 5 个 analyzer（strict 模式下缺失即 P0）
+        if rtos_model:
+            for analyzer_name, module_name, func_name in REQUIRED_ANALYZERS:
+                try:
+                    mod = __import__(module_name)
+                    func = getattr(mod, func_name)
+                    result = func(rtos_model)
+                    analyzer_reports[analyzer_name] = result
+                    risk_summary["p0"] += result.get("risk_summary", {}).get("p0", 0)
+                    risk_summary["p1"] += result.get("risk_summary", {}).get("p1", 0)
+                    risk_summary["p2"] += result.get("risk_summary", {}).get("p2", 0)
+                except ImportError:
+                    missing_analyzers.append(analyzer_name)
+                    all_errors.append(f"analyzer 缺失: {analyzer_name} ({module_name})")
+                except Exception as e:
+                    all_errors.append(f"analyzer {analyzer_name} 异常: {e}")
 
             risk_summary["total"] = risk_summary["p0"] + risk_summary["p1"] + risk_summary["p2"]
 
@@ -315,22 +289,20 @@ def run_gate(dir_path: str, manifest_path: str, platform: str = "", strict: bool
             if risk_summary["p2"] > 0:
                 all_warnings.append(f"RTOS analyzer 发现 {risk_summary['p2']} 个 P2 风险")
 
-        except ImportError:
-            pass  # rtos_model 不可用时跳过
-
     return _gate_result(
         len(all_errors) == 0, all_errors, all_warnings, all_violations,
         checks, platform, strict,
         rtos_model_summary=rtos_model_summary,
         analyzer_reports=analyzer_reports,
         risk_summary=risk_summary,
+        missing_analyzers=missing_analyzers,
     )
 
 
 def _gate_result(passed: bool, errors: list, warnings: list, violations: list,
                  checks: dict, platform: str, strict: bool, *,
                  rtos_model_summary: dict = None, analyzer_reports: dict = None,
-                 risk_summary: dict = None) -> dict:
+                 risk_summary: dict = None, missing_analyzers: list = None) -> dict:
     """构造统一 gate 输出。"""
     result = {
         "passed": passed,
@@ -348,13 +320,14 @@ def _gate_result(passed: bool, errors: list, warnings: list, violations: list,
     if rtos_model_summary:
         result["rtos_model_summary"] = rtos_model_summary
     if analyzer_reports:
-        # 只保留 risk_summary，不输出完整 analyzer 报告（太大）
         result["analyzer_reports"] = {
             name: {"risk_summary": rpt.get("risk_summary", {}), "risk_count": len(rpt.get("risks", []))}
             for name, rpt in analyzer_reports.items()
         }
     if risk_summary:
         result["risk_summary"] = risk_summary
+    if missing_analyzers is not None:
+        result["missing_analyzers"] = missing_analyzers
     return result
 
 

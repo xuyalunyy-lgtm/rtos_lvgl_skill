@@ -1,5 +1,16 @@
 # Changelog
 
+## 22.0.8 — 2026-07-02
+
+V22：Release-Proven Codegen Gate。
+Major refactor: 安装版同步、HEAD provenance audit、analyzer 缺失即失败、五 preset matrix 自动门禁、P1/P2 风险预算，20x 发布可信度收益。
+
+- **V22.0.1**：`scripts/check_installed_skill_sync.py` — 安装版与仓库版本一致性检查
+- **V22.0.3**：`codegen_gate --strict` — analyzer 缺失/异常即 P0 fail
+- **V22.0.4**：`scripts/check_codegen_matrix.py` — 五 preset 生成 + gate 矩阵检查，5/5 PASS
+- **V22.0.5**：P1/P2 风险预算 — 每个 preset 有 P1/P2 上限，超限 fail
+- **V22.0.8**：版本/CHANGELOG/iteration_log 对齐 22.0.8
+
 ## 21.0.8 — 2026-07-02
 
 V20+V21：Manifest Contract Runtime + Analyzer-Aware Release Gate。
