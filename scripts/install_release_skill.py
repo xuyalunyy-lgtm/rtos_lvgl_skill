@@ -1,164 +1,211 @@
 #!/usr/bin/env python3
 """
-安装版 Skill 发布脚本 — 从仓库安装到 Codex skill 目录。
+安装版 Skill 发布脚本 — clean install。
 
-排除 .git、缓存、测试输出、非运行时文件。
+默认先复制到临时目录，生成 manifest，验证通过后替换目标目录。
+旧安装目录中的过期文件会被清除。
 
 用法:
     python scripts/install_release_skill.py
     python scripts/install_release_skill.py --dry-run
+    python scripts/install_release_skill.py --no-clean
     python scripts/install_release_skill.py --self-test
 """
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import shutil
 import sys
+import tempfile
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from runtime_payload import (
+    EXCLUDE_DIRS,
+    collect_payload,
+    generate_manifest,
+    payload_hash,
+    should_exclude,
+)
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_INSTALL_DIR = Path(os.environ.get("USERPROFILE", "")) / ".codex" / "skills" / "freertos-embedded-architect"
 
-# 安装时排除的目录/文件
-EXCLUDE_DIRS = {
-    ".git", "__pycache__", ".mypy_cache", ".pytest_cache",
-    "node_modules", ".codex", "forward_tests",
-    "freertos-skill-lite",  # Lite 是独立分发包
-    ".skill_metrics", ".skill_evidence",  # 运行时产物
-}
 
-EXCLUDE_FILES = {
-    ".gitignore", ".gitattributes",
-    "CLAUDE.md", "INSTALL.md",  # 开发文档
-}
+def _copy_payload(src_dir: Path, dst_dir: Path) -> int:
+    """复制 payload 到目标目录。返回复制文件数。"""
+    payload = collect_payload(src_dir)
+    dst_dir.mkdir(parents=True, exist_ok=True)
 
-# 安装时排除的文件模式
-EXCLUDE_PATTERNS = [
-    "*.pyc", "*.pyo", "__pycache__",
-    ".DS_Store", "Thumbs.db",
-    "*.log", "*.tmp",
-    "test_evidence*", "tmp_*",
-]
+    copied = 0
+    for rel in sorted(payload.keys()):
+        src_file = src_dir / rel
+        dst_file = dst_dir / rel
+        dst_file.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            shutil.copy2(src_file, dst_file)
+            copied += 1
+        except Exception:
+            pass
+    return copied
 
 
-def _should_exclude(path: Path, rel: str) -> bool:
-    """判断文件是否应排除。"""
-    parts = path.parts
+def _clean_install_dir(install_dir: Path) -> int:
+    """清理安装目录。返回删除文件数。"""
+    if not install_dir.exists():
+        return 0
 
-    # 目录排除
-    for part in parts:
-        if part in EXCLUDE_DIRS:
-            return True
-
-    # 文件名排除
-    if path.name in EXCLUDE_FILES:
-        return True
-
-    # 模式排除
-    for pattern in EXCLUDE_PATTERNS:
-        if path.match(pattern):
-            return True
-
-    return False
-
-
-def collect_files(src_dir: Path) -> list[Path]:
-    """收集要安装的文件列表。"""
-    files = []
-    for f in sorted(src_dir.rglob("*")):
-        if not f.is_file():
-            continue
-        rel = str(f.relative_to(src_dir))
-        if not _should_exclude(f, rel):
-            files.append(f)
-    return files
+    removed = 0
+    for f in sorted(install_dir.rglob("*"), reverse=True):
+        if f.is_file():
+            try:
+                f.unlink()
+                removed += 1
+            except Exception:
+                pass
+        elif f.is_dir():
+            try:
+                f.rmdir()
+            except Exception:
+                pass
+    return removed
 
 
-def install(src_dir: Path, dst_dir: Path, dry_run: bool = False) -> dict:
+def install(src_dir: Path, dst_dir: Path, dry_run: bool = False, clean: bool = True) -> dict:
     """安装 skill 到目标目录。"""
-    files = collect_files(src_dir)
-    installed = 0
-    skipped = 0
+    payload = collect_payload(src_dir)
+    manifest = generate_manifest(src_dir)
 
-    if not dry_run:
-        dst_dir.mkdir(parents=True, exist_ok=True)
+    if dry_run:
+        return {
+            "ok": True,
+            "src": str(src_dir),
+            "dst": str(dst_dir),
+            "file_count": len(payload),
+            "manifest": manifest,
+            "dry_run": True,
+            "clean": clean,
+        }
 
-    for f in files:
-        rel = f.relative_to(src_dir)
-        dst = dst_dir / rel
+    # Clean install: 先复制到临时目录，验证后替换
+    if clean:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_dir = Path(tmp) / "skill"
 
-        if dry_run:
-            installed += 1
-            continue
+            # 1. 复制到临时目录
+            copied = _copy_payload(src_dir, tmp_dir)
 
-        dst.parent.mkdir(parents=True, exist_ok=True)
+            # 2. 写入 manifest
+            manifest_path = tmp_dir / "release_manifest.json"
+            manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
 
-        # 文本文件需要 patch（类似 sync_lite）
-        if f.suffix in (".md", ".txt", ".json", ".yaml", ".yml", ".py", ".sh"):
-            try:
-                content = f.read_text(encoding="utf-8")
-                dst.write_text(content, encoding="utf-8")
-                installed += 1
-            except Exception:
-                skipped += 1
-        else:
-            try:
-                shutil.copy2(f, dst)
-                installed += 1
-            except Exception:
-                skipped += 1
+            # 3. 验证临时目录
+            tmp_payload = collect_payload(tmp_dir)
+            if len(tmp_payload) != len(payload):
+                return {
+                    "ok": False,
+                    "error": f"payload 验证失败: {len(tmp_payload)} != {len(payload)}",
+                    "dry_run": False,
+                }
 
-    return {
-        "ok": True,
-        "src": str(src_dir),
-        "dst": str(dst_dir),
-        "installed": installed,
-        "skipped": skipped,
-        "total_files": len(files),
-        "dry_run": dry_run,
-    }
+            # 4. 清理旧安装
+            removed = _clean_install_dir(dst_dir)
+
+            # 5. 移动到目标
+            dst_dir.mkdir(parents=True, exist_ok=True)
+            for f in tmp_dir.rglob("*"):
+                if f.is_file():
+                    rel = f.relative_to(tmp_dir)
+                    dst = dst_dir / rel
+                    dst.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(f, dst)
+
+            return {
+                "ok": True,
+                "src": str(src_dir),
+                "dst": str(dst_dir),
+                "file_count": len(payload),
+                "files_copied": copied,
+                "files_removed": removed,
+                "manifest": manifest,
+                "dry_run": False,
+                "clean": True,
+            }
+    else:
+        # No-clean: 直接复制（调试用）
+        copied = _copy_payload(src_dir, dst_dir)
+        manifest_path = dst_dir / "release_manifest.json"
+        manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
+
+        return {
+            "ok": True,
+            "src": str(src_dir),
+            "dst": str(dst_dir),
+            "file_count": len(payload),
+            "files_copied": copied,
+            "manifest": manifest,
+            "dry_run": False,
+            "clean": False,
+        }
 
 
 def run_self_test() -> int:
+    import tempfile
+
     passed = 0
     failed = 0
 
-    # 1. collect_files 不包含 .git
-    files = collect_files(ROOT)
-    git_files = [f for f in files if ".git" in f.parts]
-    assert len(git_files) == 0, f"Found {len(git_files)} .git files"
-    print(f"[PASS] collect_files: {len(files)} files, no .git")
-    passed += 1
-
-    # 2. 不包含 __pycache__
-    pyc_files = [f for f in files if "__pycache__" in f.parts]
-    assert len(pyc_files) == 0
-    print("[PASS] no __pycache__")
-    passed += 1
-
-    # 3. 不包含 forward_tests
-    ft_files = [f for f in files if "forward_tests" in f.parts]
-    assert len(ft_files) == 0
-    print("[PASS] no forward_tests")
-    passed += 1
-
-    # 4. 包含关键运行时文件
-    rel_paths = {f.relative_to(ROOT) for f in files}
-    required = [Path("SKILL.md"), Path("references/core_rules.md"), Path("tools/run_review.py")]
-    for r in required:
-        assert r in rel_paths, f"Missing required: {r}"
-    print(f"[PASS] required files present")
-    passed += 1
-
-    # 5. dry-run
-    import tempfile
+    # 1. dry-run
     with tempfile.TemporaryDirectory() as tmp:
-        result = install(ROOT, Path(tmp) / "test_skill", dry_run=True)
-        assert result["ok"] is True
-        assert result["installed"] > 0
-        assert result["dry_run"] is True
-        print(f"[PASS] dry-run: {result['installed']} files")
+        r = install(ROOT, Path(tmp) / "test", dry_run=True)
+        assert r["ok"] is True
+        assert r["file_count"] > 0
+        assert r["dry_run"] is True
+        print(f"[PASS] dry-run: {r['file_count']} files")
+        passed += 1
+
+    # 2. clean install
+    with tempfile.TemporaryDirectory() as tmp:
+        dst = Path(tmp) / "skill"
+        # 预放旧文件
+        dst.mkdir()
+        (dst / "old_file.txt").write_text("old")
+        (dst / "forward_tests").mkdir()
+        (dst / "forward_tests" / "stale.json").write_text("{}")
+
+        r = install(ROOT, dst, clean=True)
+        assert r["ok"] is True
+        assert r["clean"] is True
+        assert r["files_removed"] >= 2  # old_file.txt + forward_tests/stale.json
+        assert not (dst / "old_file.txt").exists()
+        assert not (dst / "forward_tests").exists()
+        print(f"[PASS] clean install: {r['file_count']} files, {r['files_removed']} removed")
+        passed += 1
+
+    # 3. manifest 写入
+    with tempfile.TemporaryDirectory() as tmp:
+        dst = Path(tmp) / "skill"
+        r = install(ROOT, dst, clean=True)
+        manifest_path = dst / "release_manifest.json"
+        assert manifest_path.exists()
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        assert manifest["version"]
+        assert manifest["payload_hash"]
+        print(f"[PASS] manifest written: version={manifest['version']}")
+        passed += 1
+
+    # 4. no-clean 模式
+    with tempfile.TemporaryDirectory() as tmp:
+        dst = Path(tmp) / "skill"
+        dst.mkdir()
+        (dst / "keep.txt").write_text("keep")
+        r = install(ROOT, dst, clean=False)
+        assert r["ok"] is True
+        assert r["clean"] is False
+        assert (dst / "keep.txt").exists()
+        print(f"[PASS] no-clean: old files preserved")
         passed += 1
 
     print(f"\nSelf-test: {passed} passed, {failed} failed")
@@ -166,10 +213,11 @@ def run_self_test() -> int:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="安装版 Skill 发布")
-    parser.add_argument("--src", default=str(ROOT), help="源目录")
-    parser.add_argument("--dst", default=str(DEFAULT_INSTALL_DIR), help="目标目录")
-    parser.add_argument("--dry-run", action="store_true", help="只列出文件，不安装")
+    parser = argparse.ArgumentParser(description="安装版 Skill 发布 (clean install)")
+    parser.add_argument("--src", default=str(ROOT))
+    parser.add_argument("--dst", default=str(DEFAULT_INSTALL_DIR))
+    parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--no-clean", action="store_true", help="不清理旧文件（调试用）")
     parser.add_argument("--self-test", action="store_true")
     args = parser.parse_args()
 
@@ -178,17 +226,19 @@ def main() -> int:
 
     src = Path(args.src)
     dst = Path(args.dst)
+    clean = not args.no_clean
 
-    result = install(src, dst, dry_run=args.dry_run)
+    r = install(src, dst, dry_run=args.dry_run, clean=clean)
 
     if args.dry_run:
-        print(f"[DRY-RUN] 将安装 {result['installed']} 个文件到 {dst}")
+        print(f"[DRY-RUN] 将安装 {r['file_count']} 个文件到 {dst}")
     else:
-        print(f"[OK] 已安装 {result['installed']} 个文件到 {dst}")
-        if result["skipped"] > 0:
-            print(f"  跳过 {result['skipped']} 个文件")
+        print(f"[OK] 已安装 {r['file_count']} 个文件到 {dst}")
+        if r.get("files_removed"):
+            print(f"  清理旧文件: {r['files_removed']} 个")
+        print(f"  Manifest: version={r['manifest']['version']}, hash={r['manifest']['payload_hash'][:16]}...")
 
-    return 0
+    return 0 if r["ok"] else 1
 
 
 if __name__ == "__main__":

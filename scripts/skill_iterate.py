@@ -98,7 +98,9 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Skill 自我迭代验证")
     parser.add_argument("--check", action="store_true", help="仓库内快速门禁（默认）")
     parser.add_argument("--release", action="store_true", help="完整发布门禁（含安装版同步）")
-    parser.add_argument("--install", action="store_true", help="--release 时先安装到 Codex skill 目录")
+    parser.add_argument("--install", action="store_true", help="--release 时先 clean install")
+    parser.add_argument("--install-dir", help="安装目录（默认 Codex skill 目录）")
+    parser.add_argument("--forward", action="store_true", help="--release 时运行 forward eval")
     parser.add_argument("--sync", action="store_true", help="验证通过后执行 sync_lite.py")
     parser.add_argument("--skip-self-test", action="store_true")
     args = parser.parse_args()
@@ -112,7 +114,7 @@ def main() -> int:
     print("=" * 60)
 
     step = 0
-    total = 16 if args.release else 15
+    total = 19 if args.release else 15
 
     def _step(label: str):
         nonlocal step
@@ -233,18 +235,42 @@ def main() -> int:
     else:
         print("  跳过（未指定 --sync）")
 
-    # ── 16. Release-only: install + sync check ──
-    if args.release:
-        if args.install:
-            _step("install_release_skill")
-            rc = run([sys.executable, str(ROOT / "scripts" / "install_release_skill.py")], ROOT)
-            if rc != 0:
-                errors.append("安装失败")
-
-        _step("check_installed_skill_sync --strict")
-        rc = run([sys.executable, str(ROOT / "scripts" / "check_installed_skill_sync.py"), "--strict"], ROOT)
+    # ── 16. Release-only: install ──
+    if args.release and args.install:
+        _step("install_release_skill (clean install)")
+        install_cmd = [sys.executable, str(ROOT / "scripts" / "install_release_skill.py")]
+        if args.install_dir:
+            install_cmd.extend(["--dst", args.install_dir])
+        rc = run(install_cmd, ROOT)
         if rc != 0:
-            errors.append("安装版同步检查失败（--release 模式必须通过）")
+            errors.append("安装失败")
+
+    # ── 17. Release-only: version sync ──
+    if args.release:
+        _step("check_installed_skill_sync --strict")
+        sync_cmd = [sys.executable, str(ROOT / "scripts" / "check_installed_skill_sync.py"), "--strict"]
+        if args.install_dir:
+            sync_cmd.extend(["--install-dir", args.install_dir])
+        rc = run(sync_cmd, ROOT)
+        if rc != 0:
+            errors.append("安装版版本同步失败")
+
+    # ── 18. Release-only: runtime audit ──
+    if args.release:
+        _step("check_installed_runtime --strict")
+        runtime_cmd = [sys.executable, str(ROOT / "scripts" / "check_installed_runtime.py"), "--strict"]
+        if args.install_dir:
+            runtime_cmd.extend(["--install-dir", args.install_dir])
+        rc = run(runtime_cmd, ROOT)
+        if rc != 0:
+            errors.append("安装目录 runtime 审计失败（payload drift）")
+
+    # ── 19. Release-only: forward eval ──
+    if args.release and args.forward:
+        _step("skill_forward_eval --self-test")
+        rc = run([sys.executable, str(ROOT / "scripts" / "skill_forward_eval.py"), "--self-test"], ROOT)
+        if rc != 0:
+            errors.append("forward eval 失败")
 
     # ── 汇总 ──
     print("\n" + "=" * 60)

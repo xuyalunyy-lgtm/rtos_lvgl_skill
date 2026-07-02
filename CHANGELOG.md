@@ -1,5 +1,19 @@
 # Changelog
 
+## 28.0.8 — 2026-07-02
+
+V28：Release Gate Truth Closure。
+修复 V27 闭环缺口：安装目录审计、manifest、forward eval 真正进入 release gate。
+
+- **V28.0.1**：`scripts/runtime_payload.py` — 集中维护 payload 规则（include/exclude/required/forbidden/hash），6 项自测
+- **V28.0.2**：`scripts/install_release_skill.py` — clean install（临时目录→验证→替换），清除旧文件，4 项自测
+- **V28.0.3**：`scripts/check_installed_runtime.py` — 完整 payload drift 审计（missing/extra/hash mismatch/forbidden），6 项自测
+- **V28.0.4**：`skill_iterate.py --release` — 接入 runtime audit（18 步）+ forward eval（19 步）
+  - 17: version sync
+  - 18: runtime audit (--strict)
+  - 19: forward eval (--forward)
+- **V28.0.8**：Release Gate 通过
+
 ## 27.0.8 — 2026-07-02
 
 V27：Runtime-Proven Skill Behavior and Payload Drift Gate。
