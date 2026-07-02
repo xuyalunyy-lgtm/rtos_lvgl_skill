@@ -1,0 +1,7 @@
+I (100) module: init
+I (200) module: start
+I (300) module: running
+E (400) module: double free detected at 0x3ffb1234
+E (401) module: use after free in task_audio
+I (500) module: attempting cleanup
+E (600) module: cleanup failed, resource leak

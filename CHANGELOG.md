@@ -2,13 +2,15 @@
 
 ## 23.0.8 — 2026-07-02
 
-V23：Log-First Bug Triage System。
-Major refactor: 日志快速定位 bug，自动输出时间线、异常信号、根因候选、约束 ID、缺失证据、下一步命令，20x 日志诊断效率收益。
+V23：Log-First Bug Triage + Hardware Challenge + Architecture Refactor Gate。
+Major refactor: 从日志快速定位升级为根因分流系统——软件缺陷/硬件风险/架构债务/证据不足四类分流，20x 日志诊断效率收益。
 
-- **V23.0.1**：`references/log_symptom_routes.json` — 12 种日志症状路由（WDT/HardFault/栈溢出/堆耗尽/队列满/重连风暴/音频欠载/传感器超时/OTA 回滚/LVGL 崩溃/网络断连/优先级反转）
-- **V23.0.2**：`tools/log_triage.py` — 日志 triage MVP，7 项自测
-- **V23.0.3**：多平台日志解析 — ESP-IDF/Zephyr/STM32/JL/BK 结构化字段提取
-- **V23.0.5**：日志样本回归矩阵 — 6 个 bad log + 1 个 good log，6/6 PASS
+- **V23.0.1**：`references/log_symptom_routes.json` — 21 种日志症状路由（12 软件 + 4 硬件 + 5 架构）
+- **V23.0.2**：`tools/log_triage.py` — 根因分流系统，13 项自测
+  - 输出：software_suspicions / hardware_suspicions / architecture_refactor_candidates / missing_evidence / next_actions / do_not_patch_until
+- **V23.0.4**：Hardware Challenge Gate — brownout/外设无响应/GPIO 冲突/DMA/cache/时钟电源/板级特异性故障
+- **V23.0.5**：Architecture Refactor Gate — 生命周期混乱/全局状态膨胀/任务拓扑不清/热路径阻塞/重复打补丁/恢复路径不可证明
+- **V23.0.7**：日志样本矩阵 — 10 个样例（1 good + 6 软件 + 2 硬件 + 2 架构），10/10 PASS
 - **V23.0.8**：SKILL/Lite/CHANGELOG/iteration_log 对齐 23.0.8
 
 ## 22.0.8 — 2026-07-02

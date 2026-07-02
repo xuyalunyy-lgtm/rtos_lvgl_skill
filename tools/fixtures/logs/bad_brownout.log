@@ -1,0 +1,6 @@
+I (100) boot: starting
+I (200) power: 3.3V stable
+I (300) wifi: initializing
+E (400) reset: brownout detected
+E (401) power: voltage drop below threshold
+I (500) boot: restarting

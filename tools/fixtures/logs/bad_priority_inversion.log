@@ -1,0 +1,8 @@
+I (100) boot: starting
+I (200) task: low_prio started priority=2
+I (300) task: high_prio started priority=6
+I (400) mutex: low_prio acquired config_mutex
+I (500) task: high_prio waiting for config_mutex
+E (600) task: priority inversion detected
+E (601) task: high_prio blocked by low_prio for 5000ms
+E (700) task_wdt: watchdog timeout on high_prio

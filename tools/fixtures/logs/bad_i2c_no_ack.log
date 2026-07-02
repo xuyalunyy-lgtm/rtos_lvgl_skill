@@ -1,0 +1,7 @@
+I (100) boot: starting
+I (200) i2c: bus initialized
+I (300) i2c: scanning 0x76
+E (400) i2c: no ack from 0x76
+E (401) i2c: NACK received
+I (500) i2c: retry scan
+E (600) i2c: device not found
