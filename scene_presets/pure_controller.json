@@ -8,24 +8,26 @@
     "C18", "C24", "C29", "C33", "C44"
   ],
   "recommended_prompts": [
-    "prompts/peripheral_driver_review.txt",
-    "prompts/realtime_constraint_review.txt"
+    "prompts/peripheral_driver_safety.txt",
+    "prompts/timer_management.txt"
   ],
   "checker_suite": "realtime",
   "generator_params": {
     "display": false,
     "audio": false,
     "network": false,
-    "tasks": ["control_task", "monitor_task"],
-    "queues": ["cmd_q", "status_q"]
-  },
-  "acceptance_checklist": [
-    "ISR 中无阻塞调用（C4）",
-    "任务优先级合理，无优先级反转（C15）",
-    "定时器精度满足控制周期（C16）",
-    "外设驱动 init/deinit 对称（C18/C24）",
-    "临界区最短化，irq mask 时间 < 10μs（C44）",
-    "GPIO 配置在 init 阶段完成，运行时只读写（C18）",
-    "看门狗独立于控制任务，feed 周期 < timeout/2"
-  ]
+    "tasks": [
+      {"name": "control_task", "entry": "control_task_func", "stack_bytes": 2048, "priority": 6, "core_affinity": -1, "lifecycle": "periodic", "exit_policy": "stop_token", "watchdog": "feed", "period_ms": 10, "deadline_ms": 10, "wcet_ms": 5, "consumes": ["cmd_q"], "produces": ["status_q"], "holds": [], "description": "控制逻辑"},
+      {"name": "monitor_task", "entry": "monitor_task_func", "stack_bytes": 2048, "priority": 2, "core_affinity": -1, "lifecycle": "periodic", "exit_policy": "stop_token", "watchdog": "feed", "period_ms": 1000, "deadline_ms": 1000, "wcet_ms": 50, "consumes": ["status_q"], "produces": [], "holds": [], "description": "状态监控"}
+    ],
+    "queues": [
+      {"name": "cmd_q", "depth": 4, "item_type": "cmd_t", "item_size": 16, "producer_tasks": ["external"], "consumer_tasks": ["control_task"], "send_timeout_ms": 50, "recv_timeout_ms": 100, "full_policy": "drop_oldest", "drop_counter": "s_cmd_drop", "description": "控制命令队列"},
+      {"name": "status_q", "depth": 4, "item_type": "status_t", "item_size": 16, "producer_tasks": ["control_task"], "consumer_tasks": ["monitor_task"], "send_timeout_ms": 50, "recv_timeout_ms": 500, "full_policy": "drop_oldest", "drop_counter": "s_status_drop", "description": "状态队列"}
+    ],
+    "locks": [],
+    "timers": [
+      {"name": "control_timer", "period_ms": 10, "auto_reload": true, "callback_max_ms": 2, "notifies_tasks": ["control_task"], "callback_policy": "notify_only", "description": "控制周期定时器"}
+    ],
+    "memory_pools": []
+  }
 }

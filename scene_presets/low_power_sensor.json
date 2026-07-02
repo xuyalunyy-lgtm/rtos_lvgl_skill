@@ -8,23 +8,25 @@
     "C21", "C29", "C32", "C33", "C45"
   ],
   "recommended_prompts": [
-    "prompts/low_power_review.txt",
-    "prompts/sensor_integration_review.txt"
+    "prompts/low_power_management.txt",
+    "prompts/peripheral_driver_safety.txt"
   ],
   "checker_suite": "platform",
   "generator_params": {
     "display": false,
     "audio": false,
     "network": true,
-    "tasks": ["sensor_task", "network_task"],
-    "queues": ["sensor_data_q"]
-  },
-  "acceptance_checklist": [
-    "Deep sleep 电流 < 10μA（C21）",
-    "传感器采样周期与 wake source 对齐（C45）",
-    "WiFi 连接后立即发送，发完即睡（C20/C21）",
-    "看门狗在 sleep 前暂停，wake 后恢复（C16）",
-    "OTA 升级期间保持清醒，完成后重启（C22）",
-    "日志在量产版本中关闭或降级（C14）"
-  ]
+    "tasks": [
+      {"name": "sensor_task", "entry": "sensor_task_func", "stack_bytes": 2048, "priority": 5, "core_affinity": -1, "lifecycle": "periodic", "exit_policy": "stop_token", "watchdog": "feed", "period_ms": 1000, "deadline_ms": 1000, "wcet_ms": 100, "consumes": [], "produces": ["sensor_data_q"], "holds": [], "description": "传感器采集"},
+      {"name": "network_task", "entry": "network_task_func", "stack_bytes": 4096, "priority": 4, "core_affinity": -1, "lifecycle": "long_running", "exit_policy": "stop_token", "watchdog": "feed", "consumes": ["sensor_data_q"], "produces": [], "holds": [], "description": "WiFi 数据上报"}
+    ],
+    "queues": [
+      {"name": "sensor_data_q", "depth": 4, "item_type": "sensor_data_t", "item_size": 32, "producer_tasks": ["sensor_task"], "consumer_tasks": ["network_task"], "send_timeout_ms": 100, "recv_timeout_ms": 2000, "full_policy": "drop_oldest", "drop_counter": "s_sensor_drop", "description": "传感器数据队列"}
+    ],
+    "locks": [],
+    "timers": [
+      {"name": "wdt_feed", "period_ms": 5000, "auto_reload": true, "callback_max_ms": 1, "notifies_tasks": [], "callback_policy": "deferred", "description": "看门狗 feed"}
+    ],
+    "memory_pools": []
+  }
 }

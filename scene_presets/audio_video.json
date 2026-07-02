@@ -9,8 +9,10 @@
     "C35", "C36", "C37", "C42", "C43", "C44"
   ],
   "recommended_prompts": [
-    "prompts/av_pipeline_review.txt",
-    "prompts/media_format_review.txt"
+    "prompts/av_pipeline_sync.txt",
+    "prompts/av_codec_format.txt",
+    "prompts/av_clock_jitter.txt",
+    "prompts/av_dma_buffer_lifecycle.txt"
   ],
   "checker_suite": "media",
   "generator_params": {
@@ -19,16 +21,26 @@
     "camera": true,
     "video_preview": true,
     "av_sync": true,
-    "tasks": ["video_task", "audio_task", "av_sync_task", "ui_task"],
-    "queues": ["video_frame_q", "audio_frame_q", "av_sync_q"]
-  },
-  "acceptance_checklist": [
-    "音视频管道无阻塞（C25）",
-    "编码格式与容器格式匹配（C26）",
-    "时钟抖动 < 阈值（C27）",
-    "DMA buffer 生命周期对称（C28）",
-    "音视频同步误差 < 80ms（lip-sync）",
-    "关键路径 copy budget 达标（C35/C36）",
-    "背压策略正确：drop-oldest 或 block（C37）"
-  ]
+    "tasks": [
+      {"name": "video_task", "entry": "video_task_func", "stack_bytes": 4096, "priority": 7, "core_affinity": 1, "lifecycle": "long_running", "exit_policy": "stop_token", "watchdog": "feed", "period_ms": 33, "deadline_ms": 33, "wcet_ms": 20, "consumes": [], "produces": ["video_frame_q"], "holds": [], "description": "Camera 采集 + 编码"},
+      {"name": "audio_task", "entry": "audio_task_func", "stack_bytes": 4096, "priority": 6, "core_affinity": 1, "lifecycle": "long_running", "exit_policy": "stop_token", "watchdog": "feed", "period_ms": 10, "deadline_ms": 10, "wcet_ms": 5, "consumes": [], "produces": ["audio_frame_q"], "holds": [], "description": "I2S 音频采集/播放"},
+      {"name": "av_sync_task", "entry": "av_sync_task_func", "stack_bytes": 4096, "priority": 5, "core_affinity": -1, "lifecycle": "long_running", "exit_policy": "stop_token", "watchdog": "feed", "consumes": ["video_frame_q", "audio_frame_q"], "produces": ["av_sync_q"], "holds": [], "description": "A/V 同步"},
+      {"name": "ui_task", "entry": "ui_task_func", "stack_bytes": 8192, "priority": 3, "core_affinity": 1, "lifecycle": "long_running", "exit_policy": "stop_token", "watchdog": "feed", "consumes": ["av_sync_q"], "produces": [], "holds": ["lvgl_mutex"], "description": "LVGL UI 渲染"}
+    ],
+    "queues": [
+      {"name": "video_frame_q", "depth": 4, "item_type": "video_frame_t", "item_size": 128, "producer_tasks": ["video_task"], "consumer_tasks": ["av_sync_task"], "send_timeout_ms": 33, "recv_timeout_ms": 66, "full_policy": "drop_oldest", "drop_counter": "s_video_drop", "description": "视频帧队列"},
+      {"name": "audio_frame_q", "depth": 4, "item_type": "audio_frame_t", "item_size": 128, "producer_tasks": ["audio_task"], "consumer_tasks": ["av_sync_task"], "send_timeout_ms": 10, "recv_timeout_ms": 20, "full_policy": "drop_oldest", "drop_counter": "s_audio_drop", "description": "音频帧队列"},
+      {"name": "av_sync_q", "depth": 4, "item_type": "av_frame_t", "item_size": 256, "producer_tasks": ["av_sync_task"], "consumer_tasks": ["ui_task"], "send_timeout_ms": 33, "recv_timeout_ms": 66, "full_policy": "drop_oldest", "drop_counter": "s_av_drop", "description": "同步后帧队列"}
+    ],
+    "locks": [
+      {"name": "lvgl_mutex", "type": "mutex", "holder_tasks": ["ui_task"], "max_hold_ms": 50, "lock_order": 1, "priority_inheritance": true, "description": "LVGL 线程安全"}
+    ],
+    "timers": [
+      {"name": "heartbeat", "period_ms": 1000, "auto_reload": true, "callback_max_ms": 1, "notifies_tasks": [], "callback_policy": "deferred", "description": "心跳"}
+    ],
+    "memory_pools": [
+      {"name": "video_buf_pool", "block_size": 4096, "num_blocks": 4, "owner_tasks": ["video_task"], "full_policy": "drop", "runtime_expand_allowed": false, "description": "视频 DMA buffer 池"},
+      {"name": "audio_buf_pool", "block_size": 1024, "num_blocks": 8, "owner_tasks": ["audio_task"], "full_policy": "block", "runtime_expand_allowed": false, "description": "音频 DMA buffer 池"}
+    ]
+  }
 }

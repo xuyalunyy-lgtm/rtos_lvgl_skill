@@ -187,6 +187,8 @@ def check_constraint_coverage(manifest: dict, base_dir: str) -> list[str]:
 def run_gate(dir_path: str, manifest_path: str, platform: str = "", strict: bool = False) -> dict:
     """运行 codegen gate。"""
     all_errors = []
+    all_warnings = []
+    all_violations = []
     checks = {}
 
     # 1. Manifest 完整性
@@ -195,31 +197,59 @@ def run_gate(dir_path: str, manifest_path: str, platform: str = "", strict: bool
     all_errors.extend(manifest_errors)
 
     if manifest_errors:
-        # manifest 本身有问题，跳过后续检查
-        return {"passed": False, "checks": checks, "errors": all_errors}
+        return _gate_result(False, all_errors, all_warnings, all_violations, checks, platform, strict)
 
     manifest = json.loads(Path(manifest_path).read_text(encoding="utf-8"))
 
-    # 2. 文件存在性
+    # 2. Manifest contract 校验（V20）
+    try:
+        from manifest_contract import validate as contract_validate
+        contract_result = contract_validate(manifest, strict=strict)
+        checks["contract"] = {
+            "passed": contract_result["passed"],
+            "errors": contract_result["errors"],
+            "warnings": contract_result["warnings"],
+            "violations": contract_result["violations"],
+            "summary": contract_result.get("contract_summary", {}),
+        }
+        all_errors.extend(contract_result["errors"])
+        all_warnings.extend(contract_result["warnings"])
+        all_violations.extend(contract_result["violations"])
+    except ImportError:
+        pass  # manifest_contract 不可用时跳过
+
+    # 3. 文件存在性
     file_errors = check_files_exist(manifest, dir_path)
     checks["files_exist"] = {"passed": len(file_errors) == 0, "errors": file_errors}
     all_errors.extend(file_errors)
 
-    # 3. 禁止模式
+    # 4. 禁止模式
     pattern_errors = check_forbidden_patterns(dir_path, manifest)
     checks["forbidden_patterns"] = {"passed": len(pattern_errors) == 0, "errors": pattern_errors}
     all_errors.extend(pattern_errors)
 
-    # 4. 约束覆盖
+    # 5. 约束覆盖
     if strict:
         coverage_errors = check_constraint_coverage(manifest, dir_path)
         checks["constraint_coverage"] = {"passed": len(coverage_errors) == 0, "errors": coverage_errors}
         all_errors.extend(coverage_errors)
 
+    return _gate_result(len(all_errors) == 0, all_errors, all_warnings, all_violations, checks, platform, strict)
+
+
+def _gate_result(passed: bool, errors: list, warnings: list, violations: list,
+                 checks: dict, platform: str, strict: bool) -> dict:
+    """构造统一 gate 输出。"""
     return {
-        "passed": len(all_errors) == 0,
+        "passed": passed,
+        "severity": "P0" if errors else ("P1" if violations else "P2"),
+        "errors": errors,
+        "warnings": warnings,
+        "violations": violations,
         "checks": checks,
-        "errors": all_errors,
+        "constraints": [],
+        "verification_commands": [],
+        "evidence_files": [],
         "platform": platform,
         "strict": strict,
     }
