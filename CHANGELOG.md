@@ -1,5 +1,16 @@
 # Changelog
 
+## 25.0.8 — 2026-07-02
+
+V25：Unified Release Gate and Strict Triage Matrix。
+把"工具各自能跑通"升级为"一个发布入口真实兜住全部关键风险"。
+
+- **V25.0.1**：`skill_iterate.py --release` — 完整发布门禁（含安装版同步、dirty tree）
+- **V25.0.2**：`--check` 接入 log_triage + log_triage_matrix + codegen_matrix（15 步）
+- **V25.0.3**：`check_log_triage_matrix.py` 严格矩阵 — expected_ids / forbidden_ids / expected_counts / expected_exit / Windows-safe
+- **V25.0.4**：CLI 回归 — good log exit=1, symptom log exit=0, Windows-safe 输出
+- **V25.0.8**：SKILL/Lite/CHANGELOG 对齐 25.0.8
+
 ## 24.0.8 — 2026-07-02
 
 V24：Release-Grade Triage Contract and Gate Closure。

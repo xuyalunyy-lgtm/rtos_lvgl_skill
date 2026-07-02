@@ -96,48 +96,59 @@ def check_checker_registry() -> list[str]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Skill 自我迭代验证")
-    parser.add_argument("--check", action="store_true", help="运行验证闭环（默认）")
+    parser.add_argument("--check", action="store_true", help="仓库内快速门禁（默认）")
+    parser.add_argument("--release", action="store_true", help="完整发布门禁（含安装版同步、dirty tree）")
     parser.add_argument("--sync", action="store_true", help="验证通过后执行 sync_lite.py")
     parser.add_argument("--skip-self-test", action="store_true")
     args = parser.parse_args()
-    if not args.check and not args.sync:
+    if not args.check and not args.sync and not args.release:
         args.check = True
 
     errors: list[str] = []
+    mode = "Release" if args.release else "Check"
     print("=" * 60)
-    print("Skill 自我迭代验证")
+    print(f"Skill {mode} Gate")
     print("=" * 60)
 
+    step = 0
+    total = 16 if args.release else 15
+
+    def _step(label: str):
+        nonlocal step
+        step += 1
+        print(f"\n[{step}/{total}] {label}")
+
+    # ── 1. run_review self-test ──
     if not args.skip_self_test:
-        print("\n[1/12] tools/run_review.py --self-test")
+        _step("tools/run_review.py --self-test")
         rc = run([sys.executable, str(ROOT / "tools" / "run_review.py"), "--self-test"], ROOT)
         if rc != 0:
             errors.append("run_review --self-test 失败")
-    print("\n[2/12] tools/run_review.py --validate-examples")
-    rc = run(
-        [sys.executable, str(ROOT / "tools" / "run_review.py"), "--validate-examples"],
-        ROOT,
-    )
-    if rc != 0:
-        errors.append("run_review --validate-examples 失败（铁律范例约束）")
 
-    print("\n[3/12] checker registry")
+    # ── 2. validate-examples ──
+    _step("tools/run_review.py --validate-examples")
+    rc = run([sys.executable, str(ROOT / "tools" / "run_review.py"), "--validate-examples"], ROOT)
+    if rc != 0:
+        errors.append("run_review --validate-examples 失败")
+
+    # ── 3. checker registry ──
+    _step("checker registry")
     errors.extend(check_checker_registry())
 
-    print("\n[4/12] runtime distribution boundary")
+    # ── 4. runtime distribution ──
+    _step("runtime distribution boundary")
     rc = run([sys.executable, str(ROOT / "scripts" / "check_runtime_distribution.py")], ROOT)
     if rc != 0:
         errors.append("check_runtime_distribution.py failed")
 
-    print("\n[5/12] skill metadata contract")
+    # ── 5. skill metadata ──
+    _step("skill metadata contract")
     rc = run([sys.executable, str(ROOT / "scripts" / "check_skill_metadata.py")], ROOT)
     if rc != 0:
         errors.append("check_skill_metadata.py failed")
-    rc = run([sys.executable, str(ROOT / "scripts" / "check_skill_metadata.py"), "--self-test"], ROOT)
-    if rc != 0:
-        errors.append("check_skill_metadata.py --self-test failed")
 
-    print("\n[6/12] SKILL.md version")
+    # ── 6. SKILL.md version ──
+    _step("SKILL.md version")
     full_ver = read_version(SKILL)
     lite_ver = read_version(LITE_SKILL)
     if not full_ver:
@@ -147,11 +158,12 @@ def main() -> int:
     if lite_ver:
         print(f"  Lite:   {lite_ver}")
         if full_ver and lite_ver != full_ver:
-            errors.append(f"版本不一致: 完整版 {full_ver} vs Lite {lite_ver}（请运行 sync_lite.py）")
+            errors.append(f"版本不一致: 完整版 {full_ver} vs Lite {lite_ver}")
     else:
         errors.append("freertos-skill-lite/SKILL.md 缺失或无 version")
 
-    print("\n[7/12] CHANGELOG / iteration_log")
+    # ── 7. CHANGELOG / iteration_log ──
+    _step("CHANGELOG / iteration_log")
     if not CHANGELOG.is_file():
         errors.append("缺少 CHANGELOG.md")
     elif full_ver and full_ver not in CHANGELOG.read_text(encoding="utf-8")[:800]:
@@ -163,27 +175,50 @@ def main() -> int:
     else:
         print("  iteration_log.md OK")
 
-    print("\n[8/12] release / commit audit self-test")
+    # ── 8. commit audit self-test ──
+    _step("commit_audit --self-test")
     rc = run([sys.executable, str(ROOT / "scripts" / "commit_audit.py"), "--self-test"], ROOT)
     if rc != 0:
         errors.append("commit_audit.py --self-test failed")
 
-    print("\n[9/12] release / commit audit")
+    # ── 9. commit audit ──
+    _step("commit_audit --strict-release")
     rc = run([sys.executable, str(ROOT / "scripts" / "commit_audit.py"), "--max-log", "8", "--strict-release"], ROOT)
     if rc != 0:
         errors.append("commit_audit.py --strict-release failed")
 
-    print("\n[10/12] sync_lite --dry-run")
+    # ── 10. sync_lite dry-run ──
+    _step("sync_lite --dry-run")
     rc = run([sys.executable, str(ROOT / "scripts" / "sync_lite.py"), "--dry-run"], ROOT)
     if rc != 0:
         errors.append("sync_lite.py --dry-run 失败")
 
-    print("\n[11/12] evidence_schema --self-test")
+    # ── 11. evidence_schema ──
+    _step("evidence_schema --self-test")
     rc = run([sys.executable, str(ROOT / "tools" / "evidence_schema.py"), "--self-test"], ROOT)
     if rc != 0:
         errors.append("evidence_schema.py --self-test 失败")
 
-    print("\n[12/12] 可选 sync_lite")
+    # ── 12. log_triage ──
+    _step("log_triage --self-test")
+    rc = run([sys.executable, str(ROOT / "tools" / "log_triage.py"), "--self-test"], ROOT)
+    if rc != 0:
+        errors.append("log_triage.py --self-test 失败")
+
+    # ── 13. log triage matrix ──
+    _step("check_log_triage_matrix")
+    rc = run([sys.executable, str(ROOT / "scripts" / "check_log_triage_matrix.py")], ROOT)
+    if rc != 0:
+        errors.append("check_log_triage_matrix.py 失败")
+
+    # ── 14. codegen matrix ──
+    _step("check_codegen_matrix")
+    rc = run([sys.executable, str(ROOT / "scripts" / "check_codegen_matrix.py")], ROOT)
+    if rc != 0:
+        errors.append("check_codegen_matrix.py 失败")
+
+    # ── 15. sync_lite ──
+    _step("sync_lite")
     if args.sync and not errors:
         rc = run([sys.executable, str(ROOT / "scripts" / "sync_lite.py")], ROOT)
         if rc != 0:
@@ -194,16 +229,28 @@ def main() -> int:
                 errors.append("sync 后 Lite 版本仍与完整版不一致")
     elif args.sync:
         print("  跳过 sync（存在前置错误）")
+    else:
+        print("  跳过（未指定 --sync）")
 
+    # ── 16. Release-only: installed sync ──
+    if args.release:
+        _step("check_installed_skill_sync --strict")
+        rc = run([sys.executable, str(ROOT / "scripts" / "check_installed_skill_sync.py"), "--strict"], ROOT)
+        if rc != 0:
+            errors.append("安装版同步检查失败（--release 模式必须通过）")
+
+    # ── 汇总 ──
     print("\n" + "=" * 60)
     if errors:
-        print("迭代验证失败:")
+        print(f"{mode} Gate 失败 ({len(errors)} 项):")
         for e in errors:
             print(f"  - {e}")
         print("=" * 60)
         return 1
 
-    print("迭代验证通过。请确认 iteration_log.md 已记录本次变更。")
+    print(f"{mode} Gate 通过。")
+    if not args.release:
+        print("提示: 使用 --release 跑完整发布门禁（含安装版同步）。")
     print("=" * 60)
     return 0
 

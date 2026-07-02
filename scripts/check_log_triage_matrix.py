@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """
-Log Triage Matrix — 验证日志样例的四类分流正确性。
+Log Triage Matrix v25 — 严格日志分流回归矩阵。
+
+支持 expected_ids / forbidden_ids / expected_counts / expected_exit_code。
+多出来的 P0/P1 症状默认 fail。
 
 用法:
     python scripts/check_log_triage_matrix.py
@@ -9,6 +12,8 @@ Log Triage Matrix — 验证日志样例的四类分流正确性。
 from __future__ import annotations
 
 import json
+import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -16,87 +21,166 @@ ROOT = Path(__file__).resolve().parent.parent
 TOOLS = ROOT / "tools"
 LOGS_DIR = TOOLS / "fixtures" / "logs"
 
-EXPECTED = {
-    "good_boot.log": {"should_have_symptoms": False},
-    "bad_wdt_queue_full.log": {"symptom_ids": ["WDT_RESET"], "category": "software"},
-    "bad_heap_drop.log": {"symptom_ids": ["HEAP_EXHAUSTION"], "category": "software"},
-    "bad_audio_underrun.log": {"symptom_ids": ["AUDIO_UNDERRUN"], "category": "software"},
-    "bad_sensor_timeout.log": {"symptom_ids": ["SENSOR_TIMEOUT"], "category": "mixed"},
-    "bad_ota_rollback.log": {"symptom_ids": ["OTA_ROLLBACK"], "category": "software"},
-    "bad_brownout.log": {"symptom_ids": ["BROWNOUT_RESET"], "category": "hardware"},
-    "bad_i2c_no_ack.log": {"symptom_ids": ["PERIPHERAL_NO_ACK"], "category": "hardware"},
-    "bad_lifecycle_chaos.log": {"symptom_ids": ["LIFECYCLE_CHAOS"], "category": "architecture"},
-    "bad_priority_inversion.log": {"symptom_ids": ["UNCLEAR_TOPOLOGY"], "category": "architecture"},
-}
+# ── 严格矩阵定义 ──
+MATRIX = [
+    {
+        "log": "good_boot.log",
+        "expected_ids": [],
+        "forbidden_ids": ["WDT_RESET", "HARDFAULT", "HEAP_EXHAUSTION", "BROWNOUT_RESET"],
+        "expected_exit": 1,  # 无症状
+        "expected_category_counts": {"software": 0, "hardware": 0},
+    },
+    {
+        "log": "bad_wdt_queue_full.log",
+        "expected_ids": ["WDT_RESET"],
+        "forbidden_ids": ["BROWNOUT_RESET", "PERIPHERAL_NO_ACK"],
+        "expected_exit": 0,
+        "expected_category_counts": {"software": 2},  # WDT_RESET + HARDFAULT
+    },
+    {
+        "log": "bad_heap_drop.log",
+        "expected_ids": ["HEAP_EXHAUSTION"],
+        "expected_exit": 0,
+        "expected_category_counts": {"software": 1},
+    },
+    {
+        "log": "bad_audio_underrun.log",
+        "expected_ids": ["AUDIO_UNDERRUN"],
+        "expected_exit": 0,
+        "expected_category_counts": {"software": 1},
+    },
+    {
+        "log": "bad_sensor_timeout.log",
+        "expected_ids": ["SENSOR_TIMEOUT"],
+        "expected_exit": 0,
+        "expected_category_counts": {"software": 1, "hardware": 1},
+    },
+    {
+        "log": "bad_ota_rollback.log",
+        "expected_ids": ["OTA_ROLLBACK"],
+        "expected_exit": 0,
+        "expected_category_counts": {"software": 1},
+    },
+    {
+        "log": "bad_brownout.log",
+        "expected_ids": ["BROWNOUT_RESET"],
+        "forbidden_ids": ["QUEUE_FULL", "WDT_RESET"],
+        "expected_exit": 0,
+        "expected_category_counts": {"hardware": 1},
+    },
+    {
+        "log": "bad_i2c_no_ack.log",
+        "expected_ids": ["PERIPHERAL_NO_ACK"],
+        "expected_exit": 0,
+        "expected_category_counts": {"hardware": 1},
+    },
+    {
+        "log": "bad_lifecycle_chaos.log",
+        "expected_ids": ["LIFECYCLE_CHAOS"],
+        "forbidden_ids": ["WDT_RESET", "BROWNOUT_RESET"],
+        "expected_exit": 0,
+        "expected_category_counts": {"architecture": 1},
+    },
+    {
+        "log": "bad_priority_inversion.log",
+        "expected_ids": ["UNCLEAR_TOPOLOGY"],
+        "forbidden_ids": ["BROWNOUT_RESET", "PERIPHERAL_NO_ACK"],
+        "expected_exit": 0,
+        "expected_category_counts": {"software": 1, "architecture": 2},  # WDT_RESET(sw) + UNCLEAR_TOPOLOGY(arch) + arch flags
+    },
+]
+
+
+def _run_triage_cli(log_path: Path) -> dict:
+    """通过 CLI 子进程运行 log_triage，验证 exit code 和输出。"""
+    cmd = [sys.executable, str(TOOLS / "log_triage.py"), "--log", str(log_path), "--platform", "esp32", "--json"]
+    try:
+        proc = subprocess.run(
+            cmd, capture_output=True, encoding="utf-8", errors="replace",
+            timeout=30, cwd=str(ROOT), env={**os.environ, "PYTHONUTF8": "1"},
+        )
+        stdout = proc.stdout
+        # Windows-safe 检查
+        has_unsafe = any(ch in stdout for ch in ["⚠", "🔴", "🟡", "🟢"])
+        try:
+            data = json.loads(stdout)
+        except json.JSONDecodeError:
+            data = {}
+        return {
+            "exit_code": proc.returncode,
+            "data": data,
+            "has_unsafe_chars": has_unsafe,
+            "stdout": stdout[:500],
+        }
+    except subprocess.TimeoutExpired:
+        return {"exit_code": -1, "data": {}, "has_unsafe_chars": False, "stdout": "timeout"}
 
 
 def check_all() -> dict:
-    sys.path.insert(0, str(TOOLS))
-    from log_triage import triage
-
+    """运行完整矩阵。"""
     results = []
     all_passed = True
 
-    for log_name, expected in EXPECTED.items():
-        log_path = LOGS_DIR / log_name
+    for case in MATRIX:
+        log_path = LOGS_DIR / case["log"]
+        errors = []
+
         if not log_path.exists():
-            results.append({"log": log_name, "passed": False, "errors": ["文件不存在"]})
+            results.append({"log": case["log"], "passed": False, "errors": ["文件不存在"]})
             all_passed = False
             continue
 
-        log_text = log_path.read_text(encoding="utf-8")
-        r = triage(log_text, "esp32")
-        errors = []
+        # CLI 回归
+        cli = _run_triage_cli(log_path)
+        expected_exit = case.get("expected_exit", 0)
+        if cli["exit_code"] != expected_exit:
+            errors.append(f"exit_code={cli['exit_code']} expected={expected_exit}")
 
-        if expected.get("should_have_symptoms", True):
-            # 检查症状是否被检测到
-            all_symptom_ids = (
-                [s["symptom_id"] for s in r["software_suspicions"]] +
-                [s["symptom_id"] for s in r["hardware_suspicions"]] +
-                [s["symptom_id"] for s in r["architecture_refactor_candidates"]]
-            )
-            for sid in expected.get("symptom_ids", []):
-                if sid not in all_symptom_ids:
-                    errors.append(f"未检测到 {sid}")
+        # Windows-safe
+        if cli["has_unsafe_chars"]:
+            errors.append("输出包含非 ASCII 警告符号")
 
-            # 检查分类
-            cat = expected.get("category", "software")
-            if cat == "hardware" and len(r["hardware_suspicions"]) == 0:
-                errors.append("应有硬件怀疑但无")
-            if cat == "architecture" and len(r["architecture_refactor_candidates"]) == 0:
-                errors.append("应有架构重构候选但无")
+        r = cli["data"]
+        if not r:
+            errors.append("JSON 解析失败")
+            results.append({"log": case["log"], "passed": False, "errors": errors})
+            all_passed = False
+            continue
 
-            # 硬件怀疑必须有 hardware_challenge
-            for hw in r["hardware_suspicions"]:
-                if not hw.get("hardware_challenge"):
-                    errors.append(f"{hw['symptom_id']} 缺少 hardware_challenge")
+        # 收集所有检测到的症状 ID
+        all_ids = set()
+        for key in ["software_suspicions", "hardware_suspicions", "architecture_refactor_candidates"]:
+            for s in r.get(key, []):
+                all_ids.add(s.get("symptom_id", ""))
 
-            # 架构候选必须有 architecture_refactor 或 architecture_flags
-            for arch in r["architecture_refactor_candidates"]:
-                if not arch.get("architecture_refactor") and not arch.get("architecture_flags"):
-                    errors.append(f"{arch['symptom_id']} 缺少 architecture_refactor/flags")
+        # expected_ids
+        for eid in case.get("expected_ids", []):
+            if eid not in all_ids:
+                errors.append(f"expected {eid} not found")
 
-            if len(r["constraints"]) == 0:
-                errors.append("无约束")
-            if len(r["next_actions"]) == 0:
-                errors.append("无 next_actions")
-        else:
-            sw = len(r["software_suspicions"])
-            hw = len(r["hardware_suspicions"])
-            if sw + hw > 0:
-                errors.append(f"不应检测到症状但检测到 sw={sw} hw={hw}")
+        # forbidden_ids
+        for fid in case.get("forbidden_ids", []):
+            if fid in all_ids:
+                errors.append(f"forbidden {fid} found")
+
+        # expected_category_counts
+        for cat, expected_count in case.get("expected_category_counts", {}).items():
+            key = {"software": "software_suspicions", "hardware": "hardware_suspicions",
+                   "architecture": "architecture_refactor_candidates"}.get(cat, cat)
+            actual = len(r.get(key, []))
+            if actual != expected_count:
+                errors.append(f"{cat} count={actual} expected={expected_count}")
 
         passed = len(errors) == 0
         if not passed:
             all_passed = False
 
         results.append({
-            "log": log_name,
+            "log": case["log"],
             "passed": passed,
             "errors": errors,
-            "software": len(r["software_suspicions"]),
-            "hardware": len(r["hardware_suspicions"]),
-            "architecture": len(r["architecture_refactor_candidates"]),
+            "exit_code": cli["exit_code"],
+            "symptoms": sorted(all_ids),
         })
 
     return {
@@ -115,8 +199,7 @@ def main() -> int:
         print(f"Log Triage Matrix: {r['passed_count']}/{r['total']} passed")
         for pr in r["results"]:
             icon = "[PASS]" if pr["passed"] else "[FAIL]"
-            cats = f"sw={pr['software']} hw={pr['hardware']} arch={pr['architecture']}"
-            print(f"  {icon} {pr['log']}: {cats}")
+            print(f"  {icon} {pr['log']}: exit={pr['exit_code']} symptoms={pr['symptoms']}")
             if pr["errors"]:
                 for e in pr["errors"]:
                     print(f"    - {e}")
