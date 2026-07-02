@@ -1,0 +1,17 @@
+{
+  "framework_id": "cmsis-rtos",
+  "name": "CMSIS-RTOS",
+  "description": "ARM CMSIS-RTOS API",
+  "category": "rtos_core",
+  "platforms": ["stm32"],
+  "constraints": [
+    {"id": "CMSIS-1", "name": "API 差异", "severity": "P2", "detection": "manual",
+     "description": "CMSIS-RTOS v1/v2 API 差异，需确认版本"},
+    {"id": "CMSIS-2", "name": "ISR 安全 API", "severity": "P0", "detection": "regex",
+     "description": "ISR 中必须使用 osXxxFromISR 变体", "related_core_constraint": "C4"}
+  ],
+  "detect_patterns": {
+    "includes": ["cmsis_os.h", "cmsis_os2.h"],
+    "kconfig": ["CMSIS_RTOS"]
+  }
+}

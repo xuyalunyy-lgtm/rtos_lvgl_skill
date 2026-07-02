@@ -1,0 +1,22 @@
+{
+  "framework_id": "mbedtls",
+  "name": "mbedTLS",
+  "description": "TLS/SSL 加密库",
+  "category": "security",
+  "platforms": ["esp32", "stm32", "zephyr"],
+  "constraints": [
+    {"id": "MBEDTLS-1", "name": "TLS 握手超时", "severity": "P0", "detection": "regex",
+     "description": "TLS 握手必须有超时，否则可能永久阻塞", "related_core_constraint": "C31"},
+    {"id": "MBEDTLS-2", "name": "证书验证", "severity": "P0", "detection": "regex",
+     "description": "必须验证服务器证书，禁止跳过"},
+    {"id": "MBEDTLS-3", "name": "Heap 使用", "severity": "P1", "detection": "config",
+     "description": "mbedTLS 使用大量堆，需确保堆够用", "related_core_constraint": "C3"},
+    {"id": "MBEDTLS-4", "name": "PSRAM 限制", "severity": "P1", "detection": "config",
+     "description": "mbedTLS buffer 在 PSRAM 可能影响性能"}
+  ],
+  "detect_patterns": {
+    "includes": ["mbedtls/ssl.h", "mbedtls/net_sockets.h", "esp_tls.h"],
+    "kconfig": ["CONFIG_MBEDTLS", "CONFIG_ESP_TLS_USING_MBEDTLS"],
+    "sdkconfig": ["CONFIG_MBEDTLS"]
+  }
+}

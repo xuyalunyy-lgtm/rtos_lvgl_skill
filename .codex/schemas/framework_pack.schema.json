@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://freertos-skill.dev/schemas/framework_pack.json",
+  "title": "Framework Pack",
+  "description": "框架约束包定义。每个框架独立维护，不污染 RTOS core constraints。",
+  "type": "object",
+  "required": ["framework_id", "name", "category", "constraints"],
+  "properties": {
+    "framework_id": {"type": "string", "pattern": "^[a-z0-9-]+$"},
+    "name": {"type": "string"},
+    "description": {"type": "string"},
+    "version_range": {"type": "string", "description": "适用版本范围，如 >=5.0"},
+    "category": {
+      "type": "string",
+      "enum": ["rtos_core", "platform", "middleware", "ui", "network", "storage", "security", "usb", "audio", "sensor"]
+    },
+    "platforms": {"type": "array", "items": {"type": "string"}},
+    "constraints": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "severity"],
+        "properties": {
+          "id": {"type": "string", "description": "框架约束 ID，如 LVGL-1, ESP-IDF-3"},
+          "name": {"type": "string"},
+          "description": {"type": "string"},
+          "severity": {"type": "string", "enum": ["P0", "P1", "P2"]},
+          "detection": {"type": "string", "enum": ["regex", "ast", "config", "manual"]},
+          "related_core_constraint": {"type": "string", "description": "关联的 RTOS core 约束"},
+          "example_bad": {"type": "string"},
+          "example_fix": {"type": "string"}
+        }
+      }
+    },
+    "checker_scripts": {"type": "array", "items": {"type": "string"}},
+    "recommended_prompts": {"type": "array", "items": {"type": "string"}},
+    "recommended_suite": {"type": "string"},
+    "detect_patterns": {
+      "type": "object",
+      "description": "自动识别框架的文件/include/Kconfig 模式",
+      "properties": {
+        "includes": {"type": "array", "items": {"type": "string"}},
+        "files": {"type": "array", "items": {"type": "string"}},
+        "kconfig": {"type": "array", "items": {"type": "string"}},
+        "cmake": {"type": "array", "items": {"type": "string"}},
+        "sdkconfig": {"type": "array", "items": {"type": "string"}}
+      }
+    }
+  }
+}

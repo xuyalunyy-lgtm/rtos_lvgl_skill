@@ -1,0 +1,21 @@
+{
+  "framework_id": "stm32-hal",
+  "name": "STM32 HAL",
+  "description": "STM32 硬件抽象层",
+  "category": "platform",
+  "platforms": ["stm32"],
+  "constraints": [
+    {"id": "STM32-1", "name": "HAL_Delay 替代", "severity": "P0", "detection": "regex",
+     "description": "RTOS 环境中禁止 HAL_Delay，必须用 osDelay/vTaskDelay", "related_core_constraint": "C31"},
+    {"id": "STM32-2", "name": "IRQ/DMA callback", "severity": "P0", "detection": "regex",
+     "description": "HAL IRQ/DMA callback 中禁止阻塞调用", "related_core_constraint": "C4"},
+    {"id": "STM32-3", "name": "Clock init 顺序", "severity": "P1", "detection": "manual",
+     "description": "SystemClock_Config 必须在 RTOS 启动前完成"},
+    {"id": "STM32-4", "name": "Peripheral init 顺序", "severity": "P1", "detection": "manual",
+     "description": "外设 init 必须在使用前完成", "related_core_constraint": "C8"}
+  ],
+  "detect_patterns": {
+    "includes": ["stm32f4xx_hal.h", "stm32f1xx_hal.h", "stm32h7xx_hal.h", "main.h"],
+    "files": ["stm32*_hal_conf.h"]
+  }
+}

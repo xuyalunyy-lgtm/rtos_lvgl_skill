@@ -1,0 +1,17 @@
+{
+  "framework_id": "littlefs",
+  "name": "LittleFS",
+  "description": "嵌入式日志文件系统",
+  "category": "storage",
+  "platforms": ["esp32", "stm32", "zephyr"],
+  "constraints": [
+    {"id": "LFS-1", "name": "Wear leveling", "severity": "P2", "detection": "config",
+     "description": "LittleFS 自带 wear leveling，但需确保 block size 正确"},
+    {"id": "LFS-2", "name": "断电安全", "severity": "P1", "detection": "manual",
+     "description": "LittleFS 设计为断电安全，但 rename 不是原子的"}
+  ],
+  "detect_patterns": {
+    "includes": ["lfs.h", "esp_littlefs.h"],
+    "sdkconfig": ["CONFIG_LITTLEFS", "CONFIG_ESP_LITTLEFS"]
+  }
+}

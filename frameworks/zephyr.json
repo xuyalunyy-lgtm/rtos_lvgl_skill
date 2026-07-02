@@ -1,0 +1,23 @@
+{
+  "framework_id": "zephyr",
+  "name": "Zephyr RTOS",
+  "description": "Zephyr 实时操作系统",
+  "category": "rtos_core",
+  "platforms": ["zephyr"],
+  "constraints": [
+    {"id": "ZEPHYR-1", "name": "Thread stack size", "severity": "P1", "detection": "config",
+     "description": "Zephyr 线程栈大小需通过 Kconfig 配置"},
+    {"id": "ZEPHYR-2", "name": "Device tree binding", "severity": "P1", "detection": "config",
+     "description": "设备必须通过 device tree 绑定"},
+    {"id": "ZEPHYR-3", "name": "Workqueue vs task", "severity": "P2", "detection": "manual",
+     "description": "Zephyr workqueue 模型与 FreeRTOS task 模型不同"},
+    {"id": "ZEPHYR-4", "name": "Kconfig dependency", "severity": "P1", "detection": "config",
+     "description": "Kconfig 选项有依赖关系，必须检查"}
+  ],
+  "detect_patterns": {
+    "includes": ["zephyr/kernel.h", "zephyr/device.h", "zephyr/drivers/gpio.h"],
+    "files": ["prj.conf", "CMakeLists.txt"],
+    "cmake": ["find_package(Zephyr"],
+    "kconfig": ["CONFIG_ZEPHYR", "CONFIG_HEAP_MEM_POOL"]
+  }
+}

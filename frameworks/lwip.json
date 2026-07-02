@@ -1,0 +1,22 @@
+{
+  "framework_id": "lwip",
+  "name": "lwIP",
+  "description": "轻量级 TCP/IP 协议栈",
+  "category": "network",
+  "platforms": ["esp32", "stm32", "zephyr"],
+  "constraints": [
+    {"id": "LWIP-1", "name": "Socket timeout", "severity": "P0", "detection": "regex",
+     "description": "Socket 操作必须有超时", "related_core_constraint": "C31"},
+    {"id": "LWIP-2", "name": "Reconnect backoff", "severity": "P1", "detection": "regex",
+     "description": "断连后必须指数退避重连", "related_core_constraint": "C20"},
+    {"id": "LWIP-3", "name": "DNS 超时", "severity": "P1", "detection": "regex",
+     "description": "DNS 解析必须有超时"},
+    {"id": "LWIP-4", "name": "TCP buffer 管理", "severity": "P1", "detection": "config",
+     "description": "TCP window/buffer 需根据带宽延迟积调整"}
+  ],
+  "detect_patterns": {
+    "includes": ["lwip/sockets.h", "lwip/netdb.h", "lwip/api.h"],
+    "kconfig": ["CONFIG_LWIP", "CONFIG_LWIP_IP4", "CONFIG_LWIP_TCP"],
+    "sdkconfig": ["CONFIG_LWIP"]
+  }
+}

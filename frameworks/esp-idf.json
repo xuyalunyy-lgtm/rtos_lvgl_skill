@@ -1,0 +1,30 @@
+{
+  "framework_id": "esp-idf",
+  "name": "ESP-IDF",
+  "description": "乐鑫 ESP-IDF SDK",
+  "category": "platform",
+  "platforms": ["esp32"],
+  "constraints": [
+    {"id": "ESP-IDF-1", "name": "Event loop 非阻塞", "severity": "P0", "detection": "regex",
+     "description": "esp_event_loop 回调中禁止阻塞调用", "related_core_constraint": "C4",
+     "example_bad": "回调中调用 vTaskDelay", "example_fix": "用 xQueueSend 通知任务"},
+    {"id": "ESP-IDF-2", "name": "NVS commit 延迟", "severity": "P1", "detection": "regex",
+     "description": "nvs_set 后必须 nvs_commit，但 commit 有延迟", "related_core_constraint": "C19"},
+    {"id": "ESP-IDF-3", "name": "WDT feed 策略", "severity": "P0", "detection": "regex",
+     "description": "Task WDT 必须定期 feed，长阻塞会触发复位", "related_core_constraint": "C31"},
+    {"id": "ESP-IDF-4", "name": "OTA rollback", "severity": "P0", "detection": "regex",
+     "description": "OTA 后必须 mark_valid，否则回滚", "related_core_constraint": "C22"},
+    {"id": "ESP-IDF-5", "name": "WiFi reconnect backoff", "severity": "P1", "detection": "regex",
+     "description": "WiFi 断连后必须指数退避重连", "related_core_constraint": "C20"},
+    {"id": "ESP-IDF-6", "name": "PSRAM DMA 限制", "severity": "P0", "detection": "regex",
+     "description": "SPI DMA 不支持 PSRAM，I2S DMA 必须在 Internal SRAM", "related_core_constraint": "C28"},
+    {"id": "ESP-IDF-7", "name": "Core affinity WiFi", "severity": "P1", "detection": "config",
+     "description": "WiFi/LwIP 任务绑定 Core 0，用户任务建议 Core 1", "related_core_constraint": "C15"}
+  ],
+  "detect_patterns": {
+    "includes": ["esp_log.h", "esp_wifi.h", "esp_event.h", "esp_ota_ops.h", "nvs_flash.h", "esp_task_wdt.h"],
+    "files": ["sdkconfig.defaults", "sdkconfig"],
+    "cmake": ["idf_component_register"],
+    "sdkconfig": ["CONFIG_ESP_WIFI", "CONFIG_FREERTOS", "CONFIG_ESP_TASK_WDT"]
+  }
+}

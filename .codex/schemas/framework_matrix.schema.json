@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://freertos-skill.dev/schemas/framework_matrix.json",
+  "title": "Framework Matrix",
+  "description": "项目框架矩阵：识别出的框架、版本、启用模块、相关约束、推荐 suite。",
+  "type": "object",
+  "required": ["project", "detected_frameworks"],
+  "properties": {
+    "project": {"type": "string"},
+    "platform": {"type": "string"},
+    "detected_frameworks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["framework_id", "confidence"],
+        "properties": {
+          "framework_id": {"type": "string"},
+          "version": {"type": "string"},
+          "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+          "evidence": {"type": "array", "items": {"type": "string"}, "description": "检测到的文件/include/Kconfig"},
+          "enabled_modules": {"type": "array", "items": {"type": "string"}},
+          "constraint_count": {"type": "integer"},
+          "recommended_suite": {"type": "string"}
+        }
+      }
+    },
+    "conflicts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "framework_a": {"type": "string"},
+          "framework_b": {"type": "string"},
+          "conflict_type": {"type": "string"},
+          "detail": {"type": "string"},
+          "mitigation": {"type": "string"}
+        }
+      }
+    },
+    "total_constraints": {"type": "integer"}
+  }
+}

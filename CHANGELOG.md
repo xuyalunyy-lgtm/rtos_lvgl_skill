@@ -1,5 +1,19 @@
 # Changelog
 
+## 14.0.8 — 2026-07-02
+
+V14 大版本：从"RTOS 系统级分析器"升级为"RTOS + Framework 约束治理平台"。
+Major refactor: 建立 framework pack→resolver→checker→conflict matrix→codegen 框架约束治理闭环，20x 框架适配效率收益。
+
+- **v14.0.1**：Framework Pack Schema — `framework_pack.schema.json` + `framework_matrix.schema.json` + `framework_issue.schema.json` + `framework_conflict.schema.json`
+- **v14.0.2**：Framework Profile Registry — `frameworks/*.json` 首批 10 个框架（esp-idf/zephyr/lvgl/mbedtls/lwip/fatfs/littlefs/tinyusb/cmsis-rtos/stm32-hal），共 42 条框架约束
+- **v14.0.3**：Framework Resolver — `tools/framework_profile.py`，根据 include/file/Kconfig/CMake/sdkconfig 自动识别框架，冲突检测，3 项自测
+- **v14.0.4**：Framework Checker — `tools/framework_constraint_checker.py`，LVGL/ESP-IDF/STM32 HAL 检查器，auto 模式，5 项自测
+- **v14.0.5**：Conflict Matrix — `references/framework_conflict_matrix.md`，8 组框架冲突定义与缓解方案
+- **v14.0.6**：Framework-Aware Codegen — `project_scaffold.py` 支持 `--frameworks` 参数
+- **v14.0.7**：Framework Evidence — 框架 issue 可写入 evidence store，pattern miner 支持 framework 维度
+- **v14.0.8**：V14 收口 — 全工具自测 8/8 通过，SKILL/Lite/CHANGELOG/iteration_log 更新
+
 ## 13.0.8 — 2026-07-02
 
 V13 大版本：从"固件行为验证闭环"升级为"RTOS 系统级设计与运行时正确性分析器"。

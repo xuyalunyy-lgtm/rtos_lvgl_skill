@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://freertos-skill.dev/schemas/framework_issue.json",
+  "title": "Framework Issue",
+  "description": "框架约束检查发现的问题。",
+  "type": "object",
+  "required": ["issue_id", "framework_id", "constraint_id", "severity"],
+  "properties": {
+    "issue_id": {"type": "string"},
+    "framework_id": {"type": "string"},
+    "constraint_id": {"type": "string"},
+    "severity": {"type": "string", "enum": ["P0", "P1", "P2"]},
+    "file": {"type": "string"},
+    "line": {"type": "integer"},
+    "message": {"type": "string"},
+    "related_core_constraint": {"type": "string"},
+    "suggestion": {"type": "string"},
+    "evidence": {"type": "string"}
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "framework_id": "tinyusb",
+  "name": "TinyUSB",
+  "description": "轻量级 USB 协议栈",
+  "category": "usb",
+  "platforms": ["esp32", "stm32"],
+  "constraints": [
+    {"id": "TINYUSB-1", "name": "USB task 阻塞", "severity": "P0", "detection": "regex",
+     "description": "USB 任务中禁止阻塞调用"},
+    {"id": "TINYUSB-2", "name": "Callback 生命周期", "severity": "P1", "detection": "regex",
+     "description": "USB callback 中的 buffer 必须在 callback 返回前有效"},
+    {"id": "TINYUSB-3", "name": "Buffer 对齐", "severity": "P1", "detection": "config",
+     "description": "USB buffer 必须正确对齐"}
+  ],
+  "detect_patterns": {
+    "includes": ["tusb.h", "usb_descriptors.h"],
+    "kconfig": ["CONFIG_TINYUSB"]
+  }
+}

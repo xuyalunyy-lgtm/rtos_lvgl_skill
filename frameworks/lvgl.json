@@ -1,0 +1,26 @@
+{
+  "framework_id": "lvgl",
+  "name": "LVGL",
+  "description": "Light and Versatile Graphics Library",
+  "category": "ui",
+  "platforms": ["esp32", "stm32", "zephyr", "jl", "bk"],
+  "constraints": [
+    {"id": "LVGL-1", "name": "跨线程调用", "severity": "P0", "detection": "regex",
+     "description": "LVGL API 只能在 UI 任务中调用", "related_core_constraint": "C1"},
+    {"id": "LVGL-2", "name": "Flush callback 阻塞", "severity": "P0", "detection": "regex",
+     "description": "flush/display callback 中禁止阻塞", "related_core_constraint": "C4"},
+    {"id": "LVGL-3", "name": "Image buffer 生命周期", "severity": "P1", "detection": "regex",
+     "description": "LVGL image buffer 必须在 LVGL 生命周期内有效"},
+    {"id": "LVGL-4", "name": "Tick source", "severity": "P1", "detection": "regex",
+     "description": "lv_tick_inc 必须定期调用，频率与 LV_TICK_CUSTOM 对齐"},
+    {"id": "LVGL-5", "name": "Memory allocator", "severity": "P1", "detection": "config",
+     "description": "LVGL 使用自定义 allocator 时需确保线程安全", "related_core_constraint": "C43"}
+  ],
+  "checker_scripts": ["lvgl_thread_checker.py"],
+  "detect_patterns": {
+    "includes": ["lvgl.h", "lv_conf.h"],
+    "files": ["lv_conf.h"],
+    "kconfig": ["CONFIG_LV_USE", "CONFIG_LV_COLOR_DEPTH"],
+    "sdkconfig": ["CONFIG_LV_COLOR_DEPTH"]
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://freertos-skill.dev/schemas/framework_conflict.json",
+  "title": "Framework Conflict",
+  "description": "框架间冲突定义。",
+  "type": "object",
+  "required": ["framework_a", "framework_b", "conflict_type"],
+  "properties": {
+    "framework_a": {"type": "string"},
+    "framework_b": {"type": "string"},
+    "conflict_type": {
+      "type": "string",
+      "enum": ["resource_contention", "task_model_mismatch", "heap_conflict", "timing_conflict", "api_incompatible", "init_order"]
+    },
+    "description": {"type": "string"},
+    "severity": {"type": "string", "enum": ["P0", "P1", "P2"]},
+    "mitigation": {"type": "string"},
+    "related_constraints": {"type": "array", "items": {"type": "string"}}
+  }
+}
