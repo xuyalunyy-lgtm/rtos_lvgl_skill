@@ -56,11 +56,13 @@ def collect_c_files(
             files.append(p.resolve())
         elif p.is_dir():
             files.extend(sorted(p.rglob("*.c")))
+            files.extend(sorted(p.rglob("*.h")))
             files.extend(sorted(p.rglob("*.cpp")))
     if dir_path:
         root = Path(dir_path)
         if root.is_dir():
             files.extend(sorted(root.rglob("*.c")))
+            files.extend(sorted(root.rglob("*.h")))
             files.extend(sorted(root.rglob("*.cpp")))
     seen: set[Path] = set()
     out: list[Path] = []
@@ -78,7 +80,11 @@ def collect_c_files(
 def run_cmd(label: str, argv: list[str]) -> int:
     print(f"\n{'=' * 60}\n[{label}]\n{'=' * 60}", flush=True)
     print(" ", " ".join(str(a) for a in argv), flush=True)
-    proc = subprocess.run(argv, cwd=SKILL_ROOT, env=checker_env())
+    try:
+        proc = subprocess.run(argv, cwd=SKILL_ROOT, env=checker_env(), timeout=300)
+    except subprocess.TimeoutExpired:
+        print(f"[TIMEOUT] {label} exceeded 300s", flush=True)
+        return 1
     return proc.returncode
 
 
@@ -175,10 +181,16 @@ def _run_and_capture(label: str, argv: list[str], quiet: bool = False) -> tuple[
     if not quiet:
         print(f"\n{'=' * 60}\n[{label}]\n{'=' * 60}", flush=True)
         print(" ", " ".join(str(a) for a in argv), flush=True)
-    proc = subprocess.run(
-        argv, cwd=SKILL_ROOT, env=checker_env(),
-        capture_output=True, text=True, encoding="utf-8", errors="replace",
-    )
+    try:
+        proc = subprocess.run(
+            argv, cwd=SKILL_ROOT, env=checker_env(),
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
+            timeout=300,
+        )
+    except subprocess.TimeoutExpired:
+        if not quiet:
+            print(f"[TIMEOUT] {label} exceeded 300s", flush=True)
+        return 1, ""
     combined = proc.stdout + proc.stderr
     if combined and not quiet:
         print(combined, end="", flush=True)
@@ -323,6 +335,7 @@ def main() -> int:
         return run_validate_examples()
 
     exit_code = 0
+    extra_results: list[dict] = []  # for --json: checkers run outside registered loop
 
     if args.scan_secrets or args.git_remotes:
         secret_argv = [sys.executable, str(TOOLS_DIR / "secret_scan_checker.py")]
@@ -333,17 +346,23 @@ def main() -> int:
                 secret_argv.extend(["--dir", args.dir])
             secret_argv.extend(args.files)
         if args.json:
-            rc, _ = _run_and_capture("secret_scan_checker", secret_argv, quiet=True)
+            rc, out = _run_and_capture("secret_scan_checker", secret_argv, quiet=True)
+            extra_results.append({
+                "checker": "secret_scan_checker", "script": "secret_scan_checker.py",
+                "domains": ["C9"], "mode": "batch",
+                "files_checked": 0, "issues": _parse_issue_count(out), "exit_code": rc,
+            })
         else:
             rc = run_cmd("secret_scan_checker", secret_argv)
         exit_code = max(exit_code, rc)
         if args.git_remotes and not args.scan_secrets and not args.dir and not args.files:
-            print(f"\n{'=' * 60}")
-            if exit_code == 0:
-                print("Summary: secret_scan 通过")
-            else:
-                print(f"Summary: secret_scan 失败 (exit={exit_code})")
-            print(f"{'=' * 60}\n")
+            if not args.json:
+                print(f"\n{'=' * 60}")
+                if exit_code == 0:
+                    print("Summary: secret_scan 通过")
+                else:
+                    print(f"Summary: secret_scan 失败 (exit={exit_code})")
+                print(f"{'=' * 60}\n")
             return exit_code
 
     c_files = collect_c_files(args.files, args.dir, include_bad=args.include_bad)
@@ -376,7 +395,7 @@ def main() -> int:
         checker_exit, checker_results = checker_result
     else:
         checker_exit = checker_result
-    exit_code = max(exit_code, checker_exit if not args.json else checker_exit)
+    exit_code = max(exit_code, checker_exit)
 
     if not c_files and args.dir:
         print("\n[warn] 排除 bad_*.c 后无可审查文件")
@@ -385,7 +404,8 @@ def main() -> int:
         # 从 checker_registry 获取 suite 信息
         from checker_registry import ALL_CHECKERS as _ALL
         checker_map = {c.name: c for c in _ALL}
-        for r in checker_results:
+        all_results = checker_results + extra_results
+        for r in all_results:
             spec = checker_map.get(r["checker"])
             if spec:
                 r["suites"] = list(spec.suites)
@@ -395,9 +415,9 @@ def main() -> int:
             "exit_code": exit_code,
             "files_checked": len(c_files),
             "suites": ["default"],
-            "checkers": checker_results,
-            "total_issues": sum(r.get("issues", 0) for r in checker_results),
-            "total_checkers_run": sum(1 for r in checker_results if not r.get("skipped")),
+            "checkers": all_results,
+            "total_issues": sum(r.get("issues", 0) for r in all_results),
+            "total_checkers_run": sum(1 for r in all_results if not r.get("skipped")),
         }
         json.dump(report, sys.stdout, ensure_ascii=False, indent=2)
         print()

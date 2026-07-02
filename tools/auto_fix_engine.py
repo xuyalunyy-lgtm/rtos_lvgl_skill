@@ -54,10 +54,14 @@ def run_checker_json(checker: str, filepath: str) -> dict:
 
     env = os.environ.copy()
     env["PYTHONUTF8"] = "1"
-    proc = subprocess.run(
-        [sys.executable, str(script), filepath],
-        capture_output=True, encoding="utf-8", errors="replace", env=env,
-    )
+    try:
+        proc = subprocess.run(
+            [sys.executable, str(script), filepath],
+            capture_output=True, encoding="utf-8", errors="replace", env=env,
+            timeout=60,
+        )
+    except subprocess.TimeoutExpired:
+        return {"error": f"Checker {checker} timed out after 60s", "checker": checker, "violations": []}
 
     # Parse text output for violations
     violations = []
@@ -328,13 +332,21 @@ def fix_ota(violations: list, filepath: str) -> list[dict]:
 
 FIX_GENERATORS = {
     "cjson_leak": fix_cjson_leak,
+    "cjson_leak_checker": fix_cjson_leak,
     "cjson_ast": fix_cjson_leak,
+    "cjson_ast_checker": fix_cjson_leak,
     "queue_ownership": fix_queue_ownership,
+    "queue_ownership_checker": fix_queue_ownership,
     "queue_ast": fix_queue_ownership,
+    "queue_ast_checker": fix_queue_ownership,
     "return_check": fix_return_check,
+    "return_check_checker": fix_return_check,
     "boot": fix_boot_sequence,
+    "boot_sequence_checker": fix_boot_sequence,
     "lifecycle": fix_lifecycle,
+    "lifecycle_checker": fix_lifecycle,
     "ota": fix_ota,
+    "ota_safety_checker": fix_ota,
 }
 
 

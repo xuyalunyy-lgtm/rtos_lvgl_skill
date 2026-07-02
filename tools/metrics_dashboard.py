@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 import argparse
+import html
 import json
 import os
 import subprocess
@@ -146,17 +147,19 @@ def generate_html_dashboard(metrics: dict, health: dict) -> str:
         violations = result.get("violations", 0)
         status = "PASS" if violations == 0 else f"FAIL ({violations})"
         color = "#4CAF50" if violations == 0 else "#f44336"
-        checker_rows += f'<tr><td>{domain}</td><td>{result.get("checker", "-")}</td><td style="color:{color}">{status}</td></tr>\n'
+        esc_domain = html.escape(str(domain))
+        esc_checker = html.escape(str(result.get("checker", "-")))
+        checker_rows += f'<tr><td>{esc_domain}</td><td>{esc_checker}</td><td style="color:{color}">{status}</td></tr>\n'
 
     issues_html = ""
     for issue in health.get("issues", []):
-        issues_html += f'<li>{issue}</li>\n'
+        issues_html += f'<li>{html.escape(str(issue))}</li>\n'
 
     score = health.get("score", 0)
     grade = health.get("grade", "F")
     score_color = "#4CAF50" if score >= 80 else "#FF9800" if score >= 60 else "#f44336"
 
-    html = f'''<!DOCTYPE html>
+    html_str = f'''<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8">
@@ -175,8 +178,8 @@ h2 {{ color: #663; }}
 </head>
 <body>
 <h1>FreeRTOS Skill Metrics Dashboard</h1>
-<p>Generated: {metrics.get("timestamp", "N/A")}</p>
-<p>Project: {metrics.get("project", "N/A")} · Suite: {metrics.get("suite", "default")}</p>
+<p>Generated: {html.escape(str(metrics.get("timestamp", "N/A")))}</p>
+<p>Project: {html.escape(str(metrics.get("project", "N/A")))} · Suite: {html.escape(str(metrics.get("suite", "default")))}</p>
 
 <div class="card">
 <h2>Health Score</h2>
@@ -201,7 +204,7 @@ h2 {{ color: #663; }}
 </div>
 </body>
 </html>'''
-    return html
+    return html_str
 
 
 def run_self_test() -> int:

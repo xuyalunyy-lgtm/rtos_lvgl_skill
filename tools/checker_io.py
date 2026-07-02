@@ -83,23 +83,126 @@ def read_file(path: Path) -> tuple[list[str], str] | None:
 
 
 # ============================================================================
-# C/C++ 解析工具
+# C/C++ 解析工具（状态机驱动，感知字符串/字符字面量）
 # ============================================================================
-
-COMMENT_RE = re.compile(r"//.*?$|/\*.*?\*/", re.MULTILINE | re.DOTALL)
 
 FUNC_DEF_RE = re.compile(
     r"(?:^|[\n;])\s*"
-    r"(?:static\s+)?(?:inline\s+)?"
-    r"(?:[A-Za-z_][\w\s\*]*\s+)+"
+    r"(?:static\s+)?(?:inline\s+)?(?:__attribute__\s*\(\([^)]*\)\)\s*)?"
+    r"(?:[A-Za-z_][\w]*\s+)+"
+    r"(?:\*\s*)?"
     r"(?P<name>[A-Za-z_]\w*)\s*\([^;{}]*\)\s*\{",
     re.MULTILINE,
 )
 
+# 状态常量
+_ST_CODE = 0
+_ST_LINE_COMMENT = 1
+_ST_BLOCK_COMMENT = 2
+_ST_STRING = 3
+_ST_CHAR = 4
+
+
+def _skip_string_literals(text: str) -> set[int]:
+    """返回所有属于字符串/字符字面量的字符位置集合。"""
+    positions: set[int] = set()
+    state = _ST_CODE
+    i = 0
+    n = len(text)
+    while i < n:
+        ch = text[i]
+        if state == _ST_CODE:
+            if ch == "/" and i + 1 < n:
+                nxt = text[i + 1]
+                if nxt == "/":
+                    state = _ST_LINE_COMMENT
+                elif nxt == "*":
+                    state = _ST_BLOCK_COMMENT
+            elif ch == '"':
+                state = _ST_STRING
+                positions.add(i)
+            elif ch == "'":
+                state = _ST_CHAR
+                positions.add(i)
+        elif state == _ST_LINE_COMMENT:
+            if ch == "\n":
+                state = _ST_CODE
+        elif state == _ST_BLOCK_COMMENT:
+            if ch == "*" and i + 1 < n and text[i + 1] == "/":
+                i += 1
+                state = _ST_CODE
+        elif state == _ST_STRING:
+            positions.add(i)
+            if ch == "\\" and i + 1 < n:
+                i += 1
+                positions.add(i)
+            elif ch == '"':
+                state = _ST_CODE
+        elif state == _ST_CHAR:
+            positions.add(i)
+            if ch == "\\" and i + 1 < n:
+                i += 1
+                positions.add(i)
+            elif ch == "'":
+                state = _ST_CODE
+        i += 1
+    return positions
+
 
 def strip_comments(text: str) -> str:
-    """剥离 C/C++ 注释，保留行数。"""
-    return COMMENT_RE.sub(lambda match: "\n" * match.group(0).count("\n"), text)
+    """剥离 C/C++ 注释，保留行数。感知字符串/字符字面量。"""
+    result = list(text)
+    state = _ST_CODE
+    i = 0
+    n = len(text)
+    while i < n:
+        ch = text[i]
+        if state == _ST_CODE:
+            if ch == "/" and i + 1 < n:
+                nxt = text[i + 1]
+                if nxt == "/":
+                    state = _ST_LINE_COMMENT
+                    result[i] = "\n" if ch == "\n" else ""
+                    i += 1
+                    result[i] = ""
+                elif nxt == "*":
+                    state = _ST_BLOCK_COMMENT
+                    result[i] = ""
+                    i += 1
+                    result[i] = ""
+                # else: division operator, keep
+            # string/char literals: keep as-is
+            elif ch == '"':
+                state = _ST_STRING
+            elif ch == "'":
+                state = _ST_CHAR
+        elif state == _ST_LINE_COMMENT:
+            if ch == "\n":
+                result[i] = "\n"
+                state = _ST_CODE
+            else:
+                result[i] = ""
+        elif state == _ST_BLOCK_COMMENT:
+            if ch == "\n":
+                result[i] = "\n"
+            else:
+                result[i] = ""
+            if ch == "*" and i + 1 < n and text[i + 1] == "/":
+                i += 1
+                result[i] = ""
+                state = _ST_CODE
+        elif state == _ST_STRING:
+            if ch == "\\" and i + 1 < n:
+                i += 1  # skip escape
+            elif ch == '"':
+                state = _ST_CODE
+        elif state == _ST_CHAR:
+            if ch == "\\" and i + 1 < n:
+                i += 1
+            elif ch == "'":
+                state = _ST_CODE
+        i += 1
+    return "".join(result)
 
 
 def strip_comments_lines(text: str) -> list[str]:
@@ -118,9 +221,14 @@ def nearby(text: str, pos: int, before: int = 240, after: int = 160) -> str:
 
 
 def find_matching_brace(text: str, open_pos: int) -> int:
-    """找到匹配的右花括号位置。"""
+    """找到匹配的右花括号位置。感知字符串/字符字面量。"""
+    if open_pos < 0:
+        return -1
+    skip = _skip_string_literals(text)
     depth = 0
     for i in range(open_pos, len(text)):
+        if i in skip:
+            continue
         if text[i] == "{":
             depth += 1
         elif text[i] == "}":
@@ -160,18 +268,6 @@ def extract_functions(code: str) -> list[FunctionSpan]:
 # ============================================================================
 # Issue 构建
 # ============================================================================
-
-@dataclass
-class Issue:
-    """标准化的检查结果。"""
-    id: str        # C#.# 格式
-    file: str      # file:line 格式
-    issue: str     # 问题描述
-    severity: str  # P0/P1/P2
-
-    def to_dict(self) -> dict[str, str]:
-        return {"id": self.id, "severity": self.severity, "file": self.file, "issue": self.issue}
-
 
 def make_issue(path: Path, line: int, cid: str, severity: str, msg: str) -> dict[str, str]:
     """构建标准 issue dict。"""

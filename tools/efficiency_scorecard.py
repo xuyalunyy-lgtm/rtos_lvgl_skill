@@ -86,24 +86,17 @@ def count_lines(project_dir: Path) -> int:
     return total
 
 
-def run_checkers(project_dir: Path) -> dict:
+def run_checkers(project_dir: Path, suite: str = "default") -> dict:
     """运行所有 checker 并统计违规数"""
     import subprocess
+    from checker_registry import get_suite
 
     checker_results = {}
     tools_dir = Path(__file__).parent
+    specs = get_suite(suite)
 
-    checkers = [
-        ("cjson_leak_checker.py", "C3"),
-        ("isr_safety_checker.py", "C4"),
-        ("lvgl_thread_checker.py", "C1"),
-        ("queue_ownership_checker.py", "C2"),
-        ("blocking_wait_checker.py", "C31"),
-        ("ota_safety_checker.py", "C22"),
-    ]
-
-    for checker, domain in checkers:
-        checker_path = tools_dir / checker
+    for spec in specs:
+        checker_path = tools_dir / spec.script
         if not checker_path.exists():
             continue
 
@@ -126,14 +119,16 @@ def run_checkers(project_dir: Path) -> dict:
             if match:
                 violations = int(match.group(1))
 
-            checker_results[domain] = {
-                "checker": checker,
+            checker_results[spec.name] = {
+                "checker": spec.script,
+                "domains": list(spec.domains),
                 "violations": violations,
                 "exit_code": result.returncode,
             }
         except (subprocess.TimeoutExpired, Exception) as e:
-            checker_results[domain] = {
-                "checker": checker,
+            checker_results[spec.name] = {
+                "checker": spec.script,
+                "domains": list(spec.domains),
                 "violations": -1,
                 "error": str(e),
             }
@@ -159,7 +154,7 @@ def calculate_efficiency(project_stats: dict, checker_results: dict) -> dict:
     if auto_review_hours > 0:
         review_ratio = manual_review_hours / auto_review_hours
     else:
-        review_ratio = float('inf')
+        review_ratio = 99999.0  # 避免 float('inf') 导致 JSON 序列化失败
 
     # 违规统计
     total_violations = sum(

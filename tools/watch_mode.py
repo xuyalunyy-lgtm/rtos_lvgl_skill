@@ -90,7 +90,7 @@ def watch_directory(directory: Path, checkers: list[str], interval: float = 2.0)
                 print(f"\n--- {filepath} ---")
                 for checker in checkers:
                     output = run_checker_on_file(checker, filepath)
-                    if output and "no " not in output.lower() and "未发现" not in output:
+                    if output and "未发现" not in output and "no violations" not in output.lower():
                         print(output)
 
             last_mtimes = current_mtimes
