@@ -34,6 +34,11 @@ L4 可执行     examples/ · tools/    完整版 L2+；Lite 无此层
 | `examples/` | good/bad 范例、`app_mvp.h` | 人工 + checker | **无** |
 | `tools/` | checker、codegen、fixtures、`checker_registry.py` | 人工 + CI | **无** |
 | `scripts/` | sync、iterate、install | 人工 | 部分复制 |
+| `tools/session_guard.py` | 会话严格模式纪律检查 | 人工 | **无** |
+| `prompts/session_strict_mode.txt` | 严格模式协议 | 人工 | 同步 |
+| `templates/AGENTS.freertos-strict.md` | 项目入口模板 | 人工 | 同步 |
+| `templates/cursor-rule.freertos-strict.mdc` | Cursor 规则模板 | 人工 | 同步 |
+| `.codex/hooks/skill_session_guard.py` | Hook 审计示例 | 人工 | **无** |
 | `freertos-skill-lite/` | Lite 分发包 | **sync 生成** | — |
 
 **分发边界：** 源码仓保留根目录 `README.md`、`INSTALL.md`、`CHANGELOG.md`、`.github/`、`.vscode/`、历史日志和 Lite 产物；Cursor/Claude/Codex 安装脚本默认排除这些维护资产，只安装运行时需要的 skill 文件，并保留 `workflows/README.md`、`examples/README.md` 等运行时索引。
@@ -55,6 +60,9 @@ L4 可执行     examples/ · tools/    完整版 L2+；Lite 无此层
 | [l2_memory_analysis](../workflows/l2_memory_analysis.md) | core_rules + constraint_index | memory_alloc_optimize + cjson_safe_parse | run_review + stack_calculator |
 | [l3_lvgl_page](../workflows/l3_lvgl_page.md) | core_rules（C1 线程安全） | lvgl_thread_safety | — |
 | [self_iterate](../workflows/self_iterate.md) | **本文件** + iteration_log + release_governance | 受影响层 prompt | skill_iterate + commit_audit |
+| [l2_rtos_system_review](../workflows/l2_rtos_system_review.md) | core_rules + constraint_index | rtos model prompts | rtos_model + analyzers |
+| [l2_learning_candidate](../workflows/l2_learning_candidate.md) | evidence store + pattern miner | — | evidence_store + pattern_miner |
+| **Session strict mode** | session_strict_mode.txt | — | session_guard |
 
 用户要求 **git commit / 提交** → 读 [git_commit_style.md](git_commit_style.md)（无需单独 workflow）
 

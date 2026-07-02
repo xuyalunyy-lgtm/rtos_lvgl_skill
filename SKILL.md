@@ -1,7 +1,7 @@
 ---
 name: freertos-embedded-architect
 metadata:
-  version: 15.0.8
+  version: 15.0.9
 description: >-
   FreeRTOS embedded architecture specialist for MVP firmware, board bring-up,
   runtime reliability, memory safety, module contracts, task topology, timeout
@@ -47,6 +47,9 @@ Choose one workflow first, then load only required references, platform docs, an
 | Bring-up | [l3_bring_up.md](workflows/l3_bring_up.md) |
 | LVGL pages | [l3_lvgl_page.md](workflows/l3_lvgl_page.md) |
 | Self-iteration | [self_iterate.md](workflows/self_iterate.md) |
+| Session strict mode | [session_strict_mode.txt](prompts/session_strict_mode.txt) |
+| RTOS system review | [l2_rtos_system_review.md](workflows/l2_rtos_system_review.md) |
+| Learning candidate | [l2_learning_candidate.md](workflows/l2_learning_candidate.md) |
 
 ## Required Context
 
@@ -78,22 +81,9 @@ Load only prompts needed by the selected workflow or suspected constraint:
 - Do not perform unplanned core SDK refactors; preserve critical logs and watchdog behavior.
 - Read prompts/references before suggesting platform bindings.
 - For commit requests, follow [git_commit_style](references/git_commit_style.md), run release audit, and use `type(scope):`.
+- **Session strict mode**: when activated, every RTOS/firmware task must: (1) choose workflow, (2) declare platform/framework, (3) cite constraints, (4) provide verification plan. See [session_strict_mode.txt](prompts/session_strict_mode.txt). Guard: `python tools/session_guard.py --self-test`.
 
 ## RTOS Project Gate
 
-For new RTOS project implementation, require all nine blocks before creating
-buildable code:
-
-1. Project goal, MVP scope, acceptance metrics.
-2. Hardware/platform details.
-3. System scale and real-time requirements.
-4. Toolchain/build/debug strategy.
-5. Architecture expectations.
-6. Quality requirements.
-7. Directory and delivery format.
-8. Dependencies and licenses.
-9. Milestones and delivery mode.
-
-If any item is missing, return only a missing-item checklist and next questions.
-After all nine are provided, produce skeleton, resource contract, device model, Kconfig family, thread lifecycle, docs, and reproducible commands.
-Iteration log: [iteration_log](references/iteration_log.md) / [CHANGELOG](CHANGELOG.md)
+New RTOS project requires 9 blocks: goal, platform, scale, toolchain, architecture, quality, directory, dependencies, milestones. If missing, return checklist only. After all 9: produce skeleton, contract, device model, Kconfig, lifecycle, docs.
+Log: [iteration_log](references/iteration_log.md) / [CHANGELOG](CHANGELOG.md)

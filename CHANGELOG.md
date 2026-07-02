@@ -1,5 +1,16 @@
 # Changelog
 
+## 15.0.9 — 2026-07-02
+
+V15 发布硬化收口：严格模式正式接入主入口、Lite 分发、supervisor gate、项目规则模板和发布验证链路。
+
+- SKILL.md 路由表新增 Session strict mode、RTOS system review、Learning candidate
+- SKILL.md Rules 新增严格模式规则：每轮必须选 workflow、声明平台/框架、引用约束、验证计划
+- `references/skill_structure.md` 登记 V15 全部文件（session_guard、strict prompt、AGENTS.md、cursor rule、hooks）
+- `prompts/session_strict_mode.txt` 激活/解除/前置检查/降级规则完整
+- `tools/session_guard.py` 6 项自测全绿
+- 版本对齐 15.0.9：SKILL.md、Lite、CHANGELOG、iteration_log
+
 ## 15.0.8 — 2026-07-02
 
 V15 大版本：实现"执行一次后持续按 skill 工作"的严格模式。
