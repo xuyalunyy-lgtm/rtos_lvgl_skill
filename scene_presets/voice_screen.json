@@ -5,11 +5,11 @@
   "platforms": ["esp32", "jl"],
   "required_constraints": [
     "C1", "C2", "C3", "C4", "C8", "C9", "C10", "C12", "C14",
-    "C23", "C25", "C29", "C30", "C31", "C32", "C33", "C35", "C43"
+    "C23", "C25", "C29", "C30", "C31", "C32", "C33", "C35", "C37", "C43"
   ],
   "recommended_prompts": [
     "prompts/voice_asr_review.txt",
-    "prompts/lvgl_ui_review.txt"
+    "prompts/lvgl_thread_safety.txt"
   ],
   "checker_suite": "media",
   "generator_params": {
@@ -17,15 +17,34 @@
     "audio": true,
     "voice_asr": true,
     "network": true,
-    "tasks": ["ui_task", "audio_task", "asr_task", "net_task"],
-    "queues": ["audio_q", "ui_cmd_q", "asr_result_q"]
+    "tasks": [
+      {"name": "ui_task", "entry": "ui_task_func", "stack_bytes": 8192, "priority": 3, "core_affinity": 1, "lifecycle": "long_running", "exit_policy": "stop_token", "watchdog": "feed", "consumes": ["ui_cmd_q"], "produces": [], "holds": ["lvgl_mutex"], "description": "LVGL UI 渲染"},
+      {"name": "audio_task", "entry": "audio_task_func", "stack_bytes": 4096, "priority": 6, "core_affinity": 1, "lifecycle": "long_running", "exit_policy": "stop_token", "watchdog": "feed", "period_ms": 10, "deadline_ms": 10, "wcet_ms": 5, "consumes": ["audio_cmd_q"], "produces": ["audio_q"], "holds": [], "description": "音频采集/播放"},
+      {"name": "asr_task", "entry": "asr_task_func", "stack_bytes": 4096, "priority": 5, "core_affinity": -1, "lifecycle": "long_running", "exit_policy": "stop_token", "watchdog": "feed", "consumes": ["audio_q"], "produces": ["asr_result_q"], "holds": [], "description": "语音识别"},
+      {"name": "net_task", "entry": "net_task_func", "stack_bytes": 8192, "priority": 4, "core_affinity": 0, "lifecycle": "long_running", "exit_policy": "stop_token", "watchdog": "feed", "consumes": ["asr_result_q"], "produces": ["ui_cmd_q"], "holds": [], "description": "WSS/TLS 网络"}
+    ],
+    "queues": [
+      {"name": "audio_q", "depth": 4, "item_type": "audio_frame_t", "item_size": 128, "producer_tasks": ["audio_task"], "consumer_tasks": ["asr_task"], "send_timeout_ms": 100, "recv_timeout_ms": 200, "full_policy": "drop_oldest", "drop_counter": "s_audio_drop_count", "description": "音频帧队列"},
+      {"name": "asr_result_q", "depth": 4, "item_type": "asr_result_t", "item_size": 64, "producer_tasks": ["asr_task"], "consumer_tasks": ["net_task"], "send_timeout_ms": 100, "recv_timeout_ms": 500, "full_policy": "drop_oldest", "drop_counter": "s_asr_drop_count", "description": "ASR 识别结果队列"},
+      {"name": "ui_cmd_q", "depth": 8, "item_type": "ui_cmd_t", "item_size": 16, "producer_tasks": ["net_task"], "consumer_tasks": ["ui_task"], "send_timeout_ms": 50, "recv_timeout_ms": 500, "full_policy": "drop_oldest", "drop_counter": "s_ui_drop_count", "description": "UI 命令队列"},
+      {"name": "audio_cmd_q", "depth": 4, "item_type": "audio_cmd_t", "item_size": 16, "producer_tasks": ["net_task"], "consumer_tasks": ["audio_task"], "send_timeout_ms": 50, "recv_timeout_ms": 100, "full_policy": "drop_oldest", "drop_counter": "s_acmd_drop_count", "description": "音频控制队列"}
+    ],
+    "locks": [
+      {"name": "lvgl_mutex", "type": "mutex", "holder_tasks": ["ui_task"], "max_hold_ms": 50, "lock_order": 1, "priority_inheritance": true, "description": "LVGL 线程安全"}
+    ],
+    "timers": [
+      {"name": "heartbeat", "period_ms": 1000, "auto_reload": true, "callback_max_ms": 1, "notifies_tasks": [], "callback_policy": "deferred", "description": "心跳定时器"}
+    ],
+    "memory_pools": [
+      {"name": "audio_buf_pool", "block_size": 1024, "num_blocks": 8, "owner_tasks": ["audio_task"], "full_policy": "block", "runtime_expand_allowed": false, "description": "音频 DMA buffer 池"}
+    ]
   },
   "acceptance_checklist": [
-    "LVGL 仅在 UI 任务调用（C1）",
+    "LVGL 仅在 ui_task 调用（C1）",
     "音频 DMA buffer 在 internal SRAM（C28）",
-    "ASR 结果通过队列传递，不在回调中操作 UI（C2/C10）",
-    "OTA 签名校验通过（C22）",
-    "语音唤醒 → ASR → 结果展示 全链路 < 2s",
-    "WSS 断连后自动重连，UI 显示连接状态（C20）"
+    "ASR 结果通过 asr_result_q 传递，不在回调中操作 UI（C2/C10）",
+    "audio_task 周期 10ms，WCET < 5ms（C35）",
+    "所有队列有 full_policy 和 drop_counter（C37）",
+    "lvgl_mutex 有 max_hold_ms 和 priority_inheritance（C43）"
   ]
 }

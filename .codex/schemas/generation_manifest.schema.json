@@ -2,11 +2,11 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://freertos-skill.dev/schemas/generation_manifest.json",
   "title": "Generation Manifest",
-  "description": "代码生成清单。生成器必须输出此文件，codegen_gate 据此验证。",
+  "description": "代码生成清单 v1.2。生成器必须输出此文件，codegen_gate 据此验证。同时可作为 RTOS 系统事实源。",
   "type": "object",
   "required": ["schema_version", "generator", "platform", "generated_files", "constraints"],
   "properties": {
-    "schema_version": {"type": "string", "enum": ["1.0", "1.1"]},
+    "schema_version": {"type": "string", "enum": ["1.0", "1.1", "1.2"]},
     "generator": {"type": "string"},
     "platform": {"type": "string"},
     "frameworks": {"type": "array", "items": {"type": "string"}},
@@ -26,13 +26,23 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["name", "stack_bytes", "priority"],
+        "required": ["name", "entry", "stack_bytes", "priority", "lifecycle", "exit_policy"],
         "properties": {
           "name": {"type": "string"},
+          "entry": {"type": "string", "description": "任务入口函数名"},
           "stack_bytes": {"type": "integer"},
           "priority": {"type": "integer"},
-          "core_affinity": {"type": "integer"},
-          "period_ms": {"type": "integer"}
+          "core_affinity": {"type": "integer", "description": "-1=any, 0/1=specific core"},
+          "lifecycle": {"type": "string", "enum": ["long_running", "on_demand", "periodic"]},
+          "exit_policy": {"type": "string", "enum": ["stop_token", "never_exit", "delete_on_complete"]},
+          "watchdog": {"type": "string", "enum": ["feed", "notify", "none"]},
+          "period_ms": {"type": "integer"},
+          "deadline_ms": {"type": "integer"},
+          "wcet_ms": {"type": "integer"},
+          "produces": {"type": "array", "items": {"type": "string"}},
+          "consumes": {"type": "array", "items": {"type": "string"}},
+          "holds": {"type": "array", "items": {"type": "string"}},
+          "description": {"type": "string"}
         }
       }
     },
@@ -40,13 +50,22 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["name", "depth", "item_size"],
+        "required": ["name", "depth", "item_type", "item_size", "producer_tasks", "consumer_tasks", "send_timeout_ms", "recv_timeout_ms", "full_policy", "drop_counter"],
         "properties": {
           "name": {"type": "string"},
           "depth": {"type": "integer"},
+          "item_type": {"type": "string", "description": "队列元素类型描述"},
           "item_size": {"type": "integer"},
+          "producer_tasks": {"type": "array", "items": {"type": "string"}},
+          "consumer_tasks": {"type": "array", "items": {"type": "string"}},
+          "send_timeout_ms": {"type": "integer"},
+          "recv_timeout_ms": {"type": "integer"},
+          "full_policy": {"type": "string", "enum": ["drop_oldest", "drop_newest", "block", "overwrite", "fail_immediately"]},
+          "drop_counter": {"type": "string", "description": "丢弃计数器变量名"},
           "backpressure": {"type": "string"},
-          "timeout_ms": {"type": "integer"}
+          "timeout_ms": {"type": "integer"},
+          "isr_safe": {"type": "boolean"},
+          "description": {"type": "string"}
         }
       }
     },
@@ -54,27 +73,58 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["name", "type"],
-        "properties": {"name": {"type": "string"}, "type": {"type": "string"}}
+        "required": ["name", "type", "holder_tasks", "max_hold_ms", "lock_order", "priority_inheritance"],
+        "properties": {
+          "name": {"type": "string"},
+          "type": {"type": "string", "enum": ["mutex", "recursive_mutex", "binary_semaphore", "counting_semaphore"]},
+          "holder_tasks": {"type": "array", "items": {"type": "string"}},
+          "max_hold_ms": {"type": "integer"},
+          "lock_order": {"type": "integer", "description": "锁顺序编号，防止死锁"},
+          "priority_inheritance": {"type": "boolean"},
+          "description": {"type": "string"}
+        }
       }
     },
     "timers": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["name", "period_ms"],
-        "properties": {"name": {"type": "string"}, "period_ms": {"type": "integer"}}
+        "required": ["name", "period_ms", "auto_reload", "callback_max_ms", "notifies_tasks", "callback_policy"],
+        "properties": {
+          "name": {"type": "string"},
+          "period_ms": {"type": "integer"},
+          "auto_reload": {"type": "boolean"},
+          "callback_max_ms": {"type": "integer"},
+          "notifies_tasks": {"type": "array", "items": {"type": "string"}},
+          "callback_policy": {"type": "string", "enum": ["deferred", "direct", "notify_only"]},
+          "description": {"type": "string"}
+        }
+      }
+    },
+    "memory_pools": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "block_size", "num_blocks", "owner_tasks", "full_policy", "runtime_expand_allowed"],
+        "properties": {
+          "name": {"type": "string"},
+          "block_size": {"type": "integer"},
+          "num_blocks": {"type": "integer"},
+          "owner_tasks": {"type": "array", "items": {"type": "string"}},
+          "full_policy": {"type": "string", "enum": ["block", "drop", "fail", "expand"]},
+          "runtime_expand_allowed": {"type": "boolean"},
+          "description": {"type": "string"}
+        }
       }
     },
     "constraints": {
       "type": "object",
       "required": ["required"],
       "properties": {
-        "required": {"type": "array", "items": {"type": "string"}, "description": "场景必须追踪的约束"},
-        "covered": {"type": "array", "items": {"type": "string"}, "description": "生成器已实际覆盖的约束"},
+        "required": {"type": "array", "items": {"type": "string"}},
+        "covered": {"type": "array", "items": {"type": "string"}},
         "deferred": {
           "type": "array",
-          "description": "有理由推迟覆盖的约束",
           "items": {
             "type": "object",
             "required": ["id", "reason", "evidence"],
@@ -82,6 +132,20 @@
               "id": {"type": "string"},
               "reason": {"type": "string", "minLength": 1},
               "evidence": {"type": "string", "minLength": 1}
+            }
+          }
+        },
+        "evidence": {
+          "type": "array",
+          "description": "每个约束对应的生成证据",
+          "items": {
+            "type": "object",
+            "required": ["constraint_id", "evidence_type", "detail"],
+            "properties": {
+              "constraint_id": {"type": "string"},
+              "evidence_type": {"type": "string", "enum": ["code", "config", "topology", "comment", "structure"]},
+              "detail": {"type": "string"},
+              "file": {"type": "string"}
             }
           }
         },

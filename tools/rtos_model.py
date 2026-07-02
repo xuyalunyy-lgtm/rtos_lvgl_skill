@@ -345,10 +345,100 @@ def run_self_test() -> int:
     return 1 if failed > 0 else 0
 
 
+def from_generation_manifest(manifest: dict) -> dict:
+    """从 generation_manifest.json 1.2 生成 RTOS 模型。"""
+    from manifest_normalizer import normalize_manifest
+    normalized = normalize_manifest(manifest)
+
+    tasks = []
+    for t in normalized.get("tasks", []):
+        tasks.append({
+            "name": t.get("name", ""),
+            "priority": t.get("priority", 5),
+            "stack_bytes": t.get("stack_bytes", 4096),
+            "core_affinity": t.get("core_affinity", -1),
+            "period_ms": t.get("period_ms", 0),
+            "deadline_ms": t.get("deadline_ms", 0),
+            "wcet_ms": t.get("wcet_ms", 0),
+            "produces": t.get("produces", []),
+            "consumes": t.get("consumes", []),
+            "holds": t.get("holds", []),
+            "description": t.get("description", ""),
+        })
+
+    queues = []
+    for q in normalized.get("queues", []):
+        queues.append({
+            "name": q.get("name", ""),
+            "depth": q.get("depth", 8),
+            "item_size": q.get("item_size", 16),
+            "producer_tasks": q.get("producer_tasks", []),
+            "consumer_tasks": q.get("consumer_tasks", []),
+            "backpressure": q.get("full_policy", q.get("backpressure", "")),
+            "timeout_ms": q.get("send_timeout_ms", q.get("timeout_ms", 0)),
+            "isr_safe": q.get("isr_safe", False),
+            "description": q.get("description", ""),
+        })
+
+    mutexes = []
+    for l in normalized.get("locks", []):
+        if l.get("type") in ("mutex", "recursive_mutex"):
+            mutexes.append({
+                "name": l.get("name", ""),
+                "holder_tasks": l.get("holder_tasks", []),
+                "max_hold_ms": l.get("max_hold_ms", 0),
+                "priority_ceiling": 0,
+                "description": l.get("description", ""),
+            })
+
+    semaphores = []
+    for l in normalized.get("locks", []):
+        if l.get("type") in ("binary_semaphore", "counting_semaphore"):
+            semaphores.append({
+                "name": l.get("name", ""),
+                "type": "binary" if "binary" in l.get("type", "") else "counting",
+                "isr_safe": False,
+                "description": l.get("description", ""),
+            })
+
+    timers = []
+    for t in normalized.get("timers", []):
+        timers.append({
+            "name": t.get("name", ""),
+            "period_ms": t.get("period_ms", 0),
+            "callback_max_ms": t.get("callback_max_ms", 0),
+            "auto_reload": t.get("auto_reload", True),
+            "description": t.get("description", ""),
+        })
+
+    pools = []
+    for p in normalized.get("memory_pools", []):
+        pools.append({
+            "name": p.get("name", ""),
+            "block_size": p.get("block_size", 0),
+            "num_blocks": p.get("num_blocks", 0),
+            "owner_tasks": p.get("owner_tasks", []),
+            "description": p.get("description", ""),
+        })
+
+    return {
+        "project": normalized.get("generator", ""),
+        "platform": normalized.get("platform", ""),
+        "tasks": tasks,
+        "queues": queues,
+        "mutexes": mutexes,
+        "semaphores": semaphores,
+        "timers": timers,
+        "isrs": [],
+        "memory_pools": pools,
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="RTOS System Model v13.0.1")
     parser.add_argument("--dir", help="从源码目录生成模型")
     parser.add_argument("--from-manifest", help="从 constraint_manifest.json 生成")
+    parser.add_argument("--from-generation-manifest", help="从 generation_manifest.json 1.2 生成")
     parser.add_argument("--output", "-o", help="输出文件")
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--self-test", action="store_true")
@@ -357,7 +447,10 @@ def main() -> int:
     if args.self_test:
         return run_self_test()
 
-    if args.from_manifest:
+    if args.from_generation_manifest:
+        manifest = json.loads(Path(args.from_generation_manifest).read_text(encoding="utf-8"))
+        model = from_generation_manifest(manifest)
+    elif args.from_manifest:
         manifest = json.loads(Path(args.from_manifest).read_text(encoding="utf-8"))
         model = from_manifest(manifest)
     elif args.dir:

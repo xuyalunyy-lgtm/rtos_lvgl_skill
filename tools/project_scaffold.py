@@ -688,12 +688,11 @@ def main() -> int:
     (outdir / "constraint_manifest.json").write_text(manifest_str, encoding="utf-8")
     generated.append("constraint_manifest.json")
 
-    # generation_manifest.json（V17/V18.1）
-    # scaffold 直接覆盖的约束
+    # generation_manifest.json（V19 — schema 1.2）
+    from manifest_normalizer import normalize_manifest
+
     directly_covered = ["C8", "C12", "C14", "C29", "C33"]
-    # preset 要求的约束
     required_constraints = preset.get("required_constraints", directly_covered) if preset else directly_covered
-    # 未直接覆盖的约束生成 deferred 项
     deferred = []
     for cid in required_constraints:
         if cid not in directly_covered:
@@ -703,16 +702,22 @@ def main() -> int:
                 "evidence": f"task_topology.h + constraint_manifest.json 声明了 {cid} 适用场景",
             })
 
-    gen_manifest = {
+    # 从 preset 提取 locks/timers/pools
+    preset_locks = preset.get("generator_params", {}).get("locks", []) if preset else []
+    preset_timers = preset.get("generator_params", {}).get("timers", []) if preset else []
+    preset_pools = preset.get("generator_params", {}).get("memory_pools", []) if preset else []
+
+    raw_manifest = {
         "schema_version": "1.1",
         "generator": "project_scaffold",
         "platform": args.platform,
         "frameworks": [],
         "generated_files": [{"path": g, "type": Path(g).suffix.lstrip("."), "description": ""} for g in generated],
-        "tasks": [t if isinstance(t, dict) else {"name": t, "stack_bytes": 4096, "priority": 5} for t in tasks],
-        "queues": [q if isinstance(q, dict) else {"name": q, "depth": 8, "item_size": 16, "backpressure": "drop_oldest", "timeout_ms": 50} for q in queues],
-        "locks": [],
-        "timers": [],
+        "tasks": tasks,
+        "queues": queues,
+        "locks": preset_locks,
+        "timers": preset_timers,
+        "memory_pools": preset_pools,
         "constraints": {
             "required": required_constraints,
             "covered": directly_covered,
@@ -720,9 +725,13 @@ def main() -> int:
         },
         "verification_commands": [
             f"python tools/codegen_gate.py --dir {outdir} --manifest {outdir}/generation_manifest.json --platform {args.platform} --strict",
+            f"python tools/rtos_model.py --from-generation-manifest {outdir}/generation_manifest.json --output {outdir}/rtos_model.json",
+            f"python tools/task_graph_analyzer.py --model {outdir}/rtos_model.json",
+            f"python tools/ipc_contract_checker.py --model {outdir}/rtos_model.json",
             f"python tools/run_review.py --dir {outdir} --platform {args.platform}",
         ],
     }
+    gen_manifest = normalize_manifest(raw_manifest)
     (outdir / "generation_manifest.json").write_text(
         json.dumps(gen_manifest, indent=2, ensure_ascii=False), encoding="utf-8"
     )
