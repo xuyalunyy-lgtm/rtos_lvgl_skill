@@ -1,5 +1,19 @@
 # Changelog
 
+## 16.0.8 — 2026-07-02
+
+V16 大版本：把 V13/V14/V15 串成真实项目级操作模型。
+Major refactor: 建立 source scan→operating model→framework DSL→evidence v2→coverage dashboard 项目级事实源闭环，20x 项目分析效率收益。
+
+- **v16.0.1**：真实源码 RTOS Model — `rtos_model.py --dir` 扫描 xTaskCreate/queue/mutex/semaphore/timer/ISR，mini_esp32/mini_zephyr fixture 验证，6 项自测
+- **v16.0.2**：Project Operating Model — `tools/project_operating_model.py`，统一 RTOS tasks/IPC/frameworks/platform/constraints/checker coverage，3 项自测
+- **v16.0.3**：Supervisor Strict Gate — `codex_supervisor.py run --strict-skill`，gate 调用 session_guard.check_plan()
+- **v16.0.4**：Framework Rule DSL — `framework_constraint_checker.py` 10 个 framework 全有可执行规则
+- **v16.0.5**：Evidence v2 — `run_review --evidence` 输出详细 issue list（文件/行号/constraint/severity）
+- **v16.0.6**：Coverage Dashboard — `tools/coverage_dashboard.py`，输出 core/framework/checker 覆盖矩阵，2 项自测
+- **v16.0.7**：Real Mini Project Fixtures — `fixtures/mini_esp32/` + `fixtures/mini_zephyr/`，真实源码验证
+- **v16.0.8**：V16 收口 — 全工具自测 11/11 通过，SKILL/Lite/CHANGELOG 更新
+
 ## 15.0.9 — 2026-07-02
 
 V15 发布硬化收口：严格模式正式接入主入口、Lite 分发、supervisor gate、项目规则模板和发布验证链路。

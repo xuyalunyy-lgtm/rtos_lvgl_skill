@@ -1,0 +1,6 @@
+{
+  "project": "mini_esp32",
+  "platform": "esp32",
+  "required_constraints": ["C1", "C2", "C4", "C8", "C12", "C14", "C15", "C29", "C31", "C33"],
+  "recommended_suite": "default"
+}

@@ -121,6 +121,135 @@ def parse_task_topology_h(content: str) -> dict:
     return {"tasks": tasks, "queues": queues}
 
 
+def scan_source_dir(dir_path: str) -> dict:
+    """从真实源码扫描 RTOS 对象：xTaskCreate、queue、mutex、semaphore、timer。"""
+    root = Path(dir_path)
+    if not root.is_dir():
+        return {"tasks": [], "queues": [], "mutexes": [], "semaphores": [], "timers": [], "isrs": []}
+
+    tasks = []
+    queues = []
+    mutexes = []
+    semaphores = []
+    timers = []
+    isrs = []
+
+    for f in sorted(root.rglob("*.c")) + sorted(root.rglob("*.h")):
+        try:
+            content = f.read_text(encoding="utf-8", errors="replace")
+        except Exception:
+            continue
+
+        # xTaskCreate / xTaskCreatePinnedToCore
+        for m in re.finditer(
+            r'xTaskCreate(?:PinnedToCore)?\s*\(\s*(\w+)\s*,\s*"([^"]+)"\s*,\s*(\d+)\s*,\s*(?:NULL|\w+)\s*,\s*(\d+)\s*(?:,\s*(?:NULL|&?(\w+)))?(?:\s*,\s*(\d+))?',
+            content,
+        ):
+            tasks.append({
+                "name": m.group(2),
+                "priority": int(m.group(4)),
+                "stack_bytes": int(m.group(3)),
+                "core_affinity": int(m.group(6)) if m.group(6) else -1,
+                "source_file": str(f.relative_to(root)),
+                "description": f"task {m.group(2)}",
+            })
+
+        # Zephyr k_thread_create
+        for m in re.finditer(
+            r'k_thread_create\s*\(\s*&(\w+)\s*,\s*(\w+)\s*,\s*(?:K_THREAD_STACK_SIZEOF\((\w+)\)|(\d+))',
+            content,
+        ):
+            tasks.append({
+                "name": m.group(1).replace("_thread_data", ""),
+                "priority": 5,  # default, actual set later in code
+                "stack_bytes": 2048,  # placeholder
+                "core_affinity": -1,
+                "source_file": str(f.relative_to(root)),
+                "description": f"zephyr thread {m.group(1)}",
+            })
+
+        # xQueueCreate
+        for m in re.finditer(r'(\w+)\s*=\s*xQueueCreate\s*\(\s*(\d+)\s*,\s*sizeof\s*\(\s*(\w+)\s*\)', content):
+            queues.append({
+                "name": m.group(1).replace("s_", "").replace("_queue", ""),
+                "depth": int(m.group(2)),
+                "item_size": 0,  # sizeof resolved at compile time
+                "source_file": str(f.relative_to(root)),
+            })
+
+        # Zephyr K_MSGQ_DEFINE
+        for m in re.finditer(r'K_MSGQ_DEFINE\s*\(\s*(\w+)\s*,\s*sizeof\s*\(\s*(\w+)\s*\)\s*,\s*(\d+)', content):
+            queues.append({
+                "name": m.group(1),
+                "depth": int(m.group(3)),
+                "item_size": 0,
+                "source_file": str(f.relative_to(root)),
+            })
+
+        # xSemaphoreCreateMutex
+        for m in re.finditer(r'(\w+)\s*=\s*xSemaphoreCreateMutex\s*\(', content):
+            mutexes.append({
+                "name": m.group(1).replace("s_", "").replace("_mutex", ""),
+                "source_file": str(f.relative_to(root)),
+            })
+
+        # Zephyr K_MUTEX_DEFINE
+        for m in re.finditer(r'K_MUTEX_DEFINE\s*\(\s*(\w+)\s*\)', content):
+            mutexes.append({
+                "name": m.group(1),
+                "source_file": str(f.relative_to(root)),
+            })
+
+        # xSemaphoreCreateBinary / xSemaphoreCreateCounting
+        for m in re.finditer(r'(\w+)\s*=\s*xSemaphore(?:CreateBinary|CreateCounting)\s*\(', content):
+            semaphores.append({
+                "name": m.group(1).replace("s_", "").replace("_sem", ""),
+                "type": "binary",
+                "source_file": str(f.relative_to(root)),
+            })
+
+        # Zephyr K_SEM_DEFINE
+        for m in re.finditer(r'K_SEM_DEFINE\s*\(\s*(\w+)\s*,', content):
+            semaphores.append({
+                "name": m.group(1),
+                "type": "binary",
+                "source_file": str(f.relative_to(root)),
+            })
+
+        # xTimerCreate
+        for m in re.finditer(r'(\w+)\s*=\s*xTimerCreate\s*\(\s*"([^"]+)"\s*,\s*(?:pdMS_TO_TICKS\s*\(\s*)?(\d+)', content):
+            timers.append({
+                "name": m.group(2),
+                "period_ms": int(m.group(3)),
+                "source_file": str(f.relative_to(root)),
+            })
+
+        # Zephyr K_TIMER_DEFINE
+        for m in re.finditer(r'K_TIMER_DEFINE\s*\(\s*(\w+)\s*,', content):
+            timers.append({
+                "name": m.group(1).replace("_timer", ""),
+                "period_ms": 0,  # set at runtime
+                "source_file": str(f.relative_to(root)),
+            })
+
+        # ISR: _IRQHandler
+        for m in re.finditer(r'void\s+(\w+_IRQHandler)\s*\(', content):
+            isrs.append({
+                "name": m.group(1),
+                "source_file": str(f.relative_to(root)),
+            })
+
+    return {
+        "project": root.name,
+        "tasks": tasks,
+        "queues": queues,
+        "mutexes": mutexes,
+        "semaphores": semaphores,
+        "timers": timers,
+        "isrs": isrs,
+    }
+
+
 def from_manifest(manifest: dict) -> dict:
     """从 constraint_manifest.json 生成基础模型。"""
     tasks = []
@@ -188,6 +317,30 @@ def run_self_test() -> int:
         import os
         os.unlink(tmp)
 
+    # 5. 真实源码扫描 - mini_esp32
+    mini_esp32 = ROOT / "tools" / "fixtures" / "mini_esp32"
+    if mini_esp32.is_dir():
+        scanned = scan_source_dir(str(mini_esp32))
+        assert len(scanned["tasks"]) >= 3, f"Expected >=3 tasks, got {len(scanned['tasks'])}"
+        assert len(scanned["queues"]) >= 2, f"Expected >=2 queues, got {len(scanned['queues'])}"
+        assert len(scanned["mutexes"]) >= 1, f"Expected >=1 mutexes, got {len(scanned['mutexes'])}"
+        assert len(scanned["timers"]) >= 1, f"Expected >=1 timers, got {len(scanned['timers'])}"
+        print(f"[PASS] scan mini_esp32: {len(scanned['tasks'])} tasks, {len(scanned['queues'])} queues, {len(scanned['mutexes'])} mutexes, {len(scanned['timers'])} timers")
+        passed += 1
+    else:
+        print("[SKIP] mini_esp32 not found")
+
+    # 6. 真实源码扫描 - mini_zephyr
+    mini_zephyr = ROOT / "tools" / "fixtures" / "mini_zephyr"
+    if mini_zephyr.is_dir():
+        scanned = scan_source_dir(str(mini_zephyr))
+        assert len(scanned["tasks"]) >= 2, f"Expected >=2 tasks, got {len(scanned['tasks'])}"
+        assert len(scanned["queues"]) >= 2, f"Expected >=2 queues, got {len(scanned['queues'])}"
+        print(f"[PASS] scan mini_zephyr: {len(scanned['tasks'])} tasks, {len(scanned['queues'])} queues")
+        passed += 1
+    else:
+        print("[SKIP] mini_zephyr not found")
+
     print(f"\nSelf-test: {passed} passed, {failed} failed")
     return 1 if failed > 0 else 0
 
@@ -208,8 +361,7 @@ def main() -> int:
         manifest = json.loads(Path(args.from_manifest).read_text(encoding="utf-8"))
         model = from_manifest(manifest)
     elif args.dir:
-        model = generate_fixture_model()  # 简化版：实际应扫描源码
-        model["project"] = Path(args.dir).name
+        model = scan_source_dir(args.dir)
     else:
         model = generate_fixture_model()
 
