@@ -1,0 +1,13 @@
+I (100) boot: starting
+I (200) ota: checking for update
+I (300) ota: new firmware available
+I (400) ota: downloading
+I (500) ota: progress 50%
+I (600) ota: progress 100%
+I (700) ota: writing to partition
+I (800) ota: write complete
+I (900) ota: rebooting
+I (1000) boot: starting (new firmware)
+E (1100) boot: signature verification failed
+E (1200) ota: rollback to previous version
+E (1300) boot: mark_valid not called

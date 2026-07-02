@@ -1,0 +1,11 @@
+I (100) boot: starting
+I (200) sensor: i2c bus initialized
+I (300) sensor: BME280 found at 0x76
+I (400) sensor: reading temperature
+I (500) sensor: temp=25.3C
+I (1000) sensor: reading humidity
+E (2000) sensor: i2c timeout, no response from 0x76
+E (2001) sensor: DRDY timeout
+I (3000) sensor: retry
+E (4000) sensor: i2c bus stuck
+E (4001) sensor: sensor not responding

@@ -1,0 +1,10 @@
+I (100) boot: ESP-IDF v5.1
+I (200) boot: CPU freq: 240MHz
+I (300) heap: free=245760
+I (400) wifi: initializing
+I (500) wifi: connected to AP 'test'
+I (600) sntp: time synced
+I (700) tls: handshake complete
+I (800) main: all modules initialized
+I (900) wdt: feed
+I (1000) main: running

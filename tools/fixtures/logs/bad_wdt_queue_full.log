@@ -1,0 +1,12 @@
+I (100) boot: starting
+I (200) queue: audio_q created depth=4
+I (300) task: audio_task started
+I (400) task: ui_task started
+I (500) audio: capturing
+I (1000) queue: audio_q full, xQueueSend blocked
+I (2000) queue: audio_q still full
+I (3000) ui: lv_task_handler blocked by queue wait
+I (4000) wdt: warning, task not feeding
+E (5000) task_wdt: Task watchdog timeout
+E (5001) task_wdt: TWDT timeout on audio_task
+E (5002) panic: abort

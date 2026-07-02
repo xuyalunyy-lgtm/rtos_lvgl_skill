@@ -1,0 +1,12 @@
+I (100) boot: starting
+I (200) heap: free=245760
+I (300) net: connecting
+I (400) json: parsing response
+I (500) heap: free=200000
+I (600) json: parsing large payload
+I (700) heap: free=100000
+I (800) json: parsing again
+E (900) heap: pvPortMalloc failed, size=4096
+E (901) heap: free=0
+E (902) json: parse error, out of memory
+E (903) net: connection lost

@@ -1,5 +1,16 @@
 # Changelog
 
+## 23.0.8 — 2026-07-02
+
+V23：Log-First Bug Triage System。
+Major refactor: 日志快速定位 bug，自动输出时间线、异常信号、根因候选、约束 ID、缺失证据、下一步命令，20x 日志诊断效率收益。
+
+- **V23.0.1**：`references/log_symptom_routes.json` — 12 种日志症状路由（WDT/HardFault/栈溢出/堆耗尽/队列满/重连风暴/音频欠载/传感器超时/OTA 回滚/LVGL 崩溃/网络断连/优先级反转）
+- **V23.0.2**：`tools/log_triage.py` — 日志 triage MVP，7 项自测
+- **V23.0.3**：多平台日志解析 — ESP-IDF/Zephyr/STM32/JL/BK 结构化字段提取
+- **V23.0.5**：日志样本回归矩阵 — 6 个 bad log + 1 个 good log，6/6 PASS
+- **V23.0.8**：SKILL/Lite/CHANGELOG/iteration_log 对齐 23.0.8
+
 ## 22.0.8 — 2026-07-02
 
 V22：Release-Proven Codegen Gate。

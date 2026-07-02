@@ -1,0 +1,112 @@
+{
+  "symptoms": [
+    {
+      "id": "WDT_RESET",
+      "name": "Task WDT 复位",
+      "patterns": ["task_wdt", "WDT", "TIMERG", "watchdog", "wdt_reset", "TWDT"],
+      "severity": "P0",
+      "constraints": ["C31", "C15", "C35"],
+      "root_cause_hints": ["长阻塞调用", "优先级反转", "队列满无限等待", "Flash/NVS 写入阻塞"],
+      "recommended_commands": ["python tools/scheduler_analyzer.py --model rtos_model.json", "python tools/ipc_contract_checker.py --model rtos_model.json"]
+    },
+    {
+      "id": "HARDFAULT",
+      "name": "HardFault",
+      "patterns": ["HardFault", "hardfault", "Guru Meditation", "abort()", "panic", "EXC_RETURN"],
+      "severity": "P0",
+      "constraints": ["C4", "C2", "C12", "C44"],
+      "root_cause_hints": ["空指针解引用", "栈溢出", "非法内存访问", "中断优先级错误", "未对齐访问"],
+      "recommended_commands": ["addr2line -e firmware.elf 0xADDR", "python tools/task_graph_analyzer.py --model rtos_model.json"]
+    },
+    {
+      "id": "STACK_OVERFLOW",
+      "name": "栈溢出",
+      "patterns": ["stack overflow", "StackOverflow", "stack_overflow", "pxStack", "stack smashing"],
+      "severity": "P0",
+      "constraints": ["C7", "C30", "C35"],
+      "root_cause_hints": ["任务栈太小", "局部变量过大", "递归过深", "TLS/加密栈需求高"],
+      "recommended_commands": ["python tools/memory_lifetime_analyzer.py --model rtos_model.json"]
+    },
+    {
+      "id": "HEAP_EXHAUSTION",
+      "name": "堆耗尽",
+      "patterns": ["heap", "malloc fail", "out of memory", "heap_caps_malloc.*NULL", "pvPortMalloc.*NULL", "free="],
+      "severity": "P0",
+      "constraints": ["C3", "C7", "C36"],
+      "root_cause_hints": ["内存泄漏", "cJSON 未释放", "大 buffer 未回收", "PSRAM 分配失败"],
+      "recommended_commands": ["python tools/memory_lifetime_analyzer.py --model rtos_model.json"]
+    },
+    {
+      "id": "QUEUE_FULL",
+      "name": "队列满",
+      "patterns": ["queue full", "xQueueSend.*fail", "QUEUE_FULL", "drop", "backpressure"],
+      "severity": "P1",
+      "constraints": ["C37", "C2", "C30"],
+      "root_cause_hints": ["消费者太慢", "生产者太快", "队列深度不足", "缺少背压策略"],
+      "recommended_commands": ["python tools/ipc_contract_checker.py --model rtos_model.json", "python tools/task_graph_analyzer.py --model rtos_model.json"]
+    },
+    {
+      "id": "RETRY_STORM",
+      "name": "重连风暴",
+      "patterns": ["retry", "reconnect", "backoff", "ECONNREFUSED", "ETIMEDOUT", "connect fail"],
+      "severity": "P1",
+      "constraints": ["C20", "C31", "C37"],
+      "root_cause_hints": ["无指数退避", "重试间隔太短", "无最大重试限制", "网络不可达"],
+      "recommended_commands": ["python tools/timebase_analyzer.py --model rtos_model.json"]
+    },
+    {
+      "id": "AUDIO_UNDERRUN",
+      "name": "音频欠载",
+      "patterns": ["underrun", "xrun", "audio_drop", "buffer_empty", "no_data"],
+      "severity": "P1",
+      "constraints": ["C25", "C27", "C28", "C37"],
+      "root_cause_hints": ["音频 buffer 太小", "DMA 来不及填充", "高优先级任务阻塞音频路径", "codec 太慢"],
+      "recommended_commands": ["python tools/ipc_contract_checker.py --model rtos_model.json"]
+    },
+    {
+      "id": "SENSOR_TIMEOUT",
+      "name": "传感器超时",
+      "patterns": ["sensor.*timeout", "i2c.*timeout", "spi.*timeout", "DRDY.*timeout", "no.response"],
+      "severity": "P1",
+      "constraints": ["C45", "C31", "C18"],
+      "root_cause_hints": ["I2C/SPI 总线卡死", "传感器未就绪", "DRDY 中断丢失", "总线仲裁失败"],
+      "recommended_commands": ["python tools/timebase_analyzer.py --model rtos_model.json"]
+    },
+    {
+      "id": "OTA_ROLLBACK",
+      "name": "OTA 回滚",
+      "patterns": ["rollback", "ROLLBACK", "ota.*fail", "mark_valid", "invalid_app"],
+      "severity": "P0",
+      "constraints": ["C22"],
+      "root_cause_hints": ["未调用 mark_valid", "固件签名验证失败", "分区表错误", "bootloader 配置错误"],
+      "recommended_commands": ["python tools/codegen_gate.py --dir . --manifest generation_manifest.json --strict"]
+    },
+    {
+      "id": "LVGL_CRASH",
+      "name": "LVGL 崩溃",
+      "patterns": ["lv_", "LVGL", "lv_obj", "lv_label", "display.*error"],
+      "severity": "P0",
+      "constraints": ["C1", "C4"],
+      "root_cause_hints": ["跨线程调用 LVGL", "flush callback 阻塞", "image buffer 已释放", "未初始化"],
+      "recommended_commands": ["python tools/task_graph_analyzer.py --model rtos_model.json"]
+    },
+    {
+      "id": "NETWORK_DISCONNECT",
+      "name": "网络断连",
+      "patterns": ["disconnect", "DISCONNECTED", "wifi.*lost", "sta_disconnect", "WIFI_REASON"],
+      "severity": "P1",
+      "constraints": ["C20", "C31"],
+      "root_cause_hints": ["WiFi 信号弱", "AP 踢出", "DHCP 超时", "TLS 握手失败"],
+      "recommended_commands": ["python tools/timebase_analyzer.py --model rtos_model.json"]
+    },
+    {
+      "id": "PRIORITY_INVERSION",
+      "name": "优先级反转",
+      "patterns": ["priority", "inversion", "mutex.*block", "starvation"],
+      "severity": "P0",
+      "constraints": ["C15", "C43"],
+      "root_cause_hints": ["低优先级持锁阻塞高优先级", "无优先级继承", "锁持有时间太长"],
+      "recommended_commands": ["python tools/scheduler_analyzer.py --model rtos_model.json"]
+    }
+  ]
+}

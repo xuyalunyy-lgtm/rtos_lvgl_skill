@@ -1,0 +1,12 @@
+I (100) boot: starting
+I (200) audio: i2s initialized
+I (300) audio: playback started
+I (400) audio: buffer 80% full
+I (500) net: tls handshake started
+I (1000) audio: buffer 50%
+I (2000) audio: buffer 20%
+E (3000) audio: underrun detected
+E (3001) audio: no data for 1000ms
+I (3500) net: tls handshake complete
+I (4000) audio: buffer recovering
+E (5000) audio: underrun again
