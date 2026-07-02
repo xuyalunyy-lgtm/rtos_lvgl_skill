@@ -1,5 +1,18 @@
 # Changelog
 
+## 24.0.8 — 2026-07-02
+
+V24：Release-Grade Triage Contract and Gate Closure。
+修复 log_triage CLI 契约、Windows 输出、误报控制、raw boot 识别、release gate 覆盖缺口。
+
+- **V24.0.1**：CLI exit code — 0=有症状, 1=无症状, 2=错误
+- **V24.0.2**：Windows-safe 输出 — 移除 `⚠`，统一 `[WARN]`/`[HARDWARE]`/`[ARCH]`/`[DO-NOT-PATCH]`
+- **V24.0.3**：收紧路由精度 — 移除裸 `drop` 泛词，改为 `queue.*drop`/`xQueueSend.*fail`/`backpressure`
+- **V24.0.4**：raw boot/reset 匹配 — 新增 `match_level: "raw_boot"`，覆盖 ESP32 reset reason、brownout
+- **V24.0.5**：`voltage drop` 不再误报 `QUEUE_FULL` 或 `BROWNOUT_RESET`
+- **V24.0.7**：CHANGELOG/iteration_log/Lite 同步
+- **V24.0.8**：版本对齐 24.0.8
+
 ## 23.0.8 — 2026-07-02
 
 V23：Log-First Bug Triage + Hardware Challenge + Architecture Refactor Gate。
