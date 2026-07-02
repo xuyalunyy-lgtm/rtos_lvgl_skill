@@ -1,7 +1,7 @@
 ---
 name: freertos-embedded-architect
 metadata:
-  version: 16.0.8
+  version: 17.0.8
 description: >-
   FreeRTOS embedded architecture specialist for MVP firmware, board bring-up,
   runtime reliability, memory safety, module contracts, task topology, timeout
@@ -56,6 +56,7 @@ Choose one workflow first, then load only required references, platform docs, an
 - Platforms: [esp32](platforms/esp32.md), [stm32](platforms/stm32.md), [jl](platforms/jl.md), [bk](platforms/bk.md), [zephyr](platforms/zephyr.md)
 - Core rules: [core_rules](references/core_rules.md), [constraint_index](references/constraint_index.md), [constraint_detail](references/constraint_detail.md), [skill_structure](references/skill_structure.md)
 - Usage examples: [usage_examples](references/usage_examples.md)
+- Codegen contract: [codegen_contract](references/codegen_contract.md)
 - Release governance: [release_governance](references/release_governance.md), [claude_code](references/claude_code.md), [cursor rule](templates/cursor-rule.embedded.mdc)
 
 ## Prompt Index

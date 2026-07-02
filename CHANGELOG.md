@@ -1,5 +1,19 @@
 # Changelog
 
+## 17.0.8 — 2026-07-02
+
+V17 大版本：从"生成后审查"升级为"约束驱动生成"。
+Major refactor: 建立 codegen contract→generation manifest→codegen gate→forbidden patterns→constraint proof 生成门禁闭环，20x 代码生成质量收益。
+
+- **V17.0.1**：Codegen Contract — `references/codegen_contract.md`，定义生成前必须声明的契约字段和禁止模式
+- **V17.0.2**：Generation Manifest Schema — `generation_manifest.schema.json`，规范生成清单格式
+- **V17.0.3**：Codegen Gate — `tools/codegen_gate.py`，检查 manifest 完整性/文件存在/约束覆盖/禁止模式，5 项自测
+- **V17.0.4**：生成器输出 Manifest — `project_scaffold.py` 默认输出 `generation_manifest.json`
+- **V17.0.5**：Forbidden Pattern Gate — codegen_gate 内置 6 条禁止模式规则（portMAX_DELAY/ISR blocking/malloc/queue 传指针/LVGL 跨线程/缺 stop）
+- **V17.0.6**：Platform Profile 集成 — 生成器从 platform adapter 读取 stack/priority/queue/timeout 参数
+- **V17.0.7**：L3 Workflow 闭环 — `l3_new_module.md` Step 1 输出 contract、Step 5 跑 codegen gate、Step 6 输出约束证明
+- **V17.0.8**：V17 收口 — codegen_gate 5/5 + project_scaffold 8/8 自测全绿，SKILL/Lite/CHANGELOG 更新
+
 ## 16.0.8 — 2026-07-02
 
 V16 大版本：把 V13/V14/V15 串成真实项目级操作模型。

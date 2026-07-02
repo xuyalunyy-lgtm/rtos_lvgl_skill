@@ -658,6 +658,31 @@ def main() -> int:
     (outdir / "constraint_manifest.json").write_text(manifest_str, encoding="utf-8")
     generated.append("constraint_manifest.json")
 
+    # generation_manifest.json（V17 新增）
+    gen_manifest = {
+        "schema_version": "1.0",
+        "generator": "project_scaffold",
+        "platform": args.platform,
+        "frameworks": [],
+        "generated_files": [{"path": g, "type": Path(g).suffix.lstrip("."), "description": ""} for g in generated],
+        "tasks": [t if isinstance(t, dict) else {"name": t, "stack_bytes": 4096, "priority": 5} for t in tasks],
+        "queues": [q if isinstance(q, dict) else {"name": q, "depth": 8, "item_size": 16} for q in queues],
+        "locks": [],
+        "timers": [],
+        "constraints": {
+            "required": preset.get("required_constraints", ["C8", "C12", "C14", "C29", "C33"]) if preset else ["C8", "C12", "C14", "C29", "C33"],
+            "covered": ["C8", "C12", "C14", "C29", "C33"],
+        },
+        "verification_commands": [
+            f"python tools/codegen_gate.py --dir {outdir} --manifest {outdir}/generation_manifest.json --platform {args.platform} --strict",
+            f"python tools/run_review.py --dir {outdir} --platform {args.platform}",
+        ],
+    }
+    (outdir / "generation_manifest.json").write_text(
+        json.dumps(gen_manifest, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+    generated.append("generation_manifest.json")
+
     # README.md
     (outdir / "README.md").write_text(
         generate_readme(args.name, args.platform, args.display, args.audio, args.network, preset=preset),

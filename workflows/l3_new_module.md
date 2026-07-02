@@ -17,11 +17,17 @@
 | 量产加功能 | 增量问卷 |
 | 单模块追加 | **跳过** |
 
-## Step 1 — 架构
+## Step 1 — 架构 + Codegen Contract
 
 1. 读 [references/core_rules.md](../references/core_rules.md)（优先级 + MVP + 文件归属）
 2. 读 `platforms/xxx.md`
 3. 输出相对优先级表 + 平台数值 + 文件归属表 + 模块契约 + task/queue 拓扑表
+4. **输出 Codegen Contract**（参见 [codegen_contract.md](../references/codegen_contract.md)）：
+   - workflow、platform、frameworks、module_type
+   - tasks（name/stack/priority）、queues（name/depth/backpressure/timeout）、locks、timers
+   - 必选约束 ID（如 C1,C4,C29,C33,C37）
+   - 禁止模式（如裸 portMAX_DELAY、ISR blocking、queue 传栈指针）
+   - 验证命令
 
 ## Step 2 — 场景 prompt（按需 1–3 个）
 
@@ -62,13 +68,22 @@ idf.py build         # ESP32
 make ac791n_demo_wifi  # JL
 ```
 
-## Step 5 — 工具校验
+## Step 5 — Codegen Gate + 工具校验
 
 ```bash
+# Codegen gate（必须通过）
+python tools/codegen_gate.py --dir ./src --manifest generation_manifest.json --platform <platform> --strict
+
+# 通用审查
 python tools/stack_calculator.py --describe "..." --platform xxx
 python tools/run_review.py --dir ./src --platform xxx
 ```
 
-## Step 6 — 输出
+如果 codegen gate 失败，修复后重新运行，直至通过。
 
-[core_rules.md](../references/core_rules.md) L3 模板全文 + 校验 checklist。
+## Step 6 — 输出 + 约束证明
+
+输出：
+- [core_rules.md](../references/core_rules.md) L3 模板全文 + 校验 checklist
+- `generation_manifest.json`（生成清单）
+- 约束证明：列出每个必选约束如何在生成代码中满足（注释、结构、API 调用）

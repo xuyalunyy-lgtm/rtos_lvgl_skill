@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://freertos-skill.dev/schemas/generation_manifest.json",
+  "title": "Generation Manifest",
+  "description": "代码生成清单。生成器必须输出此文件，codegen_gate 据此验证。",
+  "type": "object",
+  "required": ["schema_version", "generator", "platform", "generated_files", "constraints"],
+  "properties": {
+    "schema_version": {"type": "string", "const": "1.0"},
+    "generator": {"type": "string"},
+    "platform": {"type": "string"},
+    "frameworks": {"type": "array", "items": {"type": "string"}},
+    "generated_files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path"],
+        "properties": {
+          "path": {"type": "string"},
+          "type": {"type": "string"},
+          "description": {"type": "string"}
+        }
+      }
+    },
+    "tasks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "stack_bytes", "priority"],
+        "properties": {
+          "name": {"type": "string"},
+          "stack_bytes": {"type": "integer"},
+          "priority": {"type": "integer"},
+          "core_affinity": {"type": "integer"},
+          "period_ms": {"type": "integer"}
+        }
+      }
+    },
+    "queues": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "depth", "item_size"],
+        "properties": {
+          "name": {"type": "string"},
+          "depth": {"type": "integer"},
+          "item_size": {"type": "integer"},
+          "backpressure": {"type": "string"},
+          "timeout_ms": {"type": "integer"}
+        }
+      }
+    },
+    "locks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "type"],
+        "properties": {"name": {"type": "string"}, "type": {"type": "string"}}
+      }
+    },
+    "timers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "period_ms"],
+        "properties": {"name": {"type": "string"}, "period_ms": {"type": "integer"}}
+      }
+    },
+    "constraints": {
+      "type": "object",
+      "required": ["required"],
+      "properties": {
+        "required": {"type": "array", "items": {"type": "string"}},
+        "covered": {"type": "array", "items": {"type": "string"}},
+        "forbidden_patterns": {"type": "array", "items": {"type": "string"}},
+        "allowed_infinite_waits": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {"location": {"type": "string"}, "reason": {"type": "string"}}
+          }
+        }
+      }
+    },
+    "verification_commands": {"type": "array", "items": {"type": "string"}}
+  }
+}
