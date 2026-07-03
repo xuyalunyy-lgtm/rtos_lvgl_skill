@@ -16,6 +16,18 @@ Agent 或维护者在 [archived self_iterate.md](../archive/workflows/self_itera
 
 ---
 
+### 2026-07-03 - v41.0.0 Constraint Micro-Shards
+
+- **来源：** v41 约束微分片版
+- **平台：** ESP32 + Zephyr
+- **变更：**
+  - 新增 10 个核心微分片：C03/C04/C07/C08/C09/C22/C25/C28/C31/C36
+  - 每个微分片 ~800-1200 tokens，只含典型症状/危险模式/修复模板
+  - compact 路由：有 C 号时优先加载微分片，无微分片时回退完整 shard
+  - JSON 输出新增 constraint_doc_mode/micro_constraints_loaded/fallback_shards
+- **验证：** context_router --self-test 136/136 ✅ / check_links ✅ / check_skill_metadata ✅
+- **版本：** 41.0.0
+
 ### 2026-07-03 - v40.0.0 Compact Routing Quality Samples
 
 - **来源：** v40 紧凑路由质量样例版

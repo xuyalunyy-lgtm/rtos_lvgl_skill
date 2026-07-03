@@ -101,6 +101,21 @@ CONSTRAINT_TO_SHARD = {
     "C14": "review", "C16": "review",
 }
 
+# ── 微分片映射 ──
+
+MICRO_SHARDS = {
+    "C3": "references/micro_C03.md",
+    "C4": "references/micro_C04.md",
+    "C7": "references/micro_C07.md",
+    "C8": "references/micro_C08.md",
+    "C9": "references/micro_C09.md",
+    "C22": "references/micro_C22.md",
+    "C25": "references/micro_C25.md",
+    "C28": "references/micro_C28.md",
+    "C31": "references/micro_C31.md",
+    "C36": "references/micro_C36.md",
+}
+
 # ── 平台文档映射 ──
 
 PLATFORM_DOCS = {
@@ -251,6 +266,10 @@ def build_load_plan(workflow: str, platform: str, constraints: list[str] | None 
     optional_files = []
     upgrade_hints = []
     quality_risks = []
+    micro_constraints_loaded = []
+    fallback_shards = []
+    uncovered_constraints = []
+    constraint_doc_mode = "full_shards"
 
     # ── Compact 模式（默认） ──
     if budget == "compact":
@@ -283,18 +302,47 @@ def build_load_plan(workflow: str, platform: str, constraints: list[str] | None 
             required_files.append(plat["doc"])
             reasons[plat["doc"]] = f"平台文档: {platform}（无 quick 版）"
 
-        # 6. 约束分片（只加载摘要，不加载完整分片）
-        shards = set(wf["constraint_shards"])
+        # 6. 约束微分片优先加载
+        micro_constraints_loaded = []
+        fallback_shards = []
+        uncovered_constraints = []
+        constraint_doc_mode = "shards"  # 默认模式
+
         if constraints:
+            # 有明确 C 号时，优先加载微分片
+            constraint_doc_mode = "micro"
             for c in constraints:
-                shard = CONSTRAINT_TO_SHARD.get(c.upper())
-                if shard:
-                    shards.add(shard)
-        for shard_name in sorted(shards):
-            shard_file = CONSTRAINT_SHARDS.get(shard_name)
-            if shard_file and shard_file not in required_files:
-                required_files.append(shard_file)
-                reasons[shard_file] = f"约束分片: {shard_name}"
+                c_upper = c.upper()
+                micro_file = MICRO_SHARDS.get(c_upper)
+                if micro_file and Path(ROOT / micro_file).is_file():
+                    # 有微分片，加载它
+                    if micro_file not in required_files:
+                        required_files.append(micro_file)
+                        reasons[micro_file] = f"微分片: {c_upper}"
+                    micro_constraints_loaded.append(c_upper)
+                else:
+                    # 没有微分片，回退到完整 shard
+                    shard = CONSTRAINT_TO_SHARD.get(c_upper)
+                    if shard:
+                        shard_file = CONSTRAINT_SHARDS.get(shard)
+                        if shard_file and shard_file not in required_files:
+                            required_files.append(shard_file)
+                            reasons[shard_file] = f"约束分片: {shard}（回退）"
+                        fallback_shards.append(shard)
+                    else:
+                        uncovered_constraints.append(c_upper)
+
+            # 如果有回退，标记为混合模式
+            if fallback_shards:
+                constraint_doc_mode = "mixed"
+        else:
+            # 无明确 C 号时，按 workflow 加载完整 shard
+            shards = set(wf["constraint_shards"])
+            for shard_name in sorted(shards):
+                shard_file = CONSTRAINT_SHARDS.get(shard_name)
+                if shard_file and shard_file not in required_files:
+                    required_files.append(shard_file)
+                    reasons[shard_file] = f"约束分片: {shard_name}"
 
         # upgrade hints
         upgrade_hints = [
@@ -435,7 +483,10 @@ def build_load_plan(workflow: str, platform: str, constraints: list[str] | None 
         "budget_warning": budget_warning,
         "upgrade_hint": upgrade_hints,
         "quality_risk": quality_risks,
-        "constraint_shards_loaded": sorted(shards),
+        "constraint_doc_mode": constraint_doc_mode,
+        "micro_constraints_loaded": micro_constraints_loaded,
+        "fallback_shards": fallback_shards,
+        "uncovered_constraints": uncovered_constraints,
     }
 
 
@@ -470,7 +521,7 @@ def run_self_test() -> int:
 
     # 测试 constraints 缩小范围
     plan_c3 = build_load_plan("code_review", "esp32", ["C3"])
-    check("C3 adds review shard", any("constraint_review" in f["path"] for f in plan_c3["required_files"]))
+    check("C3 adds micro-shard", any("micro_C03" in f["path"] for f in plan_c3["required_files"]))
 
     # 测试 forbidden_by_default
     plan = build_load_plan("crash_debug", "esp32")
