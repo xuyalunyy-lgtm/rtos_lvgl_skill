@@ -427,7 +427,11 @@ def main() -> int:
 
     # 证据包
     if args.evidence:
-        from evidence_schema import make_evidence, repro_command, save_evidence
+        try:
+            from evidence_schema import make_evidence, repro_command, save_evidence
+        except ImportError:
+            print("[warn] evidence_schema 模块不可用（已归档），跳过证据包输出", file=sys.stderr)
+            return 0
 
         ev = make_evidence(
             source_tool="repro_bundle",

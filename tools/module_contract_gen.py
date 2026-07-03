@@ -498,7 +498,11 @@ def main() -> int:
 
         # 证据包
         if args.evidence:
-            from evidence_schema import generated_file, make_evidence, save_evidence
+            try:
+                from evidence_schema import generated_file, make_evidence, save_evidence
+            except ImportError:
+                print("[warn] evidence_schema 模块不可用（已归档），跳过证据包输出", file=sys.stderr)
+                return 0
             gen_files = []
             for mod in module_list:
                 gen_files.append(generated_file(str(outdir / f"{mod['name']}_contract.h"), "h", f"{mod['name']} 契约头文件"))

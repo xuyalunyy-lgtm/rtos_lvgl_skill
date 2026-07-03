@@ -31,17 +31,15 @@
 # 代码审查
 python tools/run_review.py --dir src --platform esp32
 
-# RTOS 系统审查
-python tools/rtos_model.py --dir src --output rtos_model.json
-python tools/task_graph_analyzer.py --model rtos_model.json
-python tools/scheduler_analyzer.py --model rtos_model.json
+# RTOS 系统审查（通过 run_review.py 集成）
+python tools/run_review.py --dir src --platform esp32
 
 # 框架检查
 python tools/framework_constraint_checker.py --dir src --auto
 
 # 发布门禁
 python scripts/skill_iterate.py --check
-python tools/release_qualifier.py
+python scripts/commit_audit.py --strict-release
 ```
 
 ### 严格模式激活

@@ -785,7 +785,11 @@ def main() -> int:
 
     # ── 交付证据包输出 ──
     if args.evidence:
-        from evidence_schema import generated_file, make_evidence, save_evidence
+        try:
+            from evidence_schema import generated_file, make_evidence, save_evidence
+        except ImportError:
+            print("[warn] evidence_schema 模块不可用（已归档），跳过证据包输出", file=sys.stderr)
+            return 0
 
         ev_files = [
             generated_file(str(outdir / f), description=f)

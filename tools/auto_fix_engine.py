@@ -783,7 +783,11 @@ def main() -> int:
 
     # ── 交付证据包输出 ──
     if args.evidence:
-        from evidence_schema import fix_suggestion, make_evidence, save_evidence
+        try:
+            from evidence_schema import fix_suggestion, make_evidence, save_evidence
+        except ImportError:
+            print("[warn] evidence_schema 模块不可用（已归档），跳过证据包输出", file=sys.stderr)
+            return 0
 
         plan = build_fix_plan(fixes, args.checker, args.file)
         ev_fixes = []

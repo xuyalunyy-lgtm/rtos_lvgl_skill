@@ -436,12 +436,16 @@ def main() -> int:
 
     # ── 交付证据包输出 ──
     if args.evidence:
-        from evidence_schema import (
-            DeliveryEvidence,
-            issue_entry,
-            make_evidence,
-            save_evidence,
-        )
+        try:
+            from evidence_schema import (
+                DeliveryEvidence,
+                issue_entry,
+                make_evidence,
+                save_evidence,
+            )
+        except ImportError:
+            print("[warn] evidence_schema 模块不可用（已归档），跳过证据包输出", file=sys.stderr)
+            return 0
 
         # 收集所有 checker 的 issues（从 JSON 模式结果中提取）
         ev_issues: list[dict] = []
