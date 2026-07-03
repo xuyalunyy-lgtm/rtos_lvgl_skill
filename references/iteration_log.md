@@ -16,6 +16,19 @@ Agent 或维护者在 [archived self_iterate.md](../archive/workflows/self_itera
 
 ---
 
+### 2026-07-03 - v35.0.0 Reviewable Fix Plans
+
+- **来源：** v35 可审查修复版
+- **平台：** ESP32 + Zephyr
+- **变更：**
+  - run_review.py 新增 --suggest-fixes 参数
+  - --suggest-fixes 集成 auto_fix_engine --plan，输出 FixPlan
+  - 文本输出新增 Fix Plan 区块
+  - JSON 输出新增 fix_plans 字段（含 source_diagnostic/actions/risk/confidence/diff_preview/pre_checks/post_checkers/references）
+  - 默认不修改文件，只输出修复建议
+- **验证：** run_review --self-test ✅ / auto_fix_engine --self-test ✅ / constraint_inference --self-test ✅
+- **版本：** 35.0.0
+
 ### 2026-07-03 - v34.0.0 Field Reproduction Debugging
 
 - **来源：** v34 现场复现调试版

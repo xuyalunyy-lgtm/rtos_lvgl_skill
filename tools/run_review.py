@@ -343,6 +343,11 @@ def main() -> int:
         action="store_true",
         help="现场诊断 P0 风险阻断 exit code（默认不阻断）",
     )
+    parser.add_argument(
+        "--suggest-fixes",
+        action="store_true",
+        help="输出可审查修复方案 (FixPlan)，不修改文件",
+    )
     args = parser.parse_args()
 
     if args.list_checkers:
@@ -481,6 +486,26 @@ def main() -> int:
         }
         if field_diagnostics:
             report["field_diagnostics"] = field_diagnostics
+
+        # ── 修复建议 (FixPlan) ──
+        if args.suggest_fixes:
+            fix_plans = []
+            for c_file in c_files[:10]:  # 限制前 10 个文件，避免过慢
+                for spec in DEFAULT_CHECKERS:
+                    af_argv = [sys.executable, str(TOOLS_DIR / "auto_fix_engine.py"),
+                               str(c_file), "--checker", spec.name, "--plan", "--json"]
+                    rc, out = _run_and_capture("auto_fix_engine", af_argv, quiet=True)
+                    if rc == 0 and out.strip():
+                        try:
+                            plans = json.loads(out)
+                            if isinstance(plans, list):
+                                fix_plans.extend(plans)
+                            elif isinstance(plans, dict) and plans.get("actions"):
+                                fix_plans.append(plans)
+                        except (json.JSONDecodeError, ValueError):
+                            pass
+            report["fix_plans"] = fix_plans
+            report["total_fix_plans"] = len(fix_plans)
         json.dump(report, sys.stdout, ensure_ascii=False, indent=2)
         print()
     else:
@@ -490,6 +515,24 @@ def main() -> int:
         else:
             print(f"Summary: 存在告警/失败 (exit={exit_code})，请人工核对")
         print(f"{'=' * 60}\n")
+
+        # ── 修复建议文本输出 ──
+        if args.suggest_fixes:
+            print("Fix Plan (可审查修复方案)")
+            print("=" * 60)
+            fix_count = 0
+            for c_file in c_files[:10]:
+                for spec in DEFAULT_CHECKERS:
+                    af_argv = [sys.executable, str(TOOLS_DIR / "auto_fix_engine.py"),
+                               str(c_file), "--checker", spec.name, "--plan", "--diff"]
+                    rc, out = _run_and_capture("auto_fix_engine", af_argv, quiet=True)
+                    if rc == 0 and out.strip():
+                        print(f"\n[{spec.name}] {c_file.name}")
+                        print(out)
+                        fix_count += 1
+            if fix_count == 0:
+                print("  无修复建议（所有 checker 通过或无匹配修复模板）")
+            print(f"\n共 {fix_count} 个修复建议（不修改文件，仅供审查）")
 
     # ── 交付证据包输出 ──
     if args.evidence:

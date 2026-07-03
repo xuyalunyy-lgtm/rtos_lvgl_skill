@@ -1,5 +1,15 @@
 # Changelog
 
+## 35.0.0 - 2026-07-03
+
+v35: 可审查修复版 — 诊断之后，给出工程师可审查、可验证、可拒绝的 FixPlan。
+
+- run_review.py 新增 --suggest-fixes 参数
+- --suggest-fixes 集成 auto_fix_engine --plan，输出 FixPlan
+- 文本输出新增 Fix Plan 区块，JSON 输出新增 fix_plans 字段
+- 默认不修改文件，只输出修复建议
+- 版本 35.0.0
+
 ## 34.0.0 - 2026-07-03
 
 v34: 现场复现调试版 — run_review 统一入口，日志归因 + 复现包 + 硬件质疑。
