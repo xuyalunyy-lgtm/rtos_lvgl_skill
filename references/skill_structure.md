@@ -39,7 +39,6 @@ L4 可执行     tools/                完整版 L2+；Lite 无此层
 | 工具 | 职责 |
 |------|------|
 | `sdk_lookup.py` | SDK 抽象查询引擎 — 标准操作→平台 API 映射，所有 checker 共用 |
-| `rtos_model.py` | 从源码提取 RTOS 系统模型（task/queue/mutex/timer/ISR） |
 | `project_operating_model.py` | 统一项目事实源（RTOS + frameworks + platform + constraints） |
 | `framework_profile.py` | 框架自动识别 |
 | `product_profile.py` | 平台 profile 加载 |
@@ -48,13 +47,7 @@ L4 可执行     tools/                完整版 L2+；Lite 无此层
 ### Checkers（检查器）
 | 工具 | 职责 |
 |------|------|
-| `run_review.py` | 一键静态审查（驱动 41 checker） |
-| `framework_constraint_checker.py` | 框架约束检查 |
-| `task_graph_analyzer.py` | 任务依赖/IPC 分析 |
-| `scheduler_analyzer.py` | 调度/优先级分析 |
-| `ipc_contract_checker.py` | IPC 契约检查 |
-| `memory_lifetime_analyzer.py` | 内存生命周期分析 |
-| `timebase_analyzer.py` | 定时器/时间基准分析 |
+| `run_review.py` | 一键静态审查（驱动 31 checker） |
 | `constraint_discovery.py` | 约束发现 |
 
 ### Generators（生成器）
@@ -68,22 +61,18 @@ L4 可执行     tools/                完整版 L2+；Lite 无此层
 | 工具 | 职责 |
 |------|------|
 | `codegen_gate.py` | 代码生成门禁（manifest + forbidden patterns） |
-| `session_guard.py` | 会话严格模式纪律检查 |
-| `coverage_dashboard.py` | 覆盖矩阵 |
-| `release_qualifier.py` | 发布资格评估 |
-| `rtos_sim.py` | RTOS what-if 模拟 |
 
 ### 辅助工具
 | 工具 | 职责 |
 |------|------|
-| `evidence_schema.py` | 证据包格式定义 |
-| `evidence_store.py` | 证据湖存储 |
-| `policy_pack.py` | 门禁策略包 |
-| `pattern_miner.py` | 经验模式挖掘 |
-| `eval_runner.py` | 评估运行器 |
-| `hil_runner.py` | 硬件在环运行器 |
-| `telemetry_parser.py` | 串口遥测解析 |
-| `trace_compare.py` | Golden trace 对比 |
+| `auto_fix_engine.py` | 自动修复引擎 |
+| `constraint_inference.py` | 约束推理引擎 |
+| `efficiency_scorecard.py` | 效率度量 |
+| `watch_mode.py` | 实时检查模式 |
+| `check_links.py` | 链接检查 |
+| `bump_version.py` | 版本号更新 |
+
+> 治理工具（evidence/supervisor/HIL/telemetry 等）已归档至 `archive/tools/`。
 
 ---
 
@@ -107,20 +96,17 @@ L4 可执行     tools/                完整版 L2+；Lite 无此层
 
 ## 目录职责
 
-| 路径 | 职责 | Lite |
-|------|------|------|
-| `SKILL.md` | 控制平面（<100 行） | 自动生成 |
-| `workflows/` | 步骤编排 | 同步 + patch |
-| `references/` | 总纲、约束、结构、日志 | 同步 |
-| `prompts/` | 场景专链 | 同步 |
-| `platforms/` | 芯片/SDK 事实 | 同步 |
-| `frameworks/` | 框架约束包 | 同步 |
-| `scene_presets/` | 场景预设 | 同步 |
-| `product_profiles/` | 平台 profile | 同步 |
-| `templates/` | 入口模板 | 同步 |
-| `examples/` | good/bad 范例 | **无** |
-| `tools/` | 所有工具 | **无** |
-| `scripts/` | sync、iterate | 部分 |
+| 路径 | 职责 |
+|------|------|
+| `SKILL.md` | 控制平面（<100 行） |
+| `workflows/` | 步骤编排（9 个用户 workflow） |
+| `references/` | 总纲、约束、结构、日志 |
+| `prompts/` | 场景专链 |
+| `platforms/` | 芯片/SDK 事实 + SDK 映射 |
+| `examples/` | good/bad 范例 |
+| `tools/` | checker + 生成器 + 查询引擎 |
+| `scripts/` | sync、iterate、审计 |
+| `archive/` | 归档的治理工具/workflow/codex |
 | `.codex/` | schemas、boards、jobs、runs | **无** |
 
 ---

@@ -71,7 +71,11 @@
       "Bash(python tools/sdk_lookup.py --platform esp32 --validate-all)",
       "Bash(git stash *)",
       "Bash(python tools/sdk_lookup.py --validate-constraints)",
-      "Bash(python tools/sdk_lookup.py --validate-all)"
+      "Bash(python tools/sdk_lookup.py --validate-all)",
+      "Bash(git push *)",
+      "Bash(git mv *)",
+      "Bash(git rm *)",
+      "Bash(python scripts/check_skill_metadata.py)"
     ]
   }
 }

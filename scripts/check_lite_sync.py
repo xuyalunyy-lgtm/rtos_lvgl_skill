@@ -393,8 +393,8 @@ def main() -> int:
     args = parser.parse_args()
 
     if not LITE_DIR.exists():
-        print(f"[check_lite_sync] Lite directory not found: {LITE_DIR}")
-        return 1
+        print(f"[check_lite_sync] Lite directory not found (optional): {LITE_DIR}")
+        return 0
 
     print("[check_lite_sync] Start Lite synchronization check")
 

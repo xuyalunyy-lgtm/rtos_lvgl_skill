@@ -1,5 +1,18 @@
 # Changelog
 
+## 31.0.0 — 2026-07-02
+
+V31：深度清理 — 删除治理基础设施，只保留用户真正需要的工具和 workflow。
+
+- **归档 18 个治理工具**：evidence_store/policy_pack/pattern_miner/eval_runner/hil_runner/telemetry_parser/trace_compare/release_qualifier/coverage_dashboard/session_guard/rtos_sim/rtos_model/task_graph/scheduler/ipc/memory_lifetime/timebase → `archive/tools/`
+- **归档 .codex/**：15 个 schema + 4 个 policy + board/job/run → `archive/codex/`
+- **删除 freertos-skill-lite/**：不再维护 Lite 副本，需要轻量分发时用 CI 自动生成
+- **归档 5 个治理 workflow**：self_iterate/l2_learning_candidate/l2_auto_repair/l2_architecture_review/l2_rtos_system_review → `archive/workflows/`
+- **精简 SKILL.md**：移除 Maintainer/Optional 路由，只保留 9 个用户 workflow
+- **精简 skill_structure.md**：工具目录从 4 类 20+ 个精简为用户工具
+
+效果：文件数 265→~120，文本体积 1.46MB→~600KB，用户工具 41→~20
+
 ## 30.0.0 — 2026-07-02
 
 V30：回归用户价值 — 从"管理自身的 DevOps 平台"收回到"嵌入式开发者可直接使用的知识库 + checker 工具链"。

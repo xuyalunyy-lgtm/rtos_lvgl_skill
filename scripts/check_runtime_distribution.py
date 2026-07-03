@@ -162,7 +162,7 @@ def check_powershell_installers(errors: list[str]) -> None:
 
 def check_lite_shape(errors: list[str]) -> None:
     if not LITE.is_dir():
-        errors.append("freertos-skill-lite directory is missing")
+        # Lite directory is optional — no longer maintained as a separate copy
         return
 
     for path in sorted(LITE_REQUIRED_PATHS):

@@ -187,20 +187,24 @@ def parse_agent_metadata(path: Path, errors: list[str], root: Path) -> dict[str,
 def validate_root(root: Path) -> tuple[list[str], int, int, str | None]:
     errors: list[str] = []
     full_skill = root / "SKILL.md"
-    lite_skill = root / "freertos-skill-lite" / "SKILL.md"
     full_agent_path = root / "agents" / "openai.yaml"
-    lite_agent_path = root / "freertos-skill-lite" / "agents" / "openai.yaml"
 
     full_version, full_desc_len = check_skill(full_skill, errors, root)
-    lite_version, lite_desc_len = check_skill(lite_skill, errors, root)
+    lite_desc_len = 0
 
-    if full_version and lite_version and full_version != lite_version:
-        errors.append(f"SKILL version mismatch: full {full_version} vs Lite {lite_version}")
-
-    full_agent = parse_agent_metadata(full_agent_path, errors, root)
-    lite_agent = parse_agent_metadata(lite_agent_path, errors, root)
-    if full_agent and lite_agent and full_agent != lite_agent:
-        errors.append("agents/openai.yaml differs between full and Lite")
+    # Lite checks are optional — skip if freertos-skill-lite/ doesn't exist
+    lite_skill = root / "freertos-skill-lite" / "SKILL.md"
+    lite_agent_path = root / "freertos-skill-lite" / "agents" / "openai.yaml"
+    if lite_skill.exists():
+        lite_version, lite_desc_len = check_skill(lite_skill, errors, root)
+        if full_version and lite_version and full_version != lite_version:
+            errors.append(f"SKILL version mismatch: full {full_version} vs Lite {lite_version}")
+        lite_agent = parse_agent_metadata(lite_agent_path, errors, root)
+        full_agent = parse_agent_metadata(full_agent_path, errors, root)
+        if full_agent and lite_agent and full_agent != lite_agent:
+            errors.append("agents/openai.yaml differs between full and Lite")
+    else:
+        _ = parse_agent_metadata(full_agent_path, errors, root)
 
     return errors, full_desc_len, lite_desc_len, full_version
 
