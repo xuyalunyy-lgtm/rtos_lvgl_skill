@@ -1,5 +1,15 @@
 # Changelog
 
+## 43.0.0 - 2026-07-03
+
+v43: 工程验证探针版 — 命中后输出最小验证探针，先确认根因再建议修复。
+
+- symptom 输出新增 routing_decision/diagnostic_probes/checker_targets/log_signals/stop_conditions
+- 10 个高频症状补充验证探针（日志确认/代码定位/工具验证）
+- 弱匹配时 routing_decision=ask_more，不加载大 shard
+- 新增 --probe-detail compact|full 和 --allow-weak-route
+- 版本 43.0.0
+
 ## 42.0.3 - 2026-07-03
 
 v42.x 收口：工程问题命中率打磨。

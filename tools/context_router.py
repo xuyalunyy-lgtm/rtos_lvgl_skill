@@ -147,6 +147,10 @@ def match_symptoms(text: str) -> list[dict]:
                 "missing_facts": symptom.get("missing_facts", []),
                 "hardware_challenge": symptom.get("hardware_challenge", []),
                 "do_not_patch_until": symptom.get("do_not_patch_until"),
+                "diagnostic_probes": symptom.get("diagnostic_probes", {}),
+                "log_signals": symptom.get("log_signals", []),
+                "checker_targets": symptom.get("checker_targets", []),
+                "stop_conditions": symptom.get("stop_conditions", []),
             })
 
     # 按分数排序
@@ -154,13 +158,16 @@ def match_symptoms(text: str) -> list[dict]:
     return matches
 
 
-def build_symptom_plan(text: str, platform: str, budget: str = "compact") -> dict:
+def build_symptom_plan(text: str, platform: str, budget: str = "compact",
+                       probe_detail: str = "compact", allow_weak_route: bool = False) -> dict:
     """根据症状文本构建读取计划。
 
     Args:
         text: 用户问题描述
         platform: 目标平台（如果为空则自动推断）
         budget: 预算档位
+        probe_detail: 探针详细程度（compact/full）
+        allow_weak_route: 弱匹配时是否强制继续路由
 
     Returns:
         包含症状匹配和读取计划的字典
@@ -180,16 +187,58 @@ def build_symptom_plan(text: str, platform: str, budget: str = "compact") -> dic
     if not matches:
         return {
             "symptom_text": text,
+            "routing_decision": "ask_more",
             "matched_symptoms": [],
             "likely_constraints": [],
             "top_hypotheses": [],
             "verify_steps": [],
             "missing_facts": ["无法识别症状，请提供更具体的描述或日志"],
+            "diagnostic_probes": {},
+            "checker_targets": [],
+            "log_signals": [],
+            "stop_conditions": [],
             "error": "No matching symptoms found",
         }
 
     # 取 top 3 症状
     top_matches = matches[:3]
+
+    # 置信度判断
+    overall_confidence = top_matches[0].get("match_type", "medium")
+
+    # 弱匹配策略
+    if overall_confidence == "weak" and not allow_weak_route:
+        # 弱匹配：只返回 missing_facts，不加载大上下文
+        missing_facts = []
+        for m in top_matches:
+            for fact in m.get("missing_facts", []):
+                if fact not in missing_facts:
+                    missing_facts.append(fact)
+
+        return {
+            "symptom_text": text,
+            "routing_decision": "ask_more",
+            "inferred_platform": inferred_platform,
+            "platform_source": platform_source,
+            "platform_confidence": platform_confidence,
+            "matched_platform_terms": matched_platform_terms,
+            "match_confidence": "weak",
+            "matched_symptoms": [{
+                "id": m["id"],
+                "name": m["name"],
+                "score": m["score"],
+                "match_type": m.get("match_type", "weak"),
+                "matched": m["matched_patterns"],
+            } for m in top_matches],
+            "likely_constraints": [],
+            "top_hypotheses": [],
+            "verify_steps": [],
+            "missing_facts": ["信息不足，无法确定根因"] + missing_facts[:2],
+            "diagnostic_probes": {},
+            "checker_targets": [],
+            "log_signals": [],
+            "stop_conditions": [],
+        }
 
     # 收集所有相关约束
     all_constraints = []
@@ -221,14 +270,55 @@ def build_symptom_plan(text: str, platform: str, budget: str = "compact") -> dic
                 missing_facts.append(fact)
     missing_facts = missing_facts[:3]  # 最多 3 个
 
+    # 收集诊断探针
+    diagnostic_probes = {}
+    for m in top_matches:
+        probes = m.get("diagnostic_probes", {})
+        for key, values in probes.items():
+            if key not in diagnostic_probes:
+                diagnostic_probes[key] = []
+            for v in values:
+                if v not in diagnostic_probes[key]:
+                    diagnostic_probes[key].append(v)
+
+    # compact 模式：每个探针类别最多 2 条
+    if probe_detail == "compact":
+        for key in diagnostic_probes:
+            diagnostic_probes[key] = diagnostic_probes[key][:2]
+
+    # 收集 checker targets
+    checker_targets = []
+    for m in top_matches:
+        for ct in m.get("checker_targets", []):
+            if ct not in checker_targets:
+                checker_targets.append(ct)
+
+    # 收集 log signals
+    log_signals = []
+    for m in top_matches:
+        for ls in m.get("log_signals", []):
+            if ls not in log_signals:
+                log_signals.append(ls)
+
+    # 收集 stop conditions
+    stop_conditions = []
+    for m in top_matches:
+        for sc in m.get("stop_conditions", []):
+            if sc not in stop_conditions:
+                stop_conditions.append(sc)
+
     # 推断 workflow
     workflow = _infer_workflow(top_matches[0]["id"])
+
+    # routing_decision
+    routing_decision = "diagnose" if overall_confidence in ("strong", "medium") else "ask_more"
 
     # 构建读取计划
     plan = build_load_plan(workflow, platform, all_constraints, budget)
 
     # 附加症状信息
     plan["symptom_text"] = text
+    plan["routing_decision"] = routing_decision
     plan["matched_symptoms"] = [{
         "id": m["id"],
         "name": m["name"],
@@ -248,13 +338,13 @@ def build_symptom_plan(text: str, platform: str, budget: str = "compact") -> dic
     plan["matched_platform_terms"] = matched_platform_terms
 
     # 置信度
-    overall_confidence = top_matches[0].get("match_type", "medium")
     plan["match_confidence"] = overall_confidence
 
-    # 低置信时只给 missing_facts，不给根因结论
-    if overall_confidence == "weak":
-        plan["top_hypotheses"] = []
-        plan["missing_facts"] = ["信息不足，无法确定根因"] + plan["missing_facts"][:2]
+    # 诊断探针
+    plan["diagnostic_probes"] = diagnostic_probes
+    plan["checker_targets"] = checker_targets
+    plan["log_signals"] = log_signals
+    plan["stop_conditions"] = stop_conditions
 
     # 硬件质疑
     hw_challenges = []
@@ -859,6 +949,13 @@ def main() -> int:
                         help="自然语言问题描述，自动匹配症状和约束")
     parser.add_argument("--symptom-file",
                         help="日志或笔记文件，自动匹配症状和约束")
+    parser.add_argument("--probe-detail",
+                        choices=["compact", "full"],
+                        default="compact",
+                        help="探针详细程度：compact（默认）/ full")
+    parser.add_argument("--allow-weak-route",
+                        action="store_true",
+                        help="低置信时强制继续路由（默认只返回 missing_facts）")
     parser.add_argument("--json", action="store_true",
                         help="输出 JSON 格式")
     parser.add_argument("--self-test", action="store_true",
@@ -879,7 +976,8 @@ def main() -> int:
         if not symptom_text:
             parser.error("No symptom text provided")
 
-        plan = build_symptom_plan(symptom_text, args.platform, args.budget)
+        plan = build_symptom_plan(symptom_text, args.platform, args.budget,
+                                   args.probe_detail, args.allow_weak_route)
 
         if args.json:
             json.dump(plan, sys.stdout, ensure_ascii=False, indent=2)
@@ -889,11 +987,25 @@ def main() -> int:
                 print(f"Error: {plan['error']}", file=sys.stderr)
                 return 1
             print(f"Symptom: {plan['symptom_text'][:80]}...")
+            print(f"Routing decision: {plan.get('routing_decision', 'unknown')}")
+            print(f"Match confidence: {plan.get('match_confidence', 'unknown')}")
             print(f"Matched: {', '.join(m['name'] for m in plan.get('matched_symptoms', []))}")
+            print(f"Platform: {plan.get('inferred_platform', 'unknown')} ({plan.get('platform_source', 'unknown')})")
             print(f"Likely constraints: {', '.join(plan.get('likely_constraints', []))}")
-            print(f"Top hypotheses: {', '.join(plan.get('top_hypotheses', []))}")
-            print(f"Verify steps: {', '.join(plan.get('verify_steps', []))}")
-            print(f"Missing facts: {', '.join(plan.get('missing_facts', []))}")
+            if plan.get('top_hypotheses'):
+                print(f"Top hypotheses: {', '.join(plan.get('top_hypotheses', []))}")
+            if plan.get('diagnostic_probes'):
+                print(f"\nDiagnostic probes:")
+                for key, values in plan.get('diagnostic_probes', {}).items():
+                    print(f"  {key}: {', '.join(values[:3])}")
+            if plan.get('checker_targets'):
+                print(f"Checker targets: {', '.join(plan.get('checker_targets', []))}")
+            if plan.get('log_signals'):
+                print(f"Log signals: {', '.join(plan.get('log_signals', []))}")
+            if plan.get('stop_conditions'):
+                print(f"Stop conditions: {', '.join(plan.get('stop_conditions', []))}")
+            if plan.get('missing_facts'):
+                print(f"Missing facts: {', '.join(plan.get('missing_facts', []))}")
             print(f"\nBudget: {plan.get('budget_mode')} | Tokens: ~{plan.get('estimated_tokens')}")
         return 0
 
