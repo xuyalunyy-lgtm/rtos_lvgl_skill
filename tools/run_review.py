@@ -348,6 +348,12 @@ def main() -> int:
         action="store_true",
         help="输出可审查修复方案 (FixPlan)，不修改文件",
     )
+    parser.add_argument(
+        "--fix-detail",
+        choices=["summary", "full"],
+        default="summary",
+        help="FixPlan 输出详细程度：summary（默认）只输出摘要，full 输出完整 template/diff",
+    )
     args = parser.parse_args()
 
     if args.list_checkers:
@@ -525,6 +531,13 @@ def main() -> int:
                                     fix_plans.append(plan)
                         except (json.JSONDecodeError, ValueError):
                             pass
+            # summary 模式：限制输出数量，移除长字段
+            if args.fix_detail == "summary":
+                fix_plans = fix_plans[:20]  # JSON 默认最多 20 条
+                for plan in fix_plans:
+                    for action in plan.get("actions", []):
+                        action.pop("template", None)
+                        action.pop("diff", None)
             report["fix_plans"] = fix_plans
             report["total_fix_plans"] = len(fix_plans)
             report["total_non_applicable"] = len(non_applicable)
@@ -545,25 +558,40 @@ def main() -> int:
             print("Fix Plan (可审查修复方案)")
             print("=" * 60)
             fix_count = 0
+            max_fixes = 5 if args.fix_detail == "summary" else 999
             # 只对有 issue 的 checker 生成修复建议
             for r in all_results:
                 if r.get("skipped") or r.get("issues", 0) == 0:
                     continue
+                if fix_count >= max_fixes:
+                    break
                 checker_name = r.get("checker", "")
                 spec = checker_map.get(checker_name)
                 if not spec:
                     continue
                 for c_file in c_files[:10]:
+                    if fix_count >= max_fixes:
+                        break
                     af_argv = [sys.executable, str(TOOLS_DIR / "auto_fix_engine.py"),
                                str(c_file), "--checker", spec.name, "--plan", "--diff"]
                     rc, out = _run_and_capture("auto_fix_engine", af_argv, quiet=True)
                     if rc == 0 and out.strip():
                         print(f"\n[{checker_name}] {c_file.name}")
-                        print(out)
+                        if args.fix_detail == "summary":
+                            # 只输出第一行摘要
+                            for line in out.split("\n"):
+                                if line.strip():
+                                    print(f"  {line.strip()}")
+                                    break
+                        else:
+                            print(out)
                         fix_count += 1
             if fix_count == 0:
                 print("  无修复建议（所有 checker 通过或无匹配修复模板）")
-            print(f"\n共 {fix_count} 个修复建议（不修改文件，仅供审查）")
+            if fix_count >= max_fixes:
+                print(f"\n共 {fix_count}+ 个修复建议（显示前 {max_fixes} 条，用 --fix-detail full 查看全部）")
+            else:
+                print(f"\n共 {fix_count} 个修复建议（不修改文件，仅供审查）")
 
     # ── 交付证据包输出 ──
     if args.evidence:

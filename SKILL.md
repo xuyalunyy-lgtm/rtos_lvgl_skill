@@ -1,7 +1,7 @@
 ---
 name: freertos-embedded-architect
 metadata:
-  version: 36.0.0
+  version: 37.0.0
 description: >-
   FreeRTOS embedded architecture specialist for MVP firmware, board bring-up,
   runtime reliability, memory safety, module contracts, task topology, timeout
@@ -33,36 +33,41 @@ Goal: build and review MVP embedded firmware with RTOS discipline:
 hardware contracts, explicit lifecycle, reliable startup, bounded runtime
 behavior, and practical production hardening.
 
-## First-Class Platforms
+## Loading Strategy
 
-| Platform | SDK | Status |
-|---|---|---|
-| **ESP32** | ESP-IDF v5.x | Primary — full checker + SDK map + examples |
-| **Zephyr** | Zephyr RTOS | Primary — full checker + SDK map + examples |
-| STM32 | CubeMX + HAL | Secondary — SDK map only |
-| JL | AC79 AIoT SDK | Secondary — SDK map only |
-| BK | bk_idk / Armino | Secondary — SDK map only |
+1. **Choose workflow** — pick one from the routing table below
+2. **Choose platform** — ESP32 or Zephyr (primary), or secondary
+3. **Load constraint shards** — only the shards declared by the workflow
+4. **Load prompts** — only 1-3 prompts specified by the workflow
 
 ## Routing
 
-Choose one workflow first, then load only required references, platform docs, and scene prompts.
+| Scenario | Workflow | Constraint Shards |
+|---|---|---|
+| Code review | [l2_code_review.md](workflows/l2_code_review.md) | review, memory |
+| Project review | [l2_project_review.md](workflows/l2_project_review.md) | review, platform |
+| Crash/Bug | [debug_crash.md](workflows/debug_crash.md) | review, rtos, platform |
+| Memory analysis | [l2_memory_analysis.md](workflows/l2_memory_analysis.md) | memory, rtos |
+| SDK trimming | [l3_sdk_trim.md](workflows/l3_sdk_trim.md) | platform |
+| New module | [l3_new_module.md](workflows/l3_new_module.md) | rtos, review |
+| Bring-up | [l3_bring_up.md](workflows/l3_bring_up.md) | platform, rtos |
+| LVGL pages | [l3_lvgl_page.md](workflows/l3_lvgl_page.md) | review, media |
+| Soft/Hardware co-debug | [hw_sw_cocodebug.md](workflows/hw_sw_cocodebug.md) | platform, review |
 
-| Scenario | Workflow |
-|---|---|
-| Code review | [l2_code_review.md](workflows/l2_code_review.md) |
-| Project review | [l2_project_review.md](workflows/l2_project_review.md) |
-| Crash/Bug | [debug_crash.md](workflows/debug_crash.md) |
-| Memory analysis | [l2_memory_analysis.md](workflows/l2_memory_analysis.md) |
-| SDK trimming | [l3_sdk_trim.md](workflows/l3_sdk_trim.md) |
-| New module | [l3_new_module.md](workflows/l3_new_module.md) |
-| Bring-up | [l3_bring_up.md](workflows/l3_bring_up.md) |
-| LVGL pages | [l3_lvgl_page.md](workflows/l3_lvgl_page.md) |
-| Soft/Hardware co-debug | [hw_sw_cocodebug.md](workflows/hw_sw_cocodebug.md) |
+## Required Context (always load)
 
-## Required Context
+- Quick index: [constraint_quick_index](references/constraint_quick_index.md) — C1-C45 名称、场景、分片映射
+- SDK abstraction: [sdk_abstraction](references/sdk_abstraction.yaml) — 标准操作注册表
 
-- Core rules: [core_rules](references/core_rules.md), [constraint_index](references/constraint_index.md), [constraint_detail](references/constraint_detail.md), [skill_structure](references/skill_structure.md)
-- SDK abstraction: [sdk_abstraction](references/sdk_abstraction.yaml) — 标准操作注册表，checker 通过 `sdk_lookup.py` 查询平台 API
+## Constraint Shards (workflow Step 1 loads)
+
+- `references/constraint_review.md` — C1-C4, C5-C6, C11-C16 (代码审查、ISR、队列、cJSON、编码规范)
+- `references/constraint_memory.md` — C7, C28, C36 (内存分配、DMA、拷贝预算)
+- `references/constraint_rtos.md` — C8, C15, C17, C29-C35, C43-C44 (启动、优先级、IPC、模块契约、拓扑、锁、临界区)
+- `references/constraint_platform.md` — C18-C21, C23, C42, C45 (GPIO、NVS、网络、低功耗、显示、板级资源、传感器)
+- `references/constraint_media.md` — C25-C27 (A/V 管线、编解码、时钟漂移)
+- `references/constraint_ota.md` — C9, C22, C24 (密钥、OTA 安全、外设关闭)
+- `references/constraint_recover.md` — C37-C41 (背压、故障隔离、配置矩阵、复现、回归)
 
 ## On-Demand (workflow Step 1 loads)
 
@@ -70,23 +75,20 @@ Choose one workflow first, then load only required references, platform docs, an
 - Primary SDK maps: [esp32_map](platforms/esp32_sdk_map.yaml), [zephyr_map](platforms/zephyr_sdk_map.yaml)
 - Secondary platforms: [stm32](platforms/stm32.md), [jl](platforms/jl.md), [bk](platforms/bk.md)
 - Secondary SDK maps: [stm32_map](platforms/stm32_sdk_map.yaml), [jl_map](platforms/jl_sdk_map.yaml), [bk_map](platforms/bk_sdk_map.yaml)
-- Usage examples: [usage_examples](references/usage_examples.md)
-- Codegen contract: [codegen_contract](references/codegen_contract.md)
-- Migration matrix: [platform_diff_matrix](references/platform_diff_matrix.md)
-
-## Prompt Index
-
-Load only prompts needed by the selected workflow: [prompt_index](references/prompt_index.md)
+- Core rules: [core_rules](references/core_rules.md)
+- Skill structure: [skill_structure](references/skill_structure.md)
+- Prompt index: [prompt_index](references/prompt_index.md)
 
 ## Rules
 
 - L1/L2/L3 mapping must be explicit; choose a workflow before acting.
-- L2+ must follow core rules plus constraint index; load constraint detail only when needed.
+- L2+ must follow core rules; load constraint shards only as declared by the workflow.
 - L3 implementation tasks execute end-to-end by default unless the user narrows scope.
 - Do not perform unplanned core SDK refactors; preserve critical logs and watchdog behavior.
 - Read prompts/references before suggesting platform bindings.
 - For commit requests, follow [git_commit_style](references/git_commit_style.md) and use `type(scope):`.
 - **Platform-first**: when platform is not specified, ask before assuming. ESP32 and Zephyr are primary; others are secondary.
+- **Token budget**: default output is summary; use `--fix-detail full` for complete details.
 
 ## RTOS Project Gate
 
