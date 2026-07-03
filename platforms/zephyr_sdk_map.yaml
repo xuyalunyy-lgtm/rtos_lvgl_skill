@@ -297,6 +297,17 @@ mappings:
     apis: ["pm_device_runtime_put"]
     headers: ["zephyr/pm/device_runtime.h"]
 
+  CODEC_OPEN:
+    apis: []
+    headers: []
+    unsupported: true
+    reason: "Codec APIs are driver/component specific on Zephyr"
+  CODEC_CLOSE:
+    apis: []
+    headers: []
+    unsupported: true
+    reason: "Codec APIs are driver/component specific on Zephyr"
+
   LOG_DESENSITIZE:
     apis: []
     headers: []
@@ -337,6 +348,9 @@ mappings:
     headers: ["zephyr/net/wifi_mgmt.h"]
   WIFI_EVENT_REGISTER:
     apis: ["net_mgmt_init_event_callback"]
+    headers: ["zephyr/net/net_mgmt.h"]
+  WIFI_EVENT_UNREGISTER:
+    apis: ["net_mgmt_del_event_callback"]
     headers: ["zephyr/net/net_mgmt.h"]
 
   # ---- 看门狗 ----

@@ -753,12 +753,6 @@ def main() -> int:
         },
         "verification_commands": [
             f"python tools/codegen_gate.py --dir {outdir} --manifest {outdir}/generation_manifest.json --platform {args.platform} --strict",
-            f"python tools/rtos_model.py --from-generation-manifest {outdir}/generation_manifest.json --output {outdir}/rtos_model.json",
-            f"python tools/task_graph_analyzer.py --model {outdir}/rtos_model.json",
-            f"python tools/ipc_contract_checker.py --model {outdir}/rtos_model.json",
-            f"python tools/scheduler_analyzer.py --model {outdir}/rtos_model.json",
-            f"python tools/memory_lifetime_analyzer.py --model {outdir}/rtos_model.json",
-            f"python tools/timebase_analyzer.py --model {outdir}/rtos_model.json",
             f"python tools/run_review.py --dir {outdir} --platform {args.platform}",
         ],
     }

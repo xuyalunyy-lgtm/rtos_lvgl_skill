@@ -68,7 +68,7 @@ def main() -> int:
         return 0
 
     # Exclude .git, node_modules, and template/generated directories
-    EXCLUDE_DIRS = {".git", "node_modules", "scripts", "freertos-skill-lite"}
+    EXCLUDE_DIRS = {".git", "node_modules", "scripts", "freertos-skill-lite", "archive"}
     md_files = [f for f in md_files if not any(d in EXCLUDE_DIRS for d in f.parts)]
 
     all_issues: list[dict] = []

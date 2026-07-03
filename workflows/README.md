@@ -1,34 +1,40 @@
-# Workflow 索引
+# Workflow Index
 
-> 控制平面入口：[SKILL.md](../SKILL.md) | 结构说明：[skill_structure.md](../references/skill_structure.md)
+Control entry: [SKILL.md](../SKILL.md) | Structure notes: [skill_structure.md](../references/skill_structure.md)
 
-选定 **1 个** workflow 后按 Step 顺序执行；prompt 仅加载该 workflow 指定项。
+Load one workflow first, then only the referenced prompts, references, and platform notes.
 
-| 文件 | 级别 | 触发 |
-|------|------|------|
-| [l2_code_review.md](l2_code_review.md) | L2 | review / audit / 审查 C 代码 |
-| [l2_code_review_lite.md](l2_code_review_lite.md) | L2 | Lite 人工审查 |
-| [l2_architecture_review.md](l2_architecture_review.md) | L2 | 架构 review（I/P/O、FSM/HFSM、HAL 组件、C29-C45 效率契约、评分门禁） |
-| [l2_project_review.md](l2_project_review.md) | L2 | 工程/工作区/量产前审查 |
-| [debug_crash.md](debug_crash.md) | L2-L3 | HardFault / 死机 / WDT / frozen |
-| [l3_sdk_trim.md](l3_sdk_trim.md) | L3 | SDK 改造 / 需求驱动裁剪 |
-| [l3_new_module.md](l3_new_module.md) | L3 | 新模块 / 多任务 / MVP 设计 |
-| [hw_sw_cocodebug.md](hw_sw_cocodebug.md) | L2 | 硬件联调 / IO 口分配 / GPIO 冲突 / bring-up |
-| [l3_bring_up.md](l3_bring_up.md) | L3 | 板级 bring-up / 最小系统 / 外设逐个验证 / 量产闭环 |
-| [l2_memory_analysis.md](l2_memory_analysis.md) | L2 | 内存专项分析 / 基线采集 / 泄漏排查 / 缩池缩栈 |
-| [l3_lvgl_page.md](l3_lvgl_page.md) | L3 | LVGL 单页面生成（规格收集→代码生成→MVP 联动→内存检查） |
-| [l2_auto_repair.md](l2_auto_repair.md) | L2 | 自修复 / 自动修复 / 一键修复 |
-| [self_iterate.md](self_iterate.md) | L3 | Skill 维护 / 自我迭代 |
+| File | Level | Trigger |
+|------|------|---------|
+| [l2_code_review.md](l2_code_review.md) | L2 | code review / audit / checker-guided review |
+| [l2_code_review_lite.md](l2_code_review_lite.md) | L2 | manual Lite-style review checklist |
+| [l2_project_review.md](l2_project_review.md) | L2 | project/workspace review before production |
+| [debug_crash.md](debug_crash.md) | L2-L3 | HardFault / deadlock / WDT / frozen system |
+| [l3_sdk_trim.md](l3_sdk_trim.md) | L3 | SDK trimming / demand-driven driver pruning |
+| [l3_new_module.md](l3_new_module.md) | L3 | new module / multitask MVP design |
+| [hw_sw_cocodebug.md](hw_sw_cocodebug.md) | L2 | hardware-software co-debug / IO planning / GPIO conflict / bring-up |
+| [l3_bring_up.md](l3_bring_up.md) | L3 | board bring-up / minimum system / peripheral validation |
+| [l2_memory_analysis.md](l2_memory_analysis.md) | L2 | memory analysis / baseline / leak and pool investigation |
+| [l3_lvgl_page.md](l3_lvgl_page.md) | L3 | LVGL page generation and MVP integration |
 
-## 标准加载顺序（L2+）
+Archived maintainer workflows:
+
+| File | Status |
+|------|--------|
+| [l2_architecture_review.md](../archive/workflows/l2_architecture_review.md) | archived in v31 |
+| [l2_auto_repair.md](../archive/workflows/l2_auto_repair.md) | archived in v31 |
+| [self_iterate.md](../archive/workflows/self_iterate.md) | archived in v31 |
+
+Standard load order:
 
 1. `references/core_rules.md`
-2. `references/constraint_index.md`（**默认**；完整矩阵见 `constraint_detail.md`）
-3. `platforms/xxx.md`（1 个）
-4. workflow 指定的 1–3 个 `prompts/*.txt`
-5. 完整版：`tools/run_review.py`；范例 **Grep/Read 单文件**，勿批量读 examples/
+2. `references/constraint_index.md`; load `constraint_detail.md` only when needed
+3. one relevant `platforms/xxx.md`
+4. the prompts referenced by the selected workflow
+5. `tools/run_review.py` and examples for full validation
 
-Architecture 同步校验:
+Architecture sync check:
+
 ```bash
 python scripts/check_architecture_sync.py
 ```

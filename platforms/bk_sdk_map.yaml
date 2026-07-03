@@ -297,6 +297,17 @@ mappings:
     unsupported: true
     reason: "BK SDK 无统一外设断电 API"
 
+  CODEC_OPEN:
+    apis: []
+    headers: []
+    unsupported: true
+    reason: "Codec APIs are product/component specific on BK"
+  CODEC_CLOSE:
+    apis: []
+    headers: []
+    unsupported: true
+    reason: "Codec APIs are product/component specific on BK"
+
   LOG_DESENSITIZE:
     apis: []
     headers: []
@@ -338,6 +349,9 @@ mappings:
     headers: ["components/bk_wifi.h"]
   WIFI_EVENT_REGISTER:
     apis: ["bk_event_register"]
+    headers: ["components/event.h"]
+  WIFI_EVENT_UNREGISTER:
+    apis: ["bk_event_unregister"]
     headers: ["components/event.h"]
 
   # ---- 看门狗 ----

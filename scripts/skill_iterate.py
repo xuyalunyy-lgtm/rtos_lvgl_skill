@@ -19,7 +19,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 TOOLS_DIR = ROOT / "tools"
 SKILL = ROOT / "SKILL.md"
-LITE_SKILL = ROOT / "freertos-skill-lite" / "SKILL.md"
+LITE_ROOT = ROOT / "freertos-skill-lite"
+LITE_SKILL = LITE_ROOT / "SKILL.md"
 CHANGELOG = ROOT / "CHANGELOG.md"
 ITERATION_LOG = ROOT / "references" / "iteration_log.md"
 
@@ -153,17 +154,20 @@ def main() -> int:
     # ── 6. SKILL.md version ──
     _step("SKILL.md version")
     full_ver = read_version(SKILL)
-    lite_ver = read_version(LITE_SKILL)
+    lite_ver = read_version(LITE_SKILL) if LITE_ROOT.is_dir() else None
     if not full_ver:
         errors.append("SKILL.md 缺少 metadata.version 字段")
     else:
         print(f"  完整版: {full_ver}")
-    if lite_ver:
-        print(f"  Lite:   {lite_ver}")
-        if full_ver and lite_ver != full_ver:
-            errors.append(f"版本不一致: 完整版 {full_ver} vs Lite {lite_ver}")
+    if LITE_ROOT.is_dir():
+        if lite_ver:
+            print(f"  Lite:   {lite_ver}")
+            if full_ver and lite_ver != full_ver:
+                errors.append(f"版本不一致: 完整版 {full_ver} vs Lite {lite_ver}")
+        else:
+            errors.append("freertos-skill-lite/SKILL.md 缺失或无 version")
     else:
-        errors.append("freertos-skill-lite/SKILL.md 缺失或无 version")
+        print("  Lite:   skipped (freertos-skill-lite/ is not source-tracked)")
 
     # ── 7. CHANGELOG / iteration_log ──
     _step("CHANGELOG / iteration_log")
@@ -192,15 +196,22 @@ def main() -> int:
 
     # ── 10. sync_lite dry-run ──
     _step("sync_lite --dry-run")
-    rc = run([sys.executable, str(ROOT / "scripts" / "sync_lite.py"), "--dry-run"], ROOT)
-    if rc != 0:
-        errors.append("sync_lite.py --dry-run 失败")
+    if LITE_ROOT.is_dir():
+        rc = run([sys.executable, str(ROOT / "scripts" / "sync_lite.py"), "--dry-run"], ROOT)
+        if rc != 0:
+            errors.append("sync_lite.py --dry-run 失败")
+    else:
+        print("  skipped (freertos-skill-lite/ absent)")
 
     # ── 11. evidence_schema ──
     _step("evidence_schema --self-test")
-    rc = run([sys.executable, str(ROOT / "tools" / "evidence_schema.py"), "--self-test"], ROOT)
-    if rc != 0:
-        errors.append("evidence_schema.py --self-test 失败")
+    evidence_schema = ROOT / "tools" / "evidence_schema.py"
+    if evidence_schema.is_file():
+        rc = run([sys.executable, str(evidence_schema), "--self-test"], ROOT)
+        if rc != 0:
+            errors.append("evidence_schema.py --self-test 失败")
+    else:
+        print("  skipped (archived tool not present)")
 
     # ── 12. log_triage ──
     _step("log_triage --self-test")
@@ -222,7 +233,7 @@ def main() -> int:
 
     # ── 15. sync_lite ──
     _step("sync_lite")
-    if args.sync and not errors:
+    if args.sync and not errors and LITE_ROOT.is_dir():
         rc = run([sys.executable, str(ROOT / "scripts" / "sync_lite.py")], ROOT)
         if rc != 0:
             errors.append("sync_lite.py 失败")
@@ -230,6 +241,8 @@ def main() -> int:
             lite_ver2 = read_version(LITE_SKILL)
             if full_ver and lite_ver2 != full_ver:
                 errors.append("sync 后 Lite 版本仍与完整版不一致")
+    elif args.sync and not LITE_ROOT.is_dir():
+        print("  skipped (freertos-skill-lite/ absent)")
     elif args.sync:
         print("  跳过 sync（存在前置错误）")
     else:

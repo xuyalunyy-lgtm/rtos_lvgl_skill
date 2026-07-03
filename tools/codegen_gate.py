@@ -258,10 +258,10 @@ def run_gate(dir_path: str, manifest_path: str, platform: str = "", strict: bool
                 "pools": len(rtos_model.get("memory_pools", [])),
             }
         except Exception as e:
-            all_errors.append(f"RTOS model 构造失败: {e}")
+            all_warnings.append(f"optional RTOS model unavailable: {e}")
             rtos_model = None
 
-        # 5 个 analyzer（strict 模式下缺失即 P0）
+        # Optional archived analyzers: report if present, but do not fail the user gate.
         if rtos_model:
             for analyzer_name, module_name, func_name in REQUIRED_ANALYZERS:
                 try:
@@ -274,9 +274,9 @@ def run_gate(dir_path: str, manifest_path: str, platform: str = "", strict: bool
                     risk_summary["p2"] += result.get("risk_summary", {}).get("p2", 0)
                 except ImportError:
                     missing_analyzers.append(analyzer_name)
-                    all_errors.append(f"analyzer 缺失: {analyzer_name} ({module_name})")
+                    all_warnings.append(f"optional analyzer unavailable: {analyzer_name} ({module_name})")
                 except Exception as e:
-                    all_errors.append(f"analyzer {analyzer_name} 异常: {e}")
+                    all_warnings.append(f"optional analyzer {analyzer_name} failed: {e}")
 
             risk_summary["total"] = risk_summary["p0"] + risk_summary["p1"] + risk_summary["p2"]
 

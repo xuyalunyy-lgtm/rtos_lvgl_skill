@@ -158,7 +158,10 @@ function Sync-Tree([string]$SrcDir, [string]$DstDir, [string]$DirName) {
     return $actions
 }
 
-if (-not (Test-Path $Lite)) { throw "Lite directory not found: $Lite" }
+if (-not (Test-Path $Lite)) {
+    Write-Host "Lite directory absent; nothing to sync: $Lite"
+    exit 0
+}
 
 $total = 0
 Write-Host "`n=== SKILL.md -> freertos-skill-lite/SKILL.md ==="

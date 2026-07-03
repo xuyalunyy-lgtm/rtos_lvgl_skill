@@ -290,6 +290,17 @@ mappings:
     apis: ["HAL_ADC_DeInit", "HAL_SPI_DeInit", "HAL_I2C_DeInit"]
     headers: ["stm32xx_hal.h"]
 
+  CODEC_OPEN:
+    apis: []
+    headers: []
+    unsupported: true
+    reason: "Codec APIs are board/component specific on STM32"
+  CODEC_CLOSE:
+    apis: []
+    headers: []
+    unsupported: true
+    reason: "Codec APIs are board/component specific on STM32"
+
   LOG_DESENSITIZE:
     apis: []
     headers: []
@@ -335,6 +346,11 @@ mappings:
     headers: []
     unsupported: true
     reason: "STM32 WiFi 需外部模组"
+  WIFI_EVENT_UNREGISTER:
+    apis: []
+    headers: []
+    unsupported: true
+    reason: "STM32 WiFi requires an external module"
 
   # ---- 看门狗 ----
   WDT_ADD:

@@ -1,5 +1,13 @@
 # Changelog
 
+## 31.0.1 - 2026-07-03
+
+Post-cleanup patch for v31.
+- Restore the validation path after archived RTOS model/analyzer tools: `codegen_gate.py`, `project_scaffold.py`, and `check_codegen_matrix.py` now treat those analyzers as optional diagnostics.
+- Align Lite removal with scripts and docs: `sync_lite` is a no-op when no generated Lite target exists, and iteration gates skip Lite/evidence-schema checks after archival.
+- Fix user-facing regressions in the OTA good example, SDK abstraction maps, and live Markdown links.
+- Version: 31.0.1
+
 ## 31.0.0 — 2026-07-02
 
 V31：深度清理 — 删除治理基础设施，只保留用户真正需要的工具和 workflow。

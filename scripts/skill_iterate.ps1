@@ -15,7 +15,8 @@ if (-not $Check -and -not $Sync) { $Check = $true }
 
 $Root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 $Skill = Join-Path $Root "SKILL.md"
-$LiteSkill = Join-Path $Root "freertos-skill-lite\SKILL.md"
+$LiteRoot = Join-Path $Root "freertos-skill-lite"
+$LiteSkill = Join-Path $LiteRoot "SKILL.md"
 $Changelog = Join-Path $Root "CHANGELOG.md"
 $IterationLog = Join-Path $Root "references\iteration_log.md"
 $SyncLitePs1 = Join-Path $Root "scripts\sync_lite.ps1"
@@ -130,21 +131,26 @@ Invoke-PythonCheck -PythonExe $python -Label "      scripts/check_skill_metadata
 
 Write-Host "`n[6/9] SKILL.md version"
 $fullVer = Get-SkillVersion $Skill
-$liteVer = Get-SkillVersion $LiteSkill
+$liteVer = if (Test-Path $LiteRoot) { Get-SkillVersion $LiteSkill } else { $null }
 if (-not $fullVer) {
     $errors.Add("SKILL.md missing metadata.version field")
 }
 else {
     Write-Host "  full: $fullVer"
 }
-if ($liteVer) {
-    Write-Host "  lite: $liteVer"
-    if ($fullVer -and $liteVer -ne $fullVer) {
-        $errors.Add("version mismatch: full $fullVer vs lite $liteVer (run sync_lite.ps1)")
+if (Test-Path $LiteRoot) {
+    if ($liteVer) {
+        Write-Host "  lite: $liteVer"
+        if ($fullVer -and $liteVer -ne $fullVer) {
+            $errors.Add("version mismatch: full $fullVer vs lite $liteVer (run sync_lite.ps1)")
+        }
+    }
+    else {
+        $errors.Add("freertos-skill-lite/SKILL.md missing or no metadata.version")
     }
 }
 else {
-    $errors.Add("freertos-skill-lite/SKILL.md missing or no metadata.version")
+    Write-Host "  lite: skipped (freertos-skill-lite absent)"
 }
 
 Write-Host "`n[7/9] CHANGELOG / iteration_log"
@@ -173,7 +179,7 @@ else {
 }
 
 Write-Host "`n[9/9] optional sync_lite.ps1"
-if ($Sync -and $errors.Count -eq 0) {
+if ($Sync -and $errors.Count -eq 0 -and (Test-Path $LiteRoot)) {
     & $SyncLitePs1
     if ($LASTEXITCODE -ne 0) {
         $errors.Add("sync_lite.ps1 failed")
@@ -184,6 +190,9 @@ if ($Sync -and $errors.Count -eq 0) {
             $errors.Add("after sync, lite version still differs from full")
         }
     }
+}
+elseif ($Sync -and -not (Test-Path $LiteRoot)) {
+    Write-Host "  skip sync (freertos-skill-lite absent)"
 }
 elseif ($Sync) {
     Write-Host "  skip sync (prior errors)"

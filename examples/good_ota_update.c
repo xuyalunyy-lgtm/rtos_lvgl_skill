@@ -17,6 +17,7 @@
 #include "esp_ota_ops.h"
 #include "esp_http_client.h"
 #include "esp_app_format.h"
+#include "esp_image_format.h"
 
 static const char *TAG = "ota_update";
 
@@ -40,8 +41,19 @@ typedef struct {
  */
 static esp_err_t verify_firmware_image(const esp_partition_t *partition)
 {
+    esp_partition_pos_t partition_pos = {
+        .offset = partition->address,
+        .size = partition->size,
+    };
+    esp_image_metadata_t image_metadata = {0};
+    esp_err_t err = esp_image_verify(ESP_IMAGE_VERIFY, &partition_pos, &image_metadata);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Firmware signature verification failed: %s", esp_err_to_name(err));
+        return err;
+    }
+
     esp_app_desc_t new_app_info;
-    esp_err_t err = esp_ota_get_app_description(partition, &new_app_info);
+    err = esp_ota_get_app_description(partition, &new_app_info);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to read app description: %s", esp_err_to_name(err));
         return err;

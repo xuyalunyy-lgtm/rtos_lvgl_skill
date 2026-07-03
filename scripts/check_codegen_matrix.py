@@ -31,9 +31,6 @@ RISK_BUDGET = {
     "pure_controller": {"p1": 5, "p2": 10},
 }
 
-REQUIRED_ANALYZERS = {"task_graph", "ipc_contract", "scheduler", "memory_lifetime", "timebase"}
-
-
 def run_cmd(cmd: str, timeout: int = 120) -> dict:
     try:
         proc = subprocess.run(
@@ -73,10 +70,10 @@ def check_preset(preset: str, tmpdir: Path) -> dict:
     if "Kconfig.projbuild" not in gen_files and manifest.get("platform") == "esp32":
         missing_files.append("Kconfig.projbuild")
 
-    # 4. Check verification_commands includes 5 analyzers
+    # 4. Check verification_commands includes active user gates
     vcmds = " ".join(manifest.get("verification_commands", []))
     missing_cmds = []
-    for a in ["task_graph_analyzer", "ipc_contract_checker", "scheduler_analyzer", "memory_lifetime_analyzer", "timebase_analyzer"]:
+    for a in ["codegen_gate.py", "run_review.py"]:
         if a not in vcmds:
             missing_cmds.append(a)
 
@@ -90,12 +87,9 @@ def check_preset(preset: str, tmpdir: Path) -> dict:
     except json.JSONDecodeError:
         return {"preset": preset, "passed": False, "errors": [f"gate JSON 解析失败"]}
 
-    # 6. Check analyzer presence
+    # 6. Track optional archived analyzer presence for diagnostics only.
     analyzer_reports = gate.get("analyzer_reports", {})
-    missing_analyzers = REQUIRED_ANALYZERS - set(analyzer_reports.keys())
-    missing_from_gate = gate.get("missing_analyzers", [])
-    if missing_from_gate:
-        missing_analyzers.update(missing_from_gate)
+    missing_analyzers = set(gate.get("missing_analyzers", []))
 
     # 7. Check risk budget
     risks = gate.get("risk_summary", {})
@@ -111,11 +105,9 @@ def check_preset(preset: str, tmpdir: Path) -> dict:
     if missing_files:
         errors.append(f"generated_files 缺少: {missing_files}")
     if missing_cmds:
-        errors.append(f"verification_commands 缺少 analyzer: {missing_cmds}")
+        errors.append(f"verification_commands 缺少用户验证命令: {missing_cmds}")
     if not gate.get("passed"):
         errors.append(f"gate failed: {gate.get('errors', [])[:3]}")
-    if missing_analyzers:
-        errors.append(f"analyzer 缺失: {missing_analyzers}")
     if budget_exceeded:
         errors.append(f"风险预算超限: {budget_exceeded}")
 

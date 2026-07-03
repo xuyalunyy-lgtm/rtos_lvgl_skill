@@ -225,7 +225,10 @@ def evaluate(snapshot: RepoSnapshot) -> AuditResult:
         if not any(path.startswith("workflows/") for path in files):
             result.warnings.append("prompt changed without workflow routing change; verify it is already routed")
 
-    if any(path.startswith(("SKILL.md", "references/", "workflows/", "prompts/", "agents/")) for path in files):
+    if (snapshot.root / "freertos-skill-lite").is_dir() and any(
+        path.startswith(("SKILL.md", "references/", "workflows/", "prompts/", "agents/"))
+        for path in files
+    ):
         if not any(path.startswith("freertos-skill-lite/") for path in files):
             result.warnings.append("runtime docs changed but Lite output is not changed; run sync_lite.py")
 

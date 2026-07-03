@@ -306,6 +306,17 @@ mappings:
     unsupported: true
     reason: "JL SDK 无外设断电 API"
 
+  CODEC_OPEN:
+    apis: []
+    headers: []
+    unsupported: true
+    reason: "Codec APIs are product/component specific on JL"
+  CODEC_CLOSE:
+    apis: []
+    headers: []
+    unsupported: true
+    reason: "Codec APIs are product/component specific on JL"
+
   LOG_DESENSITIZE:
     apis: []
     headers: []
@@ -345,6 +356,11 @@ mappings:
   WIFI_EVENT_REGISTER:
     apis: ["sys_event_register"]
     headers: ["include_lib/utils/event/net_event.h"]
+  WIFI_EVENT_UNREGISTER:
+    apis: []
+    headers: []
+    unsupported: true
+    reason: "JL event unregister API varies by SDK branch"
 
   # ---- 看门狗 ----
   WDT_ADD:

@@ -123,5 +123,5 @@ fix(build): fixed the build script. # 英文 + 句号
 ## 关联
 
 - 密钥不入库 → [secrets_kconfig.txt](../prompts/secrets_kconfig.txt)（C9）
-- Skill 版本发布 → [self_iterate.md](../workflows/self_iterate.md) Step 3
+- Skill 版本发布 → [archived self_iterate.md](../archive/workflows/self_iterate.md) Step 3
 - Cursor 用户规则可引用本文件路径

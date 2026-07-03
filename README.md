@@ -29,8 +29,8 @@ L4  examples/ + tools/       完整版专有
 | [platforms/](platforms/) | ESP32 / STM32 / JL / BK 专档 |
 | [examples/](examples/) | good/bad 范例 + `app_mvp.h` |
 | [tools/](tools/) | checker、codegen、fixtures、checker registry |
-| [scripts/](scripts/) | sync、iterate、install（含 `.cmd` 包装） |
-| [freertos-skill-lite/](freertos-skill-lite/) | Lite 分发（sync 生成，勿手改） |
+| [scripts/](scripts/) | iterate、install、optional generated Lite sync（含 `.cmd` 包装） |
+| Lite distribution | v31 起不在源码树维护；需要轻量包时由发布流水线生成 |
 
 安装包边界：Cursor / Claude Code / Codex 安装脚本会排除仓库根目录 `README.md`、`INSTALL.md`、`CHANGELOG.md`、`.github/`、`.vscode/`、`freertos-skill-lite/`、缓存与本地 SDK；源码仓保留这些维护资产，运行时索引如 `workflows/README.md` 保留。
 

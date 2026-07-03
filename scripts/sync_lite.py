@@ -196,8 +196,8 @@ def main() -> int:
     args = parser.parse_args()
 
     if not LITE.is_dir():
-        print(f"错误: Lite 目录不存在: {LITE}", file=sys.stderr)
-        return 1
+        print(f"Lite directory absent; nothing to sync: {LITE}")
+        return 0
 
     total = 0
 
