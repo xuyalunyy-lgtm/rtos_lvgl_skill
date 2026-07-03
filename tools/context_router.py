@@ -140,6 +140,86 @@ FORBIDDEN_BY_DEFAULT = [
     "references/iteration_log_archive_2026Q2.md",
 ]
 
+# ── 质量样例 ──
+
+QUALITY_CASES = {
+    "cjson_review_esp32": {
+        "title": "ESP32 cJSON 泄漏审查",
+        "workflow": "code_review",
+        "platform": "esp32",
+        "constraints": ["C3", "C7"],
+        "quality_expectations": [
+            "识别 cJSON_Parse/Delete 配对问题",
+            "推荐 goto cleanup 模板",
+            "注意 PSRAM/heap 差异",
+        ],
+        "upgrade_triggers": [
+            "需要完整 cJSON checker 规则",
+            "需要 ESP32 heap_caps 详细 API",
+        ],
+    },
+    "zephyr_crash_log": {
+        "title": "Zephyr kernel oops 诊断",
+        "workflow": "crash_debug",
+        "platform": "zephyr",
+        "constraints": ["C4", "C8", "C31"],
+        "quality_expectations": [
+            "识别 ISR 阻塞问题",
+            "识别启动顺序错误",
+            "识别永久等待",
+        ],
+        "upgrade_triggers": [
+            "需要完整 Zephyr kernel API",
+            "需要 devicetree 配置细节",
+        ],
+    },
+    "esp32_memory_pressure": {
+        "title": "ESP32 堆持续下降",
+        "workflow": "memory_analysis",
+        "platform": "esp32",
+        "constraints": ["C7", "C28", "C36"],
+        "quality_expectations": [
+            "识别未配对 free",
+            "识别 PSRAM 误用",
+            "识别 DMA cache 问题",
+        ],
+        "upgrade_triggers": [
+            "需要完整 heap_caps API",
+            "需要 DMA buffer 对齐细节",
+        ],
+    },
+    "ota_rollback_review": {
+        "title": "ESP32 OTA 自动回滚",
+        "workflow": "code_review",
+        "platform": "esp32",
+        "constraints": ["C9", "C22"],
+        "quality_expectations": [
+            "识别未 mark_valid",
+            "识别签名验证缺失",
+            "识别回滚路径不清",
+        ],
+        "upgrade_triggers": [
+            "需要完整 OTA API",
+            "需要 secure boot 配置",
+        ],
+    },
+    "media_dma_lifecycle": {
+        "title": "ESP32 音视频 DMA buffer 生命周期",
+        "workflow": "code_review",
+        "platform": "esp32",
+        "constraints": ["C25", "C28"],
+        "quality_expectations": [
+            "识别 DMA buffer 未对齐",
+            "识别 cache 未 invalidate",
+            "识别旧帧复用",
+        ],
+        "upgrade_triggers": [
+            "需要完整 DMA API",
+            "需要 cache clean/invalidate 细节",
+        ],
+    },
+}
+
 # ── Token 预算估算（粗略） ──
 
 def estimate_tokens(file_path: Path) -> int:
@@ -409,6 +489,20 @@ def run_self_test() -> int:
     plan_json = json.dumps(build_load_plan("code_review", "esp32"), ensure_ascii=False)
     check("JSON output valid", len(plan_json) > 100)
 
+    # 测试质量样例
+    for case_id, case in QUALITY_CASES.items():
+        plan = build_load_plan(case["workflow"], case["platform"], case.get("constraints", []), "compact")
+        check(f"case {case_id}: no error", "error" not in plan)
+        check(f"case {case_id}: has required_files", len(plan.get("required_files", [])) > 0)
+        check(f"case {case_id}: budget_mode is compact", plan.get("budget_mode") == "compact")
+        # 检查不包含 forbidden 文件
+        for f in plan.get("required_files", []):
+            if f["path"] in FORBIDDEN_BY_DEFAULT:
+                check(f"case {case_id}: no forbidden file {f['path']}", False)
+                break
+        else:
+            check(f"case {case_id}: no forbidden files", True)
+
     print(f"\nSelf-test: {passed} passed, {failed} failed")
     return 0 if failed == 0 else 1
 
@@ -428,6 +522,9 @@ def main() -> int:
                         choices=["compact", "standard", "full"],
                         default="compact",
                         help="预算档位：compact（默认）/ standard / full")
+    parser.add_argument("--case",
+                        choices=list(QUALITY_CASES.keys()),
+                        help="质量样例 ID，自动解析为 workflow/platform/constraints")
     parser.add_argument("--json", action="store_true",
                         help="输出 JSON 格式")
     parser.add_argument("--self-test", action="store_true",
@@ -437,10 +534,31 @@ def main() -> int:
     if args.self_test:
         return run_self_test()
 
-    if not args.workflow:
-        parser.error("--workflow is required")
+    # --case 模式：自动解析为 workflow/platform/constraints
+    if args.case:
+        case = QUALITY_CASES[args.case]
+        workflow = case["workflow"]
+        platform = case["platform"]
+        constraints = case.get("constraints", [])
+        # 允许 --budget 覆盖
+        budget = args.budget
+    elif args.workflow:
+        workflow = args.workflow
+        platform = args.platform
+        constraints = args.constraints
+        budget = args.budget
+    else:
+        parser.error("--workflow or --case is required")
 
-    plan = build_load_plan(args.workflow, args.platform, args.constraints, args.budget)
+    plan = build_load_plan(workflow, platform, constraints, budget)
+
+    # --case 模式：附加质量期望和升级触发
+    if args.case and "error" not in plan:
+        case = QUALITY_CASES[args.case]
+        plan["case_id"] = args.case
+        plan["case_title"] = case["title"]
+        plan["quality_expectations"] = case["quality_expectations"]
+        plan["upgrade_triggers"] = case["upgrade_triggers"]
 
     if args.json:
         json.dump(plan, sys.stdout, ensure_ascii=False, indent=2)

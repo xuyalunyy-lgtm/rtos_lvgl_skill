@@ -1,5 +1,15 @@
 # Changelog
 
+## 40.0.0 - 2026-07-03
+
+v40: 紧凑路由质量样例版 — 验证 compact 预算没有漏关键约束。
+
+- 新增 references/context_route_quality.md 5 条核心质量样例
+- context_router.py 新增 --case 参数，自动解析为 workflow/platform/constraints
+- --case 输出新增 case_id/case_title/quality_expectations/upgrade_triggers
+- 5 条样例：cjson_review_esp32/zephyr_crash_log/esp32_memory_pressure/ota_rollback_review/media_dma_lifecycle
+- 版本 40.0.0
+
 ## 39.0.0 - 2026-07-03
 
 v39: 预算分级路由版 — 按预算输出不同粒度的读取计划。

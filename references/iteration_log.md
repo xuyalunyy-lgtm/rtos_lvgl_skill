@@ -16,6 +16,18 @@ Agent 或维护者在 [archived self_iterate.md](../archive/workflows/self_itera
 
 ---
 
+### 2026-07-03 - v40.0.0 Compact Routing Quality Samples
+
+- **来源：** v40 紧凑路由质量样例版
+- **平台：** ESP32 + Zephyr
+- **变更：**
+  - 新增 references/context_route_quality.md 5 条核心质量样例
+  - context_router.py 新增 --case 参数
+  - --case 输出新增 case_id/case_title/quality_expectations/upgrade_triggers
+  - 5 条样例：cjson_review_esp32/zephyr_crash_log/esp32_memory_pressure/ota_rollback_review/media_dma_lifecycle
+- **验证：** context_router --self-test 136/136 ✅ / check_links ✅ / check_skill_metadata ✅
+- **版本：** 40.0.0
+
 ### 2026-07-03 - v39.0.0 Budget-Tiered Routing
 
 - **来源：** v39 预算分级路由版
