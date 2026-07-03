@@ -16,6 +16,18 @@ Agent 或维护者在 [archived self_iterate.md](../archive/workflows/self_itera
 
 ---
 
+### 2026-07-03 - v42.0.3 Hit Rate Polish
+
+- **来源：** v42.x 命中率收口
+- **平台：** ESP32 + Zephyr
+- **变更：**
+  - 42.0.1: 平台推断 — Zephyr kernel oops 自动路由到 zephyr
+  - 42.0.2: 中文别名 — 堆一直掉/花屏/升级后回滚/偶发重启
+  - 42.0.3: 置信度分层 — strong/medium/weak，低置信只给 missing_facts
+  - 输出新增 inferred_platform/platform_source/platform_confidence/match_confidence
+- **验证：** context_router --self-test 136/136 ✅
+- **版本：** 42.0.3
+
 ### 2026-07-03 - v42.0.0 Engineering Problem Fingerprint Routing
 
 - **来源：** v42 工程问题指纹路由版

@@ -1,5 +1,15 @@
 # Changelog
 
+## 42.0.3 - 2026-07-03
+
+v42.x 收口：工程问题命中率打磨。
+
+- 42.0.1: 修复平台推断 — Zephyr kernel oops 自动路由到 zephyr 平台
+- 42.0.2: 扩展中文自然语言别名 — 堆一直掉/花屏/升级后回滚/偶发重启
+- 42.0.3: 置信度分层 — strong/medium/weak，低置信只给 missing_facts
+- symptom 输出新增 inferred_platform/platform_source/platform_confidence/match_confidence
+- 版本 42.0.3
+
 ## 42.0.0 - 2026-07-03
 
 v42: 工程问题指纹路由版 — 自然语言症状自动匹配 workflow + C 号 + 候选根因。

@@ -23,6 +23,62 @@ ROOT = Path(__file__).resolve().parent.parent
 
 SYMPTOM_ROUTES_PATH = ROOT / "references" / "log_symptom_routes.json"
 
+# ── 平台推断关键词 ──
+
+PLATFORM_KEYWORDS = {
+    "esp32": ["esp32", "esp-idf", "idf", "esp_", "heap_caps", "esp_log", "gpio_config",
+              "nvs_", "esp_ota", "esp_wifi", "esp_deep_sleep", "esp_task_wdt",
+              "guru meditation", "esp_flash"],
+    "zephyr": ["zephyr", "k_thread", "k_sem", "k_mutex", "k_msgq", "k_timer",
+               "k_work", "k_msleep", "k_malloc", "k_free", "kernel oops",
+               "zephyr_fatal", "devicetree", "prj.conf", "mcuboot", "west build"],
+    "stm32": ["stm32", "hal_", "cubemx", "cmsis", "stm32xx"],
+    "jl": ["jl", "ac79", "jieli", "thread_fork", "os_sem_pend", "os_q_create"],
+    "bk": ["bk", "beken", "bk7258", "rtos_create_thread", "rtos_push_to_queue",
+           "BEKEN_WAIT_FOREVER", "bk_ota"],
+}
+
+
+def infer_platform(text: str) -> tuple[str, float, list[str]]:
+    """从文本推断平台。
+
+    Args:
+        text: 用户问题描述或日志内容
+
+    Returns:
+        (platform, confidence, matched_terms)
+    """
+    text_lower = text.lower()
+    scores = {}
+    matched_terms = {}
+
+    for plat, keywords in PLATFORM_KEYWORDS.items():
+        score = 0
+        terms = []
+        for kw in keywords:
+            if kw.lower() in text_lower:
+                score += 1
+                terms.append(kw)
+        if score > 0:
+            scores[plat] = score
+            matched_terms[plat] = terms
+
+    if not scores:
+        return "esp32", 0.0, []  # 默认
+
+    best_plat = max(scores, key=scores.get)
+    best_score = scores[best_plat]
+
+    # 置信度计算
+    if best_score >= 3:
+        confidence = 0.9
+    elif best_score >= 2:
+        confidence = 0.7
+    else:
+        confidence = 0.5
+
+    return best_plat, confidence, matched_terms.get(best_plat, [])
+
 
 def match_symptoms(text: str) -> list[dict]:
     """匹配自然语言文本到症状路由。
@@ -47,6 +103,7 @@ def match_symptoms(text: str) -> list[dict]:
     for symptom in data.get("symptoms", []):
         score = 0
         matched_patterns = []
+        match_type = "none"  # none / weak / medium / strong
 
         # 匹配技术模式（正则）
         for pattern in symptom.get("patterns", []):
@@ -55,6 +112,7 @@ def match_symptoms(text: str) -> list[dict]:
                 if re.search(pattern, text, re.IGNORECASE):
                     score += 2
                     matched_patterns.append(pattern)
+                    match_type = "medium"
             except re.error:
                 pass
 
@@ -63,15 +121,28 @@ def match_symptoms(text: str) -> list[dict]:
             if np.lower() in text_lower:
                 score += 3  # 自然语言匹配权重更高
                 matched_patterns.append(np)
+                match_type = "strong"
+
+        # 弱信号词匹配（如"崩溃""卡死""异常"）
+        for wp in symptom.get("weak_patterns", []):
+            if wp.lower() in text_lower:
+                score += 1
+                matched_patterns.append(wp)
+                if match_type == "none":
+                    match_type = "weak"
 
         if score > 0:
+            # 限制候选根因数量
+            root_causes = symptom.get("root_cause_hints", [])[:3]
+
             matches.append({
                 "id": symptom["id"],
                 "name": symptom.get("name", ""),
                 "score": score,
+                "match_type": match_type,
                 "matched_patterns": matched_patterns,
                 "constraints": symptom.get("constraints", []),
-                "root_cause_hints": symptom.get("root_cause_hints", []),
+                "root_cause_hints": root_causes,
                 "verify_steps": symptom.get("verify_steps", []),
                 "missing_facts": symptom.get("missing_facts", []),
                 "hardware_challenge": symptom.get("hardware_challenge", []),
@@ -88,13 +159,23 @@ def build_symptom_plan(text: str, platform: str, budget: str = "compact") -> dic
 
     Args:
         text: 用户问题描述
-        platform: 目标平台
+        platform: 目标平台（如果为空则自动推断）
         budget: 预算档位
 
     Returns:
         包含症状匹配和读取计划的字典
     """
     matches = match_symptoms(text)
+
+    # 平台推断
+    inferred_platform, platform_confidence, matched_platform_terms = infer_platform(text)
+
+    # 如果用户未显式指定平台，使用推断结果
+    if platform == "esp32" and inferred_platform != "esp32" and platform_confidence > 0.5:
+        platform = inferred_platform
+        platform_source = "inferred"
+    else:
+        platform_source = "explicit"
 
     if not matches:
         return {
@@ -152,12 +233,28 @@ def build_symptom_plan(text: str, platform: str, budget: str = "compact") -> dic
         "id": m["id"],
         "name": m["name"],
         "score": m["score"],
+        "match_type": m.get("match_type", "medium"),
         "matched": m["matched_patterns"],
     } for m in top_matches]
     plan["likely_constraints"] = all_constraints
     plan["top_hypotheses"] = top_hypotheses
     plan["verify_steps"] = verify_steps
     plan["missing_facts"] = missing_facts
+
+    # 平台推断信息
+    plan["inferred_platform"] = inferred_platform
+    plan["platform_source"] = platform_source
+    plan["platform_confidence"] = platform_confidence
+    plan["matched_platform_terms"] = matched_platform_terms
+
+    # 置信度
+    overall_confidence = top_matches[0].get("match_type", "medium")
+    plan["match_confidence"] = overall_confidence
+
+    # 低置信时只给 missing_facts，不给根因结论
+    if overall_confidence == "weak":
+        plan["top_hypotheses"] = []
+        plan["missing_facts"] = ["信息不足，无法确定根因"] + plan["missing_facts"][:2]
 
     # 硬件质疑
     hw_challenges = []
