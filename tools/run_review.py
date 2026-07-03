@@ -273,8 +273,8 @@ def main() -> int:
     parser.add_argument("--dir", "-d", help="递归审查目录下所有 .c")
     parser.add_argument(
         "--platform", "-p", default="freertos",
-        choices=["freertos", "esp32", "stm32", "jl", "bk"],
-        help="stack_calculator 平台",
+        choices=["freertos", "esp32", "stm32", "jl", "bk", "zephyr"],
+        help="目标平台",
     )
     parser.add_argument(
         "--describe",
@@ -476,7 +476,7 @@ def main() -> int:
                 r["suites"] = list(spec.suites)
 
         report = {
-            "version": "8.0.4",
+            "version": "35.0.0",
             "exit_code": exit_code,
             "files_checked": len(c_files),
             "suites": ["default"],
