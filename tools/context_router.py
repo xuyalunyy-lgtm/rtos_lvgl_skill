@@ -19,6 +19,188 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 
+# ── 症状路由表 ──
+
+SYMPTOM_ROUTES_PATH = ROOT / "references" / "log_symptom_routes.json"
+
+
+def match_symptoms(text: str) -> list[dict]:
+    """匹配自然语言文本到症状路由。
+
+    Args:
+        text: 用户问题描述或日志内容
+
+    Returns:
+        匹配的症状列表，按置信度排序
+    """
+    if not SYMPTOM_ROUTES_PATH.is_file():
+        return []
+
+    try:
+        data = json.loads(SYMPTOM_ROUTES_PATH.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return []
+
+    text_lower = text.lower()
+    matches = []
+
+    for symptom in data.get("symptoms", []):
+        score = 0
+        matched_patterns = []
+
+        # 匹配技术模式（正则）
+        for pattern in symptom.get("patterns", []):
+            try:
+                import re
+                if re.search(pattern, text, re.IGNORECASE):
+                    score += 2
+                    matched_patterns.append(pattern)
+            except re.error:
+                pass
+
+        # 匹配自然语言模式
+        for np in symptom.get("natural_patterns", []):
+            if np.lower() in text_lower:
+                score += 3  # 自然语言匹配权重更高
+                matched_patterns.append(np)
+
+        if score > 0:
+            matches.append({
+                "id": symptom["id"],
+                "name": symptom.get("name", ""),
+                "score": score,
+                "matched_patterns": matched_patterns,
+                "constraints": symptom.get("constraints", []),
+                "root_cause_hints": symptom.get("root_cause_hints", []),
+                "verify_steps": symptom.get("verify_steps", []),
+                "missing_facts": symptom.get("missing_facts", []),
+                "hardware_challenge": symptom.get("hardware_challenge", []),
+                "do_not_patch_until": symptom.get("do_not_patch_until"),
+            })
+
+    # 按分数排序
+    matches.sort(key=lambda x: x["score"], reverse=True)
+    return matches
+
+
+def build_symptom_plan(text: str, platform: str, budget: str = "compact") -> dict:
+    """根据症状文本构建读取计划。
+
+    Args:
+        text: 用户问题描述
+        platform: 目标平台
+        budget: 预算档位
+
+    Returns:
+        包含症状匹配和读取计划的字典
+    """
+    matches = match_symptoms(text)
+
+    if not matches:
+        return {
+            "symptom_text": text,
+            "matched_symptoms": [],
+            "likely_constraints": [],
+            "top_hypotheses": [],
+            "verify_steps": [],
+            "missing_facts": ["无法识别症状，请提供更具体的描述或日志"],
+            "error": "No matching symptoms found",
+        }
+
+    # 取 top 3 症状
+    top_matches = matches[:3]
+
+    # 收集所有相关约束
+    all_constraints = []
+    for m in top_matches:
+        for c in m["constraints"]:
+            if c not in all_constraints:
+                all_constraints.append(c)
+
+    # 收集候选根因
+    top_hypotheses = []
+    for m in top_matches:
+        for hint in m["root_cause_hints"][:2]:  # 每个症状取 top 2
+            if hint not in top_hypotheses:
+                top_hypotheses.append(hint)
+    top_hypotheses = top_hypotheses[:5]  # 最多 5 个
+
+    # 收集验证步骤
+    verify_steps = []
+    for m in top_matches:
+        for step in m.get("verify_steps", []):
+            if step not in verify_steps:
+                verify_steps.append(step)
+
+    # 收集缺失事实
+    missing_facts = []
+    for m in top_matches:
+        for fact in m.get("missing_facts", []):
+            if fact not in missing_facts:
+                missing_facts.append(fact)
+    missing_facts = missing_facts[:3]  # 最多 3 个
+
+    # 推断 workflow
+    workflow = _infer_workflow(top_matches[0]["id"])
+
+    # 构建读取计划
+    plan = build_load_plan(workflow, platform, all_constraints, budget)
+
+    # 附加症状信息
+    plan["symptom_text"] = text
+    plan["matched_symptoms"] = [{
+        "id": m["id"],
+        "name": m["name"],
+        "score": m["score"],
+        "matched": m["matched_patterns"],
+    } for m in top_matches]
+    plan["likely_constraints"] = all_constraints
+    plan["top_hypotheses"] = top_hypotheses
+    plan["verify_steps"] = verify_steps
+    plan["missing_facts"] = missing_facts
+
+    # 硬件质疑
+    hw_challenges = []
+    for m in top_matches:
+        for hc in m.get("hardware_challenge", []):
+            if hc not in hw_challenges:
+                hw_challenges.append(hc)
+    if hw_challenges:
+        plan["hardware_challenges"] = hw_challenges[:5]
+
+    # 禁止盲修提示
+    dnp = []
+    for m in top_matches:
+        if m.get("do_not_patch_until"):
+            dnp.append(m["do_not_patch_until"])
+    if dnp:
+        plan["do_not_patch_until"] = dnp
+
+    return plan
+
+
+def _infer_workflow(symptom_id: str) -> str:
+    """根据症状 ID 推断最可能的 workflow。"""
+    mapping = {
+        "WDT_RESET": "crash_debug",
+        "HARDFAULT": "crash_debug",
+        "STACK_OVERFLOW": "crash_debug",
+        "HEAP_EXHAUSTION": "memory_analysis",
+        "QUEUE_FULL": "code_review",
+        "OTA_ROLLBACK": "code_review",
+        "DMA_CACHE_ERROR": "code_review",
+        "AUDIO_UNDERRUN": "code_review",
+        "LVGL_CRASH": "crash_debug",
+        "ZEPHYR_KERNEL_OOPS": "crash_debug",
+        "SENSOR_TIMEOUT": "code_review",
+        "BROWNOUT_RESET": "crash_debug",
+        "PERIPHERAL_NO_ACK": "crash_debug",
+        "LIFECYCLE_CHAOS": "code_review",
+        "HOT_PATH_BLOCKED": "code_review",
+    }
+    return mapping.get(symptom_id, "code_review")
+
+
 # ── Workflow 定义 ──
 
 WORKFLOWS = {
@@ -576,6 +758,10 @@ def main() -> int:
     parser.add_argument("--case",
                         choices=list(QUALITY_CASES.keys()),
                         help="质量样例 ID，自动解析为 workflow/platform/constraints")
+    parser.add_argument("--symptom-text",
+                        help="自然语言问题描述，自动匹配症状和约束")
+    parser.add_argument("--symptom-file",
+                        help="日志或笔记文件，自动匹配症状和约束")
     parser.add_argument("--json", action="store_true",
                         help="输出 JSON 格式")
     parser.add_argument("--self-test", action="store_true",
@@ -584,6 +770,35 @@ def main() -> int:
 
     if args.self_test:
         return run_self_test()
+
+    # --symptom-text / --symptom-file 模式
+    if args.symptom_text or args.symptom_file:
+        symptom_text = args.symptom_text
+        if args.symptom_file:
+            sf = Path(args.symptom_file)
+            if not sf.is_file():
+                parser.error(f"Symptom file not found: {sf}")
+            symptom_text = sf.read_text(encoding="utf-8", errors="ignore")
+        if not symptom_text:
+            parser.error("No symptom text provided")
+
+        plan = build_symptom_plan(symptom_text, args.platform, args.budget)
+
+        if args.json:
+            json.dump(plan, sys.stdout, ensure_ascii=False, indent=2)
+            print()
+        else:
+            if "error" in plan:
+                print(f"Error: {plan['error']}", file=sys.stderr)
+                return 1
+            print(f"Symptom: {plan['symptom_text'][:80]}...")
+            print(f"Matched: {', '.join(m['name'] for m in plan.get('matched_symptoms', []))}")
+            print(f"Likely constraints: {', '.join(plan.get('likely_constraints', []))}")
+            print(f"Top hypotheses: {', '.join(plan.get('top_hypotheses', []))}")
+            print(f"Verify steps: {', '.join(plan.get('verify_steps', []))}")
+            print(f"Missing facts: {', '.join(plan.get('missing_facts', []))}")
+            print(f"\nBudget: {plan.get('budget_mode')} | Tokens: ~{plan.get('estimated_tokens')}")
+        return 0
 
     # --case 模式：自动解析为 workflow/platform/constraints
     if args.case:
@@ -599,7 +814,7 @@ def main() -> int:
         constraints = args.constraints
         budget = args.budget
     else:
-        parser.error("--workflow or --case is required")
+        parser.error("--workflow, --case, or --symptom-text is required")
 
     plan = build_load_plan(workflow, platform, constraints, budget)
 

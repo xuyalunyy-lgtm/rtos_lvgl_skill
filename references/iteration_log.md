@@ -16,6 +16,18 @@ Agent 或维护者在 [archived self_iterate.md](../archive/workflows/self_itera
 
 ---
 
+### 2026-07-03 - v42.0.0 Engineering Problem Fingerprint Routing
+
+- **来源：** v42 工程问题指纹路由版
+- **平台：** ESP32 + Zephyr
+- **变更：**
+  - context_router.py 新增 --symptom-text 和 --symptom-file
+  - log_symptom_routes.json 增强：15 个症状 + 中英文自然说法 + verify_steps + missing_facts
+  - 症状命中后自动加载微分片，联动 v41
+  - 输出 matched_symptoms/likely_constraints/top_hypotheses/verify_steps/missing_facts
+- **验证：** context_router --self-test 136/136 ✅ / check_links ✅ / check_skill_metadata ✅
+- **版本：** 42.0.0
+
 ### 2026-07-03 - v41.0.0 Constraint Micro-Shards
 
 - **来源：** v41 约束微分片版

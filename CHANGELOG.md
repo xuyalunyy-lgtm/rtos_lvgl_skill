@@ -1,5 +1,15 @@
 # Changelog
 
+## 42.0.0 - 2026-07-03
+
+v42: 工程问题指纹路由版 — 自然语言症状自动匹配 workflow + C 号 + 候选根因。
+
+- context_router.py 新增 --symptom-text 和 --symptom-file
+- log_symptom_routes.json 增强：15 个症状 + 中英文自然说法 + verify_steps + missing_facts
+- 症状命中后自动加载微分片，联动 v41
+- 输出 matched_symptoms/likely_constraints/top_hypotheses/verify_steps/missing_facts
+- 版本 42.0.0
+
 ## 41.0.0 - 2026-07-03
 
 v41: 约束微分片版 — 有 C 号时按微分片读取，进一步省 token。
