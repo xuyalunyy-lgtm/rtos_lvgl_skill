@@ -28,6 +28,7 @@ rsync -a \
   --exclude '.pytest_cache' \
   --exclude 'node_modules' \
   --exclude 'freertos-skill-lite' \
+  --exclude 'archive' \
   --exclude '/README.md' \
   --exclude '/INSTALL.md' \
   --exclude '/CHANGELOG.md' \

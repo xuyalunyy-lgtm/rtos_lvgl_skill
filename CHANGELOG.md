@@ -1,5 +1,19 @@
 # Changelog
 
+## 31.0.8 - 2026-07-03
+
+v31 LTS 收口 — 冻结功能面，只接受 bugfix。
+
+- 31.0.2: 清理残留硬依赖（7 个工具 evidence_schema import 改为 try/except）
+- 31.0.3: 整理知识入口（usage_examples/log_symptom_routes 移除归档工具引用）
+- 31.0.4: 源码仓 vs 运行态边界（安装脚本排除 archive/ 目录）
+- 31.0.5: checker 工具链稳定（run_review/sdk_lookup/codegen_gate 全绿）
+- 31.0.6: 文档结构确认（index + detail + core_rules + graph 各有用途）
+- 31.0.7: 安装验证（install_multi_ide/install_skill 排除 archive/）
+- 31.0.8: LTS 收口，冻结功能面
+
+验证全绿: skill_iterate --check / check_links / run_review --self-test / sdk_lookup --self-test / check_runtime_distribution / check_skill_metadata
+
 ## 31.0.1 - 2026-07-03
 
 Post-cleanup patch for v31.

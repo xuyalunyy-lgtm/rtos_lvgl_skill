@@ -16,6 +16,21 @@ Agent 或维护者在 [archived self_iterate.md](../archive/workflows/self_itera
 
 ---
 
+### 2026-07-03 - v31.0.8 LTS Closure
+
+- **来源：** v31 收敛稳定版收口
+- **平台：** 通用
+- **变更：**
+  - 31.0.2: 清理残留硬依赖（7 个工具 evidence_schema import 改为 try/except）
+  - 31.0.3: 整理知识入口（usage_examples/log_symptom_routes 移除归档工具引用）
+  - 31.0.4: 安装脚本排除 archive/ 目录
+  - 31.0.5: checker 工具链稳定验证
+  - 31.0.6: 文档结构确认
+  - 31.0.7: 安装路径验证
+  - 31.0.8: LTS 收口，冻结功能面
+- **验证：** skill_iterate --check ✅ / check_links ✅ / run_review --self-test ✅ / sdk_lookup --self-test ✅ / check_runtime_distribution ✅ / check_skill_metadata ✅
+- **版本：** 31.0.8
+
 ### 2026-07-03 - v31.0.1 Post-Cleanup Gate Repair
 
 - **来源：** 用户请求修复最近两次提交暴露的回归

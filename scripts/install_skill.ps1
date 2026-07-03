@@ -8,7 +8,7 @@ param(
 
 $ExcludeDirs = @(
     ".git", ".github", ".vscode", "fw-AC79_AIoT_SDK", "bk_idk-release-v2.2.1", "__pycache__",
-    ".pytest_cache", "node_modules", "freertos-skill-lite"
+    ".pytest_cache", "node_modules", "freertos-skill-lite", "archive"
 )
 $RootOnlyExcludeFiles = @("README.md", "INSTALL.md", "CHANGELOG.md")
 

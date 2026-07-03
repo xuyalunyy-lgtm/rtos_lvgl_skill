@@ -29,6 +29,7 @@ RUNTIME_EXCLUDE_NAMES = {
     "fw-AC79_AIoT_SDK",
     "bk_idk-release-v2.2.1",
     "freertos-skill-lite",
+    "archive",
 }
 RUNTIME_EXCLUDE_FILE_PATTERNS = (
     "*.pyc",
