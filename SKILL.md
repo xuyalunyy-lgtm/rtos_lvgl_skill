@@ -1,7 +1,7 @@
 ---
 name: freertos-embedded-architect
 metadata:
-  version: 31.0.8
+  version: 32.0.0
 description: >-
   FreeRTOS embedded architecture specialist for MVP firmware, board bring-up,
   runtime reliability, memory safety, module contracts, task topology, timeout
@@ -11,10 +11,10 @@ description: >-
   sensor bus/sample/calibration contracts, LVGL/DMA/ISR safety, SDK trimming, crash debugging,
   OTA firmware update safety, and Zephyr-style RTOS project skeletons.
   SDK abstraction layer: all checkers use sdk_lookup.py for platform-agnostic API matching
-  across ESP32/STM32/JL/BK/Zephyr. Use when the user
-  asks for FreeRTOS, embedded C, GPIO, LCD/OLED, camera, audio/video, A/V sync,
-  zero-copy, DMA cache, logging, WDT, HardFault, code review, OTA update,
-  firmware upgrade, rollback, or git commit audit help.
+  across ESP32/STM32/JL/BK/Zephyr. First-class platforms: ESP32 (ESP-IDF) and Zephyr.
+  Use when the user asks for FreeRTOS, embedded C, GPIO, LCD/OLED, camera,
+  audio/video, A/V sync, zero-copy, DMA cache, logging, WDT, HardFault,
+  code review, OTA update, firmware upgrade, rollback, or git commit audit help.
 mentions: >
   assertion, HardFault, stack overflow, Guru Meditation, code review,
   SDK trimming, driver bring-up, debugging, FreeRTOS, GPIO, LCD/OLED,
@@ -24,7 +24,7 @@ mentions: >
   config matrix, reproduce, regression sample, board resource, lock budget, priority inversion,
   critical section, irq mask, interrupt latency, sensor, i2c, spi, data-ready,
   sample metadata, calibration lifecycle, zero-copy, DMA cache, frame pool, git commit,
-  OTA, firmware update, rollback, partition, secure boot.
+  OTA, firmware update, rollback, partition, secure boot, Zephyr, devicetree, Kconfig.
 ---
 
 # FreeRTOS Embedded Architect
@@ -32,6 +32,16 @@ mentions: >
 Goal: build and review MVP embedded firmware with RTOS discipline:
 hardware contracts, explicit lifecycle, reliable startup, bounded runtime
 behavior, and practical production hardening.
+
+## First-Class Platforms
+
+| Platform | SDK | Status |
+|---|---|---|
+| **ESP32** | ESP-IDF v5.x | Primary — full checker + SDK map + examples |
+| **Zephyr** | Zephyr RTOS | Primary — full checker + SDK map + examples |
+| STM32 | CubeMX + HAL | Secondary — SDK map only |
+| JL | AC79 AIoT SDK | Secondary — SDK map only |
+| BK | bk_idk / Armino | Secondary — SDK map only |
 
 ## Routing
 
@@ -56,10 +66,13 @@ Choose one workflow first, then load only required references, platform docs, an
 
 ## On-Demand (workflow Step 1 loads)
 
-- Platforms: [esp32](platforms/esp32.md), [stm32](platforms/stm32.md), [jl](platforms/jl.md), [bk](platforms/bk.md), [zephyr](platforms/zephyr.md)
-- Platform SDK maps: [esp32_map](platforms/esp32_sdk_map.yaml), [stm32_map](platforms/stm32_sdk_map.yaml), [jl_map](platforms/jl_sdk_map.yaml), [bk_map](platforms/bk_sdk_map.yaml), [zephyr_map](platforms/zephyr_sdk_map.yaml)
+- Primary platforms: [esp32](platforms/esp32.md), [zephyr](platforms/zephyr.md)
+- Primary SDK maps: [esp32_map](platforms/esp32_sdk_map.yaml), [zephyr_map](platforms/zephyr_sdk_map.yaml)
+- Secondary platforms: [stm32](platforms/stm32.md), [jl](platforms/jl.md), [bk](platforms/bk.md)
+- Secondary SDK maps: [stm32_map](platforms/stm32_sdk_map.yaml), [jl_map](platforms/jl_sdk_map.yaml), [bk_map](platforms/bk_sdk_map.yaml)
 - Usage examples: [usage_examples](references/usage_examples.md)
 - Codegen contract: [codegen_contract](references/codegen_contract.md)
+- Migration matrix: [platform_diff_matrix](references/platform_diff_matrix.md)
 
 ## Prompt Index
 
@@ -73,6 +86,7 @@ Load only prompts needed by the selected workflow: [prompt_index](references/pro
 - Do not perform unplanned core SDK refactors; preserve critical logs and watchdog behavior.
 - Read prompts/references before suggesting platform bindings.
 - For commit requests, follow [git_commit_style](references/git_commit_style.md) and use `type(scope):`.
+- **Platform-first**: when platform is not specified, ask before assuming. ESP32 and Zephyr are primary; others are secondary.
 
 ## RTOS Project Gate
 

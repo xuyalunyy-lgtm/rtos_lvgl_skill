@@ -1,5 +1,15 @@
 # Changelog
 
+## 32.0.0 - 2026-07-03
+
+v32: 平台深水区 + 可选 RTOS 诊断。
+
+- 宣布 ESP32 (ESP-IDF) + Zephyr 为一等平台
+- SKILL.md 新增 First-Class Platforms 表
+- On-Demand 区分 primary/secondary 平台
+- 新增 platform_diff_matrix 引用
+- Rules 新增 platform-first 原则
+
 ## 31.0.8 - 2026-07-03
 
 v31 LTS 收口 — 冻结功能面，只接受 bugfix。
