@@ -1,5 +1,15 @@
 # Changelog
 
+## 34.0.0 - 2026-07-03
+
+v34: 现场复现调试版 — run_review 统一入口，日志归因 + 复现包 + 硬件质疑。
+
+- run_review.py 新增 --log/--repro-output/--strict-field 参数
+- --log 集成 log_triage.py，输出 field_diagnostics 到 JSON
+- --repro-output 集成 repro_bundle.py
+- --strict-field 控制现场诊断 P0 是否阻断 exit code
+- 默认诊断不阻断，只报告
+
 ## 33.0.8 - 2026-07-03
 
 v33 LTS 收口 — 生成落地版完成。

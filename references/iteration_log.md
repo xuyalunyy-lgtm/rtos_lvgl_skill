@@ -16,6 +16,19 @@ Agent 或维护者在 [archived self_iterate.md](../archive/workflows/self_itera
 
 ---
 
+### 2026-07-03 - v34.0.0 Field Reproduction Debugging
+
+- **来源：** v34 现场复现调试版
+- **平台：** ESP32 + Zephyr（一等现场诊断平台）
+- **变更：**
+  - run_review.py 新增 --log/--repro-output/--strict-field 参数
+  - --log 集成 log_triage.py，输出 field_diagnostics 到 JSON
+  - --repro-output 集成 repro_bundle.py
+  - --strict-field 控制现场诊断 P0 是否阻断 exit code
+  - 默认诊断不阻断，只报告
+- **验证：** run_review --self-test ✅ / log_triage --self-test ✅ / repro_bundle --self-test ✅
+- **版本：** 34.0.0
+
 ### 2026-07-03 - v33.0.8 Code Generation LTS
 
 - **来源：** v33 生成落地版收口

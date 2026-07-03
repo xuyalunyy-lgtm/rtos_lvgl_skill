@@ -328,6 +328,21 @@ def main() -> int:
         metavar="FILE",
         help="输出交付证据包 (delivery_evidence.json) 到指定文件",
     )
+    parser.add_argument(
+        "--log",
+        metavar="FILE",
+        help="加载串口/系统日志并运行现场诊断 (log_triage)",
+    )
+    parser.add_argument(
+        "--repro-output",
+        metavar="FILE",
+        help="生成可复现调试包到指定文件",
+    )
+    parser.add_argument(
+        "--strict-field",
+        action="store_true",
+        help="现场诊断 P0 风险阻断 exit code（默认不阻断）",
+    )
     args = parser.parse_args()
 
     if args.list_checkers:
@@ -369,6 +384,46 @@ def main() -> int:
                     print(f"Summary: secret_scan 失败 (exit={exit_code})")
                 print(f"{'=' * 60}\n")
             return exit_code
+
+    # ── 现场诊断：log_triage ──
+    field_diagnostics = None
+    if args.log:
+        log_path = Path(args.log)
+        if not log_path.is_file():
+            print(f"Error: log file not found: {log_path}", file=sys.stderr)
+            return 1
+        log_argv = [sys.executable, str(TOOLS_DIR / "log_triage.py"), str(log_path)]
+        if args.platform:
+            log_argv.extend(["--platform", args.platform])
+        if args.json:
+            log_argv.append("--json")
+        if args.json:
+            rc, out = _run_and_capture("log_triage", log_argv, quiet=True)
+            try:
+                field_diagnostics = json.loads(out)
+            except (json.JSONDecodeError, ValueError):
+                field_diagnostics = {"raw_output": out, "parse_error": True}
+        else:
+            rc = run_cmd("log_triage", log_argv)
+        # 默认不阻断；--strict-field 才阻断 P0
+        if args.strict_field:
+            exit_code = max(exit_code, rc)
+        elif not args.json:
+            print("[info] 现场诊断 P0 不阻断（加 --strict-field 可阻断）")
+
+    # ── 复现包：repro_bundle ──
+    if args.repro_output:
+        repro_argv = [sys.executable, str(TOOLS_DIR / "repro_bundle.py"),
+                      "--output", args.repro_output]
+        if args.dir:
+            repro_argv.extend(["--dir", args.dir])
+        if args.platform:
+            repro_argv.extend(["--platform", args.platform])
+        if args.json:
+            rc, _ = _run_and_capture("repro_bundle", repro_argv, quiet=True)
+        else:
+            rc = run_cmd("repro_bundle", repro_argv)
+        exit_code = max(exit_code, rc)
 
     c_files = collect_c_files(args.files, args.dir, include_bad=args.include_bad)
     skipped_bad = 0
@@ -424,6 +479,8 @@ def main() -> int:
             "total_issues": sum(r.get("issues", 0) for r in all_results),
             "total_checkers_run": sum(1 for r in all_results if not r.get("skipped")),
         }
+        if field_diagnostics:
+            report["field_diagnostics"] = field_diagnostics
         json.dump(report, sys.stdout, ensure_ascii=False, indent=2)
         print()
     else:
