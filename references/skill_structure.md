@@ -38,6 +38,7 @@ L4 可执行     tools/                完整版 L2+；Lite 无此层
 ### Model（模型提取）
 | 工具 | 职责 |
 |------|------|
+| `context_router.py` | 上下文路由器 — 根据 workflow/platform/constraints 输出最小读取计划 |
 | `sdk_lookup.py` | SDK 抽象查询引擎 — 标准操作→平台 API 映射，所有 checker 共用 |
 | `project_operating_model.py` | 统一项目事实源（RTOS + frameworks + platform + constraints） |
 | `framework_profile.py` | 框架自动识别 |

@@ -1,7 +1,7 @@
 ---
 name: freertos-embedded-architect
 metadata:
-  version: 37.0.0
+  version: 38.0.0
 description: >-
   FreeRTOS embedded architecture specialist for MVP firmware, board bring-up,
   runtime reliability, memory safety, module contracts, task topology, timeout
@@ -37,8 +37,11 @@ behavior, and practical production hardening.
 
 1. **Choose workflow** — pick one from the routing table below
 2. **Choose platform** — ESP32 or Zephyr (primary), or secondary
-3. **Load constraint shards** — only the shards declared by the workflow
-4. **Load prompts** — only 1-3 prompts specified by the workflow
+3. **Run context router** — `python tools/context_router.py --workflow <id> --platform <id> --json`
+4. **Load only required files** — follow the router's `required_files` list
+5. **Load prompts** — only 1-3 prompts specified by the workflow
+
+> Context Router: `tools/context_router.py` 输出最小读取计划，包含 required_files、forbidden_by_default、token_budget_hint。
 
 ## Routing
 

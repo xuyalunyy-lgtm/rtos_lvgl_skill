@@ -16,6 +16,20 @@ Agent 或维护者在 [archived self_iterate.md](../archive/workflows/self_itera
 
 ---
 
+### 2026-07-03 - v38.0.0 Context Router
+
+- **来源：** v38 上下文路由器版
+- **平台：** ESP32 + Zephyr
+- **变更：**
+  - 新增 tools/context_router.py 上下文路由器
+  - 输入 --workflow/--platform/--constraints，输出最小读取计划
+  - 覆盖 9 个 workflow 的读取计划
+  - 支持 ESP32/Zephyr/secondary 平台选择
+  - 支持 --constraints Cx 精确缩小读取范围
+  - SKILL.md 改为路由优先，引用 context_router
+- **验证：** context_router --self-test 35/35 ✅ / check_links ✅ / check_skill_metadata ✅
+- **版本：** 38.0.0
+
 ### 2026-07-03 - v36.0.0 FixPlan Precision
 
 - **来源：** v36 FixPlan 精度闭环版
