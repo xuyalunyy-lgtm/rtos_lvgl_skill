@@ -1,5 +1,14 @@
 # Changelog
 
+## 33.0.0 - 2026-07-03
+
+v33: 生成落地版 — codegen/scaffold/module contract 为主线能力。
+
+- 宣布 codegen/scaffold/module contract 为主线能力
+- 所有 preset 添加 Zephyr 平台支持
+- ESP32 + Zephyr scaffold 通过 codegen_gate --strict
+- 版本 33.0.0
+
 ## 32.0.8 - 2026-07-03
 
 v32 LTS 收口 — 平台深水区完成。

@@ -2,7 +2,7 @@
   "name": "带屏语音助手",
   "id": "voice-screen",
   "description": "带 LVGL 屏幕的语音交互设备，如智能音箱、语音面板",
-  "platforms": ["esp32", "jl"],
+  "platforms": ["esp32", "jl", "zephyr"],
   "required_constraints": [
     "C1", "C2", "C3", "C4", "C8", "C9", "C10", "C12", "C14",
     "C23", "C25", "C29", "C30", "C31", "C32", "C33", "C35", "C37", "C43"

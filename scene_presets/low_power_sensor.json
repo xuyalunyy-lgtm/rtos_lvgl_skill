@@ -2,7 +2,7 @@
   "name": "低功耗传感器",
   "id": "low-power-sensor",
   "description": "电池供电的传感器节点，如温湿度、烟感、门窗传感器",
-  "platforms": ["esp32", "stm32"],
+  "platforms": ["esp32", "stm32", "zephyr"],
   "required_constraints": [
     "C4", "C8", "C9", "C12", "C14", "C16",
     "C21", "C29", "C32", "C33", "C45"

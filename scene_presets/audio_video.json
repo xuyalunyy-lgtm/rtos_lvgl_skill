@@ -2,7 +2,7 @@
   "name": "音视频设备",
   "id": "audio-video",
   "description": "音视频采集/播放设备，如摄像头、可视门铃、AV 会议终端",
-  "platforms": ["esp32", "jl", "bk"],
+  "platforms": ["esp32", "jl", "bk", "zephyr"],
   "required_constraints": [
     "C2", "C3", "C4", "C8", "C9", "C12", "C14",
     "C25", "C26", "C27", "C28", "C29", "C30", "C33",
