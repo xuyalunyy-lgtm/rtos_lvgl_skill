@@ -16,6 +16,23 @@ Agent 或维护者在 [archived self_iterate.md](../archive/workflows/self_itera
 
 ---
 
+### 2026-07-03 - v32.0.8 Platform Deep-Dive LTS
+
+- **来源：** v32 平台深水区收口
+- **平台：** ESP32 + Zephyr（一等平台）
+- **变更：**
+  - 32.0.0: 宣布 ESP32+Zephyr 为一等平台
+  - 32.0.1: sdk_abstraction.yaml 新增 OTA_VERIFY/CACHE_CLEAN/CACHE_INVALIDATE/DMA_BUFFER_SYNC
+  - 32.0.2: ESP32 平台文档覆盖 OTA/heap_caps/PSRAM/DMA/WDT/NVS/WiFi power-save
+  - 32.0.3: Zephyr 文档新增 Workqueue + MCUboot/OTA 章节
+  - 32.0.4: 平台感知 checker 通过 sdk_lookup 统一识别 API
+  - 32.0.5: 新增 rtos_scanner.py 轻量拓扑扫描器
+  - 32.0.6: 跨平台迁移矩阵已有 platform_diff_matrix.md
+  - 32.0.7: project_scaffold.py ESP32/Zephyr 对等生成
+  - 32.0.8: LTS 收口
+- **验证：** skill_iterate --check ✅ / check_links ✅ / run_review --self-test ✅ / sdk_lookup --self-test ✅ / rtos_scanner --self-test ✅
+- **版本：** 32.0.8
+
 ### 2026-07-03 - v31.0.8 LTS Closure
 
 - **来源：** v31 收敛稳定版收口
