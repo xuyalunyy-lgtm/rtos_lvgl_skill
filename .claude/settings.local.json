@@ -65,7 +65,13 @@
       "Bash(echo \"good_boot exit=$?\")",
       "Bash(echo \"brownout exit=$?\")",
       "Bash(python tools/log_triage.py --self-test)",
-      "Bash(python scripts/check_log_triage_matrix.py)"
+      "Bash(python scripts/check_log_triage_matrix.py)",
+      "Bash(python tools/ota_safety_checker.py tools/fixtures/good_ota_update.c tools/fixtures/bad_ota_update.c --json)",
+      "Bash(python tools/sdk_lookup.py --self-test)",
+      "Bash(python tools/sdk_lookup.py --platform esp32 --validate-all)",
+      "Bash(git stash *)",
+      "Bash(python tools/sdk_lookup.py --validate-constraints)",
+      "Bash(python tools/sdk_lookup.py --validate-all)"
     ]
   }
 }

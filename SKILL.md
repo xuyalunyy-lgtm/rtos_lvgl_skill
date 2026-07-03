@@ -1,7 +1,7 @@
 ---
 name: freertos-embedded-architect
 metadata:
-  version: 29.0.0
+  version: 30.0.0
 description: >-
   FreeRTOS embedded architecture specialist for MVP firmware, board bring-up,
   runtime reliability, memory safety, module contracts, task topology, timeout
@@ -37,9 +37,10 @@ behavior, and practical production hardening.
 
 Choose one workflow first, then load only required references, platform docs, and scene prompts.
 
+### User Workflows (default context)
+
 | Scenario | Workflow |
 |---|---|
-| Software architecture review | [l2_architecture_review.md](workflows/l2_architecture_review.md) |
 | Code review | [l2_code_review.md](workflows/l2_code_review.md) |
 | Project review | [l2_project_review.md](workflows/l2_project_review.md) |
 | Crash/Bug | [debug_crash.md](workflows/debug_crash.md) |
@@ -48,16 +49,25 @@ Choose one workflow first, then load only required references, platform docs, an
 | New module | [l3_new_module.md](workflows/l3_new_module.md) |
 | Bring-up | [l3_bring_up.md](workflows/l3_bring_up.md) |
 | LVGL pages | [l3_lvgl_page.md](workflows/l3_lvgl_page.md) |
-| Self-iteration | [self_iterate.md](workflows/self_iterate.md) |
-| Session strict mode | [session_strict_mode.txt](prompts/session_strict_mode.txt) |
+| Software architecture review | [l2_architecture_review.md](workflows/l2_architecture_review.md) |
 | RTOS system review | [l2_rtos_system_review.md](workflows/l2_rtos_system_review.md) |
+| Soft/Hardware co-debug | [hw_sw_cocodebug.md](workflows/hw_sw_cocodebug.md) |
+
+### Maintainer / Optional (not loaded by default)
+
+| Scenario | Workflow |
+|---|---|
+| Self-iteration | [self_iterate.md](workflows/self_iterate.md) |
 | Learning candidate | [l2_learning_candidate.md](workflows/l2_learning_candidate.md) |
+| Session strict mode | [session_strict_mode.txt](prompts/session_strict_mode.txt) |
+| Release governance | [release_governance](references/release_governance.md) |
+| Auto repair | [l2_auto_repair.md](workflows/l2_auto_repair.md) |
 
 ## Required Context
 
 - Core rules: [core_rules](references/core_rules.md), [constraint_index](references/constraint_index.md), [constraint_detail](references/constraint_detail.md), [skill_structure](references/skill_structure.md)
 - SDK abstraction: [sdk_abstraction](references/sdk_abstraction.yaml) — 标准操作注册表，checker 通过 `sdk_lookup.py` 查询平台 API
-- Release governance: [release_governance](references/release_governance.md), [claude_code](references/claude_code.md), [cursor rule](templates/cursor-rule.embedded.mdc)
+- Release governance (maintainer): [release_governance](references/release_governance.md), [claude_code](references/claude_code.md), [cursor rule](templates/cursor-rule.embedded.mdc)
 
 ## On-Demand (workflow Step 1 loads)
 
@@ -77,8 +87,8 @@ Load only prompts needed by the selected workflow: [prompt_index](references/pro
 - L3 implementation tasks execute end-to-end by default unless the user narrows scope.
 - Do not perform unplanned core SDK refactors; preserve critical logs and watchdog behavior.
 - Read prompts/references before suggesting platform bindings.
-- For commit requests, follow [git_commit_style](references/git_commit_style.md), run release audit, and use `type(scope):`.
-- **Session strict mode**: when activated, every RTOS/firmware task must: (1) choose workflow, (2) declare platform/framework, (3) cite constraints, (4) provide verification plan. See [session_strict_mode.txt](prompts/session_strict_mode.txt). Guard: `python tools/session_guard.py --self-test`.
+- For commit requests, follow [git_commit_style](references/git_commit_style.md) and use `type(scope):`.
+- **Session strict mode** (maintainer): when activated, every RTOS/firmware task must: (1) choose workflow, (2) declare platform/framework, (3) cite constraints, (4) provide verification plan. See [session_strict_mode.txt](prompts/session_strict_mode.txt). Guard: `python tools/session_guard.py --self-test`.
 
 ## RTOS Project Gate
 

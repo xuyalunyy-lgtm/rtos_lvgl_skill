@@ -306,12 +306,6 @@ mappings:
     unsupported: true
     reason: "JL SDK 无外设断电 API"
 
-  LOG_DESENSITIZE:
-    apis: []
-    headers: []
-    unsupported: true
-    reason: "Checker-level concept, not an SDK API"
-
   # ---- 日志 ----
   LOG_WRITE:
     apis: ["printf"]

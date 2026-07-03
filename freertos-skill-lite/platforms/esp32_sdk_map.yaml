@@ -294,13 +294,6 @@ mappings:
     apis: ["opus_encoder_destroy", "opus_decoder_destroy", "codec_close", "codec_deinit"]
     headers: []
 
-  # ---- 日志脱敏 ----
-  LOG_DESENSITIZE:
-    apis: []
-    headers: []
-    unsupported: true
-    reason: "Checker-level concept, not an SDK API"
-
   # ---- 日志 ----
   LOG_WRITE:
     apis: ["ESP_LOGE", "ESP_LOGW", "ESP_LOGI", "ESP_LOGD", "ESP_LOGV",

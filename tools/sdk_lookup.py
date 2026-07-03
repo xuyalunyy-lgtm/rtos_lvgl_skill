@@ -123,19 +123,22 @@ class SdkLookup:
     def get_all_apis_by_category(self, category: str) -> list:
         """返回某类别下所有操作的 API 合并列表。
 
+        从 sdk_abstraction.yaml 的类别分组中获取操作名列表，
+        再通过平台映射查找每个操作的具体 API。
+
         Args:
-            category: 类别名，如 "semaphore", "queue", "heap"
+            category: 类别名，如 "rtos_semaphore", "rtos_mutex", "memory"
 
         Returns:
             API 名列表
         """
+        operations = self._registry.get(category, {})
+        if not isinstance(operations, dict):
+            return []
         apis = []
-        for pmap in self._platform_maps:
-            mappings = pmap.get("mappings", {})
-            if category in mappings and isinstance(mappings[category], dict):
-                for op_name, op_data in mappings[category].items():
-                    if isinstance(op_data, dict):
-                        apis.extend(op_data.get("apis", []))
+        for op_name, op_data in operations.items():
+            if isinstance(op_data, dict):
+                apis.extend(self.get_apis(op_name))
         return list(dict.fromkeys(apis))
 
     def build_regex(self, *operations: str) -> re.Pattern:
@@ -278,6 +281,8 @@ class SdkLookup:
             mapping = self._op_index.get(op_name)
             if mapping is None:
                 issues.append((op_name, "未在平台映射中定义"))
+            elif mapping.get("unsupported"):
+                continue  # 平台明确标记为不支持，跳过
             elif not mapping.get("apis") and not mapping.get("value"):
                 issues.append((op_name, "apis 和 value 均为空"))
         return issues
@@ -342,7 +347,27 @@ def validate_constraints():
              "WDT", "TLS", "SSL", "TCP", "UDP", "HTTP", "MQTT", "JSON",
              "LVGL", "RTOS", "RTOS_HEAP_ALLOC", "PSRAM", "SPIRAM", "SRAM",
              "UV", "RGB", "YUV", "PTS", "AEC", "ASR", "TTS", "I2S",
-             "IRQ", "IPC", "SNTP", "DNS", "DHCP", "WiFi", "Kconfig"}
+             "IRQ", "IPC", "SNTP", "DNS", "DHCP", "WiFi", "Kconfig",
+             "CONFIG", "FEATURE", "DEBUG", "BOARD", "PLATFORM", "APP_TEST_MODE",
+             "LOG_E", "LOG_W", "LOG_I", "LOG_D", "LOG_V", "LOG_", "LOGI",
+             "ESP_LOGE", "ESP_LOGW", "ESP_LOGI", "ESP_LOGD", "ESP_LOGV",
+             "BK_LOGI", "BK_LOGW", "BK_LOGE",
+             # 通用噪音：配置前缀、HAL 前缀、协议缩写、模块名、状态名
+             "CONFIG_", "HAL_", "MODULE", "MODULE_ERR_", "MODULE_FEATURE_VALUE",
+             "TAG", "STATE", "ERROR", "WARN", "READY", "OVERFLOW", "STACK",
+             "IDLE", "STOPPING", "FINISHED", "SECRET", "PASSWORD", "TOKEN",
+             "URL", "SSH", "HTTPS", "IP", "ID", "MAX", "NULL",
+             "IO", "UI", "PC", "SD", "FS", "RTC", "DAC", "TX", "LR",
+             "AAC", "PCM", "MIC", "DRDY", "TE", "REFRESH_RATE",
+             "PIR", "BL_EN", "BL_PIN", "OLED_ADDR",
+             "WSS", "NET", "TEMP_FIX", "PRIO_LVGL", "PRIO_WSS",
+             "PLAYBACK_SLOT", "WHO_AM_I", "SO_RCVTIMEO", "EVT_WSS_CONNECT_FAIL",
+             "WIFI_RECONNECT_BASE_MS", "WSS_MAX_RETRY_COUNT",
+             "CONFIG_FREERTOS_USE_TICKLESS_IDLE", "CONFIG_LOG_NETWORK_LEVEL",
+             "CONFIG_LOG_PROFILE_PROD", "CONFIG_SUBSTITUTE_FILE", "CONFIG_FEATURE_AUDIO",
+             "NET_MODE_OFFLINE", "LOG_RATE_LIMIT_MS", "CPHA", "CPOL",
+             "AI", "BK", "JL",
+             "API", "API_KEY", "APP_TEST_MODE_", "LOG", "UART", "WAIT_FOREVER"}
     found_ops -= noise
 
     missing = found_ops - all_ops

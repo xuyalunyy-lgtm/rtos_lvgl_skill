@@ -26,6 +26,12 @@ lookup = SdkLookup(_platform)
 SEM_CREATE_APIS = lookup.get_apis("SEM_CREATE")
 SEM_TAKE_APIS = lookup.get_apis("SEM_TAKE")
 SEM_GIVE_APIS = lookup.get_apis("SEM_GIVE")
+MUTEX_CREATE_APIS = lookup.get_apis("MUTEX_CREATE")
+
+# Only binary/counting semaphore creation APIs are relevant for C15.2.
+# Mutex creation APIs (e.g. xSemaphoreCreateMutex) are the CORRECT way
+# to protect shared resources and must not be flagged.
+BINARY_SEM_CREATE_APIS = sorted(set(SEM_CREATE_APIS) - set(MUTEX_CREATE_APIS))
 
 
 def check_file(path: Path) -> list[dict]:
@@ -41,8 +47,8 @@ def check_file(path: Path) -> list[dict]:
         if stripped.startswith("//") or stripped.startswith("/*"):
             continue
 
-        # C15.2: binary semaphore for shared resource
-        if any(api in stripped for api in SEM_CREATE_APIS):
+        # C15.2: binary semaphore for shared resource (NOT mutex — mutex is correct)
+        if any(api in stripped for api in BINARY_SEM_CREATE_APIS):
             has_shared = False
             for j in range(max(0, i - 10), min(len(lines), i + 10)):
                 ctx = lines[j].strip()

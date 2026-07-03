@@ -27,6 +27,24 @@ OTA_FINISH_APIS = lookup.get_all_apis("OTA_END")
 OTA_MARK_VALID = lookup.get_all_apis("OTA_MARK_VALID", "OTA_ROLLBACK")
 OTA_VERIFY = []  # TODO: add OTA_VERIFY to sdk_abstraction.yaml when verification ops are registered
 
+# C22.1: Known signature / image verification APIs (ESP-IDF).
+# These are accepted as valid verification evidence even when OTA_VERIFY
+# is empty in the SDK abstraction registry.
+C221_VERIFY_APIS = [
+    "esp_secure_boot_verify_signature",
+    "esp_image_verify",
+    "esp_ota_verify_signature",
+    "esp_app_desc_verify",
+]
+
+# C22.1: sdkconfig / Kconfig patterns that indicate secure boot is enabled.
+C221_SECURE_BOOT_CONFIG = [
+    "CONFIG_SECURE_BOOT",
+    "CONFIG_SECURE_BOOT_V2_ENABLED",
+    "CONFIG_SECURE_SIGNED_APPS",
+    "CONFIG_SECURE_SIGNED_APPS_NO_SECURE_BOOT",
+]
+
 
 def check_file(path: Path) -> list[dict]:
     result = read_file(path)
@@ -43,8 +61,14 @@ def check_file(path: Path) -> list[dict]:
 
     # C22.1: Signature verification
     has_ota_write = any(api + "(" in l for l in clean for api in OTA_WRITE_APIS)
-    has_verify = any(api + "(" in l for l in clean for api in OTA_VERIFY)
-    has_secure_boot = any("CONFIG_SECURE_BOOT" in l and ("y" in l or "enabled" in l.lower()) for l in clean)
+    has_verify = (
+        any(api + "(" in l for l in clean for api in OTA_VERIFY)
+        or any(api + "(" in l for l in clean for api in C221_VERIFY_APIS)
+    )
+    has_secure_boot = any(
+        cfg in l and ("y" in l or "enabled" in l.lower() or "=1" in l)
+        for l in clean for cfg in C221_SECURE_BOOT_CONFIG
+    )
 
     if has_ota_write and not has_verify and not has_secure_boot:
         issues.append(make_issue(path, 1, "C22.1", "P0",

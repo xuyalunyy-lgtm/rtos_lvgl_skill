@@ -34,9 +34,8 @@ esp_err_t ota_update(const char *url)
 
     esp_ota_end(handle);
 
-    /* C22.1: 签名验证 */
-    esp_app_desc_t app_desc;
-    esp_ota_get_app_description(part, &app_desc);
+    /* C22.1: 签名验证 — verify image signature before booting */
+    esp_image_verify(ESP_IMAGE_VERIFY, part->address);
 
     /* C22.2: 设置启动分区 + 标记有效 */
     esp_ota_set_boot_partition(part);

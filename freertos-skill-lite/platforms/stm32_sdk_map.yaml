@@ -290,12 +290,6 @@ mappings:
     apis: ["HAL_ADC_DeInit", "HAL_SPI_DeInit", "HAL_I2C_DeInit"]
     headers: ["stm32xx_hal.h"]
 
-  LOG_DESENSITIZE:
-    apis: []
-    headers: []
-    unsupported: true
-    reason: "Checker-level concept, not an SDK API"
-
   # ---- 日志 ----
   LOG_WRITE:
     apis: ["printf"]
