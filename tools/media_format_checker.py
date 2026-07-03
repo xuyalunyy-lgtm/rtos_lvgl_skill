@@ -21,6 +21,9 @@ import re
 from pathlib import Path
 
 from checker_io import extract_functions, make_issue, read_file, run_checker, strip_comments
+from sdk_lookup import SdkLookup
+
+lookup = SdkLookup("esp32")
 
 
 DEFINE_RE = re.compile(r"^\s*#define\s+([A-Za-z_]\w*)\s+\(?([0-9]+)U?\)?", re.MULTILINE)
@@ -36,13 +39,13 @@ BITS_RE = re.compile(r"(?:BITS_PER_SAMPLE|BIT_DEPTH)")
 FRAME_MS_RE = re.compile(r"(?:FRAME_MS|FRAME_DURATION_MS)")
 FRAME_SAMPLES_RE = re.compile(r"(?:FRAME_SAMPLES|SAMPLES_PER_FRAME)")
 HOT_FUNC_RE = re.compile(r"(?:encode|decode|convert|resample|scale|process).*frame|process.*pcm", re.IGNORECASE)
+_alloc_free_apis = lookup.get_all_apis("HEAP_ALLOC", "HEAP_FREE")
+_log_apis = lookup.get_all_apis("LOG_WRITE", "PRINTF")
 ALLOC_LOG_RE = re.compile(
-    r"\b(?:malloc|calloc|free|pvPortMalloc|vPortFree|heap_caps_malloc|heap_caps_calloc|"
-    r"printf|puts|LOG_[A-Z]+|ESP_LOG[IEWD])\s*\("
+    r"\b(?:" + "|".join(re.escape(a) for a in _alloc_free_apis + _log_apis) + r")\s*\("
 )
 CODEC_CREATE_RE = re.compile(
-    r"\b(?:opus_encoder_create|opus_decoder_create|codec_open|codec_init|jpeg_decoder_init|h264_decoder_init|"
-    r"aac_encoder_open|aac_decoder_open)\s*\(",
+    r"\b(?:" + "|".join(re.escape(a) for a in lookup.get_apis("CODEC_OPEN")) + r")\s*\(",
     re.IGNORECASE,
 )
 TELEMETRY_RE = re.compile(r"(?:format_mismatch|codec_error|last_frame_size|max_encode|max_decode|mismatch_count)")

@@ -18,6 +18,9 @@ import re
 from pathlib import Path
 
 from checker_io import make_issue, read_file, run_checker
+from sdk_lookup import SdkLookup
+
+lookup = SdkLookup("esp32")
 
 
 # ---------------------------------------------------------------------------
@@ -59,8 +62,8 @@ def check_file(path: Path) -> list[dict]:
                 current_func = None
                 brace_depth = 0
 
-    parse_re = re.compile(r"cJSON_Parse\s*\(")
-    delete_re = re.compile(r"cJSON_Delete\s*\(")
+    parse_re = lookup.build_regex("PARSE")
+    delete_re = lookup.build_regex("DELETE")
     return_re = re.compile(r"\breturn\b")
     goto_re = re.compile(r"\bgoto\s+(\w+)")
     label_re = re.compile(r"^(\w+):\s*$")

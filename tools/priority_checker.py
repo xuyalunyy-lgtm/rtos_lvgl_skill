@@ -13,9 +13,19 @@ C15 任务优先级启发式检查器。
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from checker_io import make_issue, read_file, run_checker
+from sdk_lookup import SdkLookup
+
+# --- SDK abstraction lookup ---
+_platform = os.environ.get("SDK_PLATFORM", "esp32")
+lookup = SdkLookup(_platform)
+
+SEM_CREATE_APIS = lookup.get_apis("SEM_CREATE")
+SEM_TAKE_APIS = lookup.get_apis("SEM_TAKE")
+SEM_GIVE_APIS = lookup.get_apis("SEM_GIVE")
 
 
 def check_file(path: Path) -> list[dict]:
@@ -32,12 +42,13 @@ def check_file(path: Path) -> list[dict]:
             continue
 
         # C15.2: binary semaphore for shared resource
-        if "xSemaphoreCreateBinary" in stripped:
+        if any(api in stripped for api in SEM_CREATE_APIS):
             has_shared = False
             for j in range(max(0, i - 10), min(len(lines), i + 10)):
                 ctx = lines[j].strip()
                 if any(kw in ctx for kw in ["shared", "g_", "s_"]) and (
-                    "xSemaphoreTake" in ctx or "xSemaphoreGive" in ctx
+                    any(api in ctx for api in SEM_TAKE_APIS) or
+                    any(api in ctx for api in SEM_GIVE_APIS)
                 ):
                     has_shared = True
                     break

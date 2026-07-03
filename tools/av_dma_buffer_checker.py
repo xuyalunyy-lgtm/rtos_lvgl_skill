@@ -28,14 +28,21 @@ from checker_io import (
     run_checker,
     strip_comments,
 )
+from sdk_lookup import SdkLookup
+
+# 全平台 SDK 查询
+_ALL_PLATFORMS = ["esp32", "stm32", "jl", "bk", "zephyr"]
+_lookup = SdkLookup(_ALL_PLATFORMS)
 
 MEDIA_DMA_RE = re.compile(
     r"(dma|cache|zero[_-]?copy|dma_buf|frame_pool|buffer_pool|MALLOC_CAP_DMA|DMA_ATTR|"
     r"DMA_ALIGNED|DCache|esp_cache_msync|dma_sync)",
     re.IGNORECASE,
 )
+# SDK lookup 构建 DMA 分配正则
+_dma_alloc_apis = set(_lookup.get_all_apis("HEAP_ALLOC", "HEAP_ALLOC_DMA"))
 DMA_ALLOC_RE = re.compile(
-    r"(?P<stmt>[^;\n]*(?:malloc|calloc|pvPortMalloc|heap_caps_malloc|heap_caps_calloc)\s*\([^;]*;)",
+    r"(?P<stmt>[^;\n]*(?:%s)\s*\([^;]*;)" % "|".join(re.escape(a) for a in sorted(_dma_alloc_apis)),
     re.IGNORECASE,
 )
 DMA_ARRAY_RE = re.compile(
@@ -47,6 +54,7 @@ DMA_ARRAY_RE = re.compile(
 DMA_CAPABLE_RE = re.compile(r"(MALLOC_CAP_DMA|DMA_ATTR|DMA_ALIGNED|DMA_CAPABLE|__attribute__\s*\(\(.*aligned)", re.IGNORECASE)
 RX_RE = re.compile(r"(rx|receive|capture|camera|i2s.*rx|dma.*(?:done|cplt|complete)|HAL_.*Rx.*Callback)", re.IGNORECASE)
 TX_RE = re.compile(r"(tx|transmit|playback|lcd|display|flush|i2s.*tx|dma_start|dma_submit|panel.*draw)", re.IGNORECASE)
+# SDK lookup 不覆盖 DMA/cache 操作（平台特定驱动 API，非标准 RTOS 操作），保留原始正则
 CACHE_INVALIDATE_RE = re.compile(r"(InvalidateDCache|cache_?invalidate|MSYNC_FLAG_INVALIDATE|dma_sync_for_cpu)", re.IGNORECASE)
 CACHE_CLEAN_RE = re.compile(r"(CleanDCache|cache_?clean|MSYNC_FLAG_CLEAN|MSYNC_FLAG_DIR_C2M|dma_sync_for_device)", re.IGNORECASE)
 CACHE_OP_RE = re.compile(r"(InvalidateDCache|CleanDCache|cache_?(?:invalidate|clean)|esp_cache_msync|dma_sync_for_)", re.IGNORECASE)
@@ -58,9 +66,13 @@ CACHE_CONTEXT_RE = re.compile(
 )
 LIFECYCLE_RE = re.compile(r"(owner|state|refcount|generation|gen|release|free_list|in_use)", re.IGNORECASE)
 ZERO_COPY_RE = re.compile(r"(zero[_-]?copy|frame_pool|dma_pool|buffer_pool|pool_count|ring)", re.IGNORECASE)
+# SDK lookup 构建队列裸指针正则
+_qs_send_re = _lookup.build_regex("QUEUE_SEND", "QUEUE_OVERWRITE")
+_qs_m = re.search(r'\(\?:([^)]+)\)', _qs_send_re.pattern)
+_qs_core = _qs_m.group(1) if _qs_m else "xQueueSend"
 QUEUE_RAW_PTR_RE = re.compile(
-    r"\bxQueue(?:Send|SendToBack|Overwrite)\s*\([^;]*&\s*"
-    r"(?:s_|g_)?[A-Za-z_0-9]*(?:dma|buf|buffer|frame|pcm)[A-Za-z_0-9]*",
+    r"\b(?:%s)\s*\([^;]*&\s*"
+    r"(?:s_|g_)?[A-Za-z_0-9]*(?:dma|buf|buffer|frame|pcm)[A-Za-z_0-9]*" % _qs_core,
     re.IGNORECASE | re.DOTALL,
 )
 TELEMETRY_RE = re.compile(

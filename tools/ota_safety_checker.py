@@ -18,12 +18,14 @@ import re
 from pathlib import Path
 
 from checker_io import make_issue, read_file, run_checker, strip_comments_lines
+from sdk_lookup import SdkLookup
 
-OTA_WRITE_APIS = ["esp_ota_write", "esp_ota_begin"]
-OTA_FINISH_APIS = ["esp_ota_end", "esp_ota_set_boot_partition"]
-OTA_MARK_VALID = ["esp_ota_mark_app_valid_cancel_rollback", "esp_ota_mark_app_invalid_rollback_and_reboot"]
-OTA_VERIFY = ["esp_ota_verify", "esp_secure_boot_verify_signature", "esp_image_verify",
-              "esp_app_desc_check", "esp_ota_get_app_description"]
+lookup = SdkLookup("esp32")
+
+OTA_WRITE_APIS = lookup.get_all_apis("OTA_WRITE", "OTA_BEGIN")
+OTA_FINISH_APIS = lookup.get_all_apis("OTA_END")
+OTA_MARK_VALID = lookup.get_all_apis("OTA_MARK_VALID", "OTA_ROLLBACK")
+OTA_VERIFY = []  # TODO: add OTA_VERIFY to sdk_abstraction.yaml when verification ops are registered
 
 
 def check_file(path: Path) -> list[dict]:

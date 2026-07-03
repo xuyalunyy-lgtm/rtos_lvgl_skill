@@ -12,27 +12,24 @@ C14.4 日志脱敏启发式检查器。
 
 from __future__ import annotations
 
+import os
 import re
 from pathlib import Path
 
 from checker_io import make_issue, read_file, run_checker
+from sdk_lookup import SdkLookup
 
-# Log macros
-LOG_MACROS = [
-    "LOG_E",
-    "LOG_W",
-    "LOG_I",
-    "LOG_D",
-    "LOG_V",
-    "ESP_LOGE",
-    "ESP_LOGW",
-    "ESP_LOGI",
-    "ESP_LOGD",
-    "ESP_LOGV",
-    "printf",
-    "fprintf",
-    "snprintf",
-]
+# --- SDK abstraction lookup ---
+_platform = os.environ.get("SDK_PLATFORM", "esp32")
+lookup = SdkLookup(_platform)
+
+# Log macros (from SDK abstraction + supplementary platform-specific macros)
+LOG_MACROS = lookup.get_all_apis("LOG_WRITE", "PRINTF")
+# Supplementary log macros not in SDK abstraction
+_SUPPLEMENTARY_LOG = ["LOG_E", "LOG_W", "LOG_I", "LOG_D", "LOG_V", "snprintf"]
+for _m in _SUPPLEMENTARY_LOG:
+    if _m not in LOG_MACROS:
+        LOG_MACROS.append(_m)
 
 # Sensitive keywords that should not be printed
 SENSITIVE_KEYWORDS = [

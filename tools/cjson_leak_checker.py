@@ -17,14 +17,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from checker_io import make_issue, read_file, run_checker
+from sdk_lookup import SdkLookup
 
-PARSE_PATTERNS = [
-    re.compile(r"\bcJSON_ParseWithLength\s*\("),
-    re.compile(r"\bcJSON_ParseWithOpts\s*\("),
-    re.compile(r"\bcJSON_Parse\s*\("),
-]
-DELETE_PATTERN = re.compile(r"\bcJSON_Delete\s*\(")
-CREATE_PATTERN = re.compile(r"\bcJSON_Create\w*\s*\(")
+lookup = SdkLookup("esp32")
+
+PARSE_PATTERNS = [re.compile(r"\b" + re.escape(api) + r"\s*\(") for api in lookup.get_apis("PARSE")]
+DELETE_PATTERN = lookup.build_regex("DELETE")
+CREATE_PATTERN = lookup.build_regex("CREATE")
 
 PARSE_ASSIGN_PATTERN = re.compile(
     r"\b(?P<var>[A-Za-z_]\w*)\s*=\s*(?:\([^)]*\)\s*)?"

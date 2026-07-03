@@ -21,20 +21,26 @@ import re
 from pathlib import Path
 
 from checker_io import extract_functions, line_at, make_issue, nearby, read_file, run_checker, strip_comments
+from sdk_lookup import SdkLookup
 
+# 全平台 SDK 查询
+_ALL_PLATFORMS = ["esp32", "stm32", "jl", "bk", "zephyr"]
+_lookup = SdkLookup(_ALL_PLATFORMS)
 
+# 构建锁获取正则（保留 args 捕获组用于 forever 检测）
+_lock_take_apis = _lookup.get_all_apis("SEM_TAKE", "MUTEX_LOCK")
 LOCK_TAKE_RE = re.compile(
-    r"\b(?:xSemaphoreTake|xSemaphoreTakeRecursive|rtos_lock_mutex|os_mutex_pend|pthread_mutex_lock)\s*\((?P<args>[^;]*?)\)\s*;",
+    r"\b(?:%s)\s*\((?P<args>[^;]*?)\)\s*;" % "|".join(re.escape(a) for a in _lock_take_apis),
     re.IGNORECASE | re.DOTALL,
 )
-LOCK_GIVE_RE = re.compile(r"\b(?:xSemaphoreGive|xSemaphoreGiveRecursive|rtos_unlock_mutex|os_mutex_post|pthread_mutex_unlock)\s*\(", re.IGNORECASE)
-FOREVER_WAIT_RE = re.compile(r"\b(?:portMAX_DELAY|WAIT_FOREVER|RTOS_WAIT_FOREVER|OS_WAIT_FOREVER|BEKEN_WAIT_FOREVER)\b")
+LOCK_GIVE_RE = _lookup.build_regex("SEM_GIVE", "MUTEX_UNLOCK")
+FOREVER_WAIT_RE = _lookup.build_constant_regex("TIMEOUT_FOREVER")
 LOCK_BUDGET_HINT_RE = re.compile(r"(lock_budget|max_hold|hold_.*(?:us|ms)|bounded_lock|try_lock|pdMS_TO_TICKS\s*\()", re.IGNORECASE)
 LOCK_ORDER_HINT_RE = re.compile(r"(lock_order|lock order|lock_rank|rank:|order:|L[0-9]\s*->)", re.IGNORECASE)
-BLOCKING_WORK_RE = re.compile(
-    r"\b(?:vTaskDelay|vTaskDelayUntil|mbedtls_ssl_(?:read|write|handshake)|recv|send|connect|select|poll|"
-    r"cJSON_Parse|fopen|fread|fwrite|nvs_commit|flash_erase|flash_write|lv_timer_handler|codec_(?:open|create))\s*\(",
-    re.IGNORECASE,
+BLOCKING_WORK_RE = _lookup.build_combined_regex(
+    "mbedtls_ssl_read|mbedtls_ssl_write|mbedtls_ssl_handshake|fopen|fread|fwrite|codec_open|codec_create",
+    "TASK_DELAY", "TLS_READ", "TLS_WRITE", "TLS_HANDSHAKE", "SOCKET_RECV", "SOCKET_SEND",
+    "SOCKET_CONNECT", "PARSE", "NVS_COMMIT", "FLASH_WRITE", "FLASH_ERASE", "TIMER_HANDLER",
 )
 HOT_FUNC_RE = re.compile(r"(IRQHandler|ISR|_isr|Callback|Cplt|Done|flush|frame|audio|video|render|encode|decode|capture)", re.IGNORECASE)
 BINARY_SEM_CREATE_RE = re.compile(

@@ -11,6 +11,11 @@ import re
 from pathlib import Path
 
 from checker_io import make_issue, read_file, run_checker
+from sdk_lookup import SdkLookup
+
+# 全平台 SDK 查询
+_ALL_PLATFORMS = ["esp32", "stm32", "jl", "bk", "zephyr"]
+_lookup = SdkLookup(_ALL_PLATFORMS)
 
 # 仅匹配 ISR/HAL 回调的函数定义行，勿把任务内的 *FromISR 调用误判为 ISR
 ISR_FUNC_DEF = re.compile(
@@ -19,25 +24,35 @@ ISR_FUNC_DEF = re.compile(
 )
 ISR_ATTR = re.compile(r"__attribute__\s*\(\s*\(\s*interrupt")
 
-BLOCKING_PATTERNS: list[tuple[re.Pattern[str], str]] = [
-    (re.compile(r"\bvTaskDelay\s*\("), "vTaskDelay — ISR 中禁止"),
-    (re.compile(r"\bvTaskDelayUntil\s*\("), "vTaskDelayUntil — ISR 中禁止"),
-    (re.compile(r"\bxSemaphoreTake\s*\("), "xSemaphoreTake — 须用 TakeFromISR"),
-    (re.compile(r"\bxSemaphoreGive\s*\("), "xSemaphoreGive — 须用 GiveFromISR"),
-    (re.compile(r"\bxQueueSend\s*\("), "xQueueSend — 须用 SendFromISR"),
-    (re.compile(r"\bxQueueReceive\s*\("), "xQueueReceive — ISR 中禁止阻塞接收"),
-    (re.compile(r"\bxTaskNotify\s*\("), "xTaskNotify — 须用 NotifyFromISR"),
-    (re.compile(r"\bos_sem_pend\s*\("), "os_sem_pend — 杰理 ISR 中禁止"),
-    (re.compile(r"\bos_mutex_pend\s*\("), "os_mutex_pend — ISR 中禁止"),
-    (re.compile(r"\bthread_delay_ms\s*\("), "thread_delay_ms — ISR 中禁止"),
-    (re.compile(r"\bprintf\s*\("), "printf — ISR 中可能阻塞"),
-    (re.compile(r"\bcJSON_Parse\s*\("), "cJSON_Parse — ISR 中禁止（malloc）"),
-    (re.compile(r"\bmalloc\s*\("), "malloc — ISR 中禁止"),
-    (re.compile(r"\bpvPortMalloc\s*\("), "pvPortMalloc — ISR 中禁止"),
-    (re.compile(r"\bportMAX_DELAY\b"), "portMAX_DELAY — ISR 中禁止无限等待"),
-]
+# --- SDK lookup 构建阻塞模式 ---
+_ISR_OP_DESCRIPTIONS = {
+    "TASK_DELAY": "ISR 中禁止",
+    "SEM_TAKE": "须用 TakeFromISR",
+    "SEM_GIVE": "须用 GiveFromISR",
+    "QUEUE_SEND": "须用 SendFromISR",
+    "QUEUE_RECV": "ISR 中禁止阻塞接收",
+    "TASK_NOTIFY_GIVE": "须用 NotifyFromISR",
+    "MUTEX_LOCK": "ISR 中禁止",
+    "HEAP_ALLOC": "ISR 中禁止",
+    "PRINTF": "ISR 中可能阻塞",
+    "PARSE": "ISR 中禁止（malloc）",
+}
 
-PORT_YIELD_PATTERN = re.compile(r"\bportYIELD_FROM_ISR\s*\(")
+_seen_apis: set[str] = set()
+BLOCKING_PATTERNS: list[tuple[re.Pattern[str], str]] = []
+for _op, _desc in _ISR_OP_DESCRIPTIONS.items():
+    for _api in _lookup.get_apis(_op):
+        if _api not in _seen_apis:
+            _seen_apis.add(_api)
+            BLOCKING_PATTERNS.append(
+                (re.compile(r"\b%s\s*\(" % re.escape(_api)), f"{_api} — {_desc}")
+            )
+# 常量匹配
+BLOCKING_PATTERNS.append(
+    (_lookup.build_constant_regex("TIMEOUT_FOREVER"), "portMAX_DELAY — ISR 中禁止无限等待")
+)
+
+PORT_YIELD_PATTERN = _lookup.build_regex("IRQ_YIELD")
 
 
 def find_function_name(lines: list[str], line_idx: int) -> str:

@@ -1,7 +1,7 @@
 ---
 name: freertos-embedded-architect
 metadata:
-  version: 28.0.8
+  version: 29.0.0
 description: >-
   FreeRTOS embedded architecture specialist for MVP firmware, board bring-up,
   runtime reliability, memory safety, module contracts, task topology, timeout
@@ -9,7 +9,9 @@ description: >-
   backpressure, recovery, config matrices, reproducible bring-up, regression samples,
   board resource contracts, lock budgets, priority inversion prevention, critical-section budgets,
   sensor bus/sample/calibration contracts, LVGL/DMA/ISR safety, SDK trimming, crash debugging,
-  release governance, OTA firmware update safety, and Zephyr-style RTOS project skeletons. Use when the user
+  release governance, OTA firmware update safety, and Zephyr-style RTOS project skeletons.
+  SDK abstraction layer: all checkers use sdk_lookup.py for platform-agnostic API matching
+  across ESP32/STM32/JL/BK/Zephyr. Use when the user
   asks for FreeRTOS, embedded C, GPIO, LCD/OLED, camera, audio/video, A/V sync,
   zero-copy, DMA cache, logging, WDT, HardFault, code review, OTA update,
   firmware upgrade, rollback, or git commit audit help.
@@ -53,11 +55,16 @@ Choose one workflow first, then load only required references, platform docs, an
 
 ## Required Context
 
-- Platforms: [esp32](platforms/esp32.md), [stm32](platforms/stm32.md), [jl](platforms/jl.md), [bk](platforms/bk.md), [zephyr](platforms/zephyr.md)
 - Core rules: [core_rules](references/core_rules.md), [constraint_index](references/constraint_index.md), [constraint_detail](references/constraint_detail.md), [skill_structure](references/skill_structure.md)
+- SDK abstraction: [sdk_abstraction](references/sdk_abstraction.yaml) — 标准操作注册表，checker 通过 `sdk_lookup.py` 查询平台 API
+- Release governance: [release_governance](references/release_governance.md), [claude_code](references/claude_code.md), [cursor rule](templates/cursor-rule.embedded.mdc)
+
+## On-Demand (workflow Step 1 loads)
+
+- Platforms: [esp32](platforms/esp32.md), [stm32](platforms/stm32.md), [jl](platforms/jl.md), [bk](platforms/bk.md), [zephyr](platforms/zephyr.md)
+- Platform SDK maps: [esp32_map](platforms/esp32_sdk_map.yaml), [stm32_map](platforms/stm32_sdk_map.yaml), [jl_map](platforms/jl_sdk_map.yaml), [bk_map](platforms/bk_sdk_map.yaml), [zephyr_map](platforms/zephyr_sdk_map.yaml)
 - Usage examples: [usage_examples](references/usage_examples.md)
 - Codegen contract: [codegen_contract](references/codegen_contract.md)
-- Release governance: [release_governance](references/release_governance.md), [claude_code](references/claude_code.md), [cursor rule](templates/cursor-rule.embedded.mdc)
 
 ## Prompt Index
 

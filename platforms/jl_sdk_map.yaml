@@ -1,0 +1,323 @@
+# JL (杰理) 平台 SDK 映射
+# 标准操作 → AC79 AIoT SDK (os_api.h 封装) 具体 API
+
+platform: jl
+sdk: AC79 AIoT SDK
+rtos: FreeRTOS (via os_api.h wrapper)
+
+mappings:
+
+  # ---- RTOS 信号量 ----
+  SEM_CREATE:
+    apis: ["os_sem_create"]
+    headers: ["include_lib/system/os/os_api.h"]
+  SEM_TAKE:
+    apis: ["os_sem_pend"]
+    headers: ["include_lib/system/os/os_api.h"]
+    timeout_param_index: 1
+    timeout_infinite: "OS_WAIT_FOREVER"
+    isr_safe: false
+  SEM_GIVE:
+    apis: ["os_sem_post"]
+    headers: ["include_lib/system/os/os_api.h"]
+  SEM_DELETE:
+    apis: ["os_sem_del"]
+    headers: ["include_lib/system/os/os_api.h"]
+
+  # ---- RTOS 互斥锁 ----
+  MUTEX_CREATE:
+    apis: ["os_mutex_create"]
+    headers: ["include_lib/system/os/os_api.h"]
+  MUTEX_LOCK:
+    apis: ["os_mutex_pend"]
+    headers: ["include_lib/system/os/os_api.h"]
+    timeout_param_index: 1
+  MUTEX_UNLOCK:
+    apis: ["os_mutex_post"]
+    headers: ["include_lib/system/os/os_api.h"]
+  MUTEX_DELETE:
+    apis: ["os_mutex_del"]
+    headers: ["include_lib/system/os/os_api.h"]
+
+  # ---- RTOS 队列 ----
+  QUEUE_CREATE:
+    apis: ["os_q_create"]
+    headers: ["include_lib/system/os/os_api.h"]
+    note: "也可通过 task_info_table 的 qsize 字段自动创建"
+  QUEUE_SEND:
+    apis: ["os_q_post"]
+    headers: ["include_lib/system/os/os_api.h"]
+  QUEUE_RECV:
+    apis: ["os_q_pend"]
+    headers: ["include_lib/system/os/os_api.h"]
+    timeout_param_index: 1
+  QUEUE_OVERWRITE:
+    apis: []
+    headers: []
+    note: "JL SDK 无覆写队列 API"
+  QUEUE_DELETE:
+    apis: ["os_q_del"]
+    headers: ["include_lib/system/os/os_api.h"]
+
+  # ---- RTOS 任务 ----
+  TASK_CREATE:
+    apis: ["thread_fork"]
+    headers: ["include_lib/system/os/os_api.h"]
+    stack_unit: "words"
+    note: "主要 API；需在 task_info_table 注册"
+  TASK_DELETE:
+    apis: ["thread_kill"]
+    headers: ["include_lib/system/os/os_api.h"]
+  TASK_DELAY:
+    apis: ["thread_delay_ms", "os_time_dly", "msleep"]
+    headers: ["include_lib/system/os/os_api.h"]
+    isr_safe: false
+  TASK_NOTIFY_GIVE:
+    apis: []
+    headers: []
+    note: "JL SDK 无 task notify，使用队列替代"
+  TASK_NOTIFY_TAKE:
+    apis: []
+    headers: []
+  TASK_PRIORITY_SET:
+    apis: []
+    headers: []
+
+  # ---- RTOS 定时器 ----
+  TIMER_CREATE:
+    apis: ["sys_timer_add", "sys_hi_timer_add"]
+    headers: ["include_lib/system/os/os_api.h"]
+  TIMER_START:
+    apis: ["sys_timer_run"]
+    headers: ["include_lib/system/os/os_api.h"]
+  TIMER_STOP:
+    apis: ["sys_timer_del"]
+    headers: ["include_lib/system/os/os_api.h"]
+  TIMER_DELETE:
+    apis: ["sys_timer_del"]
+    headers: ["include_lib/system/os/os_api.h"]
+
+  # ---- RTOS 临界区 ----
+  CRITICAL_ENTER:
+    apis: ["cpu_interrupt_disable"]
+    headers: ["include_lib/system/os/os_api.h"]
+  CRITICAL_EXIT:
+    apis: ["cpu_interrupt_enable"]
+    headers: ["include_lib/system/os/os_api.h"]
+  IRQ_DISABLE:
+    apis: ["cpu_interrupt_disable"]
+    headers: ["include_lib/system/os/os_api.h"]
+  IRQ_ENABLE:
+    apis: ["cpu_interrupt_enable"]
+    headers: ["include_lib/system/os/os_api.h"]
+  IRQ_YIELD:
+    apis: []
+    headers: []
+
+  # ---- 内存 ----
+  HEAP_ALLOC:
+    apis: ["malloc", "zalloc"]
+    headers: ["stdlib.h"]
+  HEAP_FREE:
+    apis: ["free"]
+    headers: ["stdlib.h"]
+  HEAP_ALLOC_DMA:
+    apis: ["malloc"]
+    headers: ["stdlib.h"]
+    note: "JL 音频 server 管理 DMA buffer，通常不直接分配"
+  HEAP_ALLOC_EXTERNAL:
+    apis: ["sdram_malloc"]
+    headers: ["include_lib/system/os/os_api.h"]
+  HEAP_FREE_SIZE:
+    apis: []
+    headers: []
+    note: "SDK 特定"
+  MEM_POOL_ALLOC:
+    apis: []
+    headers: []
+
+  # ---- 常量 ----
+  TIMEOUT_FOREVER:
+    value: "OS_WAIT_FOREVER"
+  TIMEOUT_ZERO:
+    value: "0"
+  MS_TO_TICKS:
+    value: "1"
+    note: "JL API 直接接受毫秒，无需转换"
+
+  # ---- cJSON ----
+  PARSE:
+    apis: ["cJSON_Parse"]
+    headers: ["cJSON.h"]
+  DELETE:
+    apis: ["cJSON_Delete"]
+    headers: ["cJSON.h"]
+  CREATE:
+    apis: ["cJSON_CreateObject", "cJSON_CreateArray"]
+    headers: ["cJSON.h"]
+  ADD_ITEM:
+    apis: ["cJSON_AddItemToObject", "cJSON_AddItemToArray"]
+    headers: ["cJSON.h"]
+
+  # ---- LVGL ----
+  TIMER_HANDLER:
+    apis: ["lv_timer_handler"]
+    headers: ["lvgl.h"]
+  ASYNC_CALL:
+    apis: ["lv_async_call"]
+    headers: ["lvgl.h"]
+  OBJ_CREATE:
+    apis: ["lv_obj_create", "lv_label_create", "lv_btn_create"]
+    headers: ["lvgl.h"]
+  OBJ_SET:
+    apis: ["lv_label_set_text", "lv_bar_set_value", "lv_obj_set_style"]
+    headers: ["lvgl.h"]
+  OBJ_DELETE:
+    apis: ["lv_obj_del"]
+    headers: ["lvgl.h"]
+  DISP_DRV_REG:
+    apis: ["lv_disp_drv_register", "lv_disp_drv_init"]
+    headers: ["lvgl.h"]
+
+  # ---- 网络 Socket ----
+  SOCKET_RECV:
+    apis: ["recv"]
+    headers: ["lwip/sockets.h"]
+  SOCKET_SEND:
+    apis: ["send"]
+    headers: ["lwip/sockets.h"]
+  SOCKET_CONNECT:
+    apis: ["connect"]
+    headers: ["lwip/sockets.h"]
+  SOCKET_ACCEPT:
+    apis: ["accept"]
+    headers: ["lwip/sockets.h"]
+  SOCKET_SET_TIMEOUT:
+    apis: ["setsockopt"]
+    headers: ["lwip/sockets.h"]
+
+  # ---- TLS ----
+  TLS_READ:
+    apis: ["mbedtls_ssl_read"]
+    headers: ["mbedtls/ssl.h"]
+  TLS_WRITE:
+    apis: ["mbedtls_ssl_write"]
+    headers: ["mbedtls/ssl.h"]
+  TLS_HANDSHAKE:
+    apis: ["mbedtls_ssl_handshake"]
+    headers: ["mbedtls/ssl.h"]
+
+  # ---- NVS ----
+  NVS_WRITE:
+    apis: []
+    headers: []
+    note: "JL 使用文件系统或 ini 文件，无 NVS API"
+  NVS_COMMIT:
+    apis: []
+    headers: []
+  NVS_CLOSE:
+    apis: []
+    headers: []
+  FLASH_WRITE:
+    apis: ["flash_write"]
+    headers: ["include_lib/utils/device/device.h"]
+  FLASH_ERASE:
+    apis: ["flash_erase"]
+    headers: ["include_lib/utils/device/device.h"]
+
+  # ---- OTA ----
+  OTA_BEGIN:
+    apis: []
+    headers: []
+    note: "JL OTA 通过 ufw 包 + ota_server 组件"
+  OTA_WRITE:
+    apis: []
+    headers: []
+  OTA_END:
+    apis: []
+    headers: []
+  OTA_MARK_VALID:
+    apis: []
+    headers: []
+  OTA_ROLLBACK:
+    apis: []
+    headers: []
+
+  # ---- GPIO ----
+  GPIO_CONFIG:
+    apis: ["gpio_set_direction", "gpio_set_pull_up", "gpio_set_pull_down"]
+    headers: ["include_lib/driver/device.h"]
+  GPIO_SET:
+    apis: ["gpio_set_level"]
+    headers: ["include_lib/driver/device.h"]
+  GPIO_GET:
+    apis: ["gpio_get_level"]
+    headers: ["include_lib/driver/device.h"]
+  I2C_TRANSFER:
+    apis: ["i2c_read", "i2c_write"]
+    headers: ["include_lib/driver/device.h"]
+  SPI_TRANSFER:
+    apis: ["spi_read", "spi_write"]
+    headers: ["include_lib/driver/device.h"]
+  ADC_CONFIG:
+    apis: ["adc_add_sample_ch"]
+    headers: ["include_lib/driver/device.h"]
+
+  # ---- 电源 ----
+  DEEP_SLEEP:
+    apis: ["sys_poweroff"]
+    headers: ["include_lib/system/os/os_api.h"]
+  LIGHT_SLEEP:
+    apis: ["sys_powerdown"]
+    headers: ["include_lib/system/os/os_api.h"]
+  SLEEP_WAKEUP_CAUSE:
+    apis: []
+    headers: []
+  PERIPHERAL_POWER_DOWN:
+    apis: []
+    headers: []
+
+  # ---- 日志 ----
+  LOG_WRITE:
+    apis: ["printf"]
+    headers: ["stdio.h"]
+    note: "JL 使用 printf，需 CONFIG_DEBUG_ENABLE"
+  PRINTF:
+    apis: ["printf", "puts"]
+    headers: ["stdio.h"]
+
+  # ---- 时间 ----
+  TICK_GET:
+    apis: ["jiffies"]
+    headers: ["include_lib/system/os/os_api.h"]
+  TICK_GET_FROM_ISR:
+    apis: ["jiffies"]
+    headers: ["include_lib/system/os/os_api.h"]
+  TICK_TO_MS:
+    apis: ["jiffies_to_msecs"]
+    headers: ["include_lib/system/os/os_api.h"]
+  MS_TO_TICKS_OP:
+    apis: ["msecs_to_jiffies"]
+    headers: ["include_lib/system/os/os_api.h"]
+
+  # ---- WiFi ----
+  WIFI_CONNECT:
+    apis: ["wifi_sta_connect"]
+    headers: ["include_lib/net/wifi/wifi_connect.h"]
+  WIFI_DISCONNECT:
+    apis: ["wifi_sta_disconnect"]
+    headers: ["include_lib/net/wifi/wifi_connect.h"]
+  WIFI_EVENT_REGISTER:
+    apis: ["sys_event_register"]
+    headers: ["include_lib/utils/event/net_event.h"]
+
+  # ---- 看门狗 ----
+  WDT_ADD:
+    apis: []
+    headers: []
+  WDT_RESET:
+    apis: ["wdt_clr"]
+    headers: ["include_lib/driver/device.h"]
+  WDT_INIT:
+    apis: ["wdt_init"]
+    headers: ["include_lib/driver/device.h"]

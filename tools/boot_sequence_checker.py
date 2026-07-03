@@ -19,19 +19,15 @@ import re
 from pathlib import Path
 
 from checker_io import make_issue, run_checker, strip_comments_lines
+from sdk_lookup import SdkLookup
 
+lookup = SdkLookup("esp32")
 
 # Queue/event creation APIs
-QUEUE_CREATE_APIS = [
-    "xQueueCreate",
-    "xQueueCreateStatic",
-    "xQueueGenericCreate",
-]
+QUEUE_CREATE_APIS = lookup.get_apis("QUEUE_CREATE")
 
-# Network callback registration APIs
-NET_CALLBACK_APIS = [
-    "esp_event_handler_register",
-    "esp_event_handler_instance_register",
+# Network callback registration APIs (SDK-level + application-level)
+NET_CALLBACK_APIS = lookup.get_apis("WIFI_EVENT_REGISTER") + [
     "wifi_event_handler",
     "esp_wifi_set_event_handler",
     "mqtt_register_event",
@@ -39,15 +35,11 @@ NET_CALLBACK_APIS = [
 ]
 
 # TLS/network blocking APIs
-TLS_BLOCKING_APIS = [
-    "mbedtls_ssl_handshake",
-    "esp_tls_conn_new_sync",
-    "esp_tls_conn_read",
-    "mbedtls_ssl_read",
+TLS_BLOCKING_APIS = lookup.get_all_apis("TLS_HANDSHAKE", "TLS_READ") + [
     "getaddrinfo",
 ]
 
-LVGL_HANDLER_API = "lv_timer_handler"
+LVGL_HANDLER_API = lookup.get_apis("TIMER_HANDLER")[0] if lookup.get_apis("TIMER_HANDLER") else "lv_timer_handler"
 
 
 def check_file(path: Path) -> list[dict]:

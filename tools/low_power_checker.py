@@ -16,38 +16,18 @@ from __future__ import annotations
 from pathlib import Path
 
 from checker_io import make_issue, read_file, run_checker
+from sdk_lookup import SdkLookup
+
+lookup = SdkLookup("esp32")
 
 # Deep sleep entry APIs
-DEEP_SLEEP_APIS = [
-    "esp_deep_sleep_start",
-    "esp_deep_sleep",
-    "esp_light_sleep_start",
-    "HAL_PWR_EnterSTOPMode",
-    "HAL_PWR_EnterSTANDBYMode",
-]
+DEEP_SLEEP_APIS = lookup.get_all_apis("DEEP_SLEEP", "LIGHT_SLEEP")
 
 # State save indicators
-STATE_SAVE_INDICATORS = [
-    "nvs_set_",
-    "nvs_commit",
-    "flash_write",
-    "eeprom_write",
-    "HAL_FLASH_Program",
-]
+STATE_SAVE_INDICATORS = lookup.get_all_apis("NVS_WRITE", "NVS_COMMIT", "FLASH_WRITE")
 
 # Power down indicators — specific shutdown functions only
-POWER_DOWN_INDICATORS = [
-    "esp_wifi_stop",
-    "esp_wifi_deinit",
-    "i2s_channel_disable",
-    "i2s_del_channel",
-    "ledc_stop",
-    "ledc_set_duty.*0",  # PWM duty = 0
-    "spi_bus_free",
-    "i2c_driver_delete",
-    "gpio_hold_en",
-    "power_down_peripherals",
-]
+POWER_DOWN_INDICATORS = lookup.get_apis("PERIPHERAL_POWER_DOWN")
 
 
 def check_state_save_before_sleep(path: Path, lines: list[str]) -> list[dict]:

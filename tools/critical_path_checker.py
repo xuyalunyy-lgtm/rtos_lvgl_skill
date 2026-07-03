@@ -12,10 +12,19 @@ C35 关键路径预算表启发式检查器。
 
 from __future__ import annotations
 
+import os
 import re
 from pathlib import Path
 
 from checker_io import make_issue, read_file, run_checker
+from sdk_lookup import SdkLookup
+
+# --- SDK abstraction lookup ---
+_platform = os.environ.get("SDK_PLATFORM", "esp32")
+lookup = SdkLookup(_platform)
+
+TASK_DELAY_RE = lookup.build_regex("TASK_DELAY")
+TIMEOUT_FOREVER_RE = lookup.build_constant_regex("TIMEOUT_FOREVER")
 
 CRITICAL_FUNCS = ['boot', 'startup', 'init', 'connect', 'handshake',
                   'audio', 'video', 'display', 'ota', 'upgrade', 'sleep', 'wakeup']
@@ -34,7 +43,7 @@ def check_file(path: Path) -> list[dict]:
         if stripped.startswith("//") or stripped.startswith("/*"):
             continue
 
-        if "vTaskDelay" in stripped and "portMAX_DELAY" in stripped:
+        if TASK_DELAY_RE.search(stripped) and TIMEOUT_FOREVER_RE.search(stripped):
             func_ctx = ""
             for j in range(max(0, i - 20), i):
                 m = re.match(r'^(?:static\s+)?(?:void|int|esp_err_t|bool)\s+(\w+)\s*\(', lines[j].strip())

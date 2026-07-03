@@ -17,15 +17,23 @@ import re
 from pathlib import Path
 
 from checker_io import make_issue, read_file, run_checker
+from sdk_lookup import SdkLookup
 
-# FreeRTOS lifecycle pairs
+lookup = SdkLookup("esp32")
+
+# Lifecycle pairs derived from SDK abstraction layer
+_RTOS_PAIR_DEFS = [
+    ("TASK_CREATE", "TASK_DELETE", "task create/delete"),
+    ("MUTEX_CREATE", "MUTEX_DELETE", "mutex create/delete"),
+    ("SEM_CREATE", "SEM_DELETE", "semaphore create/delete"),
+    ("QUEUE_CREATE", "QUEUE_DELETE", "queue create/delete"),
+    ("TIMER_CREATE", "TIMER_DELETE", "timer create/delete"),
+    ("WIFI_EVENT_REGISTER", "WIFI_EVENT_UNREGISTER", "event handler register/unregister"),
+]
 RTOS_PAIRS = [
-    ("xTaskCreate", "vTaskDelete", "task create/delete"),
-    ("xSemaphoreCreateMutex", "vSemaphoreDelete", "mutex create/delete"),
-    ("xSemaphoreCreateBinary", "vSemaphoreDelete", "semaphore create/delete"),
-    ("xQueueCreate", "vQueueDelete", "queue create/delete"),
-    ("xTimerCreate", "xTimerDelete", "timer create/delete"),
-    ("esp_event_handler_register", "esp_event_handler_unregister", "event handler register/unregister"),
+    (lookup.get_apis(acq_op)[0], lookup.get_apis(rel_op)[0], desc)
+    for acq_op, rel_op, desc in _RTOS_PAIR_DEFS
+    if lookup.get_apis(acq_op) and lookup.get_apis(rel_op)
 ]
 
 

@@ -14,10 +14,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from checker_io import make_issue, read_file, run_checker
+from sdk_lookup import SdkLookup
 
-QUEUE_SEND = re.compile(
-    r"\bxQueue(?:Send|SendToBack|SendFromISR|Overwrite)\s*\("
-)
+lookup = SdkLookup("esp32")
+
+QUEUE_SEND = lookup.build_regex("QUEUE_SEND", "QUEUE_OVERWRITE")
 STACK_ARRAY = re.compile(
     r"(?:char|uint8_t|int8_t)\s+(\w+)\s*\[[^\]]+\]"
 )

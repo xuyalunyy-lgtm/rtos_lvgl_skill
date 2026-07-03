@@ -15,6 +15,9 @@ import re
 from pathlib import Path
 
 from checker_io import make_issue, read_file, run_checker
+from sdk_lookup import SdkLookup
+
+lookup = SdkLookup("esp32")
 
 LVGL_API_PATTERN = re.compile(
     r"\blv_(?:obj|label|btn|bar|img|list|table|chart|textarea|dropdown|roller|"

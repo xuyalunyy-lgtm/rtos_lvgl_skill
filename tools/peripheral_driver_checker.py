@@ -18,6 +18,22 @@ import re
 from pathlib import Path
 
 from checker_io import make_issue, read_file, run_checker
+from sdk_lookup import SdkLookup
+
+lookup = SdkLookup("esp32")
+
+_GPIO_SET_APIS = lookup.get_apis("GPIO_SET")
+_GPIO_CONFIG_APIS = lookup.get_apis("GPIO_CONFIG")
+_I2C_TRANSFER_APIS = lookup.get_apis("I2C_TRANSFER")
+
+_GPIO_SET_RE = re.compile(r"(?:" + "|".join(re.escape(a) for a in _GPIO_SET_APIS) + r")\s*\(\s*(\w+)")
+_GPIO_CONFIG_RE = re.compile(
+    r"(?:" + "|".join(re.escape(a) for a in _GPIO_CONFIG_APIS) + r")|gpio_reset_pin"
+)
+_I2C_TRANSFER_RE = re.compile(
+    r"(?:" + "|".join(re.escape(a) for a in _I2C_TRANSFER_APIS) + r")\s*\([^)]*"
+    r"(?:0x[0-9a-fA-F]{2})\s*[,)]"
+)
 
 
 def check_gpio_config_before_use(path: Path, lines: list[str]) -> list[dict]:
@@ -30,12 +46,12 @@ def check_gpio_config_before_use(path: Path, lines: list[str]) -> list[dict]:
         stripped = line.strip()
         if stripped.startswith("//") or stripped.startswith("/*"):
             continue
-        if "gpio_set_level" in stripped:
+        if any(api in stripped for api in _GPIO_SET_APIS):
             # Extract pin
-            m = re.search(r"gpio_set_level\s*\(\s*(\w+)", stripped)
+            m = _GPIO_SET_RE.search(stripped)
             if m:
                 gpio_set_calls.append((i, m.group(1)))
-        if "gpio_config" in stripped or "gpio_reset_pin" in stripped or "gpio_set_direction" in stripped:
+        if _GPIO_CONFIG_RE.search(stripped):
             gpio_config_calls.append(i)
 
     # Check if gpio_set_level appears before any gpio_config
@@ -56,17 +72,12 @@ def check_gpio_config_before_use(path: Path, lines: list[str]) -> list[dict]:
 def check_i2c_hardcoded_address(path: Path, lines: list[str]) -> list[dict]:
     """C18.2 — I2C 地址禁止硬编码（须用宏或配置）"""
     issues = []
-    # Pattern: i2c_master_write/read with literal hex address
-    i2c_pattern = re.compile(
-        r"i2c_master_(?:write|read|write_read|transmit)\s*\([^)]*"
-        r"(?:0x[0-9a-fA-F]{2})\s*[,)]"
-    )
 
     for i, line in enumerate(lines, 1):
         stripped = line.strip()
         if stripped.startswith("//") or stripped.startswith("/*"):
             continue
-        if i2c_pattern.search(stripped):
+        if _I2C_TRANSFER_RE.search(stripped):
             # Check if it's using a macro (all caps + underscore)
             addr_match = re.search(r"(0x[0-9a-fA-F]{2})", stripped)
             if addr_match:

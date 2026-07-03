@@ -38,6 +38,7 @@ L4 可执行     tools/                完整版 L2+；Lite 无此层
 ### Model（模型提取）
 | 工具 | 职责 |
 |------|------|
+| `sdk_lookup.py` | SDK 抽象查询引擎 — 标准操作→平台 API 映射，所有 checker 共用 |
 | `rtos_model.py` | 从源码提取 RTOS 系统模型（task/queue/mutex/timer/ISR） |
 | `project_operating_model.py` | 统一项目事实源（RTOS + frameworks + platform + constraints） |
 | `framework_profile.py` | 框架自动识别 |

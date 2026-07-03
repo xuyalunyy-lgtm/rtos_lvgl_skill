@@ -19,37 +19,23 @@ import re
 from pathlib import Path
 
 from checker_io import make_issue, read_file, run_checker
+from sdk_lookup import SdkLookup
+
+lookup = SdkLookup("esp32")
 
 # Permanent wait constants
 PERMANENT_WAIT_CONSTANTS = [
-    "WAIT_FOREVER",
-    "BEKEN_WAIT_FOREVER",
-    "portMAX_DELAY",
-    "OS_WAIT_FOREVER",
-    "RTOS_WAIT_FOREVER",
+    lookup.get_timeout_infinite(),
     "0xFFFFFFFF",
     "0xffffffff",
 ]
 
 # RTOS blocking APIs that normally carry an explicit timeout argument.
-SYNC_API_PATTERNS = [
-    re.compile(r"\brtos_get_semaphore\s*\("),
-    re.compile(r"\brtos_lock_mutex\s*\("),
-    re.compile(r"\brtos_get_queue\s*\("),
-    re.compile(r"\bxSemaphoreTake\s*\("),
-    re.compile(r"\bxQueueReceive\s*\("),
-    re.compile(r"\bxQueueSend\s*\("),
-]
+SYNC_API_PATTERNS = [lookup.build_regex("SEM_TAKE", "MUTEX_LOCK", "QUEUE_RECV", "QUEUE_SEND")]
 
 # Network/TLS APIs whose timeout/deadline is usually configured outside the call.
-NETWORK_API_PATTERNS = [
-    re.compile(r"\bmbedtls_ssl_read\s*\("),
-    re.compile(r"\bmbedtls_ssl_write\s*\("),
-    re.compile(r"\bmbedtls_ssl_handshake\s*\("),
-    re.compile(r"\brecv\s*\("),
-    re.compile(r"\bsend\s*\("),
-    re.compile(r"\bconnect\s*\("),
-]
+NETWORK_API_PATTERNS = [lookup.build_regex("TLS_READ", "TLS_WRITE", "TLS_HANDSHAKE",
+                                           "SOCKET_RECV", "SOCKET_SEND", "SOCKET_CONNECT")]
 
 TIMEOUT_ARGUMENT_RE = re.compile(
     r",\s*(?:pdMS_TO_TICKS\s*\([^)]*\)|[A-Z][A-Z0-9_]*|\d+)\s*\)"

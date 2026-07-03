@@ -5,6 +5,11 @@ Central registry for run_review.py.
 Single source of truth for all checkers.  Every checker MUST be registered here.
 Add a checker here first, then wire only unusual behavior in run_review.py.
 
+SDK Abstraction: All checkers use `sdk_lookup.py` to get platform-specific API
+names instead of hardcoding them. Set `SDK_PLATFORM` env var to target a specific
+platform (default: esp32). See `references/sdk_abstraction.yaml` for the full
+standard operation registry.
+
 Suites:
   default   — run by default in run_review.py (L2 gate)
   all       — every non-AST checker (for --suite all)

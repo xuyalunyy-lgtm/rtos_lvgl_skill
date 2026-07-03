@@ -13,26 +13,27 @@ C12 错误处理启发式检查器。
 
 from __future__ import annotations
 
+import os
 import re
 from pathlib import Path
 
 from checker_io import make_issue, read_file, run_checker
+from sdk_lookup import SdkLookup
 
-# Functions whose return value MUST be checked
-CRITICAL_API = [
-    "xTaskCreate",
-    "xTaskCreateStatic",
-    "xQueueCreate",
-    "xQueueSend",
-    "xQueueReceive",
-    "xSemaphoreCreateMutex",
-    "xSemaphoreCreateBinary",
-    "xSemaphoreTake",
-    "pvPortMalloc",
-    "pvPortCalloc",
-    "xTimerStart",
-    "xTimerChangePeriod",
-]
+# --- SDK abstraction lookup ---
+_platform = os.environ.get("SDK_PLATFORM", "esp32")
+lookup = SdkLookup(_platform)
+
+# Functions whose return value MUST be checked (from SDK abstraction)
+CRITICAL_API = lookup.get_all_apis(
+    "TASK_CREATE", "QUEUE_CREATE", "QUEUE_SEND", "QUEUE_RECV",
+    "MUTEX_CREATE", "SEM_CREATE", "SEM_TAKE", "HEAP_ALLOC", "TIMER_START",
+)
+# Supplementary APIs not in SDK abstraction
+_SUPPLEMENTARY = ["pvPortCalloc", "xTimerChangePeriod"]
+for _api in _SUPPLEMENTARY:
+    if _api not in CRITICAL_API:
+        CRITICAL_API.append(_api)
 
 # Build pattern: these function calls
 CALL_PATTERN = re.compile(

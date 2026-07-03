@@ -16,6 +16,15 @@ import re
 from pathlib import Path
 
 from checker_io import make_issue, read_file, run_checker
+from sdk_lookup import SdkLookup
+
+lookup = SdkLookup("esp32")
+
+_GPIO_SET_APIS = "|".join(re.escape(a) for a in lookup.get_apis("GPIO_SET"))
+_GPIO_CONFIG_APIS = "|".join(re.escape(a) for a in lookup.get_apis("GPIO_CONFIG"))
+
+GPIO_SET_RE = re.compile(rf'(?:{_GPIO_SET_APIS})\s*\(\s*(?:GPIO_NUM_)?(\d+)')
+GPIO_CONFIG_RE = re.compile(rf'(?:{_GPIO_CONFIG_APIS}).*pin_bit_mask.*1ULL\s*<<\s*(?:GPIO_NUM_)?(\d+)')
 
 
 def check_file(path: Path) -> list[dict]:
@@ -32,14 +41,14 @@ def check_file(path: Path) -> list[dict]:
         if stripped.startswith("//") or stripped.startswith("/*"):
             continue
 
-        match = re.search(r'gpio_set_level\s*\(\s*(?:GPIO_NUM_)?(\d+)', stripped)
+        match = GPIO_SET_RE.search(stripped)
         if match:
             pin = match.group(1)
             if pin not in gpio_pins:
                 gpio_pins[pin] = []
             gpio_pins[pin].append(i)
 
-        cfg_match = re.search(r'gpio_config.*pin_bit_mask.*1ULL\s*<<\s*(?:GPIO_NUM_)?(\d+)', stripped)
+        cfg_match = GPIO_CONFIG_RE.search(stripped)
         if cfg_match:
             pin = cfg_match.group(1)
             if pin in gpio_pins:

@@ -16,20 +16,12 @@ from __future__ import annotations
 from pathlib import Path
 
 from checker_io import make_issue, read_file, run_checker
+from sdk_lookup import SdkLookup
+
+lookup = SdkLookup("esp32")
 
 # NVS write APIs
-NVS_WRITE_APIS = [
-    "nvs_set_u8",
-    "nvs_set_i8",
-    "nvs_set_u16",
-    "nvs_set_i16",
-    "nvs_set_u32",
-    "nvs_set_i32",
-    "nvs_set_u64",
-    "nvs_set_i64",
-    "nvs_set_str",
-    "nvs_set_blob",
-]
+NVS_WRITE_APIS = lookup.get_apis("NVS_WRITE")
 
 
 def check_nvs_commit(path: Path, lines: list[str]) -> list[dict]:

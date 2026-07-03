@@ -12,12 +12,18 @@ C37 背压与降级策略启发式检查器。
 
 from __future__ import annotations
 
+import os
 import re
 from pathlib import Path
 
 from checker_io import make_issue, read_file, run_checker
+from sdk_lookup import SdkLookup
 
-QUEUE_SEND_APIS = ["xQueueSend", "xQueueSendToBack", "xQueueSendToFront", "xQueueGenericSend"]
+# --- SDK abstraction lookup ---
+_platform = os.environ.get("SDK_PLATFORM", "esp32")
+lookup = SdkLookup(_platform)
+
+QUEUE_SEND_APIS = lookup.get_apis("QUEUE_SEND")
 MAX_DELAY_RE = re.compile(r'portMAX_DELAY|WAIT_FOREVER|0xFFFFFFFF')
 
 

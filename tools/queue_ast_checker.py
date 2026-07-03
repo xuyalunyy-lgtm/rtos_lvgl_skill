@@ -17,6 +17,9 @@ import re
 from pathlib import Path
 
 from checker_io import make_issue, read_file, run_checker
+from sdk_lookup import SdkLookup
+
+lookup = SdkLookup("esp32")
 
 
 def check_file(path: Path) -> list[dict]:
@@ -56,7 +59,7 @@ def check_file(path: Path) -> list[dict]:
                 current_func = None
                 brace_depth = 0
 
-    send_re = re.compile(r"xQueue(?:Send|SendToBack|SendFromISR|Overwrite)\s*\(")
+    send_re = lookup.build_regex("QUEUE_SEND", "QUEUE_OVERWRITE")
     stack_decl = re.compile(r"(?:char|uint8_t|int8_t)\s+(\w+)\s*\[[^\]]+\]")
     cjson_decl = re.compile(r"cJSON\s*\*\s*(\w+)")
     payload_assign = re.compile(

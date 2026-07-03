@@ -16,6 +16,11 @@ import re
 from pathlib import Path
 
 from checker_io import extract_functions, line_at, make_issue, read_file, run_checker, strip_comments
+from sdk_lookup import SdkLookup
+
+# 全平台 SDK 查询
+_ALL_PLATFORMS = ["esp32", "stm32", "jl", "bk", "zephyr"]
+_lookup = SdkLookup(_ALL_PLATFORMS)
 
 
 DEFINE_RE = re.compile(r"^\s*#define\s+([A-Za-z_]\w*)\s+\(?(-?[0-9]+)U?\)?", re.MULTILINE)
@@ -31,10 +36,13 @@ CLOCK_RE = re.compile(
     re.IGNORECASE,
 )
 PTS_RE = re.compile(r"(pts_(?:us|ms)|timestamp_(?:us|ms)|presentation_time|rtp_timestamp)", re.IGNORECASE)
+# SDK lookup 构建 tick 作为媒体时间戳正则
+_tick_apis = _lookup.get_all_apis("TICK_GET")
+_tick_core = "|".join(re.escape(a) for a in _tick_apis)
 TICK_AS_MEDIA_TIME_RE = re.compile(
     r"\b(?:[A-Za-z_]\w*\s*(?:->|\.)\s*)?"
     r"(?:pts|timestamp|presentation_time)[A-Za-z0-9_]*\s*=\s*"
-    r"(?:xTaskGetTickCount|HAL_GetTick|osKernelGetTickCount)\s*\(",
+    r"(?:%s)\s*\(" % _tick_core,
     re.IGNORECASE,
 )
 JITTER_RE = re.compile(r"(jitter|rtp|packet|network_stream|ring)", re.IGNORECASE)
@@ -42,20 +50,28 @@ CAPACITY_RE = re.compile(r"(CAPACITY|DEPTH|QUEUE_LEN|RING_SIZE|MAX_FRAMES)", re.
 WATERMARK_RE = re.compile(r"(LOW_WATER|HIGH_WATER|WATERMARK|TARGET_DELAY|TARGET_DEPTH)", re.IGNORECASE)
 DRIFT_RE = re.compile(r"(drift|ppm|skew|resample_ratio|clock_error)", re.IGNORECASE)
 CLAMP_RE = re.compile(r"(clamp|limit|bounded|MAX_DRIFT|DRIFT_PPM_LIMIT|PPM_LIMIT)", re.IGNORECASE)
+# SDK lookup 构建热路径等待正则（TASK_DELAY + drift/pts/sync 条件）
+_task_delay_re = _lookup.build_regex("TASK_DELAY")
+_td_m = re.search(r'\(\?:([^)]+)\)', _task_delay_re.pattern)
+_task_delay_core = _td_m.group(1) if _td_m else "vTaskDelay"
 HOT_WAIT_RE = re.compile(
-    r"\b(?:vTaskDelay|osDelay|k_sleep)\s*\([^;]*(?:drift|pts|sync|diff|delta|wait)",
+    r"\b(?:%s)\s*\([^;]*(?:drift|pts|sync|diff|delta|wait)" % _task_delay_core,
     re.IGNORECASE | re.DOTALL,
 )
+# SDK lookup 构建队列/信号量永久等待正则
+_qs_re = _lookup.build_regex("QUEUE_RECV", "QUEUE_SEND", "SEM_TAKE")
+_fv_re = _lookup.build_constant_regex("TIMEOUT_FOREVER")
+_qs_m = re.search(r'\(\?:([^)]+)\)', _qs_re.pattern)
+_fv_m = re.search(r'\(\?:([^)]+)\)', _fv_re.pattern)
+_qs_core = _qs_m.group(1) if _qs_m else "xQueueReceive"
+_fv_core = _fv_m.group(1) if _fv_m else "portMAX_DELAY"
 FOREVER_WAIT_RE = re.compile(
-    r"\b(?:xQueueReceive|xQueueSend|xSemaphoreTake)\s*\([^;]*portMAX_DELAY",
+    r"\b(?:%s)\s*\([^;]*(?:%s)" % (_qs_core, _fv_core),
     re.IGNORECASE | re.DOTALL,
 )
 HOT_FUNC_RE = re.compile(r"(render|playback|sync|jitter|underrun|overrun|frame|pop|push)", re.IGNORECASE)
 RECOVERY_FUNC_RE = re.compile(r"(underrun|overrun|jitter).*", re.IGNORECASE)
-ALLOC_LOG_RE = re.compile(
-    r"\b(?:malloc|calloc|free|pvPortMalloc|vPortFree|heap_caps_malloc|heap_caps_calloc|"
-    r"printf|puts|LOG_[A-Z]+|ESP_LOG[IEWD])\s*\("
-)
+ALLOC_LOG_RE = _lookup.build_regex("HEAP_ALLOC", "HEAP_FREE", "PRINTF", "LOG_WRITE")
 COMPENSATION_RE = re.compile(r"(silence|zero|memset|repeat|hold|freeze|drop|insert|resync)", re.IGNORECASE)
 TELEMETRY_RE = re.compile(
     r"(drift_ms|drift_ppm|jitter_depth|jitter_low|jitter_high|underrun_count|overrun_count|"

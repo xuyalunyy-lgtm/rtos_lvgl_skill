@@ -17,24 +17,23 @@ import re
 from pathlib import Path
 
 from checker_io import make_issue, read_file, run_checker
+from sdk_lookup import SdkLookup
+
+lookup = SdkLookup("esp32")
 
 # Network APIs that MUST have timeout — use word boundary to avoid matching variable names
 BLOCKING_NET_API_PATTERNS = [
-    re.compile(r"\brecv\s*\("),
-    re.compile(r"\bsend\s*\("),
-    re.compile(r"\bconnect\s*\("),
-    re.compile(r"\baccept\s*\("),
-    re.compile(r"\blwip_recv\s*\("),
-    re.compile(r"\blwip_send\s*\("),
-    re.compile(r"\blwip_connect\s*\("),
-    re.compile(r"\bmbedtls_ssl_read\s*\("),
-    re.compile(r"\bmbedtls_ssl_write\s*\("),
-    re.compile(r"\bmbedtls_ssl_handshake\s*\("),
+    re.compile(r"\b" + re.escape(api) + r"\s*\(")
+    for api in lookup.get_all_apis("SOCKET_RECV", "SOCKET_SEND", "SOCKET_CONNECT",
+                                   "SOCKET_ACCEPT", "TLS_READ", "TLS_WRITE", "TLS_HANDSHAKE")
 ]
 
-# Reconnect patterns
+# Reconnect patterns (SDK-level WiFi connect + application-level reconnect APIs)
+_wifi_connect_apis = lookup.get_apis("WIFI_CONNECT")
 RECONNECT_PATTERNS = [
-    re.compile(r"\besp_wifi_connect\s*\(\s*\)"),
+    re.compile(r"\b" + re.escape(api) + r"\s*\(\s*\)")
+    for api in _wifi_connect_apis
+] + [
     re.compile(r"\bwss_connect\s*\("),
     re.compile(r"\bwifi_connect\s*\("),
     re.compile(r"\bmqtt_reconnect\s*\("),

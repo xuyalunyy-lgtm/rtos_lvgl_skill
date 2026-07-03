@@ -29,6 +29,11 @@ from checker_io import (
     run_checker,
     strip_comments,
 )
+from sdk_lookup import SdkLookup
+
+# 全平台 SDK 查询
+_ALL_PLATFORMS = ["esp32", "stm32", "jl", "bk", "zephyr"]
+_lookup = SdkLookup(_ALL_PLATFORMS)
 
 
 STRUCT_RE = re.compile(
@@ -57,16 +62,32 @@ CALLBACK_RE = re.compile(
     r"(?:camera.*(?:callback|cb|isr)|.*frame.*(?:callback|cb)|HAL_.*CpltCallback|.*dma.*(?:callback|cb|isr)|lcd_flush_cb|.*flush_cb)",
     re.IGNORECASE,
 )
+# SDK lookup 构建回调禁用 API 正则
+_bad_callback_apis = set(_lookup.get_all_apis("TIMER_HANDLER", "PARSE", "SOCKET_RECV", "SOCKET_SEND", "SOCKET_CONNECT"))
+# 补充 video/audio decode 和 codec 等非标准 SDK API
+_bad_callback_apis.update(["video_decode", "audio_decode", "codec_open", "codec_create",
+                            "h264_decode", "h264_encode", "jpeg_decode", "jpeg_encode",
+                            "mjpeg_decode", "mjpeg_encode"])
+_lv_apis = _lookup.get_all_apis("TIMER_HANDLER", "ASYNC_CALL", "OBJ_CREATE", "OBJ_SET", "OBJ_DELETE")
+# 过滤 lv_ 排除项
+_lv_filtered = [a for a in _lv_apis if a != "lv_disp_flush_ready"]
+_bad_callback_apis.update(_lv_filtered)
 BAD_CALLBACK_RE = re.compile(
-    r"\b(?:lv_(?!disp_flush_ready)\w+|cJSON_\w+|recv|send|connect|video_decode\w*|audio_decode\w*|"
-    r"codec_\w+|h264_\w+|jpeg_\w+|mjpeg_\w+)\s*\(",
+    r"\b(?:%s)\s*\(" % "|".join(re.escape(a) for a in sorted(_bad_callback_apis)),
     re.IGNORECASE,
 )
-HOT_ALLOC_LOG_RE = re.compile(
-    r"\b(?:malloc|calloc|free|pvPortMalloc|vPortFree|heap_caps_malloc|heap_caps_calloc|"
-    r"printf|puts|LOG_[A-Z]+|ESP_LOG[IEWD])\s*\(",
+HOT_ALLOC_LOG_RE = _lookup.build_regex("HEAP_ALLOC", "HEAP_FREE", "PRINTF", "LOG_WRITE")
+# 构建队列永久等待正则（QUEUE + TIMEOUT_FOREVER）
+_queue_send_re = _lookup.build_regex("QUEUE_SEND", "QUEUE_RECV", "QUEUE_OVERWRITE")
+_forever_re = _lookup.build_constant_regex("TIMEOUT_FOREVER")
+_queue_m = re.search(r'\(\?:([^)]+)\)', _queue_send_re.pattern)
+_forever_m = re.search(r'\(\?:([^)]+)\)', _forever_re.pattern)
+_queue_core = _queue_m.group(1) if _queue_m else "xQueueSend"
+_forever_core = _forever_m.group(1) if _forever_m else "portMAX_DELAY"
+QUEUE_FOREVER_RE = re.compile(
+    r"\b(?:%s)\s*\([^;]*(?:%s)" % (_queue_core, _forever_core),
+    re.DOTALL,
 )
-QUEUE_FOREVER_RE = re.compile(r"\bxQueue(?:Send|Receive|SendToBack|SendToFront|Overwrite)\s*\([^;]*portMAX_DELAY", re.DOTALL)
 
 
 def has_any(text: str, words: tuple[str, ...]) -> bool:

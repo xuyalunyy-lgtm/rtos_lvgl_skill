@@ -1,0 +1,334 @@
+# Zephyr 平台 SDK 映射
+# 标准操作 → Zephyr RTOS (native kernel) 具体 API
+
+platform: zephyr
+sdk: Zephyr RTOS
+rtos: Zephyr Native Kernel
+
+mappings:
+
+  # ---- RTOS 信号量 ----
+  SEM_CREATE:
+    apis: ["K_SEM_DEFINE"]
+    headers: ["zephyr/kernel.h"]
+    note: "静态定义，不支持动态创建"
+  SEM_TAKE:
+    apis: ["k_sem_take"]
+    headers: ["zephyr/kernel.h"]
+    timeout_param_index: 1
+    timeout_infinite: "K_FOREVER"
+    isr_safe: true
+    note: "k_sem_take 在 Zephyr 中 ISR-safe"
+  SEM_GIVE:
+    apis: ["k_sem_give"]
+    headers: ["zephyr/kernel.h"]
+    isr_safe: true
+  SEM_DELETE:
+    apis: []
+    headers: []
+    note: "Zephyr 信号量静态分配，不删除"
+
+  # ---- RTOS 互斥锁 ----
+  MUTEX_CREATE:
+    apis: ["K_MUTEX_DEFINE"]
+    headers: ["zephyr/kernel.h"]
+  MUTEX_LOCK:
+    apis: ["k_mutex_lock"]
+    headers: ["zephyr/kernel.h"]
+    timeout_param_index: 1
+  MUTEX_UNLOCK:
+    apis: ["k_mutex_unlock"]
+    headers: ["zephyr/kernel.h"]
+  MUTEX_DELETE:
+    apis: []
+    headers: []
+    note: "Zephyr 互斥锁静态分配，不删除"
+
+  # ---- RTOS 队列 ----
+  QUEUE_CREATE:
+    apis: ["K_MSGQ_DEFINE"]
+    headers: ["zephyr/kernel.h"]
+    note: "静态定义，需指定消息大小和深度"
+  QUEUE_SEND:
+    apis: ["k_msgq_put"]
+    headers: ["zephyr/kernel.h"]
+    isr_safe: true
+    note: "k_msgq_put ISR-safe（用 K_NO_WAIT）"
+  QUEUE_RECV:
+    apis: ["k_msgq_get"]
+    headers: ["zephyr/kernel.h"]
+    timeout_param_index: 1
+  QUEUE_OVERWRITE:
+    apis: ["k_msgq_put"]
+    headers: ["zephyr/kernel.h"]
+    note: "Zephyr 无覆写语义，需自实现"
+  QUEUE_DELETE:
+    apis: []
+    headers: []
+    note: "Zephyr 队列静态分配，不删除"
+
+  # ---- RTOS 任务 ----
+  TASK_CREATE:
+    apis: ["k_thread_create", "K_THREAD_DEFINE"]
+    headers: ["zephyr/kernel.h"]
+    stack_unit: "bytes"
+    note: "K_THREAD_DEFINE 静态创建，k_thread_create 动态创建"
+  TASK_DELETE:
+    apis: ["k_thread_abort"]
+    headers: ["zephyr/kernel.h"]
+  TASK_DELAY:
+    apis: ["k_msleep", "k_sleep"]
+    headers: ["zephyr/kernel.h"]
+    isr_safe: false
+  TASK_NOTIFY_GIVE:
+    apis: []
+    headers: []
+    note: "Zephyr 使用 k_sem 或 k_event 替代"
+  TASK_NOTIFY_TAKE:
+    apis: []
+    headers: []
+  TASK_PRIORITY_SET:
+    apis: ["k_thread_priority_set"]
+    headers: ["zephyr/kernel.h"]
+
+  # ---- RTOS 定时器 ----
+  TIMER_CREATE:
+    apis: ["K_TIMER_DEFINE"]
+    headers: ["zephyr/kernel.h"]
+  TIMER_START:
+    apis: ["k_timer_start"]
+    headers: ["zephyr/kernel.h"]
+  TIMER_STOP:
+    apis: ["k_timer_stop"]
+    headers: ["zephyr/kernel.h"]
+  TIMER_DELETE:
+    apis: []
+    headers: []
+    note: "Zephyr 定时器静态分配，不删除"
+
+  # ---- RTOS 临界区 ----
+  CRITICAL_ENTER:
+    apis: ["k_sched_lock"]
+    headers: ["zephyr/kernel.h"]
+    note: "Zephyr 用调度锁替代中断关断（非 SMP-safe）"
+  CRITICAL_EXIT:
+    apis: ["k_sched_unlock"]
+    headers: ["zephyr/kernel.h"]
+  IRQ_DISABLE:
+    apis: ["irq_lock"]
+    headers: ["zephyr/irq.h"]
+  IRQ_ENABLE:
+    apis: ["irq_unlock"]
+    headers: ["zephyr/irq.h"]
+  IRQ_YIELD:
+    apis: ["k_yield"]
+    headers: ["zephyr/kernel.h"]
+    note: "Zephyr 在 ISR 中用 k_yield 或直接返回"
+
+  # ---- 内存 ----
+  HEAP_ALLOC:
+    apis: ["k_malloc", "malloc"]
+    headers: ["zephyr/kernel.h", "stdlib.h"]
+  HEAP_FREE:
+    apis: ["k_free", "free"]
+    headers: ["zephyr/kernel.h", "stdlib.h"]
+  HEAP_ALLOC_DMA:
+    apis: ["k_heap_alloc"]
+    headers: ["zephyr/kernel.h"]
+    note: "需配合 K_HEAP_DEFINE 定义 DMA 区域"
+  HEAP_ALLOC_EXTERNAL:
+    apis: []
+    headers: []
+    note: "Zephyr 通过 DTS 定义外部 RAM 区域"
+  HEAP_FREE_SIZE:
+    apis: ["k_thread_stack_space_get"]
+    headers: ["zephyr/kernel.h"]
+    note: "Zephyr 无统一堆剩余查询，需自实现"
+  MEM_POOL_ALLOC:
+    apis: ["k_mem_pool_alloc", "K_MEM_POOL_DEFINE"]
+    headers: ["zephyr/kernel.h"]
+
+  # ---- 常量 ----
+  TIMEOUT_FOREVER:
+    value: "K_FOREVER"
+  TIMEOUT_ZERO:
+    value: "K_NO_WAIT"
+  MS_TO_TICKS:
+    value: "K_MSEC"
+
+  # ---- cJSON ----
+  PARSE:
+    apis: ["cJSON_Parse"]
+    headers: ["cJSON.h"]
+  DELETE:
+    apis: ["cJSON_Delete"]
+    headers: ["cJSON.h"]
+  CREATE:
+    apis: ["cJSON_CreateObject", "cJSON_CreateArray"]
+    headers: ["cJSON.h"]
+  ADD_ITEM:
+    apis: ["cJSON_AddItemToObject", "cJSON_AddItemToArray"]
+    headers: ["cJSON.h"]
+
+  # ---- LVGL ----
+  TIMER_HANDLER:
+    apis: ["lv_timer_handler"]
+    headers: ["lvgl.h"]
+  ASYNC_CALL:
+    apis: ["lv_async_call"]
+    headers: ["lvgl.h"]
+  OBJ_CREATE:
+    apis: ["lv_obj_create", "lv_label_create", "lv_btn_create"]
+    headers: ["lvgl.h"]
+  OBJ_SET:
+    apis: ["lv_label_set_text", "lv_bar_set_value", "lv_obj_set_style"]
+    headers: ["lvgl.h"]
+  OBJ_DELETE:
+    apis: ["lv_obj_del"]
+    headers: ["lvgl.h"]
+  DISP_DRV_REG:
+    apis: ["lv_disp_drv_register", "lv_disp_drv_init"]
+    headers: ["lvgl.h"]
+
+  # ---- 网络 Socket ----
+  SOCKET_RECV:
+    apis: ["zsock_recv", "recv"]
+    headers: ["zephyr/net/socket.h"]
+  SOCKET_SEND:
+    apis: ["zsock_send", "send"]
+    headers: ["zephyr/net/socket.h"]
+  SOCKET_CONNECT:
+    apis: ["zsock_connect", "connect"]
+    headers: ["zephyr/net/socket.h"]
+  SOCKET_ACCEPT:
+    apis: ["zsock_accept", "accept"]
+    headers: ["zephyr/net/socket.h"]
+  SOCKET_SET_TIMEOUT:
+    apis: ["zsock_setsockopt", "setsockopt"]
+    headers: ["zephyr/net/socket.h"]
+
+  # ---- TLS ----
+  TLS_READ:
+    apis: ["mbedtls_ssl_read"]
+    headers: ["mbedtls/ssl.h"]
+  TLS_WRITE:
+    apis: ["mbedtls_ssl_write"]
+    headers: ["mbedtls/ssl.h"]
+  TLS_HANDSHAKE:
+    apis: ["mbedtls_ssl_handshake"]
+    headers: ["mbedtls/ssl.h"]
+
+  # ---- NVS ----
+  NVS_WRITE:
+    apis: ["settings_save_one", "nvs_write"]
+    headers: ["zephyr/settings/settings.h", "zephyr/fs/nvs.h"]
+  NVS_COMMIT:
+    apis: ["settings_commit"]
+    headers: ["zephyr/settings/settings.h"]
+  NVS_CLOSE:
+    apis: []
+    headers: []
+  FLASH_WRITE:
+    apis: ["flash_write"]
+    headers: ["zephyr/drivers/flash.h"]
+  FLASH_ERASE:
+    apis: ["flash_erase"]
+    headers: ["zephyr/drivers/flash.h"]
+
+  # ---- OTA ----
+  OTA_BEGIN:
+    apis: ["boot_request_upgrade"]
+    headers: ["zephyr/dfu/mcuboot.h"]
+    note: "Zephyr OTA 基于 MCUboot"
+  OTA_WRITE:
+    apis: ["flash_write"]
+    headers: ["zephyr/drivers/flash.h"]
+  OTA_END:
+    apis: ["boot_set_pending"]
+    headers: ["zephyr/dfu/mcuboot.h"]
+  OTA_MARK_VALID:
+    apis: ["boot_set_confirmed"]
+    headers: ["zephyr/dfu/mcuboot.h"]
+  OTA_ROLLBACK:
+    apis: ["boot_request_upgrade"]
+    headers: ["zephyr/dfu/mcuboot.h"]
+
+  # ---- GPIO ----
+  GPIO_CONFIG:
+    apis: ["gpio_pin_configure"]
+    headers: ["zephyr/drivers/gpio.h"]
+  GPIO_SET:
+    apis: ["gpio_pin_set"]
+    headers: ["zephyr/drivers/gpio.h"]
+  GPIO_GET:
+    apis: ["gpio_pin_get"]
+    headers: ["zephyr/drivers/gpio.h"]
+  I2C_TRANSFER:
+    apis: ["i2c_transfer"]
+    headers: ["zephyr/drivers/i2c.h"]
+  SPI_TRANSFER:
+    apis: ["spi_transceive"]
+    headers: ["zephyr/drivers/spi.h"]
+  ADC_CONFIG:
+    apis: ["adc_channel_setup"]
+    headers: ["zephyr/drivers/adc.h"]
+
+  # ---- 电源 ----
+  DEEP_SLEEP:
+    apis: ["pm_state_force"]
+    headers: ["zephyr/pm/pm.h"]
+  LIGHT_SLEEP:
+    apis: ["pm_state_force"]
+    headers: ["zephyr/pm/pm.h"]
+  SLEEP_WAKEUP_CAUSE:
+    apis: ["pm_wakeup_reason"]
+    headers: ["zephyr/pm/pm.h"]
+  PERIPHERAL_POWER_DOWN:
+    apis: ["pm_device_runtime_put"]
+    headers: ["zephyr/pm/device_runtime.h"]
+
+  # ---- 日志 ----
+  LOG_WRITE:
+    apis: ["LOG_ERR", "LOG_WRN", "LOG_INF", "LOG_DBG"]
+    headers: ["zephyr/logging/log.h"]
+  PRINTF:
+    apis: ["printf", "printk"]
+    headers: ["stdio.h", "zephyr/kernel.h"]
+
+  # ---- 时间 ----
+  TICK_GET:
+    apis: ["k_uptime_get", "k_uptime_get_32"]
+    headers: ["zephyr/kernel.h"]
+    note: "Zephyr 用 uptime（毫秒），非 tick"
+  TICK_GET_FROM_ISR:
+    apis: ["k_uptime_get_32"]
+    headers: ["zephyr/kernel.h"]
+  TICK_TO_MS:
+    apis: []
+    headers: []
+    note: "Zephyr k_uptime_get 直接返回毫秒"
+  MS_TO_TICKS_OP:
+    apis: ["K_MSEC"]
+    headers: ["zephyr/kernel.h"]
+
+  # ---- WiFi ----
+  WIFI_CONNECT:
+    apis: ["net_mgmt", "wifi_connect"]
+    headers: ["zephyr/net/wifi_mgmt.h"]
+  WIFI_DISCONNECT:
+    apis: ["wifi_disconnect"]
+    headers: ["zephyr/net/wifi_mgmt.h"]
+  WIFI_EVENT_REGISTER:
+    apis: ["net_mgmt_init_event_callback"]
+    headers: ["zephyr/net/net_mgmt.h"]
+
+  # ---- 看门狗 ----
+  WDT_ADD:
+    apis: ["wdt_install_timeout"]
+    headers: ["zephyr/drivers/watchdog.h"]
+  WDT_RESET:
+    apis: ["wdt_feed"]
+    headers: ["zephyr/drivers/watchdog.h"]
+  WDT_INIT:
+    apis: ["wdt_setup"]
+    headers: ["zephyr/drivers/watchdog.h"]

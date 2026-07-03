@@ -1,0 +1,326 @@
+# STM32 平台 SDK 映射
+# 标准操作 → STM32 CubeMX + CMSIS-RTOS v2 (FreeRTOS) 具体 API
+
+platform: stm32
+sdk: STM32 CubeMX + HAL
+rtos: FreeRTOS (via CMSIS-RTOS v2)
+
+mappings:
+
+  # ---- RTOS 信号量 ----
+  SEM_CREATE:
+    apis: ["xSemaphoreCreateBinary", "xSemaphoreCreateCounting"]
+    headers: ["cmsis_os2.h", "freertos/semphr.h"]
+  SEM_TAKE:
+    apis: ["xSemaphoreTake", "osSemaphoreAcquire"]
+    headers: ["freertos/semphr.h", "cmsis_os2.h"]
+    timeout_param_index: 1
+    timeout_infinite: "portMAX_DELAY"
+    isr_safe: false
+  SEM_GIVE:
+    apis: ["xSemaphoreGive", "osSemaphoreRelease"]
+    headers: ["freertos/semphr.h", "cmsis_os2.h"]
+    isr_variant: "xSemaphoreGiveFromISR"
+  SEM_DELETE:
+    apis: ["vSemaphoreDelete", "osSemaphoreDelete"]
+    headers: ["freertos/semphr.h", "cmsis_os2.h"]
+
+  # ---- RTOS 互斥锁 ----
+  MUTEX_CREATE:
+    apis: ["xSemaphoreCreateMutex", "osMutexNew"]
+    headers: ["freertos/semphr.h", "cmsis_os2.h"]
+  MUTEX_LOCK:
+    apis: ["xSemaphoreTake", "osMutexAcquire"]
+    headers: ["freertos/semphr.h", "cmsis_os2.h"]
+    timeout_param_index: 1
+  MUTEX_UNLOCK:
+    apis: ["xSemaphoreGive", "osMutexRelease"]
+    headers: ["freertos/semphr.h", "cmsis_os2.h"]
+  MUTEX_DELETE:
+    apis: ["vSemaphoreDelete", "osMutexDelete"]
+    headers: ["freertos/semphr.h", "cmsis_os2.h"]
+
+  # ---- RTOS 队列 ----
+  QUEUE_CREATE:
+    apis: ["xQueueCreate", "osMessageQueueNew"]
+    headers: ["freertos/queue.h", "cmsis_os2.h"]
+  QUEUE_SEND:
+    apis: ["xQueueSend", "osMessageQueuePut"]
+    headers: ["freertos/queue.h", "cmsis_os2.h"]
+    isr_variant: "xQueueSendFromISR"
+  QUEUE_RECV:
+    apis: ["xQueueReceive", "osMessageQueueGet"]
+    headers: ["freertos/queue.h", "cmsis_os2.h"]
+    timeout_param_index: 1
+  QUEUE_OVERWRITE:
+    apis: ["xQueueOverwrite"]
+    headers: ["freertos/queue.h"]
+  QUEUE_DELETE:
+    apis: ["vQueueDelete", "osMessageQueueDelete"]
+    headers: ["freertos/queue.h", "cmsis_os2.h"]
+
+  # ---- RTOS 任务 ----
+  TASK_CREATE:
+    apis: ["xTaskCreate", "osThreadNew"]
+    headers: ["freertos/task.h", "cmsis_os2.h"]
+    stack_unit: "bytes"
+    stack_note: "osThreadNew 用字节，xTaskCreate 用 word"
+  TASK_DELETE:
+    apis: ["vTaskDelete", "osThreadTerminate"]
+    headers: ["freertos/task.h", "cmsis_os2.h"]
+  TASK_DELAY:
+    apis: ["vTaskDelay", "osDelay"]
+    headers: ["freertos/task.h", "cmsis_os2.h"]
+    isr_safe: false
+  TASK_NOTIFY_GIVE:
+    apis: ["xTaskNotify", "xTaskNotifyGive"]
+    headers: ["freertos/task.h"]
+    isr_variant: "xTaskNotifyFromISR"
+  TASK_NOTIFY_TAKE:
+    apis: ["xTaskNotifyWait", "ulTaskNotifyTake"]
+    headers: ["freertos/task.h"]
+  TASK_PRIORITY_SET:
+    apis: ["vTaskPrioritySet", "osThreadSetPriority"]
+    headers: ["freertos/task.h", "cmsis_os2.h"]
+
+  # ---- RTOS 定时器 ----
+  TIMER_CREATE:
+    apis: ["xTimerCreate", "osTimerNew"]
+    headers: ["freertos/timers.h", "cmsis_os2.h"]
+  TIMER_START:
+    apis: ["xTimerStart", "osTimerStart"]
+    headers: ["freertos/timers.h", "cmsis_os2.h"]
+  TIMER_STOP:
+    apis: ["xTimerStop", "osTimerStop"]
+    headers: ["freertos/timers.h", "cmsis_os2.h"]
+  TIMER_DELETE:
+    apis: ["xTimerDelete", "osTimerDelete"]
+    headers: ["freertos/timers.h", "cmsis_os2.h"]
+
+  # ---- RTOS 临界区 ----
+  CRITICAL_ENTER:
+    apis: ["taskENTER_CRITICAL", "portENTER_CRITICAL"]
+    headers: ["freertos/portmacro.h"]
+  CRITICAL_EXIT:
+    apis: ["taskEXIT_CRITICAL", "portEXIT_CRITICAL"]
+    headers: ["freertos/portmacro.h"]
+  IRQ_DISABLE:
+    apis: ["portDISABLE_INTERRUPTS", "__disable_irq"]
+    headers: ["freertos/portmacro.h", "cmsis_gcc.h"]
+  IRQ_ENABLE:
+    apis: ["portENABLE_INTERRUPTS", "__enable_irq"]
+    headers: ["freertos/portmacro.h", "cmsis_gcc.h"]
+  IRQ_YIELD:
+    apis: ["portYIELD_FROM_ISR"]
+    headers: ["freertos/portmacro.h"]
+
+  # ---- 内存 ----
+  HEAP_ALLOC:
+    apis: ["pvPortMalloc", "malloc"]
+    headers: ["freertos/portable.h", "stdlib.h"]
+  HEAP_FREE:
+    apis: ["vPortFree", "free"]
+    headers: ["freertos/portable.h", "stdlib.h"]
+  HEAP_ALLOC_DMA:
+    apis: ["pvPortMalloc"]
+    headers: ["freertos/portable.h"]
+    section_note: "需在 .dma_buffer section 或 Non-Cacheable region"
+  HEAP_ALLOC_EXTERNAL:
+    apis: []
+    headers: []
+    note: "STM32 通常无 PSRAM，使用 FMC/SDRAM 需自定义"
+  HEAP_FREE_SIZE:
+    apis: ["xPortGetFreeHeapSize", "xPortGetMinimumEverFreeHeapSize"]
+    headers: ["freertos/portable.h"]
+  MEM_POOL_ALLOC:
+    apis: []
+    headers: []
+
+  # ---- 常量 ----
+  TIMEOUT_FOREVER:
+    value: "portMAX_DELAY"
+    cmsis_value: "osWaitForever"
+  TIMEOUT_ZERO:
+    value: "0"
+    cmsis_value: "0"
+  MS_TO_TICKS:
+    value: "pdMS_TO_TICKS"
+
+  # ---- cJSON ----
+  PARSE:
+    apis: ["cJSON_Parse", "cJSON_ParseWithLength", "cJSON_ParseWithOpts"]
+    headers: ["cJSON.h"]
+  DELETE:
+    apis: ["cJSON_Delete"]
+    headers: ["cJSON.h"]
+  CREATE:
+    apis: ["cJSON_CreateObject", "cJSON_CreateArray"]
+    headers: ["cJSON.h"]
+  ADD_ITEM:
+    apis: ["cJSON_AddItemToObject", "cJSON_AddItemToArray"]
+    headers: ["cJSON.h"]
+
+  # ---- LVGL ----
+  TIMER_HANDLER:
+    apis: ["lv_timer_handler"]
+    headers: ["lvgl.h"]
+  ASYNC_CALL:
+    apis: ["lv_async_call"]
+    headers: ["lvgl.h"]
+  OBJ_CREATE:
+    apis: ["lv_obj_create", "lv_label_create", "lv_btn_create"]
+    headers: ["lvgl.h"]
+  OBJ_SET:
+    apis: ["lv_label_set_text", "lv_bar_set_value", "lv_obj_set_style"]
+    headers: ["lvgl.h"]
+  OBJ_DELETE:
+    apis: ["lv_obj_del"]
+    headers: ["lvgl.h"]
+  DISP_DRV_REG:
+    apis: ["lv_disp_drv_register", "lv_disp_drv_init"]
+    headers: ["lvgl.h"]
+
+  # ---- 网络 Socket ----
+  SOCKET_RECV:
+    apis: ["lwip_recv", "recv"]
+    headers: ["lwip/sockets.h"]
+  SOCKET_SEND:
+    apis: ["lwip_send", "send"]
+    headers: ["lwip/sockets.h"]
+  SOCKET_CONNECT:
+    apis: ["lwip_connect", "connect"]
+    headers: ["lwip/sockets.h"]
+  SOCKET_ACCEPT:
+    apis: ["accept"]
+    headers: ["lwip/sockets.h"]
+  SOCKET_SET_TIMEOUT:
+    apis: ["setsockopt"]
+    headers: ["lwip/sockets.h"]
+
+  # ---- TLS ----
+  TLS_READ:
+    apis: ["mbedtls_ssl_read"]
+    headers: ["mbedtls/ssl.h"]
+  TLS_WRITE:
+    apis: ["mbedtls_ssl_write"]
+    headers: ["mbedtls/ssl.h"]
+  TLS_HANDSHAKE:
+    apis: ["mbedtls_ssl_handshake"]
+    headers: ["mbedtls/ssl.h"]
+
+  # ---- NVS ----
+  NVS_WRITE:
+    apis: ["HAL_FLASH_Program"]
+    headers: ["stm32xx_hal_flash.h"]
+    note: "STM32 无 NVS，使用 HAL Flash 或 emulated EEPROM"
+  NVS_COMMIT:
+    apis: ["HAL_FLASH_Lock"]
+    headers: ["stm32xx_hal_flash.h"]
+  NVS_CLOSE:
+    apis: []
+    headers: []
+  FLASH_WRITE:
+    apis: ["HAL_FLASH_Program"]
+    headers: ["stm32xx_hal_flash.h"]
+  FLASH_ERASE:
+    apis: ["HAL_FLASHEx_Erase"]
+    headers: ["stm32xx_hal_flash.h"]
+
+  # ---- OTA ----
+  OTA_BEGIN:
+    apis: []
+    headers: []
+    note: "STM32 OTA 需自实现，无标准 API"
+  OTA_WRITE:
+    apis: ["HAL_FLASH_Program"]
+    headers: ["stm32xx_hal_flash.h"]
+  OTA_END:
+    apis: []
+    headers: []
+  OTA_MARK_VALID:
+    apis: []
+    headers: []
+    note: "需自实现分区切换"
+  OTA_ROLLBACK:
+    apis: []
+    headers: []
+
+  # ---- GPIO ----
+  GPIO_CONFIG:
+    apis: ["HAL_GPIO_Init"]
+    headers: ["stm32xx_hal_gpio.h"]
+  GPIO_SET:
+    apis: ["HAL_GPIO_WritePin"]
+    headers: ["stm32xx_hal_gpio.h"]
+  GPIO_GET:
+    apis: ["HAL_GPIO_ReadPin"]
+    headers: ["stm32xx_hal_gpio.h"]
+  I2C_TRANSFER:
+    apis: ["HAL_I2C_Master_Transmit", "HAL_I2C_Master_Receive"]
+    headers: ["stm32xx_hal_i2c.h"]
+  SPI_TRANSFER:
+    apis: ["HAL_SPI_Transmit", "HAL_SPI_Receive", "HAL_SPI_TransmitReceive"]
+    headers: ["stm32xx_hal_spi.h"]
+  ADC_CONFIG:
+    apis: ["HAL_ADC_ConfigChannel"]
+    headers: ["stm32xx_hal_adc.h"]
+
+  # ---- 电源 ----
+  DEEP_SLEEP:
+    apis: ["HAL_PWR_EnterSTANDBYMode"]
+    headers: ["stm32xx_hal_pwr.h"]
+  LIGHT_SLEEP:
+    apis: ["HAL_PWR_EnterSTOPMode"]
+    headers: ["stm32xx_hal_pwr.h"]
+  SLEEP_WAKEUP_CAUSE:
+    apis: ["HAL_PWR_GetPWRModeFlagStatus"]
+    headers: ["stm32xx_hal_pwr.h"]
+  PERIPHERAL_POWER_DOWN:
+    apis: ["HAL_ADC_DeInit", "HAL_SPI_DeInit", "HAL_I2C_DeInit"]
+    headers: ["stm32xx_hal.h"]
+
+  # ---- 日志 ----
+  LOG_WRITE:
+    apis: ["printf"]
+    headers: ["stdio.h"]
+    note: "STM32 通常用 printf 重定向到 UART"
+  PRINTF:
+    apis: ["printf", "puts"]
+    headers: ["stdio.h"]
+
+  # ---- 时间 ----
+  TICK_GET:
+    apis: ["xTaskGetTickCount", "HAL_GetTick"]
+    headers: ["freertos/task.h", "stm32xx_hal.h"]
+  TICK_GET_FROM_ISR:
+    apis: ["xTaskGetTickCountFromISR"]
+    headers: ["freertos/task.h"]
+  TICK_TO_MS:
+    apis: ["pdTICKS_TO_MS"]
+    headers: ["freertos/projdefs.h"]
+  MS_TO_TICKS_OP:
+    apis: ["pdMS_TO_TICKS"]
+    headers: ["freertos/projdefs.h"]
+
+  # ---- WiFi ----
+  WIFI_CONNECT:
+    apis: []
+    headers: []
+    note: "STM32 WiFi 需外部模组，无标准 API"
+  WIFI_DISCONNECT:
+    apis: []
+    headers: []
+  WIFI_EVENT_REGISTER:
+    apis: []
+    headers: []
+
+  # ---- 看门狗 ----
+  WDT_ADD:
+    apis: []
+    headers: []
+  WDT_RESET:
+    apis: ["HAL_IWDG_Refresh"]
+    headers: ["stm32xx_hal_iwdg.h"]
+  WDT_INIT:
+    apis: ["HAL_IWDG_Init"]
+    headers: ["stm32xx_hal_iwdg.h"]

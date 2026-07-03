@@ -20,25 +20,20 @@ import re
 from pathlib import Path
 
 from checker_io import make_issue, read_file, run_checker, strip_comments, extract_functions, line_at, nearby
+from sdk_lookup import SdkLookup
 
+# 全平台 SDK 查询
+_ALL_PLATFORMS = ["esp32", "stm32", "jl", "bk", "zephyr"]
+_lookup = SdkLookup(_ALL_PLATFORMS)
 
-ENTER_RE = re.compile(
-    r"\b(?:taskENTER_CRITICAL|portENTER_CRITICAL|portDISABLE_INTERRUPTS|__disable_irq|"
-    r"irq_disable|local_irq_disable|GLOBAL_INT_DISABLE|CPU_CRITICAL_ENTER)\s*\(",
-    re.IGNORECASE,
-)
-EXIT_RE = re.compile(
-    r"\b(?:taskEXIT_CRITICAL|portEXIT_CRITICAL|portENABLE_INTERRUPTS|__enable_irq|"
-    r"irq_enable|local_irq_enable|GLOBAL_INT_RESTORE|GLOBAL_INT_ENABLE|CPU_CRITICAL_EXIT)\s*\(",
-    re.IGNORECASE,
-)
-HEAVY_RE = re.compile(
-    r"\b(?:vTaskDelay|vTaskDelayUntil|xQueue(?:Send|Receive)|xSemaphore(?:Take|Give)|"
-    r"mbedtls_ssl_(?:read|write|handshake)|recv|send|connect|select|poll|"
-    r"malloc|calloc|pvPortMalloc|free|vPortFree|memcpy|memmove|memset|"
-    r"printf|puts|LOG_[A-Z]+|cJSON_Parse|fopen|fread|fwrite|nvs_commit|"
-    r"flash_erase|flash_write|lv_timer_handler|codec_(?:open|create))\s*\(",
-    re.IGNORECASE,
+ENTER_RE = _lookup.build_regex("CRITICAL_ENTER", "IRQ_DISABLE")
+EXIT_RE = _lookup.build_regex("CRITICAL_EXIT", "IRQ_ENABLE")
+HEAVY_RE = _lookup.build_combined_regex(
+    "memcpy|memmove|memset|codec_open|codec_create",
+    "TASK_DELAY", "QUEUE_SEND", "QUEUE_RECV", "SEM_TAKE", "SEM_GIVE",
+    "TLS_READ", "TLS_WRITE", "TLS_HANDSHAKE", "SOCKET_RECV", "SOCKET_SEND",
+    "SOCKET_CONNECT", "HEAP_ALLOC", "HEAP_FREE", "PRINTF", "LOG_WRITE",
+    "PARSE", "NVS_COMMIT", "FLASH_WRITE", "FLASH_ERASE", "TIMER_HANDLER",
 )
 BUSY_LOOP_RE = re.compile(r"\b(?:while\s*\(|for\s*\()", re.IGNORECASE)
 RETURN_RE = re.compile(r"\breturn\b")
