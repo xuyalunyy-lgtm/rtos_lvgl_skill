@@ -16,6 +16,19 @@ Agent 或维护者在 [archived self_iterate.md](../archive/workflows/self_itera
 
 ---
 
+### 2026-07-03 - v36.0.0 FixPlan Precision
+
+- **来源：** v36 FixPlan 精度闭环版
+- **平台：** ESP32 + Zephyr
+- **变更：**
+  - --suggest-fixes 改为只对有 issue 的 checker 生成 FixPlan
+  - FixPlan 新增 fix_plan_schema_version: "1.0"
+  - FixPlan 新增 source_diagnostic (checker/constraints/file)
+  - 不可修复诊断输出 non_applicable_reason
+  - 显式传入 bad_*.c 文件默认参与检查
+- **验证：** run_review --self-test ✅ / auto_fix_engine --self-test ✅
+- **版本：** 36.0.0
+
 ### 2026-07-03 - v35.0.0 Reviewable Fix Plans
 
 - **来源：** v35 可审查修复版

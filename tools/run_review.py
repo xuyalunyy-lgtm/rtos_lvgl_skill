@@ -490,22 +490,46 @@ def main() -> int:
         # ── 修复建议 (FixPlan) ──
         if args.suggest_fixes:
             fix_plans = []
-            for c_file in c_files[:10]:  # 限制前 10 个文件，避免过慢
-                for spec in DEFAULT_CHECKERS:
+            non_applicable = []
+            # 只对有 issue 的 checker 生成 FixPlan
+            for r in all_results:
+                if r.get("skipped") or r.get("issues", 0) == 0:
+                    continue
+                checker_name = r.get("checker", "")
+                # 找到对应的 spec
+                spec = checker_map.get(checker_name)
+                if not spec:
+                    non_applicable.append({
+                        "checker": checker_name,
+                        "non_applicable_reason": "checker 不在注册表中",
+                    })
+                    continue
+                # 对每个文件尝试生成 FixPlan
+                for c_file in c_files[:10]:
                     af_argv = [sys.executable, str(TOOLS_DIR / "auto_fix_engine.py"),
                                str(c_file), "--checker", spec.name, "--plan", "--json"]
                     rc, out = _run_and_capture("auto_fix_engine", af_argv, quiet=True)
                     if rc == 0 and out.strip():
                         try:
                             plans = json.loads(out)
-                            if isinstance(plans, list):
-                                fix_plans.extend(plans)
-                            elif isinstance(plans, dict) and plans.get("actions"):
-                                fix_plans.append(plans)
+                            plan_list = plans if isinstance(plans, list) else [plans]
+                            for plan in plan_list:
+                                if plan.get("actions"):
+                                    # 添加 source_diagnostic
+                                    plan["source_diagnostic"] = {
+                                        "checker": checker_name,
+                                        "constraints": list(spec.domains),
+                                        "file": str(c_file),
+                                    }
+                                    plan["fix_plan_schema_version"] = "1.0"
+                                    fix_plans.append(plan)
                         except (json.JSONDecodeError, ValueError):
                             pass
             report["fix_plans"] = fix_plans
             report["total_fix_plans"] = len(fix_plans)
+            report["total_non_applicable"] = len(non_applicable)
+            if non_applicable:
+                report["non_applicable"] = non_applicable
         json.dump(report, sys.stdout, ensure_ascii=False, indent=2)
         print()
     else:
@@ -521,13 +545,20 @@ def main() -> int:
             print("Fix Plan (可审查修复方案)")
             print("=" * 60)
             fix_count = 0
-            for c_file in c_files[:10]:
-                for spec in DEFAULT_CHECKERS:
+            # 只对有 issue 的 checker 生成修复建议
+            for r in all_results:
+                if r.get("skipped") or r.get("issues", 0) == 0:
+                    continue
+                checker_name = r.get("checker", "")
+                spec = checker_map.get(checker_name)
+                if not spec:
+                    continue
+                for c_file in c_files[:10]:
                     af_argv = [sys.executable, str(TOOLS_DIR / "auto_fix_engine.py"),
                                str(c_file), "--checker", spec.name, "--plan", "--diff"]
                     rc, out = _run_and_capture("auto_fix_engine", af_argv, quiet=True)
                     if rc == 0 and out.strip():
-                        print(f"\n[{spec.name}] {c_file.name}")
+                        print(f"\n[{checker_name}] {c_file.name}")
                         print(out)
                         fix_count += 1
             if fix_count == 0:

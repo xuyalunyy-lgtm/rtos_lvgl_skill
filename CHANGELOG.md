@@ -1,5 +1,16 @@
 # Changelog
 
+## 36.0.0 - 2026-07-03
+
+v36: FixPlan 精度闭环版 — 只对真实命中的问题生成可追踪的 FixPlan。
+
+- --suggest-fixes 改为只对有 issue 的 checker 生成 FixPlan
+- FixPlan 新增 fix_plan_schema_version: "1.0"
+- FixPlan 新增 source_diagnostic (checker/constraints/file)
+- 不可修复诊断输出 non_applicable_reason
+- 显式传入 bad_*.c 文件默认参与检查
+- 版本 36.0.0
+
 ## 35.0.0 - 2026-07-03
 
 v35: 可审查修复版 — 诊断之后，给出工程师可审查、可验证、可拒绝的 FixPlan。
