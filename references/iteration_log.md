@@ -16,6 +16,18 @@ Agent 或维护者在 [archived self_iterate.md](../archive/workflows/self_itera
 
 ---
 
+### 2026-07-03 - v33.0.8 Code Generation LTS
+
+- **来源：** v33 生成落地版收口
+- **平台：** ESP32 + Zephyr（一等生成目标）
+- **变更：**
+  - 33.0.0: 宣布 codegen/scaffold/module contract 为主线能力
+  - 所有 5 个 preset（voice-screen/audio-video/low-power-sensor/ota-network/pure-controller）统一支持 ESP32 + Zephyr
+  - ESP32 + Zephyr scaffold 通过 codegen_gate --strict
+  - 版本 33.0.8
+- **验证：** skill_iterate --check ✅ / codegen_gate --strict ✅ / run_review --self-test ✅ / sdk_lookup --self-test ✅
+- **版本：** 33.0.8
+
 ### 2026-07-03 - v33.0.0 Code Generation Landing
 
 - **来源：** v33 生成落地版
