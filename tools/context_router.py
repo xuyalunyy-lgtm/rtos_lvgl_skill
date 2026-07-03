@@ -149,8 +149,15 @@ def estimate_tokens(file_path: Path) -> int:
     return file_path.stat().st_size // 4
 
 
-def build_load_plan(workflow: str, platform: str, constraints: list[str] | None = None) -> dict:
-    """构建读取计划。"""
+def build_load_plan(workflow: str, platform: str, constraints: list[str] | None = None, budget: str = "compact") -> dict:
+    """构建读取计划。
+
+    Args:
+        workflow: workflow ID
+        platform: platform ID
+        constraints: optional constraint IDs to narrow scope
+        budget: "compact" (default), "standard", or "full"
+    """
     wf = WORKFLOWS.get(workflow)
     if not wf:
         return {"error": f"Unknown workflow: {workflow}"}
@@ -161,49 +168,160 @@ def build_load_plan(workflow: str, platform: str, constraints: list[str] | None 
 
     required_files = []
     reasons = {}
+    optional_files = []
+    upgrade_hints = []
+    quality_risks = []
 
-    # 1. 必读：quick index
-    qi = "references/constraint_quick_index.md"
-    required_files.append(qi)
-    reasons[qi] = "C1-C45 快速查找索引"
+    # ── Compact 模式（默认） ──
+    if budget == "compact":
+        # 1. quick index（替代完整 constraint_index）
+        qi = "references/constraint_quick_index.md"
+        required_files.append(qi)
+        reasons[qi] = "C1-C45 快速查找索引"
 
-    # 2. 必读：workflow 文件
-    required_files.append(wf["file"])
-    reasons[wf["file"]] = f"Workflow: {wf['description']}"
+        # 2. workflow 文件
+        required_files.append(wf["file"])
+        reasons[wf["file"]] = f"Workflow: {wf['description']}"
 
-    # 3. 按 workflow 选择约束分片
-    shards = set(wf["constraint_shards"])
-    # 如果指定了约束，缩小范围
-    if constraints:
-        for c in constraints:
-            shard = CONSTRAINT_TO_SHARD.get(c.upper())
-            if shard:
-                shards.add(shard)
-    for shard_name in sorted(shards):
-        shard_file = CONSTRAINT_SHARDS.get(shard_name)
-        if shard_file and shard_file not in required_files:
-            required_files.append(shard_file)
-            reasons[shard_file] = f"约束分片: {shard_name}"
+        # 3. core_rules_quick（替代完整 core_rules）
+        core_quick = "references/core_rules_quick.md"
+        required_files.append(core_quick)
+        reasons[core_quick] = "核心规则速查"
 
-    # 4. 按 platform 选择平台文档
-    if plat["doc"] not in required_files:
-        required_files.append(plat["doc"])
-        reasons[plat["doc"]] = f"平台文档: {platform}"
-    if plat["sdk_map"] not in required_files:
-        required_files.append(plat["sdk_map"])
-        reasons[plat["sdk_map"]] = f"SDK 映射: {platform}"
+        # 4. sdk_abstraction_quick（替代完整 yaml）
+        sdk_quick = "references/sdk_abstraction_quick.md"
+        required_files.append(sdk_quick)
+        reasons[sdk_quick] = "SDK 抽象速查"
 
-    # 5. SDK abstraction（checker 需要）
-    sdk_abs = "references/sdk_abstraction.yaml"
-    if sdk_abs not in required_files:
+        # 5. 平台 quick（替代完整平台文档）
+        plat_quick = f"platforms/{platform}_quick.md"
+        if Path(ROOT / plat_quick).is_file():
+            required_files.append(plat_quick)
+            reasons[plat_quick] = f"平台速查: {platform}"
+        else:
+            # 没有 quick 文件时加载完整文档
+            required_files.append(plat["doc"])
+            reasons[plat["doc"]] = f"平台文档: {platform}（无 quick 版）"
+
+        # 6. 约束分片（只加载摘要，不加载完整分片）
+        shards = set(wf["constraint_shards"])
+        if constraints:
+            for c in constraints:
+                shard = CONSTRAINT_TO_SHARD.get(c.upper())
+                if shard:
+                    shards.add(shard)
+        for shard_name in sorted(shards):
+            shard_file = CONSTRAINT_SHARDS.get(shard_name)
+            if shard_file and shard_file not in required_files:
+                required_files.append(shard_file)
+                reasons[shard_file] = f"约束分片: {shard_name}"
+
+        # upgrade hints
+        upgrade_hints = [
+            "需要平台 API 细节时升级到 standard",
+            "需要迁移/历史追溯时升级到 full",
+        ]
+        quality_risks = ["compact 模式可能遗漏平台特定细节"]
+
+    # ── Standard 模式 ──
+    elif budget == "standard":
+        # 1. quick index
+        qi = "references/constraint_quick_index.md"
+        required_files.append(qi)
+        reasons[qi] = "C1-C45 快速查找索引"
+
+        # 2. workflow 文件
+        required_files.append(wf["file"])
+        reasons[wf["file"]] = f"Workflow: {wf['description']}"
+
+        # 3. 完整 core_rules
+        core = "references/core_rules.md"
+        required_files.append(core)
+        reasons[core] = "核心规则"
+
+        # 4. 完整 SDK abstraction
+        sdk_abs = "references/sdk_abstraction.yaml"
         required_files.append(sdk_abs)
         reasons[sdk_abs] = "SDK 抽象注册表"
 
-    # 6. 核心规则
-    core = "references/core_rules.md"
-    if core not in required_files:
+        # 5. 完整平台文档 + SDK map
+        required_files.append(plat["doc"])
+        reasons[plat["doc"]] = f"平台文档: {platform}"
+        required_files.append(plat["sdk_map"])
+        reasons[plat["sdk_map"]] = f"SDK 映射: {platform}"
+
+        # 6. 约束分片
+        shards = set(wf["constraint_shards"])
+        if constraints:
+            for c in constraints:
+                shard = CONSTRAINT_TO_SHARD.get(c.upper())
+                if shard:
+                    shards.add(shard)
+        for shard_name in sorted(shards):
+            shard_file = CONSTRAINT_SHARDS.get(shard_name)
+            if shard_file and shard_file not in required_files:
+                required_files.append(shard_file)
+                reasons[shard_file] = f"约束分片: {shard_name}"
+
+        upgrade_hints = ["需要历史/迁移资料时升级到 full"]
+        quality_risks = []
+
+    # ── Full 模式 ──
+    elif budget == "full":
+        # 1. quick index
+        qi = "references/constraint_quick_index.md"
+        required_files.append(qi)
+        reasons[qi] = "C1-C45 快速查找索引"
+
+        # 2. workflow 文件
+        required_files.append(wf["file"])
+        reasons[wf["file"]] = f"Workflow: {wf['description']}"
+
+        # 3. 完整 core_rules
+        core = "references/core_rules.md"
         required_files.append(core)
         reasons[core] = "核心规则"
+
+        # 4. 完整 SDK abstraction
+        sdk_abs = "references/sdk_abstraction.yaml"
+        required_files.append(sdk_abs)
+        reasons[sdk_abs] = "SDK 抽象注册表"
+
+        # 5. 完整平台文档 + SDK map
+        required_files.append(plat["doc"])
+        reasons[plat["doc"]] = f"平台文档: {platform}"
+        required_files.append(plat["sdk_map"])
+        reasons[plat["sdk_map"]] = f"SDK 映射: {platform}"
+
+        # 6. 约束分片
+        shards = set(wf["constraint_shards"])
+        if constraints:
+            for c in constraints:
+                shard = CONSTRAINT_TO_SHARD.get(c.upper())
+                if shard:
+                    shards.add(shard)
+        for shard_name in sorted(shards):
+            shard_file = CONSTRAINT_SHARDS.get(shard_name)
+            if shard_file and shard_file not in required_files:
+                required_files.append(shard_file)
+                reasons[shard_file] = f"约束分片: {shard_name}"
+
+        # 7. Full 模式额外加载
+        extra_files = [
+            ("references/skill_structure.md", "Skill 结构说明"),
+            ("references/platform_diff_matrix.md", "平台差异矩阵"),
+            ("references/constraint_graph.md", "约束知识图谱"),
+        ]
+        for f, r in extra_files:
+            if f not in required_files and Path(ROOT / f).is_file():
+                required_files.append(f)
+                reasons[f] = r
+
+        upgrade_hints = []
+        quality_risks = []
+
+    else:
+        return {"error": f"Unknown budget: {budget}"}
 
     # 计算 token 预算
     total_tokens = 0
@@ -218,14 +336,25 @@ def build_load_plan(workflow: str, platform: str, constraints: list[str] | None 
             "estimated_tokens": tokens,
         })
 
+    # 预算警告
+    budget_warning = None
+    if budget == "compact" and total_tokens > 15000:
+        budget_warning = f"compact 模式预估 {total_tokens} tokens，超过 15k 建议升级到 standard"
+    elif budget == "standard" and total_tokens > 30000:
+        budget_warning = f"standard 模式预估 {total_tokens} tokens，超过 30k 建议升级到 full"
+
     return {
         "workflow": workflow,
         "workflow_description": wf["description"],
         "platform": platform,
         "platform_primary": plat["primary"],
+        "budget_mode": budget,
         "required_files": files_with_reason,
         "forbidden_by_default": FORBIDDEN_BY_DEFAULT,
-        "token_budget_hint": total_tokens,
+        "estimated_tokens": total_tokens,
+        "budget_warning": budget_warning,
+        "upgrade_hint": upgrade_hints,
+        "quality_risk": quality_risks,
         "constraint_shards_loaded": sorted(shards),
     }
 
@@ -244,12 +373,14 @@ def run_self_test() -> int:
             failed += 1
             print(f"  FAIL: {name}")
 
-    # 测试所有 9 个 workflow
+    # 测试所有 9 个 workflow × 3 个预算档位
     for wf_id in WORKFLOWS:
-        plan = build_load_plan(wf_id, "esp32")
-        check(f"{wf_id}: no error", "error" not in plan)
-        check(f"{wf_id}: has required_files", len(plan.get("required_files", [])) > 0)
-        check(f"{wf_id}: has token_budget_hint", plan.get("token_budget_hint", 0) > 0)
+        for budget in ["compact", "standard", "full"]:
+            plan = build_load_plan(wf_id, "esp32", budget=budget)
+            check(f"{wf_id}+{budget}: no error", "error" not in plan)
+            check(f"{wf_id}+{budget}: has required_files", len(plan.get("required_files", [])) > 0)
+            check(f"{wf_id}+{budget}: has estimated_tokens", plan.get("estimated_tokens", 0) > 0)
+            check(f"{wf_id}+{budget}: has budget_mode", plan.get("budget_mode") == budget)
 
     # 测试 platform 选择
     plan_esp32 = build_load_plan("code_review", "esp32")
@@ -293,6 +424,10 @@ def main() -> int:
                         help="目标平台")
     parser.add_argument("--constraints", "-c", nargs="*",
                         help="约束 ID（如 C2 C3），缩小读取范围")
+    parser.add_argument("--budget", "-b",
+                        choices=["compact", "standard", "full"],
+                        default="compact",
+                        help="预算档位：compact（默认）/ standard / full")
     parser.add_argument("--json", action="store_true",
                         help="输出 JSON 格式")
     parser.add_argument("--self-test", action="store_true",
@@ -305,7 +440,7 @@ def main() -> int:
     if not args.workflow:
         parser.error("--workflow is required")
 
-    plan = build_load_plan(args.workflow, args.platform, args.constraints)
+    plan = build_load_plan(args.workflow, args.platform, args.constraints, args.budget)
 
     if args.json:
         json.dump(plan, sys.stdout, ensure_ascii=False, indent=2)
@@ -316,7 +451,10 @@ def main() -> int:
             return 1
 
         print(f"Context Router: {plan['workflow_description']} @ {plan['platform']}")
-        print(f"Token budget hint: ~{plan['token_budget_hint']} tokens")
+        print(f"Budget mode: {plan['budget_mode']}")
+        print(f"Estimated tokens: ~{plan['estimated_tokens']}")
+        if plan.get("budget_warning"):
+            print(f"Warning: {plan['budget_warning']}")
         print(f"\nRequired files ({len(plan['required_files'])}):")
         for f in plan["required_files"]:
             print(f"  {f['path']} — {f['reason']} (~{f['estimated_tokens']} tokens)")
@@ -324,6 +462,14 @@ def main() -> int:
         for f in plan["forbidden_by_default"]:
             print(f"  {f}")
         print(f"\nConstraint shards: {', '.join(plan['constraint_shards_loaded'])}")
+        if plan.get("upgrade_hint"):
+            print(f"\nUpgrade hints:")
+            for h in plan["upgrade_hint"]:
+                print(f"  - {h}")
+        if plan.get("quality_risk"):
+            print(f"\nQuality risks:")
+            for r in plan["quality_risk"]:
+                print(f"  - {r}")
 
     return 0
 

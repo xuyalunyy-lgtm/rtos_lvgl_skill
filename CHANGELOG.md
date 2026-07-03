@@ -1,5 +1,17 @@
 # Changelog
 
+## 39.0.0 - 2026-07-03
+
+v39: 预算分级路由版 — 按预算输出不同粒度的读取计划。
+
+- context_router.py 新增 --budget compact|standard|full
+- compact: 只读 quick 文件（~11k tokens）
+- standard: 读完整分片和平台文档（~25k tokens）
+- full: 允许读长文档和历史资料（~33k tokens）
+- 新增 core_rules_quick/sdk_abstraction_quick/esp32_quick/zephyr_quick
+- 输出新增 budget_mode/estimated_tokens/budget_warning/upgrade_hint/quality_risk
+- 版本 39.0.0
+
 ## 38.0.0 - 2026-07-03
 
 v38: 上下文路由器版 — agent 确定性知道该读哪些文件、别读哪些、最多读多少。
