@@ -356,6 +356,80 @@ i2s_configure(i2s_dev, I2S_DIR_TX, &cfg);
 
 ---
 
+## Workqueue（工作队列）
+
+Zephyr workqueue 类似 FreeRTOS 的 timer task + deferred work pattern。
+
+```c
+#include <zephyr/kernel.h>
+
+// 系统工作队列（默认，共享线程）
+K_WORK_DEFINE(my_work, my_work_handler);
+
+void trigger_work(void) {
+    k_work_submit(&my_work);  // 提交到系统 workqueue
+}
+
+// 延迟工作
+K_WORK_DELAYABLE_DEFINE(my_delayed_work, my_delayed_work_handler);
+
+void trigger_delayed(void) {
+    k_work_schedule(&my_delayed_work, K_MSEC(100));  // 100ms 后执行
+}
+
+// 自定义工作队列（独立线程，适合需要确定优先级的场景）
+K_THREAD_STACK_DEFINE(my_wq_stack, 2048);
+struct k_work_q my_work_q;
+
+void init_custom_wq(void) {
+    k_work_queue_init(&my_work_q);
+    k_work_queue_start(&my_work_q, my_wq_stack,
+                       K_THREAD_STACK_SIZEOF(my_wq_stack),
+                       5, NULL);  // 优先级 5
+}
+```
+
+**FreeRTOS 对照：**
+| FreeRTOS | Zephyr |
+|---|---|
+| `xTimerCreate` + timer callback | `K_WORK_DELAYABLE_DEFINE` + `k_work_schedule` |
+| `xTaskCreate` + `xQueueSend` | `K_WORK_DEFINE` + `k_work_submit` |
+| 高优先级 timer task | 自定义 `k_work_q` + 独立优先级 |
+
+---
+
+## MCUboot / OTA
+
+Zephyr 使用 MCUboot 作为默认 bootloader，支持 OTA 升级。
+
+```c
+#include <zephyr/dfu/mcuboot.h>
+
+// 标记当前固件有效（首次启动后必须调用）
+boot_set_confirmed();
+
+// 检查固件是否已确认
+bool confirmed = boot_is_img_confirmed();
+
+// 请求下次启动时升级（写入新固件后）
+boot_request_upgrade(img_buf, img_size);
+```
+
+**Kconfig 配置：**
+```
+CONFIG_BOOTLOADER_MCUBOOT=y
+CONFIG_MCUBOOT_BOOTUTIL_LIB=y
+```
+
+**OTA 流程：**
+1. 下载新固件到 secondary slot
+2. 调用 `boot_request_upgrade()` 标记待升级
+3. 重启，MCUboot 自动 swap/validate
+4. 新固件启动后调用 `boot_set_confirmed()` 确认
+5. 如果未确认，MCUboot 自动回滚
+
+---
+
 ## 看门狗
 
 ```c

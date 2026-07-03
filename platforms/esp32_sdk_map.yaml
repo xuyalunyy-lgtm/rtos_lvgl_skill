@@ -348,3 +348,26 @@ mappings:
   WDT_INIT:
     apis: ["esp_task_wdt_init"]
     headers: ["esp_task_wdt.h"]
+
+  # ---- OTA 验证 ----
+  OTA_VERIFY:
+    apis: ["esp_image_verify", "esp_secure_boot_verify_signature", "esp_ota_verify_signature"]
+    headers: ["esp_image_format.h", "esp_secure_boot.h", "esp_ota.h"]
+  OTA_SECURE_BOOT:
+    apis: ["esp_secure_boot_enabled"]
+    headers: ["esp_secure_boot.h"]
+    config_keys: ["CONFIG_SECURE_BOOT", "CONFIG_SECURE_BOOT_V2_ENABLED", "CONFIG_SECURE_SIGNED_APPS"]
+
+  # ---- Cache / DMA 同步 ----
+  CACHE_CLEAN:
+    apis: ["esp_cache_msync"]
+    headers: ["esp_cache.h"]
+    flags: ["ESP_CACHE_MSYNC_FLAG_DIR_C2M"]
+  CACHE_INVALIDATE:
+    apis: ["esp_cache_msync"]
+    headers: ["esp_cache.h"]
+    flags: ["ESP_CACHE_MSYNC_FLAG_DIR_M2C"]
+  DMA_BUFFER_SYNC:
+    apis: ["esp_cache_msync"]
+    headers: ["esp_cache.h"]
+    flags: ["ESP_CACHE_MSYNC_FLAG_DIR_C2M", "ESP_CACHE_MSYNC_FLAG_DIR_M2C"]

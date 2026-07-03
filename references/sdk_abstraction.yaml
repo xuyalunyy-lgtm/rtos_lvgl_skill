@@ -427,3 +427,36 @@ watchdog:
     description: "喂狗"
   WDT_INIT:
     description: "看门狗初始化"
+
+# ============================================================
+# 19. OTA 验证
+# ============================================================
+
+ota_verify:
+  OTA_VERIFY:
+    description: "固件签名/完整性验证"
+    semantics: "OTA 写入后、标记 valid 前必须调用"
+    checker_hints:
+      - mandatory_before_mark_valid
+  OTA_SECURE_BOOT:
+    description: "安全启动配置检查"
+    semantics: "CONFIG_SECURE_BOOT / CONFIG_SECURE_SIGNED_APPS"
+
+# ============================================================
+# 20. Cache / DMA 同步
+# ============================================================
+
+cache_dma:
+  CACHE_CLEAN:
+    description: "Cache 写回（clean/flush）"
+    semantics: "DMA 写入后、外设读取前调用"
+    checker_hints:
+      - dma_write_before_peripheral_read
+  CACHE_INVALIDATE:
+    description: "Cache 无效化（invalidate）"
+    semantics: "DMA 读取后、CPU 读取前调用"
+    checker_hints:
+      - dma_read_before_cpu_read
+  DMA_BUFFER_SYNC:
+    description: "DMA buffer 同步（clean + invalidate）"
+    semantics: "双向 DMA 传输时使用"

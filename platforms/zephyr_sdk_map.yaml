@@ -363,3 +363,30 @@ mappings:
   WDT_INIT:
     apis: ["wdt_setup"]
     headers: ["zephyr/drivers/watchdog.h"]
+
+  # ---- OTA 验证 ----
+  OTA_VERIFY:
+    apis: ["boot_set_pending"]
+    headers: ["zephyr/dfu/mcuboot.h"]
+    note: "Zephyr OTA verification is handled by MCUboot bootloader"
+  OTA_SECURE_BOOT:
+    apis: ["boot_is_img_confirmed"]
+    headers: ["zephyr/dfu/mcuboot.h"]
+    config_keys: ["CONFIG_BOOTLOADER_MCUBOOT"]
+
+  # ---- Cache / DMA 同步 ----
+  CACHE_CLEAN:
+    apis: []
+    headers: []
+    unsupported: true
+    reason: "Zephyr cache operations are architecture-specific (ARM/ARC/RISC-V)"
+  CACHE_INVALIDATE:
+    apis: []
+    headers: []
+    unsupported: true
+    reason: "Zephyr cache operations are architecture-specific"
+  DMA_BUFFER_SYNC:
+    apis: []
+    headers: []
+    unsupported: true
+    reason: "Zephyr DMA is handled by device drivers"

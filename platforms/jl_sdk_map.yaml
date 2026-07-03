@@ -362,6 +362,32 @@ mappings:
     unsupported: true
     reason: "JL event unregister API varies by SDK branch"
 
+  OTA_VERIFY:
+    apis: []
+    headers: []
+    unsupported: true
+    reason: "Platform-specific OTA verification"
+  OTA_SECURE_BOOT:
+    apis: []
+    headers: []
+    unsupported: true
+    reason: "Platform-specific secure boot"
+  CACHE_CLEAN:
+    apis: []
+    headers: []
+    unsupported: true
+    reason: "Platform-specific cache operations"
+  CACHE_INVALIDATE:
+    apis: []
+    headers: []
+    unsupported: true
+    reason: "Platform-specific cache operations"
+  DMA_BUFFER_SYNC:
+    apis: []
+    headers: []
+    unsupported: true
+    reason: "Platform-specific DMA sync"
+
   # ---- 看门狗 ----
   WDT_ADD:
     apis: []
