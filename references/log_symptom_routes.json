@@ -3,7 +3,7 @@
     {
       "id": "WDT_RESET",
       "name": "Task WDT 复位",
-      "patterns": ["task_wdt", "WDT", "TIMERG", "watchdog", "wdt_reset", "TWDT"],
+      "patterns": ["task_wdt", "WDT", "TIMERG", "watchdog", "wdt_reset", "TWDT", "queue.*full", "xQueueSend.*failed", "xQueueSend.*blocked"],
       "natural_patterns": ["重启", "复位", "看门狗", "WDT", "跑一会就死", "运行一段时间后重启", "偶发重启", "跑久了重启"],
       "weak_patterns": ["异常", "不稳定", "死机"],
       "category": "software",
@@ -19,7 +19,8 @@
       },
       "log_signals": ["task_wdt", "TWDT", "TIMERG0", "reset reason"],
       "checker_targets": ["blocking_wait_checker", "priority_checker"],
-      "stop_conditions": ["如果是硬件 watchdog（非 task watchdog），先检查硬件"]
+      "stop_conditions": ["如果是硬件 watchdog（非 task watchdog），先检查硬件"],
+      "architecture_flags": ["timeout budget missing", "task topology or backpressure contract may be incomplete"]
     },
     {
       "id": "HARDFAULT",
@@ -40,7 +41,8 @@
       },
       "log_signals": ["Guru Meditation", "HardFault", "panic", "abort", "EXCCAUSE"],
       "checker_targets": ["isr_safety_checker", "return_check_checker"],
-      "stop_conditions": ["如果是 brownout/reset reason power，先检查供电"]
+      "stop_conditions": ["如果是 brownout/reset reason power，先检查供电"],
+      "architecture_flags": ["memory ownership or ISR boundary may be broken"]
     },
     {
       "id": "HEAP_EXHAUSTION",
@@ -61,7 +63,8 @@
       },
       "log_signals": ["malloc fail", "heap_caps_malloc.*NULL", "free heap", "out of memory"],
       "checker_targets": ["cjson_leak_checker", "stack_alloc_checker"],
-      "stop_conditions": ["如果是 PSRAM 分配失败，先检查 PSRAM 配置"]
+      "stop_conditions": ["如果是 PSRAM 分配失败，先检查 PSRAM 配置"],
+      "architecture_flags": ["allocation lifecycle and memory ownership contract may be incomplete"]
     },
     {
       "id": "OTA_ROLLBACK",
@@ -82,7 +85,8 @@
       },
       "log_signals": ["rollback", "invalid_app", "mark_valid", "ota.*fail", "partition"],
       "checker_targets": ["ota_safety_checker"],
-      "stop_conditions": ["如果是 secure boot 配置问题，先检查 sdkconfig"]
+      "stop_conditions": ["如果是 secure boot 配置问题，先检查 sdkconfig"],
+      "architecture_flags": ["OTA lifecycle contract is incomplete: verify, boot, mark-valid, rollback"]
     },
     {
       "id": "DMA_CACHE_ERROR",
@@ -124,7 +128,8 @@
       },
       "log_signals": ["underrun", "xrun", "audio_drop", "buffer_empty"],
       "checker_targets": ["av_pipeline_checker", "av_clock_jitter_checker"],
-      "stop_conditions": ["如果是 I2S 硬件配置问题，先检查 I2S 时钟/bits 配置"]
+      "stop_conditions": ["如果是 I2S 硬件配置问题，先检查 I2S 时钟/bits 配置"],
+      "architecture_flags": ["media pipeline backpressure or task topology budget may be incomplete"]
     },
     {
       "id": "LVGL_CRASH",
@@ -187,7 +192,8 @@
       },
       "log_signals": ["i2c.*timeout", "spi.*timeout", "NACK", "no.*ack", "DRDY"],
       "checker_targets": ["sensor_integration_checker"],
-      "stop_conditions": ["先用逻辑分析仪确认 I2C/SPI 波形是否正常"]
+      "stop_conditions": ["先用逻辑分析仪确认 I2C/SPI 波形是否正常"],
+      "architecture_flags": ["sensor bus ownership, timeout, and recovery contract may be incomplete"]
     },
     {
       "id": "BROWNOUT_RESET",
@@ -209,6 +215,227 @@
       "log_signals": ["brownout", "BOD", "reset reason", "power fail"],
       "checker_targets": [],
       "stop_conditions": ["这是硬件问题，不要先改软件"]
+    },
+    {
+      "id": "PERIPHERAL_NO_ACK",
+      "name": "?? NACK/???",
+      "patterns": [
+        "i2c.*no ack",
+        "NACK received",
+        "device not found",
+        "spi.*no ack",
+        "peripheral.*no ack"
+      ],
+      "natural_patterns": [
+        "I2C NACK",
+        "?????",
+        "?????",
+        "??? NACK"
+      ],
+      "weak_patterns": [
+        "????",
+        "????"
+      ],
+      "category": "hardware",
+      "severity": "P1",
+      "constraints": [
+        "C18",
+        "C42",
+        "C45"
+      ],
+      "root_cause_hints": [
+        "I2C/SPI ???????",
+        "????/????",
+        "????????????"
+      ],
+      "verify_steps": [
+        "??????????",
+        "???????? ACK/NACK",
+        "???????????"
+      ],
+      "missing_facts": [
+        "???????",
+        "I2C/SPI ??",
+        "???????"
+      ],
+      "hardware_challenge": [
+        "?? SDA/SCL ??????????????",
+        "???? I2C/SPI ???? ACK/NACK"
+      ],
+      "do_not_patch_until": "????????????????????????????",
+      "diagnostic_probes": {
+        "log_confirm": [
+          "? NACK/no ack/device not found ??",
+          "??????????"
+        ],
+        "code_locate": [
+          "grep -rn 'i2c.*addr\\\\|spi.*cs\\\\|WHO_AM_I' src/"
+        ],
+        "tool_verify": [
+          "python tools/run_review.py --dir src --constraints C18 C42 C45"
+        ]
+      },
+      "log_signals": [
+        "no ack",
+        "NACK",
+        "device not found"
+      ],
+      "checker_targets": [
+        "peripheral_driver_checker",
+        "sensor_integration_checker"
+      ],
+      "stop_conditions": [
+        "?????????? ACK?????/??/??"
+      ]
+    },
+    {
+      "id": "LIFECYCLE_CHAOS",
+      "name": "??????/??????",
+      "patterns": [
+        "double free",
+        "use after free",
+        "resource leak",
+        "cleanup failed",
+        "deinit.*failed"
+      ],
+      "natural_patterns": [
+        "????",
+        "?????",
+        "????",
+        "??????",
+        "??????"
+      ],
+      "weak_patterns": [
+        "????",
+        "????"
+      ],
+      "category": "architecture",
+      "severity": "P0",
+      "constraints": [
+        "C33",
+        "C29",
+        "C12"
+      ],
+      "root_cause_hints": [
+        "init/deinit ???",
+        "???????",
+        "??????? cleanup"
+      ],
+      "verify_steps": [
+        "???? init/start/stop/deinit ???",
+        "????????????? cleanup",
+        "????/??/?????"
+      ],
+      "missing_facts": [
+        "?? owner",
+        "?????",
+        "deinit ???"
+      ],
+      "architecture_refactor": [
+        "??????????",
+        "???? owner ? cleanup ??",
+        "?????????? cleanup ??"
+      ],
+      "do_not_patch_until": "??????????? owner ?????? double-free",
+      "diagnostic_probes": {
+        "log_confirm": [
+          "? double free/use after free/resource leak ??????"
+        ],
+        "code_locate": [
+          "grep -rn 'init\\\\|deinit\\\\|cleanup\\\\|free' src/"
+        ],
+        "tool_verify": [
+          "python tools/run_review.py --dir src --constraints C33 C29 C12"
+        ]
+      },
+      "log_signals": [
+        "double free",
+        "use after free",
+        "resource leak",
+        "cleanup failed"
+      ],
+      "checker_targets": [
+        "lifecycle_checker",
+        "module_boundary_checker"
+      ],
+      "stop_conditions": [
+        "???? NULL ????????????? owner"
+      ]
+    },
+    {
+      "id": "UNCLEAR_TOPOLOGY",
+      "name": "????/???????",
+      "patterns": [
+        "priority inversion",
+        "blocked by low_prio",
+        "blocked by low priority",
+        "mutex.*blocked",
+        "deadlock"
+      ],
+      "natural_patterns": [
+        "?????",
+        "??????",
+        "??",
+        "???????????"
+      ],
+      "weak_patterns": [
+        "??",
+        "??"
+      ],
+      "category": "architecture",
+      "severity": "P0",
+      "constraints": [
+        "C15",
+        "C30",
+        "C31",
+        "C43"
+      ],
+      "root_cause_hints": [
+        "?????? mutex/?????",
+        "?????",
+        "???????????"
+      ],
+      "verify_steps": [
+        "??????????/???",
+        "?? binary semaphore ???? mutex",
+        "????????????"
+      ],
+      "missing_facts": [
+        "??????",
+        "? owner",
+        "?????"
+      ],
+      "architecture_refactor": [
+        "???????",
+        "?? lock_order/rank",
+        "???????????????? mutex"
+      ],
+      "do_not_patch_until": "????????? owner ? lock_order???????",
+      "diagnostic_probes": {
+        "log_confirm": [
+          "? high_prio/low_prio ???",
+          "? WDT ???????"
+        ],
+        "code_locate": [
+          "grep -rn 'xSemaphoreCreateBinary\\\\|xSemaphoreTake\\\\|mutex' src/"
+        ],
+        "tool_verify": [
+          "python tools/run_review.py --dir src --constraints C15 C30 C31 C43"
+        ]
+      },
+      "log_signals": [
+        "priority inversion",
+        "deadlock",
+        "blocked by low_prio"
+      ],
+      "checker_targets": [
+        "priority_checker",
+        "lock_budget_checker",
+        "blocking_wait_checker"
+      ],
+      "stop_conditions": [
+        "?????????????????????"
+      ]
     }
   ]
 }

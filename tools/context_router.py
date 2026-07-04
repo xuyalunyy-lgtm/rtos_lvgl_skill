@@ -384,6 +384,7 @@ def _infer_workflow(symptom_id: str) -> str:
         "PERIPHERAL_NO_ACK": "crash_debug",
         "LIFECYCLE_CHAOS": "code_review",
         "HOT_PATH_BLOCKED": "code_review",
+        "UNCLEAR_TOPOLOGY": "code_review",
     }
     return mapping.get(symptom_id, "code_review")
 

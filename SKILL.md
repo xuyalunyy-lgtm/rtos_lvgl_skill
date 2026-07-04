@@ -37,7 +37,7 @@ behavior, and practical production hardening.
 
 1. **Choose workflow** — pick one from the routing table below
 2. **Choose platform** — ESP32 or Zephyr (primary), or secondary
-3. **Run context router** — `python tools/context_router.py --workflow <id> --platform <id> --json`
+3. **Run context router** ? `python tools/context_router.py --workflow <router_id> --platform <id> --json` (IDs: `code_review`, `project_review`, `crash_debug`, `memory_analysis`, `sdk_trim`, `new_module`, `bring_up`, `lvgl_page`, `hw_sw_debug`)
 4. **Load only required files** — follow the router's `required_files` list
 5. **Load prompts** — only 1-3 prompts specified by the workflow
 

@@ -121,13 +121,13 @@ def check_file(path: Path) -> list[dict]:
                         if "SendFromISR" in bline or "NotifyFromISR" in bline:
                             continue
                         issues.append(make_issue(
-                            path, body_start + j + 1, "C5", "P0",
+                            path, body_start + j + 1, "C4", "P0",
                             f"[{func_name}] {desc}: {bline.strip()[:80]}",
                         ))
 
             if has_fromisr_notify and not has_yield:
                 issues.append(make_issue(
-                    path, i + 1, "C5-w", "P2",
+                    path, i + 1, "C4-w", "P2",
                     f"[{func_name}] 使用了 FromISR API 但未调用 portYIELD_FROM_ISR",
                 ))
         i += 1
@@ -136,4 +136,4 @@ def check_file(path: Path) -> list[dict]:
 
 
 if __name__ == "__main__":
-    raise SystemExit(run_checker(check_file, "ISR 安全审查", ("C5",)))
+    raise SystemExit(run_checker(check_file, "ISR 安全审查", ("C4",)))
