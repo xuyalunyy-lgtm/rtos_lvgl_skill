@@ -7,6 +7,7 @@ the first pass should identify which file carries the strongest signal.
 from __future__ import annotations
 
 import argparse
+from collections import Counter
 import glob
 import json
 import sys
@@ -90,6 +91,8 @@ def analyze_file(path: Path, platform: str) -> dict:
         "symptom_ids": symptom_ids(result),
         "max_severity": max_severity(result),
         "constraints": result.get("constraints", []),
+        "next_actions": result.get("next_actions", []),
+        "do_not_patch_until": result.get("do_not_patch_until", []),
         "missing_evidence_count": len(result.get("missing_evidence", [])),
         "line_count": result.get("total_lines", 0),
     }
@@ -123,6 +126,93 @@ def print_table(rows: list[dict]) -> None:
         )
 
 
+def severity_rank(severity: str) -> int:
+    return {"P0": 0, "P1": 1, "P2": 2, "P3": 3, "-": 9}.get(severity, 8)
+
+
+def markdown_report(rows: list[dict], platform: str = "") -> str:
+    sorted_rows = sorted(
+        rows,
+        key=lambda row: (severity_rank(row.get("max_severity", "-")), str(row.get("file", "")).lower()),
+    )
+    symptom_counts: Counter[str] = Counter()
+    constraint_counts: Counter[str] = Counter()
+    for row in rows:
+        symptom_counts.update(row.get("symptom_ids", []))
+        constraint_counts.update(row.get("constraints", []))
+
+    lines = [
+        "# Log Triage Report",
+        "",
+        f"- Platform: `{platform or 'unspecified'}`",
+        f"- Files scanned: {len(rows)}",
+        f"- Files with symptoms: {sum(1 for row in rows if row.get('has_symptoms'))}",
+        f"- P0 files: {sum(1 for row in rows if row.get('max_severity') == 'P0')}",
+        "",
+        "## Findings",
+        "",
+        "| Severity | File | Summary | Symptoms | Constraints |",
+        "| --- | --- | --- | --- | --- |",
+    ]
+    for row in sorted_rows:
+        symptoms = ", ".join(f"`{sid}`" for sid in row.get("symptom_ids", [])) or "-"
+        constraints = ", ".join(f"`{c}`" for c in row.get("constraints", [])) or "-"
+        lines.append(
+            f"| {row.get('max_severity', '-')} | `{row.get('file', '')}` | "
+            f"{row.get('summary', '')} | {symptoms} | {constraints} |"
+        )
+
+    lines.extend(["", "## Symptom Frequency", ""])
+    if symptom_counts:
+        for sid, count in symptom_counts.most_common():
+            lines.append(f"- `{sid}`: {count}")
+    else:
+        lines.append("- No known symptoms detected.")
+
+    lines.extend(["", "## Constraint Frequency", ""])
+    if constraint_counts:
+        for cid, count in constraint_counts.most_common():
+            lines.append(f"- `{cid}`: {count}")
+    else:
+        lines.append("- No constraints detected.")
+
+    actions: list[str] = []
+    seen_actions: set[str] = set()
+    for row in sorted_rows:
+        for action in row.get("next_actions", []):
+            if action not in seen_actions:
+                seen_actions.add(action)
+                actions.append(action)
+
+    lines.extend(["", "## Next Actions", ""])
+    if actions:
+        for action in actions[:12]:
+            lines.append(f"- `{action}`" if action.startswith("python ") else f"- {action}")
+    else:
+        lines.append("- Review the highest-severity rows first and run targeted checkers for listed constraints.")
+
+    blockers: list[str] = []
+    seen_blockers: set[str] = set()
+    for row in sorted_rows:
+        for blocker in row.get("do_not_patch_until", []):
+            if blocker not in seen_blockers:
+                seen_blockers.add(blocker)
+                blockers.append(blocker)
+    if blockers:
+        lines.extend(["", "## Do Not Patch Until", ""])
+        for blocker in blockers:
+            lines.append(f"- {blocker}")
+
+    return "\n".join(lines) + "\n"
+
+
+def save_markdown_report(rows: list[dict], path: str, platform: str = "") -> Path:
+    out = Path(path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(markdown_report(rows, platform), encoding="utf-8")
+    return out
+
+
 def run_self_test() -> int:
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
@@ -137,6 +227,12 @@ def run_self_test() -> int:
         assert "DMA_CACHE_ERROR" in ids, rows
         assert should_fail(rows, "p0")
         assert not should_fail([rows[0]], "none")
+        report = markdown_report(rows, "esp32")
+        assert "# Log Triage Report" in report
+        assert "DMA_CACHE_ERROR" in report
+        report_path = root / "report.md"
+        save_markdown_report(rows, str(report_path), "esp32")
+        assert report_path.exists()
 
     print("log_triage_batch self-test passed")
     return 0
@@ -147,6 +243,7 @@ def main() -> int:
     parser.add_argument("inputs", nargs="*", help="log files, directories, or glob patterns")
     parser.add_argument("--platform", default="", help="platform hint, for example esp32 or zephyr")
     parser.add_argument("--json", action="store_true", help="emit JSON")
+    parser.add_argument("--markdown-report", help="write a Markdown triage report")
     parser.add_argument(
         "--fail-on",
         choices=["none", "symptoms", "p0"],
@@ -170,6 +267,10 @@ def main() -> int:
         print(json.dumps(rows, indent=2, ensure_ascii=False))
     else:
         print_table(rows)
+
+    if args.markdown_report:
+        save_markdown_report(rows, args.markdown_report, args.platform)
+        print(f"Markdown report written: {args.markdown_report}", file=sys.stderr)
 
     return 1 if should_fail(rows, args.fail_on) else 0
 

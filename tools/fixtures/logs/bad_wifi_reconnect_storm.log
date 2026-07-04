@@ -1,0 +1,5 @@
+I (100) wifi: station started
+W (300) wifi: reconnect attempt=1 reason=beacon_timeout
+W (600) wifi: reconnect attempt=2 reason=auth_expire
+E (900) net: reconnect storm detected retry loop without backoff
+E (920) app: socket reconnect loop has no circuit breaker

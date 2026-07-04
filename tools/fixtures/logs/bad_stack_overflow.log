@@ -1,0 +1,4 @@
+I (100) boot: app start
+I (220) task: worker started task=worker
+E (500) freertos: stack overflow detected in task worker
+E (510) panic: abort due to stack overflow

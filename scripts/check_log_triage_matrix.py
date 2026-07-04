@@ -73,6 +73,27 @@ MATRIX = [
         "expected_category_counts": {"software": 1, "hardware": 0, "architecture": 0},
     },
     {
+        "log": "bad_stack_overflow.log",
+        "expected_ids": ["STACK_OVERFLOW"],
+        "allowed_extra_ids": ["HARDFAULT"],
+        "expected_exit": 0,
+        "expected_category_counts": {"software": 2, "hardware": 0, "architecture": 1},
+    },
+    {
+        "log": "bad_nvs_flash_full.log",
+        "expected_ids": ["FLASH_NVS_FULL"],
+        "allowed_extra_ids": [],
+        "expected_exit": 0,
+        "expected_category_counts": {"software": 1, "hardware": 0, "architecture": 0},
+    },
+    {
+        "log": "bad_wifi_reconnect_storm.log",
+        "expected_ids": ["NETWORK_RECONNECT_STORM"],
+        "allowed_extra_ids": [],
+        "expected_exit": 0,
+        "expected_category_counts": {"software": 0, "hardware": 0, "architecture": 1},
+    },
+    {
         "log": "bad_sensor_timeout.log",
         "expected_ids": ["SENSOR_TIMEOUT"],
         "allowed_extra_ids": [],

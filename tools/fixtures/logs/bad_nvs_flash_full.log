@@ -1,0 +1,4 @@
+I (100) boot: app start
+I (180) nvs: opening namespace config
+E (420) nvs: flash full while writing settings
+E (430) flash: nvs write failed err=ESP_ERR_NVS_NO_FREE_PAGES

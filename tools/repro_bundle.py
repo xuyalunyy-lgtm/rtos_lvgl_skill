@@ -49,6 +49,7 @@ class ReproBundle:
     checker_json: list[dict] = field(default_factory=list)   # checker outputs
     evidence: dict = field(default_factory=dict)             # link to delivery evidence
     environment: dict = field(default_factory=dict)          # OS, Python, etc.
+    git_snapshot: dict = field(default_factory=dict)         # status/diff context
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -125,6 +126,52 @@ def _run_command(cmd: str, description: str = "") -> dict:
         return {"command": cmd, "description": description, "exit_code": -1, "error": str(e)}
 
 
+def _run_git(args: list[str], repo: Path) -> dict:
+    cmd = ["git", "-C", str(repo), *args]
+    try:
+        proc = subprocess.run(
+            cmd,
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=30,
+        )
+        return {
+            "command": " ".join(cmd),
+            "exit_code": proc.returncode,
+            "stdout": proc.stdout[:12000],
+            "stderr": proc.stderr[:2000],
+        }
+    except Exception as exc:
+        return {"command": " ".join(cmd), "exit_code": -1, "error": str(exc)}
+
+
+def _collect_git_snapshot(dir_path: str) -> dict:
+    root = Path(dir_path).resolve()
+    try:
+        probe = subprocess.run(
+            ["git", "-C", str(root), "rev-parse", "--show-toplevel"],
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=30,
+        )
+    except Exception as exc:
+        return {"available": False, "reason": str(exc)}
+    if probe.returncode != 0:
+        return {"available": False, "reason": probe.stderr.strip()[:500]}
+
+    repo = Path(probe.stdout.strip())
+    return {
+        "available": True,
+        "repo_root": str(repo),
+        "head": _run_git(["rev-parse", "--short", "HEAD"], repo),
+        "status_short": _run_git(["status", "--short"], repo),
+        "diff_stat": _run_git(["diff", "--stat"], repo),
+        "diff": _run_git(["diff", "--", "."], repo),
+    }
+
+
 def _run_checkers(dir_path: str, platform_name: str = "freertos") -> list[dict]:
     """运行默认 checker suite 并收集结果。"""
     results = []
@@ -156,17 +203,28 @@ def _run_checkers(dir_path: str, platform_name: str = "freertos") -> list[dict]:
     return results
 
 
-def _collect_logs(dir_path: str) -> list[dict]:
+def _collect_logs(dir_path: str, extra_paths: list[str] | None = None) -> list[dict]:
     """收集日志文件。"""
     logs = []
     root = Path(dir_path)
 
     # 查找常见日志文件
     for pattern in ["*.log", "build_log*", "crash_log*", "coredump*"]:
-        for p in sorted(root.glob(pattern))[:5]:
+        for p in sorted(root.rglob(pattern))[:10]:
             try:
                 content = p.read_text(encoding="utf-8", errors="replace")[:8192]
                 logs.append({"source": str(p.relative_to(root)), "content": content})
+            except Exception:
+                pass
+
+    for raw in extra_paths or []:
+        path = Path(raw)
+        candidates = sorted(path.rglob("*")) if path.is_dir() else [path]
+        for p in candidates:
+            if not p.is_file() or p.suffix.lower() not in {".log", ".txt", ".out"}:
+                continue
+            try:
+                logs.append({"source": str(p), "content": p.read_text(encoding="utf-8", errors="replace")[:8192]})
             except Exception:
                 pass
 
@@ -224,6 +282,7 @@ def collect_bundle(
     platform_name: str = "freertos",
     *,
     log_content: str = "",
+    log_paths: list[str] | None = None,
     addr2line_output: str = "",
     extra_commands: list[str] | None = None,
 ) -> ReproBundle:
@@ -246,7 +305,7 @@ def collect_bundle(
 
     # 日志
     if "logs" in config["collect"]:
-        bundle.logs = _collect_logs(dir_path)
+        bundle.logs = _collect_logs(dir_path, log_paths)
         if log_content:
             bundle.logs.append({"source": "manual_input", "content": log_content[:8192]})
 
@@ -257,6 +316,8 @@ def collect_bundle(
     # Checker 结果
     if "checker" in config["collect"]:
         bundle.checker_json = _run_checkers(dir_path, platform_name)
+
+    bundle.git_snapshot = _collect_git_snapshot(dir_path)
 
     # addr2line
     if addr2line_output:
@@ -282,6 +343,69 @@ def save_bundle(bundle: ReproBundle, path: str | Path) -> Path:
     return p
 
 
+
+def render_repro_markdown(bundle: ReproBundle) -> str:
+    lines = [
+        "# Reproduction Bundle",
+        "",
+        f"- Workflow: `{bundle.workflow}`",
+        f"- Platform: `{bundle.platform}`",
+        f"- Created: `{bundle.timestamp}`",
+        f"- Logs: {len(bundle.logs)}",
+        f"- Config files: {len(bundle.config_snapshot)}",
+        f"- Checker result groups: {len(bundle.checker_json)}",
+        "",
+        "## Environment",
+        "",
+    ]
+    for key, value in bundle.environment.items():
+        lines.append(f"- {key}: `{value}`")
+
+    lines.extend(["", "## Git Snapshot", ""])
+    git = bundle.git_snapshot or {}
+    if git.get("available"):
+        head = (git.get("head") or {}).get("stdout", "").strip()
+        status = (git.get("status_short") or {}).get("stdout", "").strip()
+        diff_stat = (git.get("diff_stat") or {}).get("stdout", "").strip()
+        lines.append(f"- Repo: `{git.get('repo_root', '')}`")
+        lines.append(f"- HEAD: `{head or 'unknown'}`")
+        lines.extend(["", "### Status", "```text", status or "clean", "```"])
+        lines.extend(["", "### Diff Stat", "```text", diff_stat or "no diff", "```"])
+    else:
+        lines.append(f"- Git unavailable: {git.get('reason', 'not a git repository')}")
+
+    lines.extend(["", "## Logs", ""])
+    if bundle.logs:
+        for log in bundle.logs:
+            lines.append(f"- `{log.get('source', 'unknown')}` ({len(log.get('content', ''))} chars captured)")
+    else:
+        lines.append("- No logs captured.")
+
+    lines.extend(["", "## Config Snapshot", ""])
+    if bundle.config_snapshot:
+        for name in bundle.config_snapshot:
+            lines.append(f"- `{name}`")
+    else:
+        lines.append("- No config files captured.")
+
+    lines.extend(["", "## Checker Summary", ""])
+    if bundle.checker_json:
+        for item in bundle.checker_json:
+            checker = item.get("checker", "unknown")
+            exit_code = item.get("exit_code", "?")
+            issues = item.get("total_issues", item.get("issues", "?"))
+            lines.append(f"- `{checker}` exit={exit_code}, issues={issues}")
+    else:
+        lines.append("- No checker output captured.")
+
+    lines.extend(["", "## Reproduce", "", "```powershell"])
+    lines.append(
+        f"python tools/repro_bundle.py --workflow {bundle.workflow} "
+        f"--dir <project-dir> --platform {bundle.platform} --output-dir repro"
+    )
+    lines.extend(["```", ""])
+    return "\n".join(lines)
+
 def save_bundle_dir(bundle: ReproBundle, dir_path: str | Path) -> Path:
     """保存复现包为目录形式。"""
     d = Path(dir_path)
@@ -289,6 +413,7 @@ def save_bundle_dir(bundle: ReproBundle, dir_path: str | Path) -> Path:
 
     # 主 JSON
     (d / "repro_bundle.json").write_text(bundle.to_json(), encoding="utf-8")
+    (d / "REPRO.md").write_text(render_repro_markdown(bundle), encoding="utf-8")
 
     # 日志文件
     if bundle.logs:
@@ -305,6 +430,14 @@ def save_bundle_dir(bundle: ReproBundle, dir_path: str | Path) -> Path:
         for name, content in bundle.config_snapshot.items():
             safe_name = name.replace("/", "_").replace("\\", "_")
             (config_dir / safe_name).write_text(content, encoding="utf-8")
+
+    if bundle.git_snapshot:
+        git_dir = d / "git"
+        git_dir.mkdir(exist_ok=True)
+        for key in ["status_short", "diff_stat", "diff"]:
+            item = bundle.git_snapshot.get(key, {})
+            if item.get("stdout"):
+                (git_dir / f"{key}.txt").write_text(item["stdout"], encoding="utf-8")
 
     return d
 
@@ -374,6 +507,15 @@ def run_self_test() -> int:
     print(f"[PASS] collect_bundle: {len(bundle2.checker_json)} checker results")
     passed += 1
 
+    # Test 7: directory output includes human-readable handoff.
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmpdir:
+        out_dir = save_bundle_dir(bundle, Path(tmpdir) / "repro")
+        assert (out_dir / "repro_bundle.json").exists()
+        assert (out_dir / "REPRO.md").exists()
+        print("[PASS] bundle directory output with REPRO.md")
+        passed += 1
+
     print(f"\nSelf-test: {passed} passed, {failed} failed")
     return 1 if failed > 0 else 0
 
@@ -391,6 +533,8 @@ def main() -> int:
     parser.add_argument("--output", "-o", help="输出文件路径（JSON）")
     parser.add_argument("--output-dir", help="输出目录路径")
     parser.add_argument("--log", help="手动提供的日志内容")
+    parser.add_argument("--log-file", action="append", default=[], help="extra log file")
+    parser.add_argument("--log-dir", action="append", default=[], help="extra log directory")
     parser.add_argument("--addr2line", help="addr2line 输出")
     parser.add_argument("--evidence", metavar="FILE", help="输出交付证据包到指定文件")
     parser.add_argument("--self-test", action="store_true", help="运行自测")
@@ -412,6 +556,7 @@ def main() -> int:
         args.dir,
         args.platform,
         log_content=args.log or "",
+        log_paths=[*args.log_file, *args.log_dir],
         addr2line_output=args.addr2line or "",
     )
 
