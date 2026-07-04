@@ -24,10 +24,24 @@
 3. 输出相对优先级表 + 平台数值 + 文件归属表 + 模块契约 + task/queue 拓扑表
 4. **输出 Codegen Contract**（参见 [codegen_contract.md](../references/codegen_contract.md)）：
    - workflow、platform、frameworks、module_type
+   - module_responsibility、public_api、dependencies、forbidden_dependencies
+   - events_in、events_out、owned_resources
    - tasks（name/stack/priority）、queues（name/depth/backpressure/timeout）、locks、timers
    - 必选约束 ID（如 C1,C4,C29,C33,C37）
    - 禁止模式（如裸 portMAX_DELAY、ISR blocking、queue 传栈指针）
    - 验证命令
+
+5. **Output Module Boundary Table** before codegen:
+
+| Module | Responsibility | Public API | Dependencies | Forbidden Dependencies | Events In/Out | Owned Resources |
+|---|---|---|---|---|---|---|
+| `sensor` | collect samples only | `sensor_start/stop/get_status` | `i2c_bus`, `app_event_bus` | `lvgl`, `network_wss` | cmd -> sample/fault | `i2c0`, `sensor_q`, `sensor_task` |
+
+Boundary rules:
+- A module has one primary responsibility and one primary reason to change.
+- Cross-module communication uses public API, queue/event, or callback contracts.
+- Lower layers do not include or call higher layers directly.
+- Shared writable globals are forbidden unless wrapped by an owner module API.
 
 ## Step 2 — 场景 prompt（按需 1–3 个）
 

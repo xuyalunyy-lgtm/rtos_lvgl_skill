@@ -54,7 +54,7 @@ Agent 在 L2/L3 或 workflow 要求时读取本文件。L1 概念问答可跳过
 - C26 编解码格式一致性（实时数据错误风险）
 - C27 音视频时钟漂移 / jitter buffer（长时间同步风险）
 - C28 媒体 DMA/cache/零拷贝 buffer 生命周期（坏帧/花屏/爆音风险）
-- C29 模块契约（上下文/阻塞/所有权不清会放大维护成本）
+- C29 模块契约（上下文/阻塞/所有权/职责边界不清会放大维护成本）
 - C31 超时预算（假死/不可恢复阻塞风险）
 - C33 生命周期对称（资源泄漏/重启失败风险）
 - C34 热路径禁区（实时性尖峰/周期性卡顿风险）
@@ -147,7 +147,7 @@ python tools/stack_calculator.py --describe "WSS TLS cJSON" --platform jl
 | 26 | 编解码格式 | sample rate/channels/bit depth/帧长/stride/codec 生命周期 → [av_codec_format.txt](../prompts/av_codec_format.txt) | 6 |
 | 27 | 时钟漂移 / Jitter | master clock/PTS/jitter 水位/drift 限幅/underrun 补偿 → [av_clock_jitter.txt](../prompts/av_clock_jitter.txt) | 6 |
 | 28 | 媒体 DMA/cache buffer | DMA-capable/clean/invalidate/零拷贝 owner/cache line/遥测 → [av_dma_buffer_lifecycle.txt](../prompts/av_dma_buffer_lifecycle.txt) | 6 |
-| 29 | 模块契约 | 调用上下文/阻塞语义/所有权/生命周期/错误语义 → [runtime_efficiency_contracts.txt](../prompts/runtime_efficiency_contracts.txt) | 5 |
+| 29 | 模块契约 | 调用上下文/阻塞语义/所有权/生命周期/错误语义/高内聚低耦合边界 → [runtime_efficiency_contracts.txt](../prompts/runtime_efficiency_contracts.txt) | 10 |
 | 30 | 任务/队列拓扑 | task/priority/stack/queue/producer/consumer/backpressure/exit → [runtime_efficiency_contracts.txt](../prompts/runtime_efficiency_contracts.txt) | 5 |
 | 31 | 超时预算 | 有限 timeout/deadline/永久等待例外/timeout 遥测 → [runtime_efficiency_contracts.txt](../prompts/runtime_efficiency_contracts.txt) · `blocking_wait_checker.py` | 5 |
 | 32 | 可观测性优先 | state/last_error/counter/watermark/max time/现场 dump → [runtime_efficiency_contracts.txt](../prompts/runtime_efficiency_contracts.txt) | 5 |

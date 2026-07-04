@@ -92,6 +92,16 @@ typedef struct {{
 /* 模块契约 (C29)                                                            */
 /* ========================================================================== */
 
+/* module_boundary:
+ * responsibility: own {name} input processing and output publication only
+ * public_api: {name}_init, {name}_start, {name}_stop, {name}_deinit, {name}_get_status, {name}_input, {name}_output
+ * dependencies: app_event_bus, platform driver API
+ * forbidden_dependencies: lvgl, network_wss, storage_nvs private headers
+ * events_in: {upper_name}_CMD_START, {upper_name}_CMD_STOP
+ * events_out: {upper_name}_EVT_READY, {upper_name}_EVT_ERROR
+ * owned_resources: {name}_worker, {name}_q, {name}_status
+ */
+
 /**
  * @brief 初始化模块
  *
