@@ -177,6 +177,20 @@ def validate(manifest: dict, strict: bool = False) -> dict:
 
     # ── Constraints ──
     constraints = manifest.get("constraints", {})
+    c29_covered = any(str(c).startswith("C29") for c in constraints.get("covered", []))
+    if strict and c29_covered:
+        for f in [
+            "module_responsibility",
+            "public_api",
+            "dependencies",
+            "forbidden_dependencies",
+            "events_in",
+            "events_out",
+            "owned_resources",
+        ]:
+            if f not in manifest:
+                errors.append(f"C29 module boundary missing field: {f}")
+
     if strict:
         # deferred 必须有 reason 和 evidence
         for d in constraints.get("deferred", []):

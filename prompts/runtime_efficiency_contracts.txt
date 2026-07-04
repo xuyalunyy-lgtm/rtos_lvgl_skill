@@ -31,6 +31,30 @@
  */
 ```
 
+### C29.6-C29.10 - Module boundary contract
+
+Every non-trivial module must keep one primary reason to change. Declare the
+boundary in the `.h` file or module header before implementation:
+
+```c
+/* module_boundary:
+ * responsibility: collect sensor samples and publish normalized events
+ * public_api: sensor_init, sensor_start, sensor_stop, sensor_get_status
+ * dependencies: i2c_bus, app_event_bus
+ * forbidden_dependencies: lvgl, network_wss, storage_nvs
+ * events_in: SENSOR_CMD_START, SENSOR_CMD_STOP
+ * events_out: SENSOR_EVT_SAMPLE_READY, SENSOR_EVT_FAULT
+ * owned_resources: i2c0, sensor_task, sensor_queue
+ */
+```
+
+Rules:
+- Keep cohesion high: one module owns one business capability or hardware resource family.
+- Keep coupling low: cross-module communication goes through public API, queue/event, or callback contracts.
+- Do not include another module only to reach into its private structs or globals.
+- Do not share writable global context across modules; pass handles, descriptors, or events.
+- Declare forbidden dependencies when a lower layer must never call a higher layer, such as driver -> UI or network -> LVGL.
+
 ---
 
 ## C30 — 任务/队列拓扑表

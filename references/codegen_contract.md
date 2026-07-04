@@ -12,6 +12,13 @@
 | platform | ✅ | 目标平台（esp32/stm32/zephyr/jl/bk） |
 | frameworks | ✅ | 涉及框架（esp-idf/lvgl/mbedtls 等） |
 | module_type | ✅ | 模块类型（driver/service/controller/ui） |
+| module_responsibility | ✅ | One sentence single responsibility / reason to change |
+| public_api | ✅ | Public entrypoints exported by this module; no private cross-module reach-in |
+| dependencies | ✅ | Allowed module/framework dependencies |
+| forbidden_dependencies | ✅ | Dependencies this module must not include/call |
+| events_in | ✅ | Events, queue messages, or callbacks accepted by the module |
+| events_out | ✅ | Events, queue messages, or callbacks emitted by the module |
+| owned_resources | ✅ | Tasks, queues, timers, locks, GPIO/DMA/heap resources owned by the module |
 | tasks | ✅ | 要创建的任务列表（name/stack/priority/core） |
 | queues | ✅ | 要创建的队列列表（name/depth/item_size/backpressure/timeout） |
 | locks | ⬚ | 要创建的 mutex/semaphore |
@@ -34,6 +41,10 @@
 | queue 传 cJSON* | C3 | 直接传 cJSON 指针，应传序列化后的 buffer |
 | queue 传裸 DMA 指针 | C28 | 应传 pool buffer handle |
 | LVGL 跨线程调用 | C1 | 非 UI 任务中调用 lv_ 函数 |
+| god module | C29 | One module directly owns UI + network + storage + driver logic |
+| cross-layer include | C29 | Driver/model includes view/UI headers or UI includes driver internals |
+| writable global context sharing | C29 | `extern g_*_ctx` / shared mutable module state across modules |
+| private struct reach-in | C29 | Module accesses another module's private state instead of public API/event |
 | 只有 init 没有 stop | C33 | 缺少 deinit/stop 对称 |
 | queue 无 backpressure | C37 | 深度 > 0 但无 drop/block/timeout 策略 |
 

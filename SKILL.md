@@ -1,13 +1,13 @@
 ---
 name: freertos-embedded-architect
 metadata:
-  version: 43.0.0
+  version: 44.0.0
 description: >-
   FreeRTOS embedded architecture specialist for MVP firmware, board bring-up,
   runtime reliability, memory safety, module contracts, task topology, timeout
   budgets, observability, lifecycle symmetry, critical path budgets, copy budgets,
   backpressure, recovery, config matrices, reproducible bring-up, regression samples,
-  board resource contracts, lock budgets, priority inversion prevention, critical-section budgets,
+  board resource contracts, module-boundary contracts, lock budgets, priority inversion prevention, critical-section budgets,
   sensor bus/sample/calibration contracts, LVGL/DMA/ISR safety, SDK trimming, crash debugging,
   OTA firmware update safety, and Zephyr-style RTOS project skeletons.
   SDK abstraction layer: all checkers use sdk_lookup.py for platform-agnostic API matching

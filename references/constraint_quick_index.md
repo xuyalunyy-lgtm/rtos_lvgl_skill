@@ -47,7 +47,7 @@
 | C26 | 编解码格式 | sample rate、channels | media |
 | C27 | 时钟漂移 | PTS、jitter buffer | media |
 | C28 | DMA/Cache | cache clean/invalidate | memory |
-| C29 | 模块契约 | I/P/O 接口、错误码 | rtos |
+| C29 | 模块契约 | I/P/O 接口、错误码、高内聚低耦合、模块边界 | rtos |
 | C30 | 任务拓扑 | 生产-消费链路 | rtos |
 | C31 | 超时预算 | 有限等待、避免永久阻塞 | rtos |
 | C32 | 可观测性 | 状态字段、遥测 | rtos |

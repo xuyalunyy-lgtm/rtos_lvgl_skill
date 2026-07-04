@@ -86,6 +86,16 @@ Cache 一致性细则 → [audio_dma_pingpong.txt](../prompts/audio_dma_pingpong
 
 深细节 → [av_dma_buffer_lifecycle.txt](../prompts/av_dma_buffer_lifecycle.txt)
 
+## C29 - Module Boundary / High Cohesion, Low Coupling
+
+| | 文件 | ID | Checker |
+|---|------|-----|---------|
+| ✅ | [good_module_boundary.c](good_module_boundary.c) + [good_module_boundary.h](good_module_boundary.h) | C29.6-C29.10 | `module_boundary_checker.py` |
+| ❌ | [bad_god_module.c](bad_god_module.c) | C29.6, C29.9 | `module_boundary_checker.py` |
+| ❌ | [bad_cross_layer_dependency.c](bad_cross_layer_dependency.c) | C29.7, C29.8 | `module_boundary_checker.py` |
+
+细节 → [runtime_efficiency_contracts.txt](../prompts/runtime_efficiency_contracts.txt)
+
 ## C31 — 超时预算
 
 | | 文件 | ID | Checker |

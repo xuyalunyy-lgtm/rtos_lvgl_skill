@@ -259,6 +259,11 @@
 | C29.3 | 1 | 模块必须声明入参/出参/Queue/callback payload 所有权 |
 | C29.4 | 1 | 模块必须声明 init/start/stop/deinit 合法顺序 |
 | C29.5 | 2 | 模块必须声明错误码语义与可恢复/不可恢复分类 |
+| C29.6 | 0 | 模块必须声明单一职责、public API、依赖、禁止依赖、事件边界和 owned resources |
+| C29.7 | 0 | 低层禁止直接 include/call 高层，跨模块通过 API/Queue/Event/callback |
+| C29.8 | 1 | 禁止跨模块访问 private struct/global，只传 handle/descriptor/event |
+| C29.9 | 0 | 禁止共享可写全局 context；全局状态必须有唯一 owner API |
+| C29.10 | 1 | review 必须判断高内聚低耦合、单向依赖、循环依赖和跨层调用 |
 
 ## C30 任务/队列拓扑表
 | ID | P | 一句话 |

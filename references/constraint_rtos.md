@@ -49,6 +49,11 @@
 | C29.3 | 模块必须声明入参、出参、Queue payload、callback user_data 的所有权与释放方 | P1 | 人工 | 同上 | callback 传裸指针但未说明生命周期 |
 | C29.4 | 模块必须声明 `init/start/stop/deinit` 合法顺序、重复调用行为和半初始化清理策略 | P1 | 人工 | 同上 | `stop()` 未说明 init 失败后能否调用 |
 | C29.5 | 模块必须声明错误码语义：timeout/resource/config/bug 等分类，以及哪些错误可恢复 | P2 | 人工 | 同上 | 全部返回 `-1` |
+| C29.6 | 模块必须声明单一职责、public API、dependencies、forbidden_dependencies、events_in/out 和 owned_resources | P0 | 人工 + `module_boundary_checker.py` | [good_module_boundary.c](../examples/good_module_boundary.c) | 上帝模块同时管 UI/network/storage/driver |
+| C29.7 | 低层模块禁止直接 include/call 高层模块；UI/Presenter/Model/Driver 边界必须通过 API、Queue/Event 或 callback 契约 | P0 | `module_boundary_checker.py` + 人工 | 同上 | driver include `ui_view.h` 或 network 直接 `lv_obj_*` |
+| C29.8 | 模块禁止依赖对方 private struct/global；跨模块只传 handle/descriptor/event 或公开类型 | P1 | 人工 | 同上 | include 对方 private header 后直接改状态 |
+| C29.9 | 禁止多个模块共享可写全局 context；全局状态必须有唯一 owner 和访问 API | P0 | `module_boundary_checker.py` + 人工 | 同上 | `extern app_context_t g_app_ctx` 到处读写 |
+| C29.10 | review 必须判断高内聚/低耦合：职责是否单一、依赖是否单向、是否存在循环依赖或跨层调用 | P1 | 人工 + `module_boundary_checker.py` | 同上 | 业务修复需要同时改 5 个无关模块 |
 
 **症状表**：
 
@@ -57,6 +62,7 @@
 | 新人接手要 grep 半天才敢调用 API | C29.1/C29.2 缺上下文和阻塞契约 |
 | Queue payload 泄漏或双 free | C29.3 契约缺所有权，联动 C2 |
 | 偶发 stop 后不能再 start | C29.4 生命周期顺序不清，联动 C33 |
+| 改一个模块牵动 UI/network/storage/driver 多处 | C29.6-C29.10 模块边界缺失 |
 
 ---
 

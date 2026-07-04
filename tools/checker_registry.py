@@ -134,6 +134,8 @@ ALL_CHECKERS: tuple[CheckerSpec, ...] = (
     # ── C28: A/V DMA buffer ────────────────────────────────────────────
     CheckerSpec("av_dma_buffer_checker", "av_dma_buffer_checker.py", "av-dma", "batch", ("C28",),
                 suites=("default", "all", "media")),
+    CheckerSpec("module_boundary_checker", "module_boundary_checker.py", "module-boundary", "batch", ("C29",),
+                suites=("default", "all")),
     # ── C31: Blocking wait / timeout budget ─────────────────────────────
     CheckerSpec("blocking_wait_checker", "blocking_wait_checker.py", "timeout", "batch", ("C31",),
                 suites=("default", "all", "realtime")),
@@ -244,6 +246,8 @@ SELF_TEST_CASES: tuple[CheckerCase, ...] = (
     CheckerCase("coding_style_checker.py", "fixtures/bad_coding_style.c", 1, "coding style bad"),
     CheckerCase("board_resource_checker.py", "fixtures/good_board_resource.c", 0, "board resource good"),
     CheckerCase("board_resource_checker.py", "fixtures/bad_board_resource.c", 1, "board resource bad"),
+    CheckerCase("module_boundary_checker.py", "fixtures/good_module_boundary.c", 0, "module boundary good"),
+    CheckerCase("module_boundary_checker.py", "fixtures/bad_module_boundary.c", 1, "module boundary bad"),
 )
 
 
@@ -270,6 +274,9 @@ VALIDATE_EXAMPLE_CASES: tuple[CheckerCase, ...] = (
     CheckerCase("av_clock_jitter_checker.py", "examples/bad_av_clock_jitter.c", 1, "C27 bad"),
     CheckerCase("av_dma_buffer_checker.py", "examples/good_av_dma_buffer_lifecycle.c", 0, "C28 good"),
     CheckerCase("av_dma_buffer_checker.py", "examples/bad_av_dma_buffer_lifecycle.c", 1, "C28 bad"),
+    CheckerCase("module_boundary_checker.py", "examples/good_module_boundary.c", 0, "C29 good"),
+    CheckerCase("module_boundary_checker.py", "examples/bad_god_module.c", 1, "C29.6 bad"),
+    CheckerCase("module_boundary_checker.py", "examples/bad_cross_layer_dependency.c", 1, "C29.7 bad"),
     CheckerCase("blocking_wait_checker.py", "tools/fixtures/good_timeout_budget.c", 0, "C31 good"),
     CheckerCase("blocking_wait_checker.py", "tools/fixtures/bad_timeout_budget.c", 1, "C31 bad"),
     CheckerCase("efficiency_budget_checker.py", "tools/fixtures/good_efficiency_budget.c", 0, "C36/C37 good"),

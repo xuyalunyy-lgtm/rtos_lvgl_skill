@@ -1,5 +1,15 @@
 # Changelog
 
+## 44.0.0 - 2026-07-04
+
+v44: Module Boundary Contract - high cohesion / low coupling as first-class C29 rules.
+- C29 extends module contracts with responsibility, public API, dependencies, forbidden dependencies, event boundaries, and owned resources.
+- L3 new-module flow now requires a module boundary table before codegen.
+- Codegen contract and manifest validation add module boundary fields when C29 is covered.
+- Added `module_boundary_checker.py` for god-module, cross-layer include/call, and shared global context signals.
+- Added good/bad module-boundary examples and checker fixtures.
+- Version 44.0.0.
+
 ## 43.0.0 - 2026-07-03
 
 v43: 工程验证探针版 — 命中后输出最小验证探针，先确认根因再建议修复。
