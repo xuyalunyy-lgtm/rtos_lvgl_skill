@@ -66,6 +66,13 @@ MATRIX = [
         "expected_category_counts": {"software": 0, "hardware": 1, "architecture": 0},
     },
     {
+        "log": "bad_zephyr_kernel_oops.log",
+        "expected_ids": ["ZEPHYR_KERNEL_OOPS"],
+        "allowed_extra_ids": [],
+        "expected_exit": 0,
+        "expected_category_counts": {"software": 1, "hardware": 0, "architecture": 0},
+    },
+    {
         "log": "bad_sensor_timeout.log",
         "expected_ids": ["SENSOR_TIMEOUT"],
         "allowed_extra_ids": [],

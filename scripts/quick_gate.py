@@ -26,6 +26,7 @@ STEPS = [
     GateStep("review self-test", [sys.executable, "tools/run_review.py", "--self-test"]),
     GateStep("review examples", [sys.executable, "tools/run_review.py", "--validate-examples"]),
     GateStep("log triage self-test", [sys.executable, "tools/log_triage.py", "--self-test"]),
+    GateStep("log triage batch self-test", [sys.executable, "tools/log_triage_batch.py", "--self-test"]),
     GateStep("log triage matrix", [sys.executable, "scripts/check_log_triage_matrix.py"]),
     GateStep("context router self-test", [sys.executable, "tools/context_router.py", "--self-test"]),
     GateStep("skill metadata", [sys.executable, "scripts/check_skill_metadata.py"]),

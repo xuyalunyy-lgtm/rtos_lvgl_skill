@@ -1,0 +1,5 @@
+I (100) zephyr: boot banner
+I (180) app: sensor thread started task=sensor
+E (420) zephyr: kernel oops in thread sensor
+E (421) zephyr: fatal error 4, esf=0x20001000
+E (422) app: last call before fault was k_sem_take
