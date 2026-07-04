@@ -1,0 +1,5 @@
+I (100) boot: app start
+I (180) lcd: dma frame buffer allocated addr=0x3f800000
+I (240) camera: frame ready seq=41
+E (520) dma: cache stale data detected before lcd flush seq=41
+E (530) lcd: reused old frame after dma transfer seq=41

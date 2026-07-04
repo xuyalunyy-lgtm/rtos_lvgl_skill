@@ -1,0 +1,6 @@
+I (100) boot: app start
+I (180) ui: lvgl task started task=lvgl
+I (240) net: websocket task started task=net
+E (640) ui: LVGL assert failed in lv_obj_set_style_bg_color task=net
+E (650) lvgl: lv_obj access from non-lvgl task task=net
+E (660) ui: flush callback spent 300ms task=lvgl

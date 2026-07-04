@@ -52,6 +52,20 @@ MATRIX = [
         "expected_category_counts": {"software": 1, "hardware": 0, "architecture": 1},
     },
     {
+        "log": "bad_lvgl_cross_thread.log",
+        "expected_ids": ["LVGL_CRASH"],
+        "allowed_extra_ids": [],
+        "expected_exit": 0,
+        "expected_category_counts": {"software": 1, "hardware": 0, "architecture": 0},
+    },
+    {
+        "log": "bad_dma_cache_stale.log",
+        "expected_ids": ["DMA_CACHE_ERROR"],
+        "allowed_extra_ids": [],
+        "expected_exit": 0,
+        "expected_category_counts": {"software": 0, "hardware": 1, "architecture": 0},
+    },
+    {
         "log": "bad_sensor_timeout.log",
         "expected_ids": ["SENSOR_TIMEOUT"],
         "allowed_extra_ids": [],
