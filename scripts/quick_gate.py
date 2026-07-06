@@ -6,6 +6,7 @@ used during normal iteration before a commit is ready.
 """
 from __future__ import annotations
 
+import argparse
 import os
 import subprocess
 import sys
@@ -28,6 +29,7 @@ STEPS = [
     GateStep("log triage self-test", [sys.executable, "tools/log_triage.py", "--self-test"]),
     GateStep("log triage batch self-test", [sys.executable, "tools/log_triage_batch.py", "--self-test"]),
     GateStep("log triage matrix", [sys.executable, "scripts/check_log_triage_matrix.py"]),
+    GateStep("log symptom routes quality", [sys.executable, "scripts/check_log_symptom_routes.py"]),
     GateStep("project gate self-test", [sys.executable, "tools/project_gate.py", "--self-test"]),
     GateStep("repro bundle self-test", [sys.executable, "tools/repro_bundle.py", "--self-test"]),
     GateStep("context router self-test", [sys.executable, "tools/context_router.py", "--self-test"]),
@@ -45,23 +47,57 @@ def _env() -> dict[str, str]:
     return env
 
 
-def run_step(index: int, total: int, step: GateStep) -> bool:
+def _print_failure_output(proc: subprocess.CompletedProcess[str]) -> None:
+    if proc.stdout:
+        print("  stdout:")
+        for line in proc.stdout.splitlines():
+            print(f"    {line}")
+    if proc.stderr:
+        print("  stderr:")
+        for line in proc.stderr.splitlines():
+            print(f"    {line}")
+
+
+def run_step(index: int, total: int, step: GateStep, *, verbose: bool) -> bool:
+    cmd_text = " ".join(step.cmd)
     print(f"[{index}/{total}] {step.name}")
-    print("  " + " ".join(step.cmd))
-    proc = subprocess.run(step.cmd, cwd=ROOT, env=_env())
+    print(f"  {cmd_text}")
+
+    if verbose:
+        proc = subprocess.run(step.cmd, cwd=ROOT, env=_env())
+        if proc.returncode == 0:
+            print(f"  PASS {step.name}")
+            return True
+        print(f"  FAIL {step.name}: exit {proc.returncode}")
+        return False
+
+    proc = subprocess.run(
+        step.cmd,
+        cwd=ROOT,
+        env=_env(),
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+    )
     if proc.returncode == 0:
         print(f"  PASS {step.name}")
         return True
+
     print(f"  FAIL {step.name}: exit {proc.returncode}")
+    _print_failure_output(proc)
     return False
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser(description="Run the fast local skill release gate")
+    parser.add_argument("--verbose", action="store_true", help="stream full child-process output")
+    args = parser.parse_args()
+
     failed: list[str] = []
     total = len(STEPS)
 
     for index, step in enumerate(STEPS, start=1):
-        if not run_step(index, total, step):
+        if not run_step(index, total, step, verbose=args.verbose):
             failed.append(step.name)
 
     if failed:

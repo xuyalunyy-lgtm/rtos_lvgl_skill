@@ -1,14 +1,5 @@
 #!/usr/bin/env python3
-"""
-Log Triage Matrix v25 — 严格日志分流回归矩阵。
-
-支持 expected_ids / forbidden_ids / expected_counts / expected_exit_code。
-多出来的 P0/P1 症状默认 fail。
-
-用法:
-    python scripts/check_log_triage_matrix.py
-    python scripts/check_log_triage_matrix.py --self-test
-"""
+"""Validate log triage results against expected symptom matrices."""
 from __future__ import annotations
 
 import json
@@ -20,8 +11,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 TOOLS = ROOT / "tools"
 LOGS_DIR = TOOLS / "fixtures" / "logs"
+ROUTES_FILE = ROOT / "references" / "log_symptom_routes.json"
 
-# ── 严格矩阵定义 ──
+# Test cases for log-triage smoke checks.
 MATRIX = [
     {
         "log": "good_boot.log",
@@ -33,7 +25,7 @@ MATRIX = [
     {
         "log": "bad_wdt_queue_full.log",
         "expected_ids": ["WDT_RESET"],
-        "allowed_extra_ids": ["HARDFAULT"],  # 联动症状
+        "allowed_extra_ids": ["HARDFAULT"],
         "expected_exit": 0,
         "expected_category_counts": {"software": 2, "hardware": 0, "architecture": 2},
     },
@@ -131,24 +123,62 @@ MATRIX = [
     {
         "log": "bad_priority_inversion.log",
         "expected_ids": ["UNCLEAR_TOPOLOGY"],
-        "allowed_extra_ids": ["WDT_RESET"],  # 联动症状
+        "allowed_extra_ids": ["WDT_RESET"],
         "expected_exit": 0,
         "expected_category_counts": {"software": 1, "hardware": 0, "architecture": 2},
     },
 ]
 
 
+def _load_route_ids() -> tuple[set[str], list[str]]:
+    """Load symptom IDs from route metadata for cross-checking matrix expectations."""
+    try:
+        payload = json.loads(ROUTES_FILE.read_text(encoding="utf-8"))
+    except OSError as exc:
+        return set(), [f"failed to read route metadata: {exc}"]
+    except json.JSONDecodeError as exc:
+        return set(), [f"routes metadata JSON parse error: {exc}"]
+
+    symptoms = payload.get("symptoms")
+    if not isinstance(symptoms, list):
+        return set(), ["routes metadata payload missing top-level symptoms list"]
+
+    ids: set[str] = set()
+    for item in symptoms:
+        if not isinstance(item, dict):
+            continue
+        sid = item.get("id")
+        if isinstance(sid, str):
+            ids.add(sid)
+    if not ids:
+        return set(), ["routes metadata contains no valid ids"]
+    return ids, []
+
+
 def _run_triage_cli(log_path: Path) -> dict:
-    """通过 CLI 子进程运行 log_triage，验证 exit code 和输出。"""
-    cmd = [sys.executable, str(TOOLS / "log_triage.py"), "--log", str(log_path), "--platform", "esp32", "--json"]
+    """Run log_triage.py and return normalized result fields."""
+    cmd = [
+        sys.executable,
+        str(TOOLS / "log_triage.py"),
+        "--log",
+        str(log_path),
+        "--platform",
+        "esp32",
+        "--json",
+    ]
+
     try:
         proc = subprocess.run(
-            cmd, capture_output=True, encoding="utf-8", errors="replace",
-            timeout=30, cwd=str(ROOT), env={**os.environ, "PYTHONUTF8": "1"},
+            cmd,
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=30,
+            cwd=str(ROOT),
+            env={**os.environ, "PYTHONUTF8": "1"},
         )
-        stdout = proc.stdout
-        # Windows-safe 检查
-        has_unsafe = any(ch in stdout for ch in ["⚠", "🔴", "🟡", "🟢"])
+        stdout = proc.stdout or ""
+        stderr = proc.stderr or ""
         try:
             data = json.loads(stdout)
         except json.JSONDecodeError:
@@ -156,77 +186,102 @@ def _run_triage_cli(log_path: Path) -> dict:
         return {
             "exit_code": proc.returncode,
             "data": data,
-            "has_unsafe_chars": has_unsafe,
-            "stdout": stdout[:500],
+            "has_invalid_chars": "\\ufffd" in stdout,
+            "stdout": stdout,
+            "stderr": stderr,
         }
     except subprocess.TimeoutExpired:
-        return {"exit_code": -1, "data": {}, "has_unsafe_chars": False, "stdout": "timeout"}
+        return {"exit_code": -1, "data": {}, "has_invalid_chars": False, "stdout": "timeout", "stderr": ""}
+
+
+def _iter_symptom_ids(result: dict) -> set[str]:
+    ids: set[str] = set()
+    for key in ("software_suspicions", "hardware_suspicions", "architecture_refactor_candidates"):
+        for item in result.get(key, []):
+            sid = item.get("symptom_id") if isinstance(item, dict) else None
+            if isinstance(sid, str):
+                ids.add(sid)
+    return ids
 
 
 def check_all() -> dict:
-    """运行完整矩阵。"""
+    """Run all matrix cases and collect per-case pass/fail details."""
+    valid_route_ids, route_load_errors = _load_route_ids()
     results = []
     all_passed = True
 
     for case in MATRIX:
         log_path = LOGS_DIR / case["log"]
-        errors = []
+        errors: list[str] = []
+
+        if route_load_errors:
+            errors.extend(route_load_errors)
+
+        if not isinstance(case.get("expected_ids"), list):
+            errors.append("expected_ids must be a list")
+        if not isinstance(case.get("allowed_extra_ids"), list):
+            errors.append("allowed_extra_ids must be a list")
 
         if not log_path.exists():
-            results.append({"log": case["log"], "passed": False, "errors": ["文件不存在"]})
+            errors.append(f"missing log file: {case['log']}")
+            results.append({"log": case["log"], "passed": False, "errors": errors, "exit_code": -1, "symptoms": []})
             all_passed = False
             continue
 
-        # CLI 回归
+        # Ensure matrix entries reference known routes.
+        for key in ("expected_ids", "allowed_extra_ids"):
+            for symptom_id in case.get(key, []) if isinstance(case.get(key), list) else []:
+                if symptom_id and symptom_id not in valid_route_ids:
+                    errors.append(f"{key[:-1]} refers to unknown symptom id: {symptom_id}")
+
         cli = _run_triage_cli(log_path)
+
         expected_exit = case.get("expected_exit", 0)
         if cli["exit_code"] != expected_exit:
             errors.append(f"exit_code={cli['exit_code']} expected={expected_exit}")
 
-        # Windows-safe
-        if cli["has_unsafe_chars"]:
-            errors.append("输出包含非 ASCII 警告符号")
+        if cli["has_invalid_chars"]:
+            errors.append("stdout contains replacement characters; possible encoding issue")
 
-        r = cli["data"]
-        if not r:
-            errors.append("JSON 解析失败")
-            results.append({"log": case["log"], "passed": False, "errors": errors})
+        data = cli["data"]
+        if not isinstance(data, dict) or not data:
+            errors.append("JSON parse failed")
+            if cli["stdout"]:
+                errors.append(f"stdout preview: {cli['stdout'][:240]}")
+            if cli["stderr"]:
+                errors.append(f"stderr: {cli['stderr'][:240]}")
+            results.append({"log": case["log"], "passed": False, "errors": errors, "exit_code": cli["exit_code"], "symptoms": []})
             all_passed = False
             continue
 
-        # 收集所有检测到的症状 ID
-        all_ids = set()
-        for key in ["software_suspicions", "hardware_suspicions", "architecture_refactor_candidates"]:
-            for s in r.get(key, []):
-                all_ids.add(s.get("symptom_id", ""))
+        all_ids = _iter_symptom_ids(data)
 
-        # expected_ids + allowed_extra_ids 精确合同
         expected = set(case.get("expected_ids", []))
         allowed_extra = set(case.get("allowed_extra_ids", []))
         allowed_all = expected | allowed_extra
 
-        # 必须包含 expected_ids
         missing = expected - all_ids
         if missing:
             errors.append(f"expected symptoms missing: {sorted(missing)}")
 
-        # 不允许超出 allowed_all 的额外症状
-        extra = all_ids - allowed_all
-        if extra:
-            errors.append(f"unexpected symptoms: {sorted(extra)}")
+        unexpected = all_ids - allowed_all
+        if unexpected:
+            errors.append(f"unexpected symptoms: {sorted(unexpected)}")
 
-        # forbidden_ids（向后兼容）
-        for fid in case.get("forbidden_ids", []):
-            if fid in all_ids:
-                errors.append(f"forbidden {fid} found")
+        for forbidden_id in case.get("forbidden_ids", []):
+            if forbidden_id in all_ids:
+                errors.append(f"forbidden symptom found: {forbidden_id}")
 
-        # expected_category_counts
-        for cat, expected_count in case.get("expected_category_counts", {}).items():
-            key = {"software": "software_suspicions", "hardware": "hardware_suspicions",
-                   "architecture": "architecture_refactor_candidates"}.get(cat, cat)
-            actual = len(r.get(key, []))
+        for category, expected_count in case.get("expected_category_counts", {}).items():
+            key = {
+                "software": "software_suspicions",
+                "hardware": "hardware_suspicions",
+                "architecture": "architecture_refactor_candidates",
+            }.get(category, category)
+            value = data.get(key)
+            actual = len(value) if isinstance(value, list) else 0
             if actual != expected_count:
-                errors.append(f"{cat} count={actual} expected={expected_count}")
+                errors.append(f"{category} count={actual} expected={expected_count}")
 
         passed = len(errors) == 0
         if not passed:
@@ -243,25 +298,25 @@ def check_all() -> dict:
     return {
         "passed": all_passed,
         "total": len(results),
-        "passed_count": sum(1 for r in results if r["passed"]),
+        "passed_count": sum(1 for result in results if result["passed"]),
         "results": results,
     }
 
 
 def main() -> int:
-    r = check_all()
+    result = check_all()
     if "--json" in sys.argv:
-        print(json.dumps(r, indent=2, ensure_ascii=False))
+        print(json.dumps(result, indent=2, ensure_ascii=False))
     else:
-        print(f"Log Triage Matrix: {r['passed_count']}/{r['total']} passed")
-        for pr in r["results"]:
-            icon = "[PASS]" if pr["passed"] else "[FAIL]"
-            print(f"  {icon} {pr['log']}: exit={pr['exit_code']} symptoms={pr['symptoms']}")
-            if pr["errors"]:
-                for e in pr["errors"]:
-                    print(f"    - {e}")
-    return 0 if r["passed"] else 1
+        print(f"Log Triage Matrix: {result['passed_count']}/{result['total']} passed")
+        for row in result["results"]:
+            icon = "[PASS]" if row["passed"] else "[FAIL]"
+            print(f"  {icon} {row['log']}: exit={row['exit_code']} symptoms={row['symptoms']}")
+            if row["errors"]:
+                for error in row["errors"]:
+                    print(f"    - {error}")
+    return 0 if result["passed"] else 1
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())
