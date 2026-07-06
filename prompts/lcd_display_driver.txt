@@ -248,6 +248,77 @@ disp_drv.flush_cb = lcd_flush_cb;
 
 ---
 
+## 性能优化补充（建议）
+
+以下内容用于“能跑就能优化”的工程实践，优先按问题定位链路实施：
+
+### 1. 内存与显示缓冲区（lv_conf.h）
+
+- 建议启用双缓冲区，让渲染与发送并行。最直接收益通常来自 `lv_disp_draw_buf_t` 的双向流水：
+  - 一个 buffer 正在 flush，另一个正在渲染。
+- 缓冲区建议至少为 `屏幕高度 * 1/10`，SRAM 富余时优先用全屏缓冲（性能更平滑）。
+- 尽量把 LVGL 缓冲与堆放在片上高带宽 SRAM（TCM/AHB SRAM），避免慢速 PSRAM/SDRAM 被当作主工作区。
+
+```c
+/* 示例：双缓冲（全屏） */
+static lv_disp_draw_buf_t draw_buf;
+static lv_color_t buf1[MY_DISP_HOR_RES * MY_DISP_VER_RES];
+static lv_color_t buf2[MY_DISP_HOR_RES * MY_DISP_VER_RES];
+lv_disp_draw_buf_init(&draw_buf, buf1, buf2, MY_DISP_HOR_RES * MY_DISP_VER_RES);
+```
+
+```c
+/* lv_conf.h */
+#define LV_MEM_CUSTOM         0
+#define LV_MEM_SIZE           (64U * 1024U)   /* 按片上 SRAM 可用性调整 */
+```
+
+### 2. 渲染与刷新节奏
+
+- 刷新周期：
+  - `LV_DISP_DEF_REFR_PERIOD` 设为 16（约 60FPS）或 33（约 30FPS）
+  - 不要高于屏幕实际刷新率，避免空转。
+- 降低无效重绘：批量更新后再统一触发重绘，尽量避免每个控件单独触发。
+- 控件尽量用不透明背景/纯色。
+  - 不要过度使用 `opacity` 与复杂 blend，透明叠加会增加 CPU 合成开销。
+
+```c
+/* 批量更新后统一刷新 */
+lv_obj_invalidate(lv_scr_act());
+```
+
+### 3. 图片与字体优化
+
+- 图片颜色格式尽量与屏幕像素格式一致（如 RGB565 / ARGB8888），避免运行时逐像素转换。
+- 图片尽量用 C 数组/二进制常驻内存，并打开图片缓存，避免频繁慢速 IO。
+- 字体裁剪到实际使用字符集；默认开启大字模优化更适合中文/常用字符较多场景。
+
+```c
+/* 仅建议：按实际字集裁剪后再集成字体 */
+```
+
+### 4. 硬件加速与 DMA
+
+- flush 回调建议使用 DMA 非阻塞发送像素；发送完成后再 `lv_disp_flush_ready()`。
+- 若平台有硬件加速/图形引擎，按 MCU 型号在 LVGL 配置中打开对应特性（如 STM32 DMA2D / NXP PXP / ESP32 LCD CAM）。
+
+### 5. 性能可观测性
+
+- 关键性能路径建议开启监控（用于线上判断卡顿是否来自 LVGL）：
+
+```c
+#define LV_USE_PERF_MONITOR     1
+#define LV_USE_MEM_MONITOR      1
+```
+
+- 常用目标：动画场景保持 30~60 FPS，CPU 典型负载 < 80%。
+- 若 FPS 偏低且 CPU 持续高，优先排查：
+  - Alpha 混合是否过多；
+  - DMA / flush 路径是否走了阻塞/CPU memcpy；
+  - flush 回调是否在 hot path 做了额外内存分配或重逻辑。
+
+> ⚠️ 注意：代码示例为策略示例，具体参数需按板级分辨率、带宽和内存上限评估。
+
 ## Agent 检查清单
 
 - [ ] C23.1 LCD 初始化时序是否严格按 datasheet（复位脉宽、命令间延迟）？
