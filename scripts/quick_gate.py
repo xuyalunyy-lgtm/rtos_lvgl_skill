@@ -15,6 +15,9 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parent.parent
+DEFAULT_QUALITY_POLICY = ROOT / "references" / "log_symptom_routes_quality_policy.json"
+DEFAULT_QUALITY_ALLOWLIST = ROOT / "references" / "log_symptom_route_conflict_allowlist.json"
+DEFAULT_QUALITY_ARTIFACT = ROOT / "artifacts" / "log_symptom_routes_quality.json"
 
 
 @dataclass(frozen=True)
@@ -29,7 +32,6 @@ STEPS = [
     GateStep("log triage self-test", [sys.executable, "tools/log_triage.py", "--self-test"]),
     GateStep("log triage batch self-test", [sys.executable, "tools/log_triage_batch.py", "--self-test"]),
     GateStep("log triage matrix", [sys.executable, "scripts/check_log_triage_matrix.py"]),
-    GateStep("log symptom routes quality", [sys.executable, "scripts/check_log_symptom_routes.py"]),
     GateStep("project gate self-test", [sys.executable, "tools/project_gate.py", "--self-test"]),
     GateStep("repro bundle self-test", [sys.executable, "tools/repro_bundle.py", "--self-test"]),
     GateStep("context router self-test", [sys.executable, "tools/context_router.py", "--self-test"]),
@@ -38,6 +40,7 @@ STEPS = [
     GateStep("runtime distribution", [sys.executable, "scripts/check_runtime_distribution.py"]),
     GateStep("link check", [sys.executable, "tools/check_links.py"]),
 ]
+
 
 
 def _env() -> dict[str, str]:
@@ -56,6 +59,11 @@ def _print_failure_output(proc: subprocess.CompletedProcess[str]) -> None:
         print("  stderr:")
         for line in proc.stderr.splitlines():
             print(f"    {line}")
+
+
+def _append_if_set(command: list[str], flag: str, value: object) -> None:
+    if value is not None:
+        command.extend([flag, str(value)])
 
 
 def run_step(index: int, total: int, step: GateStep, *, verbose: bool) -> bool:
@@ -88,15 +96,49 @@ def run_step(index: int, total: int, step: GateStep, *, verbose: bool) -> bool:
     return False
 
 
+def _build_route_quality_step(args: argparse.Namespace) -> GateStep:
+    command = [
+        sys.executable,
+        "scripts/check_log_symptom_quality_gate.py",
+        "--quality-policy",
+        str(args.quality_policy),
+        "--conflict-allowlist",
+        str(args.quality_allowlist),
+        "--artifact",
+        str(args.quality_artifact),
+    ]
+    _append_if_set(command, "--max-missing-field-alerts", args.quality_max_missing_field_alerts)
+    _append_if_set(command, "--min-average-coverage", args.quality_min_average_coverage)
+    _append_if_set(command, "--max-route-conflicts", args.quality_max_route_conflicts)
+    _append_if_set(command, "--max-duplicate-patterns", args.quality_max_duplicate_patterns)
+    _append_if_set(command, "--max-weak-strong-overlaps", args.quality_max_weak_strong_overlaps)
+    _append_if_set(command, "--max-broad-patterns", args.quality_max_broad_patterns)
+    _append_if_set(command, "--max-multi-match-fixtures", args.quality_max_multi_match_fixtures)
+    return GateStep("log symptom routes quality", command)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run the fast local skill release gate")
     parser.add_argument("--verbose", action="store_true", help="stream full child-process output")
+    parser.add_argument("--quality-policy", type=Path, default=DEFAULT_QUALITY_POLICY)
+    parser.add_argument("--quality-allowlist", type=Path, default=DEFAULT_QUALITY_ALLOWLIST)
+    parser.add_argument("--quality-artifact", type=Path, default=DEFAULT_QUALITY_ARTIFACT)
+    parser.add_argument("--quality-max-missing-field-alerts", type=int)
+    parser.add_argument("--quality-min-average-coverage", type=float)
+    parser.add_argument("--quality-max-route-conflicts", type=int)
+    parser.add_argument("--quality-max-duplicate-patterns", type=int)
+    parser.add_argument("--quality-max-weak-strong-overlaps", type=int)
+    parser.add_argument("--quality-max-broad-patterns", type=int)
+    parser.add_argument("--quality-max-multi-match-fixtures", type=int)
     args = parser.parse_args()
 
-    failed: list[str] = []
-    total = len(STEPS)
+    steps = STEPS.copy()
+    steps.insert(5, _build_route_quality_step(args))
 
-    for index, step in enumerate(STEPS, start=1):
+    failed: list[str] = []
+    total = len(steps)
+
+    for index, step in enumerate(steps, start=1):
         if not run_step(index, total, step, verbose=args.verbose):
             failed.append(step.name)
 
