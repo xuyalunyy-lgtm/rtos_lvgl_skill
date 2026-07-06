@@ -1,0 +1,1 @@
+{"symptoms":[{"id":"MM_A","name":"multi match a","patterns":["QUALITY_GATE_MULTI_MATCH_TOKEN"],"category":"software","severity":"P1","constraints":["C1"]},{"id":"MM_B","name":"multi match b","patterns":["QUALITY_GATE_MULTI_MATCH_TOKEN"],"category":"software","severity":"P1","constraints":["C1"]}]}

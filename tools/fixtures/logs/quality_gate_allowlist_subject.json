@@ -1,0 +1,1 @@
+{"symptoms":[{"id":"ALLOW_A","name":"allowlist a","patterns":["QUALITY_GATE_ALLOWLIST_TOKEN"],"category":"software","severity":"P1","constraints":["C1"]},{"id":"ALLOW_B","name":"allowlist b","patterns":["QUALITY_GATE_ALLOWLIST_TOKEN"],"category":"software","severity":"P1","constraints":["C1"]}]}

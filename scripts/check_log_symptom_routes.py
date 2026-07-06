@@ -37,6 +37,103 @@ OPTIONAL_FIELDS = {
     "match_level",
 }
 DIAGNOSTIC_PROBE_KEYS = {"log_confirm", "code_locate", "tool_verify"}
+QUALITY_CONFLICT_KEYS = {"duplicate_patterns", "weak_strong_overlaps", "broad_patterns", "multi_match_fixtures"}
+
+
+def _validate_quality_report(quality: Any) -> tuple[dict[str, Any], list[str]]:
+    """Validate and normalize quality report for machine readable contract."""
+    if not isinstance(quality, dict):
+        return {
+            "total_routes": 0,
+            "coverage": [],
+            "missing_field_alerts": {},
+            "sparse_routes": [],
+            "missing_field_alert_count": 0,
+            "route_conflicts": {key: [] for key in QUALITY_CONFLICT_KEYS},
+        }, ["quality report must be a JSON object"]
+
+    errors: list[str] = []
+
+    total_routes = quality.get("total_routes", 0)
+    if not isinstance(total_routes, int) or total_routes < 0:
+        errors.append("quality.total_routes must be a non-negative integer")
+        total_routes = 0
+
+    coverage = quality.get("coverage")
+    if not isinstance(coverage, list):
+        errors.append("quality.coverage must be a list")
+        coverage = []
+    normalized_coverage = []
+    for index, entry in enumerate(coverage):
+        if not isinstance(entry, dict):
+            errors.append(f"quality.coverage[{index}] must be an object")
+            continue
+        item: dict[str, Any] = {
+            "field": entry.get("field"),
+            "present": entry.get("present", 0),
+            "missing": entry.get("missing", 0),
+            "coverage": entry.get("coverage", 0.0),
+        }
+        if not isinstance(item["field"], str):
+            errors.append(f"quality.coverage[{index}].field must be a string")
+            item["field"] = ""
+        if not isinstance(item["present"], int) or item["present"] < 0:
+            errors.append(f"quality.coverage[{index}].present must be a non-negative integer")
+            item["present"] = 0
+        if not isinstance(item["missing"], int) or item["missing"] < 0:
+            errors.append(f"quality.coverage[{index}].missing must be a non-negative integer")
+            item["missing"] = 0
+        if not isinstance(item["coverage"], (int, float)):
+            errors.append(f"quality.coverage[{index}].coverage must be a number")
+            item["coverage"] = 0.0
+        normalized_coverage.append(item)
+
+    missing_field_alerts = quality.get("missing_field_alerts")
+    if not isinstance(missing_field_alerts, dict):
+        errors.append("quality.missing_field_alerts must be an object")
+        missing_field_alerts = {}
+    normalized_missing = {}
+    for field, count in missing_field_alerts.items():
+        if not isinstance(field, str):
+            errors.append("quality.missing_field_alerts keys must be strings")
+            continue
+        if not isinstance(count, int) or count < 0:
+            errors.append(f"quality.missing_field_alerts[{field}] must be a non-negative integer")
+            normalized_missing[field] = 0
+            continue
+        normalized_missing[field] = count
+
+    sparse_routes = quality.get("sparse_routes")
+    if not isinstance(sparse_routes, list):
+        errors.append("quality.sparse_routes must be a list")
+        sparse_routes = []
+
+    missing_field_alert_count = quality.get("missing_field_alert_count", 0)
+    if not isinstance(missing_field_alert_count, int) or missing_field_alert_count < 0:
+        errors.append("quality.missing_field_alert_count must be a non-negative integer")
+        missing_field_alert_count = 0
+
+    route_conflicts = quality.get("route_conflicts")
+    if not isinstance(route_conflicts, dict):
+        errors.append("quality.route_conflicts must be an object")
+        route_conflicts = {}
+    normalized_route_conflicts: dict[str, Any] = {}
+    for key in QUALITY_CONFLICT_KEYS:
+        entries = route_conflicts.get(key)
+        if not isinstance(entries, list):
+            errors.append(f"quality.route_conflicts.{key} must be a list")
+            normalized_route_conflicts[key] = []
+            continue
+        normalized_route_conflicts[key] = [entry for entry in entries if isinstance(entry, dict)]
+
+    return {
+        "total_routes": total_routes,
+        "coverage": normalized_coverage,
+        "missing_field_alerts": normalized_missing,
+        "sparse_routes": sparse_routes,
+        "missing_field_alert_count": missing_field_alert_count,
+        "route_conflicts": normalized_route_conflicts,
+    }, errors
 
 def _build_quality_report(symptoms: list[dict[str, Any]]) -> dict[str, Any]:
     """Build optional-field coverage / missing-field alert metrics.
@@ -563,6 +660,22 @@ def run_self_test() -> int:
         print(f"[FAIL] quality-report coverage: {quality}")
         failed += 1
 
+    _, quality_schema_errors = _validate_quality_report(quality)
+    if not quality_schema_errors:
+        print("[PASS] quality schema validation")
+        passed += 1
+    else:
+        print(f"[FAIL] quality schema validation: {quality_schema_errors}")
+        failed += 1
+
+    bad_quality, bad_quality_errors = _validate_quality_report({"total_routes": "bad", "coverage": []})
+    if bad_quality["coverage"] == [] and bad_quality["total_routes"] == 0 and bad_quality_errors:
+        print("[PASS] malformed quality report validation")
+        passed += 1
+    else:
+        print(f"[FAIL] malformed quality report validation: {bad_quality_errors}")
+        failed += 1
+
     conflict_case = {
         "symptoms": [
             {"id": "A", "patterns": ["same_error"]},
@@ -614,12 +727,14 @@ def main() -> int:
     quality_report = _build_quality_report(typed_symptoms)
 
     if args.quality_json:
+        quality_report, quality_schema_errors = _validate_quality_report(quality_report)
+        errors.extend(quality_schema_errors)
         print(json.dumps({
-            "valid": not errors,
+            "valid": len(errors) == 0,
             "errors": errors,
             "quality": quality_report,
         }, indent=2, ensure_ascii=False))
-        return 0 if not errors else 1
+        return 0 if len(errors) == 0 else 1
 
     if errors:
         print("[FAIL] log symptom routes validation failed:")

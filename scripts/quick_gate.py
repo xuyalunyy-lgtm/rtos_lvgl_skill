@@ -7,9 +7,11 @@ used during normal iteration before a commit is ready.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import os
 import subprocess
 import sys
+from datetime import datetime, timezone
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -66,6 +68,17 @@ def _append_if_set(command: list[str], flag: str, value: object) -> None:
         command.extend([flag, str(value)])
 
 
+def _file_fingerprint(path: Path) -> tuple[str, str]:
+    if not path.exists():
+        return "missing", "missing"
+    try:
+        digest = hashlib.md5(path.read_bytes()).hexdigest()
+        mtime = datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc).isoformat()
+        return digest, mtime
+    except OSError:
+        return "unreadable", "unreadable"
+
+
 def run_step(index: int, total: int, step: GateStep, *, verbose: bool) -> bool:
     cmd_text = " ".join(step.cmd)
     print(f"[{index}/{total}] {step.name}")
@@ -114,6 +127,8 @@ def _build_route_quality_step(args: argparse.Namespace) -> GateStep:
     _append_if_set(command, "--max-weak-strong-overlaps", args.quality_max_weak_strong_overlaps)
     _append_if_set(command, "--max-broad-patterns", args.quality_max_broad_patterns)
     _append_if_set(command, "--max-multi-match-fixtures", args.quality_max_multi_match_fixtures)
+    if args.strict:
+        command.append("--strict")
     return GateStep("log symptom routes quality", command)
 
 
@@ -130,7 +145,13 @@ def main() -> int:
     parser.add_argument("--quality-max-weak-strong-overlaps", type=int)
     parser.add_argument("--quality-max-broad-patterns", type=int)
     parser.add_argument("--quality-max-multi-match-fixtures", type=int)
+    parser.add_argument("--strict", action="store_true", help="fail on quality gate warnings (CI-style strict mode)")
     args = parser.parse_args()
+
+    policy_fingerprint, policy_mtime = _file_fingerprint(args.quality_policy)
+    allowlist_fingerprint, allowlist_mtime = _file_fingerprint(args.quality_allowlist)
+    print(f"[INFO] quality policy {args.quality_policy}: md5={policy_fingerprint} mtime={policy_mtime}")
+    print(f"[INFO] conflict allowlist {args.quality_allowlist}: md5={allowlist_fingerprint} mtime={allowlist_mtime}")
 
     steps = STEPS.copy()
     steps.insert(5, _build_route_quality_step(args))
