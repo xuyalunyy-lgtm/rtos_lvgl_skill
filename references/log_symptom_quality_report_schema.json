@@ -1,0 +1,125 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Log Symptom Quality Report Envelope",
+  "type": "object",
+  "required": [
+    "valid",
+    "errors",
+    "quality"
+  ],
+  "properties": {
+    "valid": {
+      "type": "boolean"
+    },
+    "errors": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "quality": {
+      "type": "object",
+      "required": [
+        "total_routes",
+        "coverage",
+        "missing_field_alerts",
+        "sparse_routes",
+        "missing_field_alert_count",
+        "route_conflicts"
+      ],
+      "properties": {
+        "total_routes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "coverage": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "field",
+              "present",
+              "missing",
+              "coverage"
+            ],
+            "properties": {
+              "field": {
+                "type": "string"
+              },
+              "present": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "missing": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "coverage": {
+                "type": "number"
+              }
+            }
+          }
+        },
+        "missing_field_alerts": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "sparse_routes": {
+          "type": "array"
+        },
+        "missing_field_alert_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "route_conflicts": {
+          "type": "object",
+          "required": [
+            "duplicate_patterns",
+            "weak_strong_overlaps",
+            "broad_patterns",
+            "multi_match_fixtures"
+          ],
+          "properties": {
+            "duplicate_patterns": {
+              "type": "array"
+            },
+            "weak_strong_overlaps": {
+              "type": "array"
+            },
+            "broad_patterns": {
+              "type": "array"
+            },
+            "multi_match_fixtures": {
+              "type": "array"
+            },
+            "suppressed_conflicts": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    },
+    "thresholds": {
+      "type": "object"
+    },
+    "metadata": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": true
+}

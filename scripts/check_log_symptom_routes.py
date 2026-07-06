@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parent.parent
 ROUTES_FILE = ROOT / "references" / "log_symptom_routes.json"
 TOOLS_DIR = ROOT / "tools"
 LOGS_DIR = TOOLS_DIR / "fixtures" / "logs"
+QUALITY_REPORT_SCHEMA_FILE = ROOT / "references" / "log_symptom_quality_report_schema.json"
 
 VALID_CATEGORIES = {"software", "hardware", "architecture", "mixed"}
 VALID_SEVERITIES = {"P0", "P1", "P2", "P3", "P4", "P5"}
@@ -40,8 +41,93 @@ DIAGNOSTIC_PROBE_KEYS = {"log_confirm", "code_locate", "tool_verify"}
 QUALITY_CONFLICT_KEYS = {"duplicate_patterns", "weak_strong_overlaps", "broad_patterns", "multi_match_fixtures"}
 
 
+def _read_quality_schema() -> tuple[dict[str, Any] | None, list[str]]:
+    if not QUALITY_REPORT_SCHEMA_FILE.exists():
+        return None, [f"quality schema file missing: {QUALITY_REPORT_SCHEMA_FILE}"]
+    try:
+        schema = json.loads(QUALITY_REPORT_SCHEMA_FILE.read_text(encoding="utf-8"))
+    except OSError as exc:
+        return None, [f"failed to read quality schema {QUALITY_REPORT_SCHEMA_FILE}: {exc}"]
+    except json.JSONDecodeError as exc:
+        return None, [f"invalid JSON in quality schema {QUALITY_REPORT_SCHEMA_FILE}: {exc}"]
+    if not isinstance(schema, dict):
+        return None, [f"quality schema {QUALITY_REPORT_SCHEMA_FILE} must be a JSON object"]
+    return schema, []
+
+
+def _validate_schema_node(
+    path: str,
+    value: Any,
+    schema: dict[str, Any],
+    errors: list[str],
+) -> None:
+    if not isinstance(schema, dict):
+        return
+
+    schema_type = schema.get("type")
+    if schema_type == "object":
+        if not isinstance(value, dict):
+            errors.append(f"{path} must be an object")
+            return
+
+        required = schema.get("required", [])
+        for key in required:
+            if key not in value:
+                errors.append(f"{path}.{key} missing")
+
+        properties: dict[str, Any] = schema.get("properties", {})
+        for key, child_schema in properties.items():
+            if key in value:
+                _validate_schema_node(f"{path}.{key}", value[key], child_schema, errors)
+
+        additional = schema.get("additionalProperties")
+        if isinstance(additional, dict):
+            for key, child in value.items():
+                if key not in properties:
+                    _validate_schema_node(f"{path}.{key}", child, additional, errors)
+        return
+
+    if schema_type == "array":
+        if not isinstance(value, list):
+            errors.append(f"{path} must be an array")
+            return
+        items = schema.get("items")
+        if isinstance(items, dict):
+            for index, item in enumerate(value):
+                _validate_schema_node(f"{path}[{index}]", item, items, errors)
+        return
+
+    if schema_type == "string":
+        if not isinstance(value, str):
+            errors.append(f"{path} must be a string")
+        return
+
+    if schema_type == "boolean":
+        if not isinstance(value, bool):
+            errors.append(f"{path} must be a boolean")
+        return
+
+    if schema_type == "integer":
+        if not isinstance(value, int) or isinstance(value, bool):
+            errors.append(f"{path} must be a non-negative integer")
+            return
+        minimum = schema.get("minimum")
+        if isinstance(minimum, (int, float)) and value < minimum:
+            errors.append(f"{path} must be >= {minimum}")
+        return
+
+    if schema_type == "number":
+        if not isinstance(value, (int, float)) or isinstance(value, bool):
+            errors.append(f"{path} must be a number")
+            return
+        minimum = schema.get("minimum")
+        if isinstance(minimum, (int, float)) and value < minimum:
+            errors.append(f"{path} must be >= {minimum}")
+
+
 def _validate_quality_report(quality: Any) -> tuple[dict[str, Any], list[str]]:
     """Validate and normalize quality report for machine readable contract."""
+    schema, schema_errors = _read_quality_schema()
     if not isinstance(quality, dict):
         return {
             "total_routes": 0,
@@ -50,9 +136,26 @@ def _validate_quality_report(quality: Any) -> tuple[dict[str, Any], list[str]]:
             "sparse_routes": [],
             "missing_field_alert_count": 0,
             "route_conflicts": {key: [] for key in QUALITY_CONFLICT_KEYS},
-        }, ["quality report must be a JSON object"]
+        }, ["quality report must be a JSON object"] + schema_errors
 
     errors: list[str] = []
+    if schema is not None:
+        quality_schema = schema.get("properties", {}).get("quality", schema)
+        _validate_schema_node("quality", quality, quality_schema, errors)
+
+    # Keep a deterministic set of required fields for compatibility mode.
+    if "total_routes" not in quality:
+        errors.append("quality missing required field: total_routes")
+    if "coverage" not in quality:
+        errors.append("quality missing required field: coverage")
+    if "missing_field_alerts" not in quality:
+        errors.append("quality missing required field: missing_field_alerts")
+    if "sparse_routes" not in quality:
+        errors.append("quality missing required field: sparse_routes")
+    if "missing_field_alert_count" not in quality:
+        errors.append("quality missing required field: missing_field_alert_count")
+    if "route_conflicts" not in quality:
+        errors.append("quality missing required field: route_conflicts")
 
     total_routes = quality.get("total_routes", 0)
     if not isinstance(total_routes, int) or total_routes < 0:
@@ -133,7 +236,8 @@ def _validate_quality_report(quality: Any) -> tuple[dict[str, Any], list[str]]:
         "sparse_routes": sparse_routes,
         "missing_field_alert_count": missing_field_alert_count,
         "route_conflicts": normalized_route_conflicts,
-    }, errors
+    }, errors + schema_errors
+
 
 def _build_quality_report(symptoms: list[dict[str, Any]]) -> dict[str, Any]:
     """Build optional-field coverage / missing-field alert metrics.

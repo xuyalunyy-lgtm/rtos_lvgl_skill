@@ -16,6 +16,7 @@ CHECK_SCRIPT = ROOT / "scripts" / "check_log_symptom_routes.py"
 DEFAULT_QUALITY_POLICY_FILE = ROOT / "references" / "log_symptom_routes_quality_policy.json"
 DEFAULT_CONFLICT_ALLOWLIST_FILE = ROOT / "references" / "log_symptom_route_conflict_allowlist.json"
 DEFAULT_ARTIFACT = ROOT / "artifacts" / "log_symptom_routes_quality.json"
+QUALITY_REPORT_SCHEMA_FILE = ROOT / "references" / "log_symptom_quality_report_schema.json"
 ROUTE_CONFLICT_KEYS = {"duplicate_patterns", "weak_strong_overlaps", "broad_patterns", "multi_match_fixtures"}
 FIXTURES_DIR = ROOT / "tools" / "fixtures" / "logs"
 
@@ -177,9 +178,115 @@ def _normalize_route_conflicts(value: Any, errors: list[str]) -> dict[str, list[
     return normalized
 
 
+def _read_quality_schema() -> tuple[dict[str, Any] | None, list[str]]:
+    if not QUALITY_REPORT_SCHEMA_FILE.exists():
+        return None, [f"quality schema file missing: {QUALITY_REPORT_SCHEMA_FILE}"]
+    try:
+        schema = json.loads(QUALITY_REPORT_SCHEMA_FILE.read_text(encoding="utf-8"))
+    except OSError as exc:
+        return None, [f"failed to read quality schema {QUALITY_REPORT_SCHEMA_FILE}: {exc}"]
+    except json.JSONDecodeError as exc:
+        return None, [f"invalid JSON in quality schema {QUALITY_REPORT_SCHEMA_FILE}: {exc}"]
+    if not isinstance(schema, dict):
+        return None, [f"quality schema {QUALITY_REPORT_SCHEMA_FILE} must be a JSON object"]
+    return schema, []
+
+
+def _validate_schema_node(
+    path: str,
+    value: Any,
+    schema: dict[str, Any],
+    errors: list[str],
+) -> None:
+    if not isinstance(schema, dict):
+        return
+
+    schema_type = schema.get("type")
+    if schema_type == "object":
+        if not isinstance(value, dict):
+            errors.append(f"{path} must be an object")
+            return
+
+        required = schema.get("required", [])
+        for key in required:
+            if key not in value:
+                errors.append(f"{path}.{key} missing")
+
+        properties: dict[str, Any] = schema.get("properties", {})
+        for key, child_schema in properties.items():
+            if key in value:
+                _validate_schema_node(f"{path}.{key}", value[key], child_schema, errors)
+
+        additional = schema.get("additionalProperties")
+        if isinstance(additional, dict):
+            for key, child in value.items():
+                if key not in properties:
+                    _validate_schema_node(f"{path}.{key}", child, additional, errors)
+        return
+
+    if schema_type == "array":
+        if not isinstance(value, list):
+            errors.append(f"{path} must be an array")
+            return
+        items = schema.get("items")
+        if isinstance(items, dict):
+            for index, item in enumerate(value):
+                _validate_schema_node(f"{path}[{index}]", item, items, errors)
+        return
+
+    if schema_type == "string":
+        if not isinstance(value, str):
+            errors.append(f"{path} must be a string")
+        return
+
+    if schema_type == "boolean":
+        if not isinstance(value, bool):
+            errors.append(f"{path} must be a boolean")
+        return
+
+    if schema_type == "integer":
+        if not isinstance(value, int) or isinstance(value, bool):
+            errors.append(f"{path} must be a non-negative integer")
+            return
+        minimum = schema.get("minimum")
+        if isinstance(minimum, (int, float)) and value < minimum:
+            errors.append(f"{path} must be >= {minimum}")
+        return
+
+    if schema_type == "number":
+        if not isinstance(value, (int, float)) or isinstance(value, bool):
+            errors.append(f"{path} must be a number")
+            return
+        minimum = schema.get("minimum")
+        if isinstance(minimum, (int, float)) and value < minimum:
+            errors.append(f"{path} must be >= {minimum}")
+
+
+def _validate_quality_payload_schema(payload: Any, errors: list[str]) -> dict[str, Any]:
+    schema, schema_errors = _read_quality_schema()
+    errors.extend(schema_errors)
+    if not isinstance(payload, dict):
+        errors.append("quality json payload must be an object")
+        return {}
+
+    if schema is not None:
+        _validate_schema_node("quality_payload", payload, schema, errors)
+
+    # Compatibility branch: explicit minimum required fields.
+    for key in ("valid", "errors", "quality"):
+        if key not in payload:
+            errors.append(f"quality json payload missing required field '{key}'")
+
+    quality_payload = payload.get("quality")
+    if not isinstance(quality_payload, dict):
+        errors.append("quality json payload missing required object field 'quality'")
+        return {"quality": {}}
+    return payload
+
+
 def _coerce_non_negative_int(payload: dict[str, Any], field: str, errors: list[str], *, default: int = 0) -> int:
     value = payload.get(field, default)
-    if not isinstance(value, int) or value < 0:
+    if not isinstance(value, int) or isinstance(value, bool) or value < 0:
         errors.append(f"quality.{field} must be a non-negative integer")
         return default
     return value
@@ -359,18 +466,22 @@ def _normalize_quality_payload(payload: Any, errors: list[str]) -> tuple[dict[st
             "quality": _normalize_quality({}, errors),
         }, ["quality json payload must be an object"]
 
-    check_valid = payload.get("valid")
+    checked_payload = _validate_quality_payload_schema(payload, errors)
+    if not checked_payload:
+        checked_payload = {"quality": {}}
+
+    check_valid = checked_payload.get("valid")
     if not isinstance(check_valid, bool):
         errors.append("quality json payload missing required boolean field 'valid'")
         check_valid = False
 
-    check_errors: list[str] = []
-    if "errors" not in payload:
+    check_errors = []
+    if "errors" not in checked_payload:
         errors.append("quality json payload missing required list field 'errors'")
     else:
-        check_errors = _coerce_list_of_errors(payload.get("errors"), errors)
+        check_errors = _coerce_list_of_errors(checked_payload.get("errors"), errors)
 
-    quality_payload = payload.get("quality")
+    quality_payload = checked_payload.get("quality")
     if not isinstance(quality_payload, dict):
         errors.append("quality json payload missing required object field 'quality'")
         quality_payload = {}
