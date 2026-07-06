@@ -319,6 +319,78 @@ lv_obj_invalidate(lv_scr_act());
 
 > ⚠️ 注意：代码示例为策略示例，具体参数需按板级分辨率、带宽和内存上限评估。
 
+### 6. 布局与样式优化（Layout & Style）
+
+- 布局计算是 CPU 的隐形杀手。减少嵌套深度（如 `Object -> Container -> Row -> Item`），避免每次尺寸变化触发递归重算放大成本。
+- Flex/Grid 对动态变化多、布局频繁更新的静态页面并不一定最优，静态界面优先考虑直接设置绝对位置/尺寸（`lv_obj_set_pos`、`lv_obj_set_size`）减少重复布局开销。
+- 样式建议集中为全局 `lv_style_t`，通过 `lv_obj_add_style` 复用，降低 `lv_obj_set_style_*` 的运行时重写与重复分配。
+
+```c
+/* 示例：复用公共样式 */
+static lv_style_t common_style;
+
+void init_style(void)
+{
+    lv_style_init(&common_style);
+    lv_style_set_bg_color(&common_style, lv_color_hex(0x000000));
+    lv_style_set_text_font(&common_style, &lv_font_montserrat_14);
+}
+
+void create_btn(lv_obj_t *parent)
+{
+    lv_obj_t *btn = lv_btn_create(parent);
+    lv_obj_add_style(btn, &common_style, LV_PART_MAIN);
+}
+```
+
+### 7. 控件级别的定制与防抖（Widgets & Events）
+
+- 页面切换时，旧页面尽量 `lv_obj_del`，或短期保留则改为 `LV_OBJ_FLAG_HIDDEN`；隐藏对象不应参与重绘。
+- `indev_drv` 建议在驱动层做抖动处理与采样节流（包括触摸防抖时间、采样频率），避免微抖动产生无意义点击/拖拽事件。
+- 谨慎使用 `lv_canvas`：它会创建专用透明缓冲并由软件绘制，不适合高频实时波形这类大量逐帧刷新的场景；能用图片/普通控件替代就替代。
+
+```c
+/* 示例：页面隐藏切换 */
+void switch_page(lv_obj_t *current, lv_obj_t *next)
+{
+    if (current) lv_obj_add_flag(current, LV_OBJ_FLAG_HIDDEN);
+    if (next) lv_obj_clear_flag(next, LV_OBJ_FLAG_HIDDEN);
+}
+```
+
+### 8. 编译器与内核级优化（Compiler & OS）
+
+- LVGL 源码相关目标文件建议采用 `-O2`/`-O3`，并在可接受时打开 `-flto`。
+- 将 `lv_timer_handler()` 任务设为中等优先级，不要在该任务中执行阻塞网络/IO；显示刷新相关的 DMA 完成信号尽量更高优先级。
+- 确保像素缓冲/帧缓冲按 32 字节对齐，减少 cache miss 与 DMA 传输阻塞。
+
+```c
+/* 编译/链接优化提示（示意） */
+/* 仅示例：请在工程配置里对 lvgl 相关对象设置 -O2/-O3 与 -flto */
+__attribute__((aligned(32))) static lv_color_t framebuf[BUFFER_SIZE];
+```
+
+### 9. 极端场景下的低功耗与按需刷新
+
+- 无动画、无触摸时可以根据 `lv_timer_handler()` 返回值决定低功耗等待时长；返回值大表示可休眠。
+- 对局部变化界面（时钟、秒表）务必控制 dirty 区域，避免全屏无效化。
+- 复杂动画结束后清理更新频率，禁止持续提交无意义的 `invalidate`。
+
+```c
+/* 示例：根据下一次 timer 延时进入低功耗 */
+void lvgl_task(void *arg)
+{
+    while (1) {
+        int next_ms = lv_timer_handler();
+        if (next_ms > 100) {
+            enter_low_power_wait(next_ms);
+        } else {
+            vTaskDelay(pdMS_TO_TICKS(next_ms));
+        }
+    }
+}
+```
+
 ## Agent 检查清单
 
 - [ ] C23.1 LCD 初始化时序是否严格按 datasheet（复位脉宽、命令间延迟）？
