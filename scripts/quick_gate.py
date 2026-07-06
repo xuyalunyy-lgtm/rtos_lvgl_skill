@@ -52,6 +52,28 @@ def _env() -> dict[str, str]:
     return env
 
 
+def _parse_bool_env(value: str) -> bool | None:
+    normalized = value.strip().lower()
+    if normalized in {"1", "true", "yes", "on", "y"}:
+        return True
+    if normalized in {"0", "false", "no", "off", "n"}:
+        return False
+    return None
+
+
+def _is_ci_environment() -> bool:
+    return os.getenv("CI", "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _resolve_quality_strict(args: argparse.Namespace) -> bool:
+    env_override = os.getenv("SKILL_QUICK_GATE_STRICT")
+    if env_override is not None and env_override.strip():
+        parsed = _parse_bool_env(env_override)
+        if parsed is not None:
+            return parsed
+    return args.strict or _is_ci_environment()
+
+
 def _print_failure_output(proc: subprocess.CompletedProcess[str]) -> None:
     if proc.stdout:
         print("  stdout:")
@@ -109,7 +131,7 @@ def run_step(index: int, total: int, step: GateStep, *, verbose: bool) -> bool:
     return False
 
 
-def _build_route_quality_step(args: argparse.Namespace) -> GateStep:
+def _build_route_quality_step(args: argparse.Namespace, *, strict: bool) -> GateStep:
     command = [
         sys.executable,
         "scripts/check_log_symptom_quality_gate.py",
@@ -127,7 +149,7 @@ def _build_route_quality_step(args: argparse.Namespace) -> GateStep:
     _append_if_set(command, "--max-weak-strong-overlaps", args.quality_max_weak_strong_overlaps)
     _append_if_set(command, "--max-broad-patterns", args.quality_max_broad_patterns)
     _append_if_set(command, "--max-multi-match-fixtures", args.quality_max_multi_match_fixtures)
-    if args.strict:
+    if strict:
         command.append("--strict")
     return GateStep("log symptom routes quality", command)
 
@@ -153,8 +175,14 @@ def main() -> int:
     print(f"[INFO] quality policy {args.quality_policy}: md5={policy_fingerprint} mtime={policy_mtime}")
     print(f"[INFO] conflict allowlist {args.quality_allowlist}: md5={allowlist_fingerprint} mtime={allowlist_mtime}")
 
+    quality_strict = _resolve_quality_strict(args)
+    print(
+        f"[INFO] quick gate quality strict mode: {quality_strict} "
+        f"(CI={_is_ci_environment()}, override={os.getenv('SKILL_QUICK_GATE_STRICT')!r})"
+    )
+
     steps = STEPS.copy()
-    steps.insert(5, _build_route_quality_step(args))
+    steps.insert(5, _build_route_quality_step(args, strict=quality_strict))
 
     failed: list[str] = []
     total = len(steps)

@@ -38,5 +38,7 @@ jobs:
         run: |
           python tools/secret_scan_checker.py tools/fixtures/good_config_secrets
           python tools/secret_scan_checker.py tools/fixtures/bad_config_secrets && exit 1 || exit 0
+      - name: Schema guardrail unit tests
+        run: python -m unittest discover -s scripts -p "test_quality_schema_guardrails.py"
       - name: Skill iteration loop (check + dry-run sync)
         run: python scripts/skill_iterate.py --check --skip-self-test
