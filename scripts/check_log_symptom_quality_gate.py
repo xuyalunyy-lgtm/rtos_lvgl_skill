@@ -567,6 +567,7 @@ def main() -> int:
 
     thresholds, threshold_errors = _load_thresholds(policy, args)
     payload_errors.extend(threshold_errors)
+    print(f"[INFO] effective quality thresholds: {thresholds}")
 
     if isinstance(quality, dict):
         if _has_semantic_noop(args.quality_policy, policy if isinstance(policy, dict) else {}, payload_errors):
@@ -588,6 +589,14 @@ def main() -> int:
 
     conflicts, active_counts = _filter_conflicts(quality, allowlist, payload_errors)
     quality["route_conflicts"] = conflicts
+    conflict_counts = {
+        "route_conflicts": active_counts.get("route_conflicts", 0),
+        "duplicate_patterns": active_counts.get("duplicate_patterns", 0),
+        "weak_strong_overlaps": active_counts.get("weak_strong_overlaps", 0),
+        "broad_patterns": active_counts.get("broad_patterns", 0),
+        "multi_match_fixtures": active_counts.get("multi_match_fixtures", 0),
+    }
+    print("[INFO] quality route conflict counts: " + ", ".join(f"{k}={v}" for k, v in conflict_counts.items()))
 
     violations = _evaluate_thresholds(quality, active_counts, thresholds)
     if args.strict:
