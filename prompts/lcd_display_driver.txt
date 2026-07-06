@@ -391,6 +391,77 @@ void lvgl_task(void *arg)
 }
 ```
 
+
+### 10. 页面生命周期与策略（Page Lifecycle Strategy）
+
+- **默认推荐销毁策略（Destruction）**：页面切换时执行 `lv_obj_del(old_screen)`，仅保留页面 ID 与创建回调函数指针（如 `create_setting_page()`）。返回时重建页面。
+  - 优点：内存占用最小，活动页通常只有 1 个。
+  - 缺点：返回时需重建，存在一次性重绘开销。
+- **缓存策略（Caching）**：仅用于“高频回到、状态复杂且重建成本高”的页面（播放器主界面、复杂仪表盘等）。
+  - 切出时使用 `lv_obj_add_flag(old_screen, LV_OBJ_FLAG_HIDDEN)`。
+  - 注意：隐藏页面不参与重绘，但持续占用内存。
+- 建议设置页面栈深度上限为 `2~3`：超过上限时强制销毁最早页，避免长期内存攀升。
+
+### 11. 避免内存碎片（Fragmentation Rule）
+
+- 大量创建/删除大对象（页面、容器）会加剧碎片化，尽量提高 `LV_MEM_SIZE` 并确保高优先级内存从连续高速 RAM 分配。
+- 两种实践方向：
+  - 默认使用 LVGL 内置分配（`LV_MEM_CUSTOM == 0`）并合理配置 `LV_MEM_SIZE`。
+  - 必要时将 `lv_obj_class` 及对象相关缓冲分配到 TCM/SRAM / AHB SRAM 等片上连续内存。
+- 关键安全原则：**不要在事件链路中直接删自身对象**。
+  - 例如 `LV_EVENT_CLICKED` 回调里直接 `lv_obj_del(current_scr)` 容易在事件传播过程中访问无效指针。
+  - 改为发起“页面切换请求”（状态标记）或 `lv_async_call(page_switch_task, data)`，在安全阶段异步销毁。
+
+### 12. 动画期间优化
+
+- 动画切换（Transition）时建议：
+  - 打开全屏遮罩或 `lv_indev_set_blur()`，禁止用户在动画期重复触发事件。
+  - 减少动画复杂度，低配置 MCU 可优先 `LV_SCR_LOAD_ANIM_FADE_ON` 或 `LV_SCR_LOAD_ANIM_NONE`。
+- 注意：`LV_SCR_LOAD_ANIM_MOVE_*` 会使新旧页面同时驻留，瞬时内存/渲染开销更高；对低端平台通常不友好。
+
+### 13. 页面栈设计样例（轻量）
+
+```c
+typedef struct {
+    void (*create_cb)(void);
+    void *page_data;
+} lv_page_target_t;
+
+#define PAGE_STACK_SIZE 10
+lv_page_target_t page_stack[PAGE_STACK_SIZE];
+int8_t stack_top = -1;
+
+// 压栈并跳转
+void page_router_push(void (*new_page_cb)(void)) {
+    if (stack_top >= PAGE_STACK_SIZE - 1) return; // 栈满
+
+    lv_obj_t *cur_scr = lv_scr_act();
+    if(cur_scr) {
+        // 可选：保存页面状态，如滚动位置、焦点等
+        lv_obj_del_async(cur_scr);
+    }
+
+    stack_top++;
+    page_stack[stack_top].create_cb = new_page_cb;
+
+    new_page_cb();
+}
+
+// 出栈并返回
+void page_router_pop(void) {
+    if (stack_top <= 0) return; // 根页保护
+
+    lv_obj_del_async(lv_scr_act());
+    stack_top--;
+    page_stack[stack_top].create_cb();
+}
+```
+
+### 页面栈高阶检查清单
+
+- [ ] 避免重复压栈：检查同一按钮是否产生重复入栈（如双击“设置”导致两个同页压入）。
+- [ ] 生命周期释放完整性：页面自建资源（`lv_mem_alloc/malloc/timer`）是否在 `LV_EVENT_DELETE` 中统一释放。
+- [ ] 根页保护：主页（栈底）应具备返回边界保护，避免连续返回导致空栈或黑屏。
 ## Agent 检查清单
 
 - [ ] C23.1 LCD 初始化时序是否严格按 datasheet（复位脉宽、命令间延迟）？
