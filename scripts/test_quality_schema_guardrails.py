@@ -9,6 +9,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 FIXTURES = ROOT / "tools" / "fixtures"
+LOG_FIXTURES = FIXTURES / "logs"
 
 
 def _load_module(module_name: str, script_path: Path):
@@ -119,6 +120,82 @@ class SchemaValidationGuardrailsTest(unittest.TestCase):
         self.assertTrue(
             any("invalid JSON in quality schema" in err for err in errors),
             f"expected schema-parse error, got: {errors}",
+        )
+
+    def test_quality_schema_fixture_paths_are_explicit(self):
+        missing_schema = self._missing_schema_path()
+        self.assertFalse(
+            missing_schema.exists(),
+            f"missing-schema fixture should remain absent to test missing-file behavior: {missing_schema}",
+        )
+        self.assertTrue(
+            (FIXTURES / "quality_gate_schema_corrupt.json").exists(),
+            "corrupt-schema fixture file should exist for corruption-path testing",
+        )
+
+
+class QualityGateFixtureRegressionTest(unittest.TestCase):
+    def _run_gate_fixture(self, name: str):
+        return quality_gate._run_routes_quality_payload(LOG_FIXTURES / name)
+
+    def _get_errors(self, payload: object) -> list[str]:
+        if isinstance(payload, dict):
+            return [str(item) for item in payload.get("errors", [])]
+        return []
+
+    def test_empty_routes_fixture_stays_valid(self):
+        payload, exit_code, errs = self._run_gate_fixture("quality_gate_empty_routes.json")
+        self.assertEqual(exit_code, 0)
+        self.assertFalse(errs, f"fixture run reported transport errors: {errs}")
+        self.assertIsInstance(payload, dict)
+        self.assertTrue(payload.get("valid"))
+        quality = payload.get("quality", {})
+        self.assertEqual(quality.get("total_routes"), 0)
+        self.assertEqual(quality.get("missing_field_alert_count", 0), 0)
+
+    def test_missing_fields_fixture_reports_validation_error(self):
+        payload, exit_code, errs = self._run_gate_fixture("quality_gate_missing_fields.json")
+        self.assertNotEqual(exit_code, 0)
+        self.assertFalse(errs, f"fixture run transport failed unexpectedly: {errs}")
+        self.assertIsInstance(payload, dict)
+        self.assertFalse(payload.get("valid"))
+        combined_errors = self._get_errors(payload)
+        self.assertTrue(
+            any("missing keys" in item for item in combined_errors),
+            f"expected missing required keys error, got: {combined_errors}",
+        )
+
+    def test_multi_match_routes_fixture_is_detected(self):
+        payload, exit_code, errs = self._run_gate_fixture("quality_gate_multi_match_routes.json")
+        self.assertEqual(exit_code, 0)
+        self.assertFalse(errs, f"fixture run reported transport errors: {errs}")
+
+        quality = payload.get("quality", {})
+        route_conflicts = quality.get("route_conflicts", {})
+        multi = route_conflicts.get("multi_match_fixtures", [])
+        self.assertIsInstance(multi, list)
+        self.assertTrue(
+            any(
+                item.get("fixture") == "quality_gate_multi_match.log"
+                and sorted(item.get("matched_routes", [])) == ["MM_A", "MM_B"]
+                for item in multi
+            ),
+            f"expected multi-match fixture conflict, got: {multi}",
+        )
+
+    def test_conflict_over_threshold_fixture_records_conflicts(self):
+        payload, exit_code, errs = self._run_gate_fixture("quality_gate_conflict_over_threshold.json")
+        self.assertEqual(exit_code, 0)
+        self.assertFalse(errs, f"fixture run reported transport errors: {errs}")
+        quality = payload.get("quality", {})
+        route_conflicts = quality.get("route_conflicts", {})
+        self.assertIsInstance(route_conflicts, dict)
+        self.assertGreater(
+            len(route_conflicts.get("duplicate_patterns", []))
+            + len(route_conflicts.get("weak_strong_overlaps", []))
+            + len(route_conflicts.get("broad_patterns", [])),
+            0,
+            f"expected conflict fixture to trigger conflict counters, got: {route_conflicts}",
         )
 
 
