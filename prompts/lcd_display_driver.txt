@@ -596,3 +596,243 @@ python tools/run_lvgl_perf_regression.py --suite nightly --max-fps-delta 2 --max
 - [ ] 是否有显示异常/flush 超时自恢复路径并写入日志？
 - [ ] CI 是否固定跑 1~2 套可复现实验，并对 FPS、内存、闪退门槛给出 fail-fast 条件？
 
+
+### 15. 进阶生产策略（10项）
+
+1. 多分辨率与 DPI 自适配
+- 原则：用统一 scale 体系避免“不同屏幕上重排风暴”。字体、间距、圆角统一走缩放策略。
+- 示例：基于 LVGL 逻辑像素扩展布局。
+
+```c
+#define UI_BASE_DPI (160)
+static int32_t ui_scale;
+
+static inline uint16_t ui_scale_px(int16_t px)
+{
+    return (int16_t)((px * ui_scale) / 100);
+}
+
+void ui_scale_init(lv_disp_t *d)
+{
+    uint16_t dpi = lv_disp_get_dpi(d);
+    ui_scale = (dpi > 0) ? (int32_t)dpi * 100 / UI_BASE_DPI : 100;
+    lv_obj_set_style_pad_all(lv_scr_act(), ui_scale_px(8), LV_PART_MAIN);
+}
+```
+
+2. 主题与控件变体集中管理
+- 原则：颜色/间距/边框统一在 theme 里配置，运行时只做“按主题替换”，避免散落更新。
+- 示例：启动阶段一次性初始化 theme。
+
+```c
+static lv_theme_t *app_theme;
+void init_ui_theme(void)
+{
+    app_theme = lv_theme_default_init(lv_disp_get_default(), lv_color_hex(0x1e1e2a),
+                                     lv_color_hex(0x00a8ff), false, lv_font_default);
+    lv_disp_set_theme(lv_disp_get_default(), app_theme);
+}
+```
+
+3. 帧预算化（Frame Budget）
+- 原则：给每帧设置时间预算（如 16/33ms），把大批量更新拆帧。
+- 示例：超预算时只执行低优先级更新。
+
+```c
+static uint32_t budget_ms = 16;
+if (update_cost_ms > budget_ms) {
+    defer_noncritical_jobs();  // 下个 tick 再做，不阻塞当前帧
+} else {
+    do_full_ui_refresh();
+}
+```
+
+4. 长按/连击防重入
+- 原则：按钮点击去抖与幂等保护，避免同一路径被连续触发。
+- 示例：150ms 内忽略重复点击。
+
+```c
+static uint32_t last_click_ms = 0;
+static void on_btn_click(void *user_data)
+{
+    uint32_t now = lv_tick_get();
+    if (now - last_click_ms < 150) return;
+    last_click_ms = now;
+    open_page(user_data);
+}
+```
+
+5. 资源冷热路径双轨制
+- 原则：热资源（首屏）提前预热，冷资源（非首屏）按需加载并支持失败回退。
+- 示例：占位图 + 异步替换。
+
+```c
+lv_img_set_src(img, &img_placeholder);
+request_async_load(IMG_ID_SPEED, img, on_img_ready);
+// on_img_ready 成功则替换，否则保留 placeholder 并计数告警
+```
+
+6. 异常兜底界面（Fallback UI）
+- 原则：任一子系统异常时，快速回退到轻量错误面，而不是死循环重建复杂树。
+- 示例：固定“安全首页 + 错误码 + 重试”。
+
+```c
+void show_fallback_ui(const char *err)
+{
+    lv_obj_t *scr = lv_obj_create(NULL);
+    lv_obj_t *lbl = lv_label_create(scr);
+    lv_label_set_text_fmt(lbl, "UI异常恢复：%s", err);
+    lv_obj_center(lbl);
+    lv_scr_load(scr);
+}
+```
+
+7. 输入/显示可观测性埋点
+- 原则：打点记录“事件到绘制”的延迟分解，支持回放现场问题。
+- 示例：轻量环形日志。
+
+```c
+typedef struct {
+    uint32_t t_event;
+    uint32_t t_flush_ready;
+    uint16_t dirty_area;
+} ui_trace_t;
+
+void trace_flush(lv_area_t *area)
+{
+    g_trace[idx].t_event = lv_tick_get();
+    g_trace[idx].dirty_area = (area->x2 - area->x1 + 1) * (area->y2 - area->y1 + 1);
+}
+```
+
+8. 灾备级内存回收策略（自动降载）
+- 原则：异常检测时触发“自动降载流程”，停止预加载与重建，保留核心功能。
+- 示例：碎片/占用超阈值即触发回收。
+
+```c
+if (lv_mem_monitor.used_pct > 90 || lv_mem_monitor.frag_pct > 45) {
+    stop_resource_prefetch();
+    drop_non_critical_screens();
+    disable_shadow_blur_animation();
+    switch_to_low_memory_profile();
+}
+```
+
+9. 任务优先级隔离与背压
+- 原则：显示、IO、网络、传感、日志分开 task，且每层都有背压队列长度，避免上游压垮 UI。
+- 示例：队列满时丢弃低优先级事件。
+
+```c
+if (uxQueueSpacesAvailable(ui_evt_q) == 0) {
+    vTaskDelay(pdMS_TO_TICKS(1));
+    // 或直接丢弃可合并事件，避免阻塞 UI 线程
+    return;
+}
+```
+
+10. 硬件回归样本化（边界场景）
+- 原则：CI 之外保留一组固定“边界样本”用于每次发布前验证：亮度、FPS、内存、温漂条件。
+- 示例：脚本化场景矩阵。
+
+```bash
+python tools/run_lvgl_hardware_suite.py --cases battery_low,low_brightness,max_brightness,cold_start
+```
+
+### 15.1 进阶生产策略检查清单
+- [ ] 是否完成多 DPI/分辨率自适配，跨屏幕无明显重排抖动？
+- [ ] 主题是否集中配置，热更新是否不引发大面积重建？
+- [ ] 帧预算是否有效，是否有“超预算降级”路径？
+- [ ] 按键/列表是否有防重入与幂等保护？
+- [ ] 资源冷热路径是否按优先级加载，冷路径失败是否能回退？
+- [ ] 是否有统一 fallback UI 与错误码提示？
+- [ ] 能否导出事件-刷新延迟和脏区大小用于现场定位？
+- [ ] 自动降载是否已定义阈值和恢复策略？
+- [ ] 任务优先级和背压策略是否验证过优先级反转风险？
+- [ ] 边界场景样本是否固定并持续运行？
+
+### 16. 硬性代码修改规范（先分析，确认，诊断后再改）
+
+在本项目中，对 LVGL/显示链路的代码改动必须遵守以下硬性流程。禁止“看到问题先改”，必须先做现象确认和根因闭环。
+
+#### 16.1 先确认现象（Before Change）
+
+1. 用户必须先确认的现象（最低要求）：
+   - 设备/版本：`MCU / LCD 驱动芯片 / 显示接口`
+   - 重现步骤：`3~5 步的可复现操作`（按钮、菜单路径、动画场景）
+   - 触发频率：`必现 / 高频 / 偶现（给比例）`
+   - 观察窗口：`开始→卡顿/黑屏→恢复所需时间`
+   - 伴随信号：`日志、UART 输出、看门狗、温度/电量/亮度状态`
+
+2. 采集证据后再谈优化点：
+   - 现象截图/日志时间窗（含前后 5 秒）
+   - 涉及屏幕参数（分辨率、刷新频率、缓冲区策略）
+   - 相关计时值（`lv_timer_handler` 耗时、flush 间隔、队列深度、内存占用）
+
+#### 16.2 根因分析规则（不可省）
+
+- 先写“问题假设”再写“验证计划”，每个假设必须有可验证输入输出。
+- 默认策略：
+  1) 数据链路问题？
+  2) 渲染调度问题？
+  3) 帧缓冲与 DMA 问题？
+  4) 主题/样式重算引发的重绘风暴？
+  5) 资源/内存阈值触发？
+- 如果任一假设证据不足，不得执行“策略性重构”；只做最小实验或加日志确认。
+
+#### 16.3 未能立即定位原因时的日志要求（必须加）
+
+先加最小诊断日志，不允许直接改逻辑。
+
+```c
+/* 示例：最小可观测埋点 */
+typedef struct {
+    uint32_t t_ms;
+    uint32_t tick_now;
+    uint32_t render_ms;
+    uint32_t flush_ms;
+    uint16_t dirty_px;
+    int32_t  mem_used_kb;
+    int32_t  mem_frag_pct;
+} ui_diag_snapshot_t;
+
+static void ui_diag_dump(const char *tag, const ui_diag_snapshot_t *s)
+{
+    // 用你项目统一日志接口替换下面输出
+    LOG_I("UI-DIAG tag=%s t=%u tick=%u render=%u flush=%u dirty=%u mem=%uKB frag=%d%%",
+          tag, s->t_ms, s->tick_now, s->render_ms, s->flush_ms,
+          s->dirty_px, s->mem_used_kb, s->mem_frag_pct);
+}
+
+void ui_diag_before_commit(const char *tag)
+{
+    ui_diag_snapshot_t s = {0};
+    s.t_ms = lv_tick_get();
+    s.tick_now = xTaskGetTickCount();
+    s.render_ms = lv_timer_get_next_timeout_ms();
+    s.dirty_px = get_last_dirty_area_px();
+    s.mem_used_kb = lv_mem_monitor.used_size / 1024;
+    s.mem_frag_pct = lv_mem_test_fragmentation();
+    ui_diag_dump(tag, &s);
+}
+```
+
+#### 16.4 允许修改的边界（硬性约束）
+
+- 允许做最小改动：`仅一个可复现问题点 + 可回滚代码块`。
+- 禁止大规模结构性重构（除非经过 2 次失败改动后确认新瓶颈）。
+- 每次改动必须有“回退路径”（feature flag、兼容分支、环境变量）。
+
+#### 16.5 修改完成后的验收（Must Pass）
+
+- 再现现象在本地和目标设备上各跑 1 次。
+- 改前/改后对比：卡顿点、黑屏点、`lv_timer_handler` 长尾、flush 失败次数、内存碎片。
+- 记录“是否支持回退”，并确认回退后现象消失。
+
+#### 16.6 进阶生产策略检查清单（Hard Rule）
+- [ ] 是否先拿到用户确认的现象与复现步骤？
+- [ ] 是否形成了至少 2 个以上根因假设并逐一验证？
+- [ ] 是否有完整时间线日志（触发前后至少 5 秒）？
+- [ ] 无法立即判断原因时是否已先加最小日志再改？
+- [ ] 修改是否限定单点（最小闭区间）且可回退？
+- [ ] 改前改后对比是否量化（FPS/耗时/内存/flush）？
+- [ ] 是否有“异常回退”策略（fallback）并已通过验证？
