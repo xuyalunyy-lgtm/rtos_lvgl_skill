@@ -1036,7 +1036,7 @@ python tools/lvgl_perf_probe.py --duration 30 --out out/baseline.json --fields f
 ```c
 LOG_I("UI-DIAG ts=%u tick=%u reason=%s render=%u flush=%u dirty=%u mem=%u frag=%d page=%u",
       lv_tick_get(), xTaskGetTickCount(), tag, render_ms, flush_ms, dirty_px,
-      lv_mem_monitor.used_size / 1024, lv_mem_test_fragmentation(), lv_obj_get_child_id(parent));
+      lv_mem_monitor.used_size / 1024, lv_mem_test_fragmentation(), page_id);
 ```
 - 验收点：日志聚合能按字段筛选“场景+时间窗+页面”进行查询。
 
@@ -1118,3 +1118,5 @@ static StaticQueue_t ui_evt_q_buf;
 - [ ] PR 文档是否包含证据、范围、回退、验收？
 - [ ] 看板指标是否有趋势化告警？
 - [ ] 经验库是否有对应反模式与纠偏动作？
+
+
