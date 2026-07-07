@@ -320,3 +320,131 @@ void ui_page_xxx_set_progress(int32_t value)
 | 8 | 数据绑定（哪些值来自运行时） | 🟡 推荐 | ❌ 缺失时用静态文本 |
 
 **结论：仅提供 1+2 不足以生成完美效果。至少还需补充 3+4+5 三项（屏幕参数、LVGL 版本、字体资源）。**
+---
+---
+
+## 现场调试补充：带 TF 资源和本地媒体的 LVGL 页面
+
+当页面开发包含 TF 卡资源、JPEG/PNG、触摸切页或音视频播放时，改坐标前先完成这些检查：
+
+1. 分开验证存储和解码器。TF 卡挂载成功不代表 PNG/JPEG 解码已经启用并链接。
+2. 所有图片访问必须走公共资源层。HOME/PUSH/Schedule 等页面不要散落直接 `lv_img_set_src(...jpg path)` 或裸路径。
+3. 全屏背景和小图标采用不同缓存策略。背景可按页 lazy load/保留；返回、电池、收藏、播放、WiFi 成功/失败等小图标应解码一次并复用。
+4. 页面创建和媒体生命周期分离。页面代码只创建 LVGL 对象；媒体代码只上报状态，并请求 UI 任务跳转。
+5. 任何异步 UI RPC 都必须有 completion 边界。不能在 RPC 投递成功时清除 busy/playing/transition 状态，必须等 UI 回调完成实际 reload/navigation 后再清。
+6. `PAGE_TRANSITION_PENDING`、`VIDEO_PLAYING`、`VIDEO_UI_NAV_PENDING` 期间，触摸、返回、重复启动都要忽略。
+
+视频播放结束并进入下一页的验收日志：
+
+```text
+video start accepted
+video done, nav next
+ui nav/reload entered
+ui nav/reload returned
+video ui nav done
+```
+
+如果设备在 `video ui nav done` 前重启或卡住，优先查 UI 页面构建、资源解码和对象生命周期；如果在 `video ui nav done` 后才出问题，再查下一页自身运行逻辑。
+
+### JL/AC792 现场排查清单：页面栈、资源缓存、媒体状态机
+
+遇到“页面不显示、切页低 FPS、视频/音频结束后误跳页或重启”时，按下面顺序查，不要先改坐标：
+
+1. **页面对象层级：** 普通页面必须创建为公共 `content_layer` 的 child；只有 root screen 可以 `lv_obj_create(NULL)`。禁止对 screen 调用 `lv_obj_set_parent()`，日志出现 `Can't set the parent of a screen` 时优先修 page factory，而不是扩大栈或内存。
+2. **背景生命周期：** 如果用单例 root 背景层，必须给每个页面容器登记自己的背景 path/fallback；缓存页面重新显示时先恢复背景，再显示页面。否则返回/下一页会沿用上一页背景。
+3. **JPEG 解码成本：** 480×800 JPEG 每次解码可能触发 `jpeg_dec0_task` 并耗时数百毫秒，现场表现为整页刷新 1 FPS。大背景可用公共层 lazy load；Schedule card、封面、小组件优先用已解码 PNG/RAW descriptor，JPEG 只做 fallback。
+4. **LVGL 图片缓存：** `LV_IMG_CACHE_DEF_SIZE` 很小时，背景 JPEG 和卡片 JPEG 会互相挤掉缓存。不要误以为页面对象缓存等同于图片像素缓存；对象还在，文件图片仍可能重解码。
+5. **PNG 支持确认：** “LVGL 支持 PNG”不等于工程已链接 PNG 解码器。先确认 `LV_USE_PNG`、解码实现和链接符号；避免临时引入第三方解码函数导致 `undefined reference`。
+6. **点击层防重入：** 页面切换完成后保留短 guard window；媒体播放、`UI_NAV_PENDING`、page transition 期间忽略全屏点击和返回，避免一次触摸穿透成下一次导航。
+7. **音频/视频事件映射：** 不要把底层未知 stream event 默认映射成 ERROR。只对明确 START/STOP/END/真实故障改变业务状态；`STREAM_EVENT_NONE` 或未知事件应忽略或只低频记录，否则会出现“音频实际在播，但 UI 状态已 idle 并允许切页”。
+
+建议日志锚点：
+
+```text
+page root ready
+asset bg root update/reuse: ...
+page cache hit/store/evict id=...
+click ignored during guard
+file start: ...
+healing audio start/stop
+video done, nav next
+video ui nav done
+```
+
+判断优先级：
+
+- 有 `Can't set the parent of a screen` 或 hmem access exception：先查 screen/container 生命周期。
+- 有大量 `jpeg_dec0_task` 且每次 0.5s 左右：先查 JPEG 重解码和 LVGL 图片缓存。
+- 音频页直接跳过但底层 `file play` 正常：先查 stream event 到业务事件的映射和 `is_playing()` 是否参考底层 player。
+
+
+## Field Debug Addendum: JL LVGL resource/media/page-switch checklist (2026-07-07)
+
+Use this checklist when a JL/AC792/WL83 LVGL product shows any of these symptoms: full-page switch drops to 1-2 FPS, PNG/JPEG assets partly disappear, HOME/PUSH backgrounds differ from design, video returns to the wrong page, audio page immediately advances, or touch becomes invalid after media playback.
+
+### 1. Separate storage, decoder, resource layer, and layout
+
+- First prove the TF/USB filesystem path is valid with a tiny known-good file. A visible JPEG background only proves storage and one decoder path; it does not prove PNG icons, cached descriptors, or other prefixes are valid.
+- Do not assume "LVGL supports PNG" means the current firmware links a PNG decoder. Confirm `LV_USE_PNG`, decoder registration, and final link symbols. `undefined reference to lodepng_decode32` means declarations/calls exist but implementation is not linked.
+- Use design screenshots only as visual references. Build production pages from BG + ICON + text/components so assets can be reused and states can be updated independently.
+- Route all page image access through a common resource layer. Avoid direct `lv_img_set_src(...jpg path)` scattered in HOME/PUSH/Schedule pages because it makes cache policy, fallback, and path fixes impossible to apply globally.
+
+### 2. Diagnose full-page switch at 1 FPS
+
+- Check logs for repeated full-screen JPEG decode, for example `jpeg_dec0_task` around every tap. If present, the bottleneck is synchronous image decode/reload, not LVGL draw itself.
+- Keep recently used page containers alive when RAM allows, but remember object caching is not pixel/decoder caching. Also cache shared background descriptors or root background image objects.
+- For root-level backgrounds, restore the page's registered background path whenever a cached page is shown again. Page cache without background restore can display the previous page's background.
+- Do not decode large images, scan directories, or destroy/recreate an entire page tree inside the touch event callback. Mark transition busy, post navigation to the UI task, then return.
+- Add timing logs around `page create begin/end`, `asset bg decode begin/end`, and `page transition done`; the slow segment should be visible without guessing.
+
+### 3. Media playback and UI navigation state machine
+
+Playback completion is not the same as UI navigation completion. Use an explicit tail state:
+
+```c
+typedef enum {
+    MEDIA_IDLE = 0,
+    MEDIA_STARTING,
+    MEDIA_PLAYING,
+    MEDIA_UI_NAV_PENDING,
+} media_ui_state_t;
+```
+
+Rules:
+
+- `IDLE/STARTING -> PLAYING`: only after the player reports accepted/start, or after a monitor confirms the low-level player is running.
+- `PLAYING -> UI_NAV_PENDING`: when audio/video end is detected and a UI next-page request has been posted.
+- `UI_NAV_PENDING -> IDLE`: only after the UI task has actually completed page reload/navigation.
+- While state is not `IDLE`, ignore full-screen click, back, and repeated start requests unless the product explicitly defines cancel behavior.
+- `is_playing()` must consider both the business state and the low-level player. If the business state was reset too early but the player is still running, the page may accept a tap and switch away during playback.
+
+Required boundary logs:
+
+```text
+media start request accepted
+media playback observed running
+media done, nav next requested
+ui nav/reload entered
+ui nav/reload returned
+media ui nav done
+click ignored during media/transition
+```
+
+If the audio page immediately switches but the file is actually playing, inspect event mapping first: unknown/none stream events must not be treated as STOP/ERROR. If the page freezes after audio start, inspect whether UI busy is released only by a completion callback that never fires.
+
+### 4. Video overlay on JL display layers
+
+- For short video overlay, keep LVGL and `fb0` alive. Do not close/reopen the LVGL framebuffer as part of video playback.
+- Put video on a dedicated top layer/framebuffer such as `fb4`, then request UI navigation through the UI task after playback ends.
+- Media callbacks must not directly create/delete LVGL objects. They should post UI work and wait for UI completion state.
+
+### 5. Fast triage table
+
+| Symptom | First suspicion | First check |
+|---|---|---|
+| PNG files exist but icons are blank | PNG decoder/config/link missing | `LV_USE_PNG`, decoder registration, link errors/map |
+| JPEG background shows but HOME background is wrong | Page bypasses common resource layer or cached background not restored | direct `lv_img_set_src` paths, page background registration |
+| Every page switch drops to 1 FPS | synchronous full-screen decode or full tree rebuild | `jpeg_dec0_task`, asset decode timing logs |
+| Touch becomes invalid after media | transition/media busy state never completed or input not re-enabled | UI completion callback logs |
+| Audio page advances on tap while audio plays | business state reset too early or unknown event mapped to stop/error | stream event mapping and `is_playing()` implementation |
+| Video ends then device reboots | display/layer lifecycle or reentrant UI navigation | `fb0` close/reopen logs, `MEDIA_UI_NAV_PENDING` guard |
