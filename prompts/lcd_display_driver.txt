@@ -999,3 +999,122 @@ python tools/run_lvgl_smoke.sh --case home_boot --case list_scroll --case page_n
 - [ ] 是否降低了默认层混合复杂度？
 - [ ] 是否有可触发的低负载 fallback？
 - [ ] 发布前是否跑通 `tools/run_lvgl_smoke.sh` 关键场景？
+
+### 18. Skill 运维化优化（12项）
+
+1. 平台策略矩阵（Platform Matrix）
+- 策略：把优化建议按平台边界固化，避免 ESP32/Zephyr 与 STM32/JL/BK 混用参数造成误判。
+- 实施步骤：
+  1) 在该节开头建立 `适用平台` 标记：`esp32/zephyr/stm32/jl/bk/通用`。
+  2) 每项策略写明默认实现平台与不适用平台。
+  3) 在 `l3_lvgl_page` 流程前增加“平台核对清单”。
+- 验收点：所有 12 项策略都包含可执行的平台声明，且至少有一条为“通用”。
+
+2. 变更优先级与风险评分
+- 策略：把落地顺序从“有经验猜测”改为“收益-成本-风险”量化。
+- 实施步骤：
+  - 增加 4 字段：`优先级(P0~P3)、收益(1-5)、复杂度(1-5)、回归风险(1-5)`。
+  - 在每次优化提案前先排序前 3 项执行。
+  - 低收益低优先级项默认放到备选清单。
+- 验收点：12 项均有评分且总排序在文档中可见。
+
+3. 基线指标契约（Perf Contract）
+- 策略：新增“改前/改后”唯一可比对指标，避免主观优化。
+- 实施步骤：
+  - 统一定义采集指标：`fps_avg、fps_p95、flush_block_ms、frame_time_p95、mem_used_kb、frag_pct、首屏耗时`。
+  - 在章节末尾给出对比表模板。
+```bash
+python tools/lvgl_perf_probe.py --duration 30 --out out/baseline.json --fields fps_avg,fps_p95,flush_block_ms,mem_used_kb,frag_pct
+```
+- 验收点：每次策略执行前后必须有两份对比数据文件（`baseline.json` 与 `after.json`）。
+
+4. 日志最小字段标准化（可观测性）
+- 策略：统一日志字段，支持跨页面回溯。
+- 实施步骤：
+  - 使用统一字段名：`ts_ms/tick/reason/render_ms/flush_ms/dirty_px/mem_used_kb/frag_pct/page_id`。
+  - 补齐 16.3 示例中的字段采集函数。
+```c
+LOG_I("UI-DIAG ts=%u tick=%u reason=%s render=%u flush=%u dirty=%u mem=%u frag=%d page=%u",
+      lv_tick_get(), xTaskGetTickCount(), tag, render_ms, flush_ms, dirty_px,
+      lv_mem_monitor.used_size / 1024, lv_mem_test_fragmentation(), lv_obj_get_child_id(parent));
+```
+- 验收点：日志聚合能按字段筛选“场景+时间窗+页面”进行查询。
+
+5. 故障注入与回归演练
+- 策略：把常见异常变成固定演练脚本，避免修复只看“正常路径”。
+- 实施步骤：
+  - 新增演练项：flush 超时、输入风暴、低内存、重复导航、亮度突变。
+  - 每项至少定义 `触发方式/预期现象/恢复期望`。
+```bash
+python tools/lvgl_fault_inject.py --case ui_flush_stall --case input_storm --case low_mem --case duplicate_nav --case brightness_flip
+```
+- 验收点：演练触发时能稳定复现异常并触发 fallback 或恢复策略。
+
+6. 回退开关与降载一键化
+- 策略：任何性能策略必须具备可立即禁用路径。
+- 实施步骤：
+  - 在配置层新增 runtime flag：`LVGL_OPT_LITE_MODE/LVGL_OPT_SAFE_MODE`。
+  - 每项优化写明关闭后行为：低分辨率渲染/降低刷新率/关闭复杂动画。
+- 验收点：按键或配置切换后，UI 在 1 个刷新周期内进入安全姿态且可恢复。
+
+7. RTOS 任务与队列预算
+- 策略：为 UI 关键链路设置可执行的任务/队列约束，降低优先级反转。
+- 实施步骤：
+  - 固定约束：UI 主任务优先级、刷屏任务优先级、事件队列长度、flush 任务超时。
+  - 发现阻塞时采用降载，不继续无界扩展。
+```c
+#define UI_EVT_Q_DEPTH 16
+static StaticQueue_t ui_evt_q_buf;
+// 深度固定 + 队列满时丢弃低优先级事件
+```
+- 验收点：连续 300 秒压力测试无 watch dog reset；队列溢出率可被日志记录并受阈值警报。
+
+8. 首屏最小化与分阶段加载
+- 策略：减少首屏对象树深度，提高首次可交互时间。
+- 实施步骤：
+  - 首页仅创建骨架 + 关键状态区。
+  - 将次级图表/列表分时加载（100~200ms 后异步补齐）。
+  - 用 `lv_timer_create` 或 `lv_async_call` 做阶段切换。
+- 验收点：首次可交互时延下降，且首页无空白闪烁。
+
+9. 文档可校验化
+- 策略：把文档变更变成可 lint 的结构化条目，减少格式退化。
+- 实施步骤：
+  - 统一第 18 节每项结构为三段：`策略 / 实施步骤 / 验收点`。
+  - 约束：每项必须有编号，禁止缺字段。
+- 验收点：新增条目通过脚本/人工检查可发现缺失字段（例如缺少验收点）。
+
+10. PR 与变更闭环模板
+- 策略：把“先分析后修改”流程嵌入交付边界。
+- 实施步骤：
+  - 每次提交在说明中必须列：复现现象、日志证据、改动范围、回退路径、验收结果。
+  - 与 16 节的流程交叉引用。
+- 验收点：无“无证据改动”提交；所有项均有 before/after 对比。
+
+11. 指标看板与趋势化监控
+- 策略：建立长期健康监控，不让偶发优化导致后续退化。
+- 实施步骤：
+  - 维护周更指标：`fps_p95/fps_drop_count/flush_block_count/mem_frag_pct/watchdog_event`。
+  - 指标超过阈值自动打开降载模式。
+- 验收点：连续 7 天采样无单项指标越界告警；出现越界有降载日志。
+
+12. 经验知识库与反模式治理
+- 策略：把失败案例与反模式放入文档，减少重复踩坑。
+- 实施步骤：
+  - 为每项补充 `常见误区`、`禁止行为`、`推荐默认值`。
+  - 与 `references/field_experience_log.md` 同步，形成可检索经验。
+- 验收点：每项都有“常见误区”条目，且能与历史案例一一对应。
+
+### 18.1 Skill 运维化优化检查清单
+- [ ] 每项策略均含“策略、实施步骤、验收点”三段？
+- [ ] 平台适配边界是否完整声明？
+- [ ] 12 项均有风险/优先级标记？
+- [ ] 是否存在基线和改后两套可比对性能文件？
+- [ ] 日志字段是否统一到最小 schema？
+- [ ] 故障注入脚本是否覆盖 5 类异常？
+- [ ] 回退开关是否能单次触发并恢复稳定？
+- [ ] RTOS 任务预算和队列深度是否有硬阈值？
+- [ ] 首屏分阶段加载是否有时间预算？
+- [ ] PR 文档是否包含证据、范围、回退、验收？
+- [ ] 看板指标是否有趋势化告警？
+- [ ] 经验库是否有对应反模式与纠偏动作？
