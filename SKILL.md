@@ -11,7 +11,7 @@ description: >-
   sensor bus/sample/calibration contracts, LVGL/DMA/ISR safety, SDK trimming, crash debugging,
   OTA firmware update safety, and Zephyr-style RTOS project skeletons.
   SDK abstraction layer: all checkers use sdk_lookup.py for platform-agnostic API matching
-  across ESP32/STM32/JL/BK/Zephyr. First-class platforms: ESP32 (ESP-IDF) and Zephyr.
+  across ESP32/STM32/JL/BK/Zephyr. First-class platforms: ESP32 (ESP-IDF), STM32/JL/BK (secondary platforms), and RTOS dimension including FreeRTOS + Zephyr.
   Use when the user asks for FreeRTOS, embedded C, GPIO, LCD/OLED, camera,
   audio/video, A/V sync, zero-copy, DMA cache, logging, WDT, HardFault,
   code review, OTA update, firmware upgrade, rollback, or git commit audit help.
@@ -36,7 +36,7 @@ behavior, and practical production hardening.
 ## Loading Strategy
 
 1. **Choose workflow** — pick one from the routing table below
-2. **Choose platform** — ESP32 or Zephyr (primary), or secondary
+2. **Choose platform** and RTOS: pick platform (esp32 default / esp32,stm32,jl,bk) and RTOS (freertos default / freertos, zephyr), then workflow
 3. **Run context router** ? `python tools/context_router.py --workflow <router_id> --platform <id> --json` (IDs: `code_review`, `project_review`, `crash_debug`, `memory_analysis`, `sdk_trim`, `new_module`, `bring_up`, `lvgl_page`, `hw_sw_debug`)
 4. **Load only required files** — follow the router's `required_files` list
 5. **Load prompts** — only 1-3 prompts specified by the workflow
@@ -74,10 +74,10 @@ behavior, and practical production hardening.
 
 ## On-Demand (workflow Step 1 loads)
 
-- Primary platforms: [esp32](platforms/esp32.md), [zephyr](platforms/zephyr.md)
-- Primary SDK maps: [esp32_map](platforms/esp32_sdk_map.yaml), [zephyr_map](platforms/zephyr_sdk_map.yaml)
-- Secondary platforms: [stm32](platforms/stm32.md), [jl](platforms/jl.md), [bk](platforms/bk.md)
-- Secondary SDK maps: [stm32_map](platforms/stm32_sdk_map.yaml), [jl_map](platforms/jl_sdk_map.yaml), [bk_map](platforms/bk_sdk_map.yaml)
+- Platform docs: [esp32](platforms/esp32.md), [stm32](platforms/stm32.md), [jl](platforms/jl.md), [bk](platforms/bk.md)
+- RTOS docs: [freertos](platforms/freertos.md), [zephyr](platforms/zephyr.md)
+- SDK maps (primary): [esp32_map](platforms/esp32_sdk_map.yaml), [stm32_map](platforms/stm32_sdk_map.yaml), [jl_map](platforms/jl_sdk_map.yaml), [bk_map](platforms/bk_sdk_map.yaml)
+- RTOS maps: [freertos_map](platforms/freertos_sdk_map.yaml), [zephyr_map](platforms/zephyr_sdk_map.yaml)
 - Core rules: [core_rules](references/core_rules.md)
 - Skill structure: [skill_structure](references/skill_structure.md)
 - Prompt index: [prompt_index](references/prompt_index.md)
@@ -90,7 +90,7 @@ behavior, and practical production hardening.
 - Do not perform unplanned core SDK refactors; preserve critical logs and watchdog behavior.
 - Read prompts/references before suggesting platform bindings.
 - For commit requests, follow [git_commit_style](references/git_commit_style.md) and use `type(scope):`.
-- **Platform-first**: when platform is not specified, ask before assuming. ESP32 and Zephyr are primary; others are secondary.
+- **Platform-first**: when platform is not specified, ask before assuming. ESP32/STM32/JL/BK are platform axes; FreeRTOS and Zephyr are RTOS axes.
 - **Token budget**: default output is summary; use `--fix-detail full` for complete details.
 
 ## RTOS Project Gate

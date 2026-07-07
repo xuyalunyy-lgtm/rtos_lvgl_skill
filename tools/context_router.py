@@ -7,7 +7,7 @@ Context Router — 上下文路由器。
 
 用法:
     python tools/context_router.py --workflow code_review --platform esp32 --json
-    python tools/context_router.py --workflow crash_debug --platform zephyr --constraints C2 C3 --json
+    python tools/context_router.py --workflow crash_debug --platform esp32 --rtos freertos --constraints C2 C3 --json
     python tools/context_router.py --self-test
 """
 from __future__ import annotations
@@ -29,14 +29,20 @@ PLATFORM_KEYWORDS = {
     "esp32": ["esp32", "esp-idf", "idf", "esp_", "heap_caps", "esp_log", "gpio_config",
               "nvs_", "esp_ota", "esp_wifi", "esp_deep_sleep", "esp_task_wdt",
               "guru meditation", "esp_flash"],
-    "zephyr": ["zephyr", "k_thread", "k_sem", "k_mutex", "k_msgq", "k_timer",
-               "k_work", "k_msleep", "k_malloc", "k_free", "kernel oops",
-               "zephyr_fatal", "devicetree", "prj.conf", "mcuboot", "west build"],
     "stm32": ["stm32", "hal_", "cubemx", "cmsis", "stm32xx"],
     "jl": ["jl", "ac79", "jieli", "thread_fork", "os_sem_pend", "os_q_create"],
     "bk": ["bk", "beken", "bk7258", "rtos_create_thread", "rtos_push_to_queue",
            "BEKEN_WAIT_FOREVER", "bk_ota"],
 }
+
+RTOS_KEYWORDS = {
+    "freertos": ["freertos", "freertosv", "freertos_", "vTaskDelay", "xTaskCreate", "xTaskGetCurrentTaskHandle",
+                "xQueue", "xSemaphore", "configASSERT", "portMUX_TYPE", "xEventGroup", "heap_caps", "xTaskDelayUntil"],
+    "zephyr": ["zephyr", "k_thread", "k_sem", "k_mutex", "k_msgq", "k_timer",
+               "k_work", "k_msleep", "k_malloc", "k_free", "kernel oops",
+               "zephyr_fatal", "devicetree", "prj.conf", "mcuboot", "west build"],
+}
+
 
 
 def infer_platform(text: str) -> tuple[str, float, list[str]]:
@@ -78,6 +84,39 @@ def infer_platform(text: str) -> tuple[str, float, list[str]]:
         confidence = 0.5
 
     return best_plat, confidence, matched_terms.get(best_plat, [])
+
+
+def infer_rtos(text: str) -> tuple[str, float, list[str]]:
+    """????? RTOS?"""
+    text_lower = text.lower()
+    scores = {}
+    matched_terms = {}
+
+    for rtos_name, keywords in RTOS_KEYWORDS.items():
+        score = 0
+        terms = []
+        for kw in keywords:
+            if kw.lower() in text_lower:
+                score += 1
+                terms.append(kw)
+        if score > 0:
+            scores[rtos_name] = score
+            matched_terms[rtos_name] = terms
+
+    if not scores:
+        return "freertos", 0.0, []
+
+    best_rtos = max(scores, key=scores.get)
+    best_score = scores[best_rtos]
+
+    if best_score >= 3:
+        confidence = 0.9
+    elif best_score >= 2:
+        confidence = 0.7
+    else:
+        confidence = 0.5
+
+    return best_rtos, confidence, matched_terms.get(best_rtos, [])
 
 
 def match_symptoms(text: str) -> list[dict]:
@@ -158,31 +197,25 @@ def match_symptoms(text: str) -> list[dict]:
     return matches
 
 
-def build_symptom_plan(text: str, platform: str, budget: str = "compact",
+def build_symptom_plan(text: str, platform: str, rtos: str, budget: str = "compact",
                        probe_detail: str = "compact", allow_weak_route: bool = False) -> dict:
-    """根据症状文本构建读取计划。
-
-    Args:
-        text: 用户问题描述
-        platform: 目标平台（如果为空则自动推断）
-        budget: 预算档位
-        probe_detail: 探针详细程度（compact/full）
-        allow_weak_route: 弱匹配时是否强制继续路由
-
-    Returns:
-        包含症状匹配和读取计划的字典
-    """
+    """????????????????? RTOS ????"""
     matches = match_symptoms(text)
 
-    # 平台推断
     inferred_platform, platform_confidence, matched_platform_terms = infer_platform(text)
+    inferred_rtos, rtos_confidence, matched_rtos_terms = infer_rtos(text)
 
-    # 如果用户未显式指定平台，使用推断结果
     if platform == "esp32" and inferred_platform != "esp32" and platform_confidence > 0.5:
         platform = inferred_platform
         platform_source = "inferred"
     else:
         platform_source = "explicit"
+
+    if rtos == "freertos" and inferred_rtos != "freertos" and rtos_confidence > 0.5:
+        rtos = inferred_rtos
+        rtos_source = "inferred"
+    else:
+        rtos_source = "explicit"
 
     if not matches:
         return {
@@ -192,23 +225,26 @@ def build_symptom_plan(text: str, platform: str, budget: str = "compact",
             "likely_constraints": [],
             "top_hypotheses": [],
             "verify_steps": [],
-            "missing_facts": ["无法识别症状，请提供更具体的描述或日志"],
+            "missing_facts": ["???????????????????"],
             "diagnostic_probes": {},
             "checker_targets": [],
             "log_signals": [],
             "stop_conditions": [],
             "error": "No matching symptoms found",
+            "inferred_platform": inferred_platform,
+            "platform_source": platform_source,
+            "platform_confidence": platform_confidence,
+            "matched_platform_terms": matched_platform_terms,
+            "inferred_rtos": inferred_rtos,
+            "rtos_source": rtos_source,
+            "rtos_confidence": rtos_confidence,
+            "matched_rtos_terms": matched_rtos_terms,
         }
 
-    # 取 top 3 症状
     top_matches = matches[:3]
-
-    # 置信度判断
     overall_confidence = top_matches[0].get("match_type", "medium")
 
-    # 弱匹配策略
     if overall_confidence == "weak" and not allow_weak_route:
-        # 弱匹配：只返回 missing_facts，不加载大上下文
         missing_facts = []
         for m in top_matches:
             for fact in m.get("missing_facts", []):
@@ -222,6 +258,10 @@ def build_symptom_plan(text: str, platform: str, budget: str = "compact",
             "platform_source": platform_source,
             "platform_confidence": platform_confidence,
             "matched_platform_terms": matched_platform_terms,
+            "inferred_rtos": inferred_rtos,
+            "rtos_source": rtos_source,
+            "rtos_confidence": rtos_confidence,
+            "matched_rtos_terms": matched_rtos_terms,
             "match_confidence": "weak",
             "matched_symptoms": [{
                 "id": m["id"],
@@ -233,44 +273,39 @@ def build_symptom_plan(text: str, platform: str, budget: str = "compact",
             "likely_constraints": [],
             "top_hypotheses": [],
             "verify_steps": [],
-            "missing_facts": ["信息不足，无法确定根因"] + missing_facts[:2],
+            "missing_facts": ["???????????"] + missing_facts[:2],
             "diagnostic_probes": {},
             "checker_targets": [],
             "log_signals": [],
             "stop_conditions": [],
         }
 
-    # 收集所有相关约束
     all_constraints = []
     for m in top_matches:
         for c in m["constraints"]:
             if c not in all_constraints:
                 all_constraints.append(c)
 
-    # 收集候选根因
     top_hypotheses = []
     for m in top_matches:
-        for hint in m["root_cause_hints"][:2]:  # 每个症状取 top 2
+        for hint in m["root_cause_hints"][:2]:
             if hint not in top_hypotheses:
                 top_hypotheses.append(hint)
-    top_hypotheses = top_hypotheses[:5]  # 最多 5 个
+    top_hypotheses = top_hypotheses[:5]
 
-    # 收集验证步骤
     verify_steps = []
     for m in top_matches:
         for step in m.get("verify_steps", []):
             if step not in verify_steps:
                 verify_steps.append(step)
 
-    # 收集缺失事实
     missing_facts = []
     for m in top_matches:
         for fact in m.get("missing_facts", []):
             if fact not in missing_facts:
                 missing_facts.append(fact)
-    missing_facts = missing_facts[:3]  # 最多 3 个
+    missing_facts = missing_facts[:3]
 
-    # 收集诊断探针
     diagnostic_probes = {}
     for m in top_matches:
         probes = m.get("diagnostic_probes", {})
@@ -281,42 +316,33 @@ def build_symptom_plan(text: str, platform: str, budget: str = "compact",
                 if v not in diagnostic_probes[key]:
                     diagnostic_probes[key].append(v)
 
-    # compact 模式：每个探针类别最多 2 条
     if probe_detail == "compact":
         for key in diagnostic_probes:
             diagnostic_probes[key] = diagnostic_probes[key][:2]
 
-    # 收集 checker targets
     checker_targets = []
     for m in top_matches:
         for ct in m.get("checker_targets", []):
             if ct not in checker_targets:
                 checker_targets.append(ct)
 
-    # 收集 log signals
     log_signals = []
     for m in top_matches:
         for ls in m.get("log_signals", []):
             if ls not in log_signals:
                 log_signals.append(ls)
 
-    # 收集 stop conditions
     stop_conditions = []
     for m in top_matches:
         for sc in m.get("stop_conditions", []):
             if sc not in stop_conditions:
                 stop_conditions.append(sc)
 
-    # 推断 workflow
     workflow = _infer_workflow(top_matches[0]["id"])
-
-    # routing_decision
     routing_decision = "diagnose" if overall_confidence in ("strong", "medium") else "ask_more"
 
-    # 构建读取计划
-    plan = build_load_plan(workflow, platform, all_constraints, budget)
+    plan = build_load_plan(workflow, platform, rtos, all_constraints, budget)
 
-    # 附加症状信息
     plan["symptom_text"] = text
     plan["routing_decision"] = routing_decision
     plan["matched_symptoms"] = [{
@@ -331,22 +357,21 @@ def build_symptom_plan(text: str, platform: str, budget: str = "compact",
     plan["verify_steps"] = verify_steps
     plan["missing_facts"] = missing_facts
 
-    # 平台推断信息
     plan["inferred_platform"] = inferred_platform
     plan["platform_source"] = platform_source
     plan["platform_confidence"] = platform_confidence
     plan["matched_platform_terms"] = matched_platform_terms
+    plan["inferred_rtos"] = inferred_rtos
+    plan["rtos_source"] = rtos_source
+    plan["rtos_confidence"] = rtos_confidence
+    plan["matched_rtos_terms"] = matched_rtos_terms
 
-    # 置信度
     plan["match_confidence"] = overall_confidence
-
-    # 诊断探针
     plan["diagnostic_probes"] = diagnostic_probes
     plan["checker_targets"] = checker_targets
     plan["log_signals"] = log_signals
     plan["stop_conditions"] = stop_conditions
 
-    # 硬件质疑
     hw_challenges = []
     for m in top_matches:
         for hc in m.get("hardware_challenge", []):
@@ -355,7 +380,6 @@ def build_symptom_plan(text: str, platform: str, budget: str = "compact",
     if hw_challenges:
         plan["hardware_challenges"] = hw_challenges[:5]
 
-    # 禁止盲修提示
     dnp = []
     for m in top_matches:
         if m.get("do_not_patch_until"):
@@ -494,11 +518,6 @@ PLATFORM_DOCS = {
         "doc": "platforms/esp32.md",
         "sdk_map": "platforms/esp32_sdk_map.yaml",
     },
-    "zephyr": {
-        "primary": True,
-        "doc": "platforms/zephyr.md",
-        "sdk_map": "platforms/zephyr_sdk_map.yaml",
-    },
     "stm32": {
         "primary": False,
         "doc": "platforms/stm32.md",
@@ -516,7 +535,20 @@ PLATFORM_DOCS = {
     },
 }
 
-# ── 禁止默认加载的文件 ──
+RTOS_DOCS = {
+    "freertos": {
+        "primary": True,
+        "doc": "platforms/freertos.md",
+        "sdk_map": "platforms/freertos_sdk_map.yaml",
+        "quick_doc": "platforms/freertos_quick.md",
+    },
+    "zephyr": {
+        "primary": True,
+        "doc": "platforms/zephyr.md",
+        "sdk_map": "platforms/zephyr_sdk_map.yaml",
+        "quick_doc": "platforms/zephyr_quick.md",
+    },
+}
 
 FORBIDDEN_BY_DEFAULT = [
     "references/constraint_detail.md",
@@ -532,6 +564,7 @@ QUALITY_CASES = {
         "title": "ESP32 cJSON 泄漏审查",
         "workflow": "code_review",
         "platform": "esp32",
+        "rtos": "freertos",
         "constraints": ["C3", "C7"],
         "quality_expectations": [
             "识别 cJSON_Parse/Delete 配对问题",
@@ -546,7 +579,8 @@ QUALITY_CASES = {
     "zephyr_crash_log": {
         "title": "Zephyr kernel oops 诊断",
         "workflow": "crash_debug",
-        "platform": "zephyr",
+        "platform": "esp32",
+        "rtos": "zephyr",
         "constraints": ["C4", "C8", "C31"],
         "quality_expectations": [
             "识别 ISR 阻塞问题",
@@ -562,6 +596,7 @@ QUALITY_CASES = {
         "title": "ESP32 堆持续下降",
         "workflow": "memory_analysis",
         "platform": "esp32",
+        "rtos": "freertos",
         "constraints": ["C7", "C28", "C36"],
         "quality_expectations": [
             "识别未配对 free",
@@ -577,6 +612,7 @@ QUALITY_CASES = {
         "title": "ESP32 OTA 自动回滚",
         "workflow": "code_review",
         "platform": "esp32",
+        "rtos": "freertos",
         "constraints": ["C9", "C22"],
         "quality_expectations": [
             "识别未 mark_valid",
@@ -592,6 +628,7 @@ QUALITY_CASES = {
         "title": "ESP32 音视频 DMA buffer 生命周期",
         "workflow": "code_review",
         "platform": "esp32",
+        "rtos": "freertos",
         "constraints": ["C25", "C28"],
         "quality_expectations": [
             "识别 DMA buffer 未对齐",
@@ -614,12 +651,14 @@ def estimate_tokens(file_path: Path) -> int:
     return file_path.stat().st_size // 4
 
 
-def build_load_plan(workflow: str, platform: str, constraints: list[str] | None = None, budget: str = "compact") -> dict:
-    """构建读取计划。
+def build_load_plan(workflow: str, platform: str, rtos: str, constraints: list[str] | None = None,
+                   budget: str = "compact") -> dict:
+    """???????
 
     Args:
         workflow: workflow ID
-        platform: platform ID
+        platform: hardware platform ID
+        rtos: RTOS ID
         constraints: optional constraint IDs to narrow scope
         budget: "compact" (default), "standard", or "full"
     """
@@ -631,189 +670,144 @@ def build_load_plan(workflow: str, platform: str, constraints: list[str] | None 
     if not plat:
         return {"error": f"Unknown platform: {platform}"}
 
-    required_files = []
-    reasons = {}
-    optional_files = []
-    upgrade_hints = []
-    quality_risks = []
-    micro_constraints_loaded = []
-    fallback_shards = []
-    uncovered_constraints = []
-    constraint_doc_mode = "full_shards"
+    rtos_entry = RTOS_DOCS.get(rtos)
+    if not rtos_entry:
+        return {"error": f"Unknown rtos: {rtos}"}
 
-    # ── Compact 模式（默认） ──
+    constraints = constraints or []
+
+    required_files: list[str] = []
+    reasons: dict[str, str] = {}
+    upgrade_hints: list[str] = []
+    quality_risks: list[str] = []
+    micro_constraints_loaded: list[str] = []
+    fallback_shards: list[str] = []
+    uncovered_constraints: list[str] = []
+    constraint_shards_loaded: list[str] = []
+    constraint_doc_mode = "shards"
+
+    def add_required(path: str, reason: str, required_exists: bool = True) -> None:
+        if not path or path in required_files:
+            return
+        if required_exists and not (ROOT / path).is_file():
+            return
+        required_files.append(path)
+        reasons[path] = reason
+
+    def add_constraint_shards(shards: set[str]) -> None:
+        nonlocal constraint_shards_loaded
+        for shard_name in sorted(shards):
+            shard_file = CONSTRAINT_SHARDS.get(shard_name)
+            if shard_file and shard_file not in required_files:
+                required_files.append(shard_file)
+                reasons[shard_file] = f"????: {shard_name}"
+        constraint_shards_loaded = sorted(shards)
+
     if budget == "compact":
-        # 1. quick index（替代完整 constraint_index）
         qi = "references/constraint_quick_index.md"
-        required_files.append(qi)
-        reasons[qi] = "C1-C45 快速查找索引"
+        add_required(qi, "C1-C45 ??????")
 
-        # 2. workflow 文件
         required_files.append(wf["file"])
         reasons[wf["file"]] = f"Workflow: {wf['description']}"
 
-        # 3. core_rules_quick（替代完整 core_rules）
         core_quick = "references/core_rules_quick.md"
-        required_files.append(core_quick)
-        reasons[core_quick] = "核心规则速查"
+        add_required(core_quick, "??????")
 
-        # 4. sdk_abstraction_quick（替代完整 yaml）
         sdk_quick = "references/sdk_abstraction_quick.md"
-        required_files.append(sdk_quick)
-        reasons[sdk_quick] = "SDK 抽象速查"
+        add_required(sdk_quick, "SDK ????")
 
-        # 5. 平台 quick（替代完整平台文档）
         plat_quick = f"platforms/{platform}_quick.md"
-        if Path(ROOT / plat_quick).is_file():
-            required_files.append(plat_quick)
-            reasons[plat_quick] = f"平台速查: {platform}"
+        if (ROOT / plat_quick).is_file():
+            add_required(plat_quick, f"????: {platform}")
         else:
-            # 没有 quick 文件时加载完整文档
-            required_files.append(plat["doc"])
-            reasons[plat["doc"]] = f"平台文档: {platform}（无 quick 版）"
+            add_required(plat["doc"], f"????: {platform}?? quick ??")
 
-        # 6. 约束微分片优先加载
-        micro_constraints_loaded = []
-        fallback_shards = []
-        uncovered_constraints = []
-        constraint_doc_mode = "shards"  # 默认模式
+        rtos_quick = rtos_entry.get("quick_doc")
+        if rtos_quick and (ROOT / rtos_quick).is_file():
+            add_required(rtos_quick, f"RTOS ??: {rtos}")
+        else:
+            add_required(rtos_entry["doc"], f"RTOS ??: {rtos}?? quick ??")
 
+        constraint_doc_mode = "shards"
         if constraints:
-            # 有明确 C 号时，优先加载微分片
+            shards = set()
             constraint_doc_mode = "micro"
             for c in constraints:
                 c_upper = c.upper()
                 micro_file = MICRO_SHARDS.get(c_upper)
-                if micro_file and Path(ROOT / micro_file).is_file():
-                    # 有微分片，加载它
+                if micro_file and (ROOT / micro_file).is_file():
                     if micro_file not in required_files:
                         required_files.append(micro_file)
-                        reasons[micro_file] = f"微分片: {c_upper}"
+                        reasons[micro_file] = f"???: {c_upper}"
                     micro_constraints_loaded.append(c_upper)
-                else:
-                    # 没有微分片，回退到完整 shard
-                    shard = CONSTRAINT_TO_SHARD.get(c_upper)
-                    if shard:
-                        shard_file = CONSTRAINT_SHARDS.get(shard)
-                        if shard_file and shard_file not in required_files:
-                            required_files.append(shard_file)
-                            reasons[shard_file] = f"约束分片: {shard}（回退）"
-                        fallback_shards.append(shard)
-                    else:
-                        uncovered_constraints.append(c_upper)
+                    continue
 
-            # 如果有回退，标记为混合模式
+                shard = CONSTRAINT_TO_SHARD.get(c_upper)
+                if shard:
+                    shards.add(shard)
+                    fallback_shards.append(shard)
+                else:
+                    uncovered_constraints.append(c_upper)
+            if shards:
+                add_constraint_shards(shards)
             if fallback_shards:
                 constraint_doc_mode = "mixed"
         else:
-            # 无明确 C 号时，按 workflow 加载完整 shard
-            shards = set(wf["constraint_shards"])
-            for shard_name in sorted(shards):
-                shard_file = CONSTRAINT_SHARDS.get(shard_name)
-                if shard_file and shard_file not in required_files:
-                    required_files.append(shard_file)
-                    reasons[shard_file] = f"约束分片: {shard_name}"
+            add_constraint_shards(set(wf["constraint_shards"]))
 
-        # upgrade hints
         upgrade_hints = [
-            "需要平台 API 细节时升级到 standard",
-            "需要迁移/历史追溯时升级到 full",
+            "????/RTOS API ?????? standard",
+            "????/???????? full",
         ]
-        quality_risks = ["compact 模式可能遗漏平台特定细节"]
+        quality_risks = ["compact ????????/RTOS ??"]
 
-    # ── Standard 模式 ──
     elif budget == "standard":
-        # 1. quick index
         qi = "references/constraint_quick_index.md"
-        required_files.append(qi)
-        reasons[qi] = "C1-C45 快速查找索引"
+        add_required(qi, "C1-C45 ??????")
+        add_required(wf["file"], f"Workflow: {wf['description']}")
+        add_required("references/core_rules.md", "????")
+        add_required("references/sdk_abstraction.yaml", "SDK ?????")
 
-        # 2. workflow 文件
-        required_files.append(wf["file"])
-        reasons[wf["file"]] = f"Workflow: {wf['description']}"
+        add_required(plat["doc"], f"????: {platform}")
+        add_required(plat["sdk_map"], f"?? SDK ??: {platform}", required_exists=False)
+        add_required(rtos_entry["doc"], f"RTOS ??: {rtos}")
+        add_required(rtos_entry["sdk_map"], f"RTOS SDK ??: {rtos}", required_exists=False)
 
-        # 3. 完整 core_rules
-        core = "references/core_rules.md"
-        required_files.append(core)
-        reasons[core] = "核心规则"
-
-        # 4. 完整 SDK abstraction
-        sdk_abs = "references/sdk_abstraction.yaml"
-        required_files.append(sdk_abs)
-        reasons[sdk_abs] = "SDK 抽象注册表"
-
-        # 5. 完整平台文档 + SDK map
-        required_files.append(plat["doc"])
-        reasons[plat["doc"]] = f"平台文档: {platform}"
-        required_files.append(plat["sdk_map"])
-        reasons[plat["sdk_map"]] = f"SDK 映射: {platform}"
-
-        # 6. 约束分片
         shards = set(wf["constraint_shards"])
-        if constraints:
-            for c in constraints:
-                shard = CONSTRAINT_TO_SHARD.get(c.upper())
-                if shard:
-                    shards.add(shard)
-        for shard_name in sorted(shards):
-            shard_file = CONSTRAINT_SHARDS.get(shard_name)
-            if shard_file and shard_file not in required_files:
-                required_files.append(shard_file)
-                reasons[shard_file] = f"约束分片: {shard_name}"
+        for c in constraints:
+            shard = CONSTRAINT_TO_SHARD.get(c.upper())
+            if shard:
+                shards.add(shard)
+        add_constraint_shards(shards)
 
-        upgrade_hints = ["需要历史/迁移资料时升级到 full"]
+        upgrade_hints = ["????/???????? full"]
         quality_risks = []
 
-    # ── Full 模式 ──
     elif budget == "full":
-        # 1. quick index
         qi = "references/constraint_quick_index.md"
-        required_files.append(qi)
-        reasons[qi] = "C1-C45 快速查找索引"
+        add_required(qi, "C1-C45 ??????")
+        add_required(wf["file"], f"Workflow: {wf['description']}")
+        add_required("references/core_rules.md", "????")
+        add_required("references/sdk_abstraction.yaml", "SDK ?????")
 
-        # 2. workflow 文件
-        required_files.append(wf["file"])
-        reasons[wf["file"]] = f"Workflow: {wf['description']}"
+        add_required(plat["doc"], f"????: {platform}")
+        add_required(plat["sdk_map"], f"?? SDK ??: {platform}", required_exists=False)
+        add_required(rtos_entry["doc"], f"RTOS ??: {rtos}")
+        add_required(rtos_entry["sdk_map"], f"RTOS SDK ??: {rtos}", required_exists=False)
 
-        # 3. 完整 core_rules
-        core = "references/core_rules.md"
-        required_files.append(core)
-        reasons[core] = "核心规则"
-
-        # 4. 完整 SDK abstraction
-        sdk_abs = "references/sdk_abstraction.yaml"
-        required_files.append(sdk_abs)
-        reasons[sdk_abs] = "SDK 抽象注册表"
-
-        # 5. 完整平台文档 + SDK map
-        required_files.append(plat["doc"])
-        reasons[plat["doc"]] = f"平台文档: {platform}"
-        required_files.append(plat["sdk_map"])
-        reasons[plat["sdk_map"]] = f"SDK 映射: {platform}"
-
-        # 6. 约束分片
         shards = set(wf["constraint_shards"])
-        if constraints:
-            for c in constraints:
-                shard = CONSTRAINT_TO_SHARD.get(c.upper())
-                if shard:
-                    shards.add(shard)
-        for shard_name in sorted(shards):
-            shard_file = CONSTRAINT_SHARDS.get(shard_name)
-            if shard_file and shard_file not in required_files:
-                required_files.append(shard_file)
-                reasons[shard_file] = f"约束分片: {shard_name}"
+        for c in constraints:
+            shard = CONSTRAINT_TO_SHARD.get(c.upper())
+            if shard:
+                shards.add(shard)
+        add_constraint_shards(shards)
 
-        # 7. Full 模式额外加载
-        extra_files = [
-            ("references/skill_structure.md", "Skill 结构说明"),
-            ("references/platform_diff_matrix.md", "平台差异矩阵"),
-            ("references/constraint_graph.md", "约束知识图谱"),
-        ]
-        for f, r in extra_files:
-            if f not in required_files and Path(ROOT / f).is_file():
-                required_files.append(f)
-                reasons[f] = r
+        for f, r in [
+            ("references/skill_structure.md", "Skill ????"),
+            ("references/platform_diff_matrix.md", "??????"),
+            ("references/constraint_graph.md", "??????"),
+        ]:
+            add_required(f, r, required_exists=False)
 
         upgrade_hints = []
         quality_risks = []
@@ -821,7 +815,6 @@ def build_load_plan(workflow: str, platform: str, constraints: list[str] | None 
     else:
         return {"error": f"Unknown budget: {budget}"}
 
-    # 计算 token 预算
     total_tokens = 0
     files_with_reason = []
     for f in required_files:
@@ -834,18 +827,19 @@ def build_load_plan(workflow: str, platform: str, constraints: list[str] | None 
             "estimated_tokens": tokens,
         })
 
-    # 预算警告
     budget_warning = None
     if budget == "compact" and total_tokens > 15000:
-        budget_warning = f"compact 模式预估 {total_tokens} tokens，超过 15k 建议升级到 standard"
+        budget_warning = f"compact ???? {total_tokens} tokens??? 15k ????? standard"
     elif budget == "standard" and total_tokens > 30000:
-        budget_warning = f"standard 模式预估 {total_tokens} tokens，超过 30k 建议升级到 full"
+        budget_warning = f"standard ???? {total_tokens} tokens??? 30k ????? full"
 
     return {
         "workflow": workflow,
         "workflow_description": wf["description"],
         "platform": platform,
         "platform_primary": plat["primary"],
+        "rtos": rtos,
+        "rtos_primary": rtos_entry["primary"],
         "budget_mode": budget,
         "required_files": files_with_reason,
         "forbidden_by_default": FORBIDDEN_BY_DEFAULT,
@@ -857,11 +851,12 @@ def build_load_plan(workflow: str, platform: str, constraints: list[str] | None 
         "micro_constraints_loaded": micro_constraints_loaded,
         "fallback_shards": fallback_shards,
         "uncovered_constraints": uncovered_constraints,
+        "constraint_shards_loaded": constraint_shards_loaded,
     }
 
 
 def run_self_test() -> int:
-    """运行自测。"""
+    """?????"""
     passed = 0
     failed = 0
 
@@ -874,49 +869,44 @@ def run_self_test() -> int:
             failed += 1
             print(f"  FAIL: {name}")
 
-    # 测试所有 9 个 workflow × 3 个预算档位
     for wf_id in WORKFLOWS:
         for budget in ["compact", "standard", "full"]:
-            plan = build_load_plan(wf_id, "esp32", budget=budget)
+            plan = build_load_plan(wf_id, "esp32", "freertos", budget=budget)
             check(f"{wf_id}+{budget}: no error", "error" not in plan)
             check(f"{wf_id}+{budget}: has required_files", len(plan.get("required_files", [])) > 0)
             check(f"{wf_id}+{budget}: has estimated_tokens", plan.get("estimated_tokens", 0) > 0)
             check(f"{wf_id}+{budget}: has budget_mode", plan.get("budget_mode") == budget)
 
-    # 测试 platform 选择
-    plan_esp32 = build_load_plan("code_review", "esp32")
-    plan_zephyr = build_load_plan("code_review", "zephyr")
-    check("esp32 platform doc", any("esp32" in f["path"] for f in plan_esp32["required_files"]))
-    check("zephyr platform doc", any("zephyr" in f["path"] for f in plan_zephyr["required_files"]))
+    plan_esp32 = build_load_plan("code_review", "esp32", "freertos")
+    plan_zephyr = build_load_plan("code_review", "esp32", "zephyr")
+    check("esp32 platform doc", any("platforms/esp32" in f["path"] for f in plan_esp32["required_files"]))
+    check("zephyr rtos doc", any("zephyr" in f["path"] for f in plan_zephyr["required_files"]))
 
-    # 测试 constraints 缩小范围
-    plan_c3 = build_load_plan("code_review", "esp32", ["C3"])
+    plan_c3 = build_load_plan("code_review", "esp32", "freertos", ["C3"])
     check("C3 adds micro-shard", any("micro_C03" in f["path"] for f in plan_c3["required_files"]))
 
-    # 测试 forbidden_by_default
-    plan = build_load_plan("crash_debug", "esp32")
+    plan = build_load_plan("crash_debug", "esp32", "freertos")
     check("forbidden_by_default present", len(plan.get("forbidden_by_default", [])) > 0)
     check("constraint_detail forbidden", "references/constraint_detail.md" in plan.get("forbidden_by_default", []))
 
-    # 测试未知 workflow
-    plan_bad = build_load_plan("unknown_workflow", "esp32")
+    plan_bad = build_load_plan("unknown_workflow", "esp32", "freertos")
     check("unknown workflow returns error", "error" in plan_bad)
 
-    # 测试未知 platform
-    plan_bad_plat = build_load_plan("code_review", "unknown_platform")
+    plan_bad_plat = build_load_plan("code_review", "unknown_platform", "freertos")
     check("unknown platform returns error", "error" in plan_bad_plat)
 
-    # 测试 JSON 输出
-    plan_json = json.dumps(build_load_plan("code_review", "esp32"), ensure_ascii=False)
+    plan_bad_rtos = build_load_plan("code_review", "esp32", "unknown_rtos")
+    check("unknown rtos returns error", "error" in plan_bad_rtos)
+
+    plan_json = json.dumps(build_load_plan("code_review", "esp32", "freertos"), ensure_ascii=False)
     check("JSON output valid", len(plan_json) > 100)
 
-    # 测试质量样例
     for case_id, case in QUALITY_CASES.items():
-        plan = build_load_plan(case["workflow"], case["platform"], case.get("constraints", []), "compact")
+        plan = build_load_plan(case["workflow"], case["platform"], case.get("rtos", "freertos"),
+                               case.get("constraints", []), "compact")
         check(f"case {case_id}: no error", "error" not in plan)
         check(f"case {case_id}: has required_files", len(plan.get("required_files", [])) > 0)
         check(f"case {case_id}: budget_mode is compact", plan.get("budget_mode") == "compact")
-        # 检查不包含 forbidden 文件
         for f in plan.get("required_files", []):
             if f["path"] in FORBIDDEN_BY_DEFAULT:
                 check(f"case {case_id}: no forbidden file {f['path']}", False)
@@ -929,44 +919,47 @@ def run_self_test() -> int:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Context Router — 上下文路由器")
+    parser = argparse.ArgumentParser(description="Context Router ? ??????")
     parser.add_argument("--workflow", "-w",
                         choices=list(WORKFLOWS.keys()),
                         help="Workflow ID")
     parser.add_argument("--platform", "-p",
                         choices=list(PLATFORM_DOCS.keys()),
                         default="esp32",
-                        help="目标平台")
+                        help="????")
+    parser.add_argument("--rtos", "-r",
+                        choices=list(RTOS_DOCS.keys()),
+                        default="freertos",
+                        help="RTOS ??")
     parser.add_argument("--constraints", "-c", nargs="*",
-                        help="约束 ID（如 C2 C3），缩小读取范围")
+                        help="?? ID?? C2 C3????????")
     parser.add_argument("--budget", "-b",
                         choices=["compact", "standard", "full"],
                         default="compact",
-                        help="预算档位：compact（默认）/ standard / full")
+                        help="?????compact????/ standard / full")
     parser.add_argument("--case",
                         choices=list(QUALITY_CASES.keys()),
-                        help="质量样例 ID，自动解析为 workflow/platform/constraints")
+                        help="???? ID?????? workflow/platform/constraints")
     parser.add_argument("--symptom-text",
-                        help="自然语言问题描述，自动匹配症状和约束")
+                        help="??????????????????")
     parser.add_argument("--symptom-file",
-                        help="日志或笔记文件，自动匹配症状和约束")
+                        help="?????????????????")
     parser.add_argument("--probe-detail",
                         choices=["compact", "full"],
                         default="compact",
-                        help="探针详细程度：compact（默认）/ full")
+                        help="???????compact????/ full")
     parser.add_argument("--allow-weak-route",
                         action="store_true",
-                        help="低置信时强制继续路由（默认只返回 missing_facts）")
+                        help="???????????????? missing_facts?")
     parser.add_argument("--json", action="store_true",
-                        help="输出 JSON 格式")
+                        help="?? JSON ??")
     parser.add_argument("--self-test", action="store_true",
-                        help="运行自测")
+                        help="????")
     args = parser.parse_args()
 
     if args.self_test:
         return run_self_test()
 
-    # --symptom-text / --symptom-file 模式
     if args.symptom_text or args.symptom_file:
         symptom_text = args.symptom_text
         if args.symptom_file:
@@ -977,8 +970,8 @@ def main() -> int:
         if not symptom_text:
             parser.error("No symptom text provided")
 
-        plan = build_symptom_plan(symptom_text, args.platform, args.budget,
-                                   args.probe_detail, args.allow_weak_route)
+        plan = build_symptom_plan(symptom_text, args.platform, args.rtos, args.budget,
+                                  args.probe_detail, args.allow_weak_route)
 
         if args.json:
             json.dump(plan, sys.stdout, ensure_ascii=False, indent=2)
@@ -992,11 +985,12 @@ def main() -> int:
             print(f"Match confidence: {plan.get('match_confidence', 'unknown')}")
             print(f"Matched: {', '.join(m['name'] for m in plan.get('matched_symptoms', []))}")
             print(f"Platform: {plan.get('inferred_platform', 'unknown')} ({plan.get('platform_source', 'unknown')})")
+            print(f"RTOS: {plan.get('inferred_rtos', 'unknown')} ({plan.get('rtos_source', 'unknown')})")
             print(f"Likely constraints: {', '.join(plan.get('likely_constraints', []))}")
             if plan.get('top_hypotheses'):
                 print(f"Top hypotheses: {', '.join(plan.get('top_hypotheses', []))}")
             if plan.get('diagnostic_probes'):
-                print(f"\nDiagnostic probes:")
+                print("Diagnostic probes:")
                 for key, values in plan.get('diagnostic_probes', {}).items():
                     print(f"  {key}: {', '.join(values[:3])}")
             if plan.get('checker_targets'):
@@ -1007,28 +1001,27 @@ def main() -> int:
                 print(f"Stop conditions: {', '.join(plan.get('stop_conditions', []))}")
             if plan.get('missing_facts'):
                 print(f"Missing facts: {', '.join(plan.get('missing_facts', []))}")
-            print(f"\nBudget: {plan.get('budget_mode')} | Tokens: ~{plan.get('estimated_tokens')}")
+            print(f"Budget: {plan.get('budget_mode')} | Tokens: ~{plan.get('estimated_tokens')}")
         return 0
 
-    # --case 模式：自动解析为 workflow/platform/constraints
     if args.case:
         case = QUALITY_CASES[args.case]
         workflow = case["workflow"]
         platform = case["platform"]
+        rtos = case.get("rtos", "freertos")
         constraints = case.get("constraints", [])
-        # 允许 --budget 覆盖
         budget = args.budget
     elif args.workflow:
         workflow = args.workflow
         platform = args.platform
+        rtos = args.rtos
         constraints = args.constraints
         budget = args.budget
     else:
         parser.error("--workflow, --case, or --symptom-text is required")
 
-    plan = build_load_plan(workflow, platform, constraints, budget)
+    plan = build_load_plan(workflow, platform, rtos, constraints, budget)
 
-    # --case 模式：附加质量期望和升级触发
     if args.case and "error" not in plan:
         case = QUALITY_CASES[args.case]
         plan["case_id"] = args.case
@@ -1044,24 +1037,25 @@ def main() -> int:
             print(f"Error: {plan['error']}", file=sys.stderr)
             return 1
 
-        print(f"Context Router: {plan['workflow_description']} @ {plan['platform']}")
+        print(f"Context Router: {plan['workflow_description']} @ {plan['platform']} + {plan['rtos']}")
         print(f"Budget mode: {plan['budget_mode']}")
         print(f"Estimated tokens: ~{plan['estimated_tokens']}")
         if plan.get("budget_warning"):
             print(f"Warning: {plan['budget_warning']}")
-        print(f"\nRequired files ({len(plan['required_files'])}):")
+        print(f"Required files ({len(plan['required_files'])}):")
         for f in plan["required_files"]:
-            print(f"  {f['path']} — {f['reason']} (~{f['estimated_tokens']} tokens)")
-        print(f"\nForbidden by default:")
+            print(f"  {f['path']} ? {f['reason']} (~{f['estimated_tokens']} tokens)")
+        print(f"Forbidden by default:")
         for f in plan["forbidden_by_default"]:
             print(f"  {f}")
-        print(f"\nConstraint shards: {', '.join(plan['constraint_shards_loaded'])}")
+        if plan.get("constraint_shards_loaded"):
+            print(f"Constraint shards: {', '.join(plan['constraint_shards_loaded'])}")
         if plan.get("upgrade_hint"):
-            print(f"\nUpgrade hints:")
+            print("Upgrade hints:")
             for h in plan["upgrade_hint"]:
                 print(f"  - {h}")
         if plan.get("quality_risk"):
-            print(f"\nQuality risks:")
+            print("Quality risks:")
             for r in plan["quality_risk"]:
                 print(f"  - {r}")
 

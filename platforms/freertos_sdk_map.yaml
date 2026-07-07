@@ -1,0 +1,4 @@
+﻿# Minimal mapping for quick routing
+- esp32.freertos_api: platform/ESP-IDF wrappers and task APIs
+- stm32.freertos_api: HAL/LL adapters mapped where available
+- general.freertos_api: generic FreeRTOS portability layer
