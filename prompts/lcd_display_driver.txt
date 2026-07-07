@@ -836,3 +836,166 @@ void ui_diag_before_commit(const char *tag)
 - [ ] 修改是否限定单点（最小闭区间）且可回退？
 - [ ] 改前改后对比是否量化（FPS/耗时/内存/flush）？
 - [ ] 是否有“异常回退”策略（fallback）并已通过验证？
+
+### 17. 运维友好优化（生产落地）
+
+上一节是策略，这一节给“可直接上线”的实操清单。按序执行，优先从 1~3 开始。
+
+1. 先做一次“无改动基线采样”
+- 目的：给后续优化提供可比照基线。
+- 示例：保留 10 秒性能日志快照。
+
+```bash
+python tools/lvgl_perf_probe.py --duration 10 --out out/baseline.json
+```
+
+2. 建立显示刷新“超时看门狗”
+- 目的：避免 flush 卡死导致整屏静止。
+- 示例：超过阈值触发自恢复。
+
+```c
+static uint32_t last_flush_ms = 0;
+void on_flush_ready(lv_disp_t *disp)
+{
+    last_flush_ms = lv_tick_get();
+    lv_disp_flush_ready(disp->driver->draw_buf);
+}
+
+void ui_watchdog_task(void *arg)
+{
+    while (1) {
+        if ((lv_tick_get() - last_flush_ms) > 500) {
+            LOG_E("UI watchdog timeout, trigger recovery");
+            lv_timer_handler();  // 保留，便于日志记录点位
+            request_ui_recover();
+        }
+        vTaskDelay(pdMS_TO_TICKS(100));
+    }
+}
+```
+
+3. 统一“首屏最小化”渲染路径
+- 目的：减少首屏首帧耗时和一次性对象风暴。
+- 示例：先加载壳，再按需加载副组件。
+
+```c
+void build_home_root(lv_obj_t *parent)
+{
+    create_skeleton_layout(parent);     // 只保留基础骨架
+    create_status_chip(parent);         // 常显核心区
+    defer_expand_panels(parent);       // 非关键区域延后绘制
+}
+```
+
+4. 防重复点击/重复跳页（幂等）
+- 目的：防止一次点击触发双建树。
+
+```c
+static bool g_nav_lock;
+static lv_obj_t *g_nav_current;
+
+void safe_navigate(lv_obj_t *target)
+{
+    if (g_nav_lock || target == g_nav_current) return;
+    g_nav_lock = true;
+    lv_async_call(nav_request_cb, target);
+}
+
+void nav_request_cb(void *obj)
+{
+    g_nav_current = obj;
+    lv_obj_del_async(lv_scr_act());
+    lv_obj_t *scr = lv_obj_create(NULL);
+    // load target page
+    g_nav_lock = false;
+}
+```
+
+5. 限速 `lv_obj_invalidate` 与 UI 状态抖动
+- 目的：避免单帧重复触发导致 CPU 打满。
+
+```c
+static uint32_t last_ui_update_ms;
+void invalidate_if_needed(lv_obj_t *obj)
+{
+    uint32_t now = lv_tick_get();
+    if (now - last_ui_update_ms < 16) return;   // 60FPS 上限
+    last_ui_update_ms = now;
+    lv_obj_invalidate(obj);
+}
+```
+
+6. 批量设置样式（减少内存与重排）
+- 目的：用 style 对象替代每控件单独 set_style。
+
+```c
+LV_FONT_DECLARE(font16);
+static lv_style_t style_title;
+
+void init_title_style(void)
+{
+    lv_style_init(&style_title);
+    lv_style_set_text_font(&style_title, &font16);
+    lv_style_set_text_color(&style_title, lv_color_white());
+    lv_style_set_pad_all(&style_title, 8);
+}
+
+void make_title(lv_obj_t *parent, const char *txt)
+{
+    lv_obj_t *l = lv_label_create(parent);
+    lv_obj_add_style(l, &style_title, LV_PART_MAIN);
+    lv_label_set_text(l, txt);
+}
+```
+
+7. 避免在 `LV_EVENT_ALL` 用大回调
+- 目的：复杂事件回调会放大每次输入开销。
+- 建议：拆分事件类型，只监听 `LV_EVENT_CLICKED` / `LV_EVENT_VALUE_CHANGED`。
+
+```c
+static void on_btn(lv_event_t *e)
+{
+    if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
+    // 只处理点击路径
+}
+```
+
+8. 控制图层叠加复杂度
+- 目的：透明 + 阴影 + 模糊叠加对性能冲击高。
+
+```c
+// 关键路径禁用复杂特性
+lv_obj_set_style_bg_opa(obj, LV_OPA_COVER, 0);
+lv_obj_set_style_shadow_width(obj, 0, 0);
+lv_obj_set_style_blend_mode(obj, LV_BLEND_MODE_NORMAL, 0);
+```
+
+9. 一刀切的 fallback 模式
+- 目的：异常时快速切回低负载显示，不让系统持续抖动。
+
+```c
+if (lv_mem_test_fragmentation() > 55 || fault_counter > 3) {
+    set_low_framerate_mode(true);
+    set_full_refresh_mode(false);
+    disable_complex_animations(true);
+}
+```
+
+10. 可执行发布前检查单（一次性）
+- 目标：在每次发布前跑一遍避免回归。
+
+```bash
+python tools/run_lvgl_smoke.sh --case home_boot --case list_scroll --case page_navigation --case low_mem_recover
+```
+
+### 17.1 运维友好优化检查清单
+- [ ] 是否有基线与优化后对比报告（FPS、flush、内存、卡死率）？
+- [ ] 是否启用了 flush 超时看门狗与恢复路径？
+- [ ] 首屏是否采用“骨架 + 分批加载”策略？
+- [ ] 是否避免重复导航/重复建树？
+- [ ] invalidate 频率是否被限速？
+- [ ] 是否统一 style 复用（减少 set_style 风暴）？
+- [ ] 事件回调是否按事件类型裁剪？
+- [ ] 是否降低了默认层混合复杂度？
+- [ ] 是否有可触发的低负载 fallback？
+- [ ] 发布前是否跑通 `tools/run_lvgl_smoke.sh` 关键场景？
