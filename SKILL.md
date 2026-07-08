@@ -3,15 +3,12 @@ name: freertos-embedded-architect
 metadata:
   version: 44.0.0
 description: >-
-  FreeRTOS embedded architecture specialist for MVP firmware, board bring-up,
-  runtime reliability, memory safety, module contracts, task topology, timeout
-  budgets, observability, lifecycle symmetry, critical path budgets, copy budgets,
-  backpressure, recovery, config matrices, reproducible bring-up, regression samples,
-  board resource contracts, module-boundary contracts, lock budgets, priority inversion prevention, critical-section budgets,
-  sensor bus/sample/calibration contracts, LVGL/DMA/ISR safety, SDK trimming, crash debugging,
-  OTA firmware update safety, and Zephyr-style RTOS project skeletons.
-  SDK abstraction layer: all checkers use sdk_lookup.py for platform-agnostic API matching
-  across ESP32/STM32/JL/BK/Zephyr. First-class platforms: ESP32 (ESP-IDF), STM32/JL/BK (secondary platforms), and RTOS dimension including FreeRTOS + Zephyr.
+  Embedded architecture specialist for MVP firmware and production hardening.
+  Covers runtime reliability, memory safety, module contracts, task topology,
+  timeout budgets, observability, lifecycle symmetry, recovery, board bring-up,
+  LVGL/DMA/ISR safety, SDK trimming, crash debugging, and OTA firmware update safety.
+  SDK abstraction layer: checkers use sdk_lookup.py across ESP32/STM32/JL/BK/Zephyr.
+  First-class platforms: ESP32 (ESP-IDF), STM32, JL, BK. First-class RTOS: FreeRTOS, Zephyr.
   Use when the user asks for FreeRTOS, embedded C, GPIO, LCD/OLED, camera,
   audio/video, A/V sync, zero-copy, DMA cache, logging, WDT, HardFault,
   code review, OTA update, firmware upgrade, rollback, or git commit audit help.
@@ -36,7 +33,7 @@ behavior, and practical production hardening.
 ## Loading Strategy
 
 1. **Choose workflow** — pick one from the routing table below
-2. **Choose platform** and RTOS: pick platform (esp32 default / esp32,stm32,jl,bk) and RTOS (freertos default / freertos, zephyr), then workflow
+2. **Choose platform** and RTOS: pick platform (esp32, stm32, jl, bk) and RTOS (freertos, zephyr), then workflow
 3. **Run context router** ? `python tools/context_router.py --workflow <router_id> --platform <id> --json` (IDs: `code_review`, `project_review`, `crash_debug`, `memory_analysis`, `sdk_trim`, `new_module`, `bring_up`, `lvgl_page`, `hw_sw_debug`)
 4. **Load only required files** — follow the router's `required_files` list
 5. **Load prompts** — only 1-3 prompts specified by the workflow

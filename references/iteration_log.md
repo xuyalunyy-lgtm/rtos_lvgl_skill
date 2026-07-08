@@ -16,6 +16,14 @@ Agent 或维护者在 [archived self_iterate.md](../archive/workflows/self_itera
 
 ---
 
+### 2026-07-08 - v44.0.0 BLE Constraint Additions
+
+- **Source:** user feedback / doc gap closure
+- **Platform:** esp32 | stm32 | jl | bk | zephyr
+- **Change:** add C46 in constraint index docs and add `references/constraint_bluetooth_protocol.md`.
+- **Validation:** `python scripts/commit_audit.py --self-test` PASS / `python scripts/skill_iterate.py --check` PASS
+- **Version:** 44.0.0
+
 ### 2026-07-03 - v43.0.0 Engineering Verification Probes
 
 - **来源：** v43 工程验证探针版

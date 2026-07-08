@@ -419,3 +419,15 @@
 → [debug_crash.md](../workflows/debug_crash.md) Step 2 症状路由表（与 `constraint_detail.md` 末尾同步）。
 
 Prompt 深细节按需 1–3 个 → [skill_structure.md](skill_structure.md) 场景表。
+## C46 Bluetooth Protocol Alignment
+
+| ID | P | One-line |
+|----|---|----------|
+| C46.1 | 1 | BLE init/close must have state machine and rollback |
+| C46.2 | 1 | ADV/reconnect values must come from profile/board config |
+| C46.3 | 1 | GATT Service/UUID/Characteristic must match documents |
+| C46.4 | 1 | State machine must cover idle/connecting/connected/disconnecting |
+| C46.5 | 2 | Secure pairing must define auth/encryption/bond lifecycle |
+| C46.6 | 1 | MTU/subpacket capability must adapt by device |
+| C46.7 | 1 | Error codes must classify recoverable vs fatal with action mapping |
+| C46.8 | 1 | Platform capability matrix must cover ESP32/JL/BK/STM32/Zephyr |

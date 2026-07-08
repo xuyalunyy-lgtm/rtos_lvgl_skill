@@ -126,3 +126,27 @@
 | I2C/SPI 偶发卡死或 WDT | C45.2 + C31/C44 |
 | 传感器读数跳变、单位混乱、融合结果漂移 | C45.1/C45.4 |
 | 采样周期抖动、控制环 jitter | C45.3/C45.5 + C34 |
+
+---
+
+## C46 -- Bluetooth Protocol Alignment
+
+| ID | Constraint | Severity | Validation | Good pattern | Bad pattern |
+|----|------------|----------|------------|--------------|-------------|
+| C46.1 | BLE init/close must have a state machine and rollback path | P1 | Manual + integration log | `init -> configure -> start -> stop` is explicit | Direct BLE API calls with no state owner |
+| C46.2 | ADV/reconnect parameters must come from profile or board config | P1 | Manual + fixtures | Config-driven ADV interval/timeout | Hard-coded interval values |
+| C46.3 | GATT UUID/Service/Characteristic changes must match documents and route mapping | P1 | Manual | Doc mapping passes review | Service changes ship without doc update |
+| C46.4 | BLE state machine must cover idle/connecting/connected/disconnecting | P1 | Manual + event replay | Illegal transitions recover cleanly | Pending state jumps directly to idle |
+| C46.5 | Pairing/auth/encryption/bond lifecycle must be explicit and clean up on failure | P2 | Manual | Pairing context has clear lifetime | Plain pairing or stale bond residue |
+| C46.6 | MTU and fragment settings must negotiate by device capability and support fallback | P1 | Manual + compatibility tests | MTU and payload size are negotiated | Fixed MTU causes compatibility failures |
+| C46.7 | Error codes must distinguish recoverable/fatal and map to recovery actions | P1 | Manual + log aggregation | Retry/disable/alert mapping is visible | All failures log the same error |
+| C46.8 | Platform capability mapping must cover ESP32/JL/BK/STM32/Zephyr boundaries | P1 | Manual + document alignment | Capability matrix is traceable | Platform capability is assumed globally |
+
+**Symptom map**
+
+| Symptom | Possible constraints |
+|---------|----------------------|
+| BLE connection fails | C46.1/C46.4 |
+| Reconnect storm | C46.2/C46.7 |
+| Pairing failure | C46.5 |
+| Compatibility crash | C46.6/C46.8 |

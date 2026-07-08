@@ -1,6 +1,6 @@
 # Constraint Quick Index
 
-> 轻量约束索引。只列 C1-C45 名称、适用场景、对应 detail 分片。
+> 轻量约束索引。只列 C1-C46 名称、适用场景、对应 detail 分片。
 > 完整规则见对应分片文件。
 
 ## 约束分片映射
@@ -10,12 +10,12 @@
 | `constraint_review.md` | C1-C4, C11-C16 | 代码审查、ISR、队列、cJSON、编码规范 |
 | `constraint_memory.md` | C7, C28, C36 | 内存分配、DMA、拷贝预算 |
 | `constraint_rtos.md` | C8, C15, C17, C29-C35, C43-C44 | 启动、优先级、IPC、模块契约、拓扑、锁、临界区 |
-| `constraint_platform.md` | C18-C21, C23, C42, C45 | GPIO、NVS、网络、低功耗、显示、板级资源、传感器 |
+| `constraint_platform.md` | C18-C21, C23, C42, C45, C46 | GPIO、NVS、网络、低功耗、显示、板级资源、传感器、蓝牙协议 |
 | `constraint_media.md` | C25-C27 | A/V 管线、编解码、时钟漂移 |
 | `constraint_ota.md` | C9, C22, C24 | 密钥、OTA 安全、外设关闭 |
 | `constraint_recover.md` | C37-C41 | 背压、故障隔离、配置矩阵、复现、回归 |
 
-## C1-C45 快速查找
+## C1-C46 快速查找
 
 | ID | 名称 | 场景 | 分片 |
 |---|---|---|---|
@@ -64,6 +64,7 @@
 | C43 | 锁预算 | 有限等锁、持锁禁阻塞 | rtos |
 | C44 | 临界区预算 | 短临界区、禁重活 | rtos |
 | C45 | 传感器集成 | WHO_AM_I、data-ready | platform |
+| C46 | 蓝牙协议核对 | BLE 状态机、GATT、配对安全与 MTU | platform |
 
 ## 加载规则
 
