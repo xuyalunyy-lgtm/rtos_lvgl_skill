@@ -77,13 +77,13 @@ Router IDs: `code_review`, `project_review`, `crash_debug`,
 - Platform docs: [esp32](platforms/esp32.md), [stm32](platforms/stm32.md), [jl](platforms/jl.md), [bk](platforms/bk.md).
 - RTOS docs: [freertos](platforms/freertos.md), [zephyr](platforms/zephyr.md).
 - SDK maps: `platforms/*_sdk_map.yaml`, including FreeRTOS and Zephyr RTOS maps.
-- Prompt index: [prompt_index](references/prompt_index.md); load prompts only after workflow and symptom selection.
+- Prompt index: [prompt_index](references/prompt_index.md); load prompts only after workflow and symptom selection. MCP adapter: [server](mcp/server.py) is the execution facade; scripts remain authoritative.
 
 ## Resource Layers
 
 | Layer | Contents | Runtime policy |
 |---|---|---|
-| Runtime | `SKILL.md`, `agents/`, `workflows/`, routed `references/`, `prompts/`, `platforms/`, active `tools/` | Keep installed and load by router only. |
+| Runtime | `SKILL.md`, `agents/`, `workflows/`, routed `references/`, `prompts/`, `platforms/`, active `tools/`, `mcp/` | Keep installed and load by router only. |
 | Test | `tools/fixtures/`, `examples/`, `scene_presets/`, selected `scripts/check_*` | Keep in source and full runtime when required by gates; do not load by default. |
 | Maintenance | root `README.md`, `INSTALL.md`, `CHANGELOG.md`, `archive/`, `forward_tests/`, local caches | Keep out of installed runtime payload unless explicitly maintaining the skill. |
 

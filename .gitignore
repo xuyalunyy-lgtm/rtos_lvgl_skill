@@ -6,3 +6,5 @@ __pycache__/
 *.py[cod]
 # Generated forward-test output
 forward_tests/out/
+# Generated gate artifacts
+artifacts/

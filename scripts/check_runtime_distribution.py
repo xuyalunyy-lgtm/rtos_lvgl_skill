@@ -42,6 +42,7 @@ FORBIDDEN_RUNTIME_DIRS = {
     "freertos-skill-lite",
     "fw-AC79_AIoT_SDK",
     "bk_idk-release-v2.2.1",
+    "artifacts",
 }
 
 REQUIRED_RUNTIME_PATHS = {
@@ -55,6 +56,7 @@ REQUIRED_RUNTIME_PATHS = {
     "platforms/esp32.md",
     "tools/checker_registry.py",
     "examples/README.md",
+    "mcp/server.py",
 }
 
 LITE_REQUIRED_PATHS = {
@@ -138,6 +140,7 @@ def check_shell_installers(errors: list[str]) -> None:
         ".github",
         ".vscode",
         "freertos-skill-lite",
+        "artifacts",
         "/README.md",
         "/INSTALL.md",
         "/CHANGELOG.md",
@@ -152,7 +155,7 @@ def check_shell_installers(errors: list[str]) -> None:
 def check_powershell_installers(errors: list[str]) -> None:
     for script in PS_INSTALLERS:
         text = script.read_text(encoding="utf-8")
-        for token in (".github", ".vscode", "freertos-skill-lite", "$RootOnlyExcludeFiles"):
+        for token in (".github", ".vscode", "freertos-skill-lite", "artifacts", "$RootOnlyExcludeFiles"):
             if token not in text:
                 errors.append(f"{rel(script)} missing install boundary token {token}")
         for root_file in sorted(ROOT_ONLY_FORBIDDEN):

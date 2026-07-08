@@ -22,7 +22,7 @@ ROOT = Path(__file__).resolve().parent.parent
 # ── 安装时排除的目录 ──
 EXCLUDE_DIRS = {
     ".git", ".github", "__pycache__", ".mypy_cache", ".pytest_cache",
-    "node_modules", "forward_tests", "freertos-skill-lite",
+    "node_modules", "forward_tests", "freertos-skill-lite", "artifacts",
     ".skill_metrics", ".skill_evidence", ".codex",
     "out",  # 测试输出
 }
@@ -62,8 +62,9 @@ REQUIRED_FILES = [
     "tools/run_review.py",
     "tools/log_triage.py",
     "tools/codegen_gate.py",
-    "tools/evidence_schema.py",
+    "tools/evidence_schema.json",
     "tools/manifest_contract.py",
+    "mcp/server.py",
 ]
 
 
@@ -87,7 +88,7 @@ def is_forbidden(rel_path: str) -> bool:
     p = Path(rel_path)
     for part in p.parts:
         if part in {".git", ".github", "__pycache__", ".mypy_cache", "node_modules",
-                    "forward_tests", ".skill_metrics", ".skill_evidence"}:
+                    "forward_tests", "artifacts", ".skill_metrics", ".skill_evidence"}:
             return True
     if p.name.startswith(".git"):
         return True
@@ -173,6 +174,7 @@ def run_self_test() -> int:
     assert should_exclude(Path(".git/config"))
     assert should_exclude(Path("__pycache__/x.pyc"))
     assert should_exclude(Path("forward_tests/out/test.json"))
+    assert should_exclude(Path("artifacts/log_symptom_routes_quality.json"))
     assert not should_exclude(Path("tools/run_review.py"))
     print("[PASS] should_exclude logic")
     passed += 1
@@ -180,6 +182,7 @@ def run_self_test() -> int:
     # 4. is_forbidden 正确检测
     assert is_forbidden(".git/config")
     assert is_forbidden("forward_tests/out/test.json")
+    assert is_forbidden("artifacts/log_symptom_routes_quality.json")
     assert not is_forbidden("tools/run_review.py")
     print("[PASS] is_forbidden logic")
     passed += 1

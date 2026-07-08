@@ -115,7 +115,7 @@ def main() -> int:
     print("=" * 60)
 
     step = 0
-    total = 20 if args.release else 16
+    total = 21 if args.release else 17
 
     def _step(label: str):
         nonlocal step
@@ -151,7 +151,13 @@ def main() -> int:
     if rc != 0:
         errors.append("check_skill_metadata.py failed")
 
-    # ── 6. SKILL.md version ──
+    # -- 6. MCP adapter --
+    _step("mcp/server.py --self-test")
+    rc = run([sys.executable, str(ROOT / "mcp" / "server.py"), "--self-test"], ROOT)
+    if rc != 0:
+        errors.append("mcp/server.py --self-test failed")
+
+    # ── 7. SKILL.md version ──
     _step("SKILL.md version")
     full_ver = read_version(SKILL)
     lite_ver = read_version(LITE_SKILL) if LITE_ROOT.is_dir() else None
@@ -169,7 +175,7 @@ def main() -> int:
     else:
         print("  Lite:   skipped (freertos-skill-lite/ is not source-tracked)")
 
-    # ── 7. CHANGELOG / iteration_log ──
+    # -- 8. CHANGELOG / iteration_log --
     _step("CHANGELOG / iteration_log")
     if not CHANGELOG.is_file():
         errors.append("缺少 CHANGELOG.md")
@@ -182,13 +188,13 @@ def main() -> int:
     else:
         print("  iteration_log.md OK")
 
-    # ── 8. commit audit self-test ──
+    # -- 9. commit audit self-test --
     _step("commit_audit --self-test")
     rc = run([sys.executable, str(ROOT / "scripts" / "commit_audit.py"), "--self-test"], ROOT)
     if rc != 0:
         errors.append("commit_audit.py --self-test failed")
 
-    # ── 9. strategy entry mapping ──
+    # -- 10. strategy entry mapping --
     _step("strategy entry mapping")
     rc = run(
         [
@@ -204,13 +210,13 @@ def main() -> int:
     if rc != 0:
         errors.append("strategy_entry_audit.py failed")
 
-    # ── 10. commit audit ──
+    # -- 11. commit audit --
     _step("commit_audit --strict-release")
     rc = run([sys.executable, str(ROOT / "scripts" / "commit_audit.py"), "--max-log", "8", "--strict-release"], ROOT)
     if rc != 0:
         errors.append("commit_audit.py --strict-release failed")
 
-    # ── 11. sync_lite dry-run ──
+    # -- 12. sync_lite dry-run --
     _step("sync_lite --dry-run")
     if LITE_ROOT.is_dir():
         rc = run([sys.executable, str(ROOT / "scripts" / "sync_lite.py"), "--dry-run"], ROOT)
@@ -219,7 +225,7 @@ def main() -> int:
     else:
         print("  skipped (freertos-skill-lite/ absent)")
 
-    # ── 12. evidence_schema ──
+    # -- 13. evidence_schema --
     _step("evidence_schema --self-test")
     evidence_schema = ROOT / "tools" / "evidence_schema.py"
     if evidence_schema.is_file():
@@ -229,25 +235,25 @@ def main() -> int:
     else:
         print("  skipped (archived tool not present)")
 
-    # ── 13. log_triage ──
+    # -- 14. log_triage --
     _step("log_triage --self-test")
     rc = run([sys.executable, str(ROOT / "tools" / "log_triage.py"), "--self-test"], ROOT)
     if rc != 0:
         errors.append("log_triage.py --self-test 失败")
 
-    # ── 14. log triage matrix ──
+    # -- 15. log triage matrix --
     _step("check_log_triage_matrix")
     rc = run([sys.executable, str(ROOT / "scripts" / "check_log_triage_matrix.py")], ROOT)
     if rc != 0:
         errors.append("check_log_triage_matrix.py 失败")
 
-    # ── 15. codegen matrix ──
+    # -- 16. codegen matrix --
     _step("check_codegen_matrix")
     rc = run([sys.executable, str(ROOT / "scripts" / "check_codegen_matrix.py")], ROOT)
     if rc != 0:
         errors.append("check_codegen_matrix.py 失败")
 
-    # ── 16. sync_lite ──
+    # -- 17. sync_lite --
     _step("sync_lite")
     if args.sync and not errors and LITE_ROOT.is_dir():
         rc = run([sys.executable, str(ROOT / "scripts" / "sync_lite.py")], ROOT)
@@ -264,7 +270,7 @@ def main() -> int:
     else:
         print("  跳过（未指定 --sync）")
 
-    # ── 17. Release-only: install ──
+    # -- 18. Release-only: install --
     if args.release and args.install:
         _step("install_release_skill (clean install)")
         install_cmd = [sys.executable, str(ROOT / "scripts" / "install_release_skill.py")]
@@ -274,7 +280,7 @@ def main() -> int:
         if rc != 0:
             errors.append("安装失败")
 
-    # ── 18. Release-only: version sync ──
+    # -- 19. Release-only: version sync --
     if args.release:
         _step("check_installed_skill_sync --strict")
         sync_cmd = [sys.executable, str(ROOT / "scripts" / "check_installed_skill_sync.py"), "--strict"]
@@ -284,7 +290,7 @@ def main() -> int:
         if rc != 0:
             errors.append("安装版版本同步失败")
 
-    # ── 19. Release-only: runtime audit ──
+    # -- 20. Release-only: runtime audit --
     if args.release:
         _step("check_installed_runtime --strict")
         runtime_cmd = [sys.executable, str(ROOT / "scripts" / "check_installed_runtime.py"), "--strict"]
@@ -294,7 +300,7 @@ def main() -> int:
         if rc != 0:
             errors.append("安装目录 runtime 审计失败（payload drift）")
 
-    # ── 20. Release-only: forward eval ──
+    # -- 21. Release-only: forward eval --
     if args.release and args.forward:
         _step("skill_forward_eval --self-test")
         rc = run([sys.executable, str(ROOT / "scripts" / "skill_forward_eval.py"), "--self-test"], ROOT)

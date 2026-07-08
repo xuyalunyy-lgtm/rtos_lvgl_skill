@@ -30,6 +30,7 @@ RUNTIME_EXCLUDE_NAMES = {
     "bk_idk-release-v2.2.1",
     "freertos-skill-lite",
     "archive",
+    "artifacts",
 }
 RUNTIME_EXCLUDE_FILE_PATTERNS = (
     "*.pyc",
