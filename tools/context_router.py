@@ -87,7 +87,7 @@ def infer_platform(text: str) -> tuple[str, float, list[str]]:
 
 
 def infer_rtos(text: str) -> tuple[str, float, list[str]]:
-    """????? RTOS?"""
+    """Infer RTOS from text."""
     text_lower = text.lower()
     scores = {}
     matched_terms = {}
@@ -199,7 +199,7 @@ def match_symptoms(text: str) -> list[dict]:
 
 def build_symptom_plan(text: str, platform: str, rtos: str, budget: str = "compact",
                        probe_detail: str = "compact", allow_weak_route: bool = False) -> dict:
-    """????????????????? RTOS ????"""
+    """Build a symptom-driven load plan with platform and RTOS inference."""
     matches = match_symptoms(text)
 
     inferred_platform, platform_confidence, matched_platform_terms = infer_platform(text)
@@ -225,7 +225,7 @@ def build_symptom_plan(text: str, platform: str, rtos: str, budget: str = "compa
             "likely_constraints": [],
             "top_hypotheses": [],
             "verify_steps": [],
-            "missing_facts": ["???????????????????"],
+            "missing_facts": ["Need concrete symptom text, logs, or failing command output"],
             "diagnostic_probes": {},
             "checker_targets": [],
             "log_signals": [],
@@ -273,7 +273,7 @@ def build_symptom_plan(text: str, platform: str, rtos: str, budget: str = "compa
             "likely_constraints": [],
             "top_hypotheses": [],
             "verify_steps": [],
-            "missing_facts": ["???????????"] + missing_facts[:2],
+            "missing_facts": ["Weak symptom match; need more evidence"] + missing_facts[:2],
             "diagnostic_probes": {},
             "checker_targets": [],
             "log_signals": [],
@@ -486,7 +486,7 @@ CONSTRAINT_TO_SHARD = {
     "C33": "rtos", "C34": "rtos", "C35": "rtos",
     "C43": "rtos", "C44": "rtos",
     "C18": "platform", "C19": "platform", "C20": "platform", "C21": "platform",
-    "C23": "platform", "C42": "platform", "C45": "platform",
+    "C23": "platform", "C42": "platform", "C45": "platform", "C46": "platform",
     "C25": "media", "C26": "media", "C27": "media",
     "C9": "ota", "C22": "ota", "C24": "ota",
     "C37": "recover", "C38": "recover", "C39": "recover",
@@ -653,7 +653,7 @@ def estimate_tokens(file_path: Path) -> int:
 
 def build_load_plan(workflow: str, platform: str, rtos: str, constraints: list[str] | None = None,
                    budget: str = "compact") -> dict:
-    """???????
+    """Build load plan.
 
     Args:
         workflow: workflow ID
@@ -700,33 +700,33 @@ def build_load_plan(workflow: str, platform: str, rtos: str, constraints: list[s
             shard_file = CONSTRAINT_SHARDS.get(shard_name)
             if shard_file and shard_file not in required_files:
                 required_files.append(shard_file)
-                reasons[shard_file] = f"????: {shard_name}"
+                reasons[shard_file] = f"Constraint shard: {shard_name}"
         constraint_shards_loaded = sorted(shards)
 
     if budget == "compact":
         qi = "references/constraint_quick_index.md"
-        add_required(qi, "C1-C45 ??????")
+        add_required(qi, "C1-C46 quick constraint index")
 
         required_files.append(wf["file"])
         reasons[wf["file"]] = f"Workflow: {wf['description']}"
 
         core_quick = "references/core_rules_quick.md"
-        add_required(core_quick, "??????")
+        add_required(core_quick, "Core rules quick reference")
 
         sdk_quick = "references/sdk_abstraction_quick.md"
-        add_required(sdk_quick, "SDK ????")
+        add_required(sdk_quick, "SDK abstraction quick reference")
 
         plat_quick = f"platforms/{platform}_quick.md"
         if (ROOT / plat_quick).is_file():
-            add_required(plat_quick, f"????: {platform}")
+            add_required(plat_quick, f"Platform quick doc: {platform}")
         else:
-            add_required(plat["doc"], f"????: {platform}?? quick ??")
+            add_required(plat["doc"], f"Platform doc: {platform} (quick doc missing)")
 
         rtos_quick = rtos_entry.get("quick_doc")
         if rtos_quick and (ROOT / rtos_quick).is_file():
-            add_required(rtos_quick, f"RTOS ??: {rtos}")
+            add_required(rtos_quick, f"RTOS quick doc: {rtos}")
         else:
-            add_required(rtos_entry["doc"], f"RTOS ??: {rtos}?? quick ??")
+            add_required(rtos_entry["doc"], f"RTOS doc: {rtos} (quick doc missing)")
 
         constraint_doc_mode = "shards"
         if constraints:
@@ -738,7 +738,7 @@ def build_load_plan(workflow: str, platform: str, rtos: str, constraints: list[s
                 if micro_file and (ROOT / micro_file).is_file():
                     if micro_file not in required_files:
                         required_files.append(micro_file)
-                        reasons[micro_file] = f"???: {c_upper}"
+                        reasons[micro_file] = f"Micro constraint: {c_upper}"
                     micro_constraints_loaded.append(c_upper)
                     continue
 
@@ -756,22 +756,22 @@ def build_load_plan(workflow: str, platform: str, rtos: str, constraints: list[s
             add_constraint_shards(set(wf["constraint_shards"]))
 
         upgrade_hints = [
-            "????/RTOS API ?????? standard",
-            "????/???????? full",
+            "Use standard budget for platform/RTOS API details",
+            "Use full budget for cross-shard or architecture-wide review",
         ]
-        quality_risks = ["compact ????????/RTOS ??"]
+        quality_risks = ["compact budget omits detailed platform/RTOS docs"]
 
     elif budget == "standard":
         qi = "references/constraint_quick_index.md"
-        add_required(qi, "C1-C45 ??????")
+        add_required(qi, "C1-C46 quick constraint index")
         add_required(wf["file"], f"Workflow: {wf['description']}")
-        add_required("references/core_rules.md", "????")
-        add_required("references/sdk_abstraction.yaml", "SDK ?????")
+        add_required("references/core_rules.md", "Core rules")
+        add_required("references/sdk_abstraction.yaml", "SDK abstraction map")
 
-        add_required(plat["doc"], f"????: {platform}")
-        add_required(plat["sdk_map"], f"?? SDK ??: {platform}", required_exists=False)
-        add_required(rtos_entry["doc"], f"RTOS ??: {rtos}")
-        add_required(rtos_entry["sdk_map"], f"RTOS SDK ??: {rtos}", required_exists=False)
+        add_required(plat["doc"], f"Platform doc: {platform}")
+        add_required(plat["sdk_map"], f"Platform SDK map: {platform}", required_exists=False)
+        add_required(rtos_entry["doc"], f"RTOS doc: {rtos}")
+        add_required(rtos_entry["sdk_map"], f"RTOS SDK map: {rtos}", required_exists=False)
 
         shards = set(wf["constraint_shards"])
         for c in constraints:
@@ -780,20 +780,20 @@ def build_load_plan(workflow: str, platform: str, rtos: str, constraints: list[s
                 shards.add(shard)
         add_constraint_shards(shards)
 
-        upgrade_hints = ["????/???????? full"]
+        upgrade_hints = ["Use full budget for cross-shard or architecture-wide review"]
         quality_risks = []
 
     elif budget == "full":
         qi = "references/constraint_quick_index.md"
-        add_required(qi, "C1-C45 ??????")
+        add_required(qi, "C1-C46 quick constraint index")
         add_required(wf["file"], f"Workflow: {wf['description']}")
-        add_required("references/core_rules.md", "????")
-        add_required("references/sdk_abstraction.yaml", "SDK ?????")
+        add_required("references/core_rules.md", "Core rules")
+        add_required("references/sdk_abstraction.yaml", "SDK abstraction map")
 
-        add_required(plat["doc"], f"????: {platform}")
-        add_required(plat["sdk_map"], f"?? SDK ??: {platform}", required_exists=False)
-        add_required(rtos_entry["doc"], f"RTOS ??: {rtos}")
-        add_required(rtos_entry["sdk_map"], f"RTOS SDK ??: {rtos}", required_exists=False)
+        add_required(plat["doc"], f"Platform doc: {platform}")
+        add_required(plat["sdk_map"], f"Platform SDK map: {platform}", required_exists=False)
+        add_required(rtos_entry["doc"], f"RTOS doc: {rtos}")
+        add_required(rtos_entry["sdk_map"], f"RTOS SDK map: {rtos}", required_exists=False)
 
         shards = set(wf["constraint_shards"])
         for c in constraints:
@@ -803,9 +803,9 @@ def build_load_plan(workflow: str, platform: str, rtos: str, constraints: list[s
         add_constraint_shards(shards)
 
         for f, r in [
-            ("references/skill_structure.md", "Skill ????"),
-            ("references/platform_diff_matrix.md", "??????"),
-            ("references/constraint_graph.md", "??????"),
+            ("references/skill_structure.md", "Skill structure"),
+            ("references/platform_diff_matrix.md", "Platform diff matrix"),
+            ("references/constraint_graph.md", "Constraint graph"),
         ]:
             add_required(f, r, required_exists=False)
 
@@ -829,9 +829,9 @@ def build_load_plan(workflow: str, platform: str, rtos: str, constraints: list[s
 
     budget_warning = None
     if budget == "compact" and total_tokens > 15000:
-        budget_warning = f"compact ???? {total_tokens} tokens??? 15k ????? standard"
+        budget_warning = f"compact plan is {total_tokens} tokens; consider standard when over 15k"
     elif budget == "standard" and total_tokens > 30000:
-        budget_warning = f"standard ???? {total_tokens} tokens??? 30k ????? full"
+        budget_warning = f"standard plan is {total_tokens} tokens; consider full when over 30k"
 
     return {
         "workflow": workflow,
@@ -856,7 +856,7 @@ def build_load_plan(workflow: str, platform: str, rtos: str, constraints: list[s
 
 
 def run_self_test() -> int:
-    """?????"""
+    """Run self-test."""
     passed = 0
     failed = 0
 
@@ -884,6 +884,10 @@ def run_self_test() -> int:
 
     plan_c3 = build_load_plan("code_review", "esp32", "freertos", ["C3"])
     check("C3 adds micro-shard", any("micro_C03" in f["path"] for f in plan_c3["required_files"]))
+
+    plan_c46 = build_load_plan("code_review", "esp32", "freertos", ["C46"])
+    check("C46 maps to platform shard", any("constraint_platform" in f["path"] for f in plan_c46["required_files"]))
+    check("C46 is covered", "C46" not in plan_c46.get("uncovered_constraints", []))
 
     plan = build_load_plan("crash_debug", "esp32", "freertos")
     check("forbidden_by_default present", len(plan.get("forbidden_by_default", [])) > 0)
@@ -919,42 +923,42 @@ def run_self_test() -> int:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Context Router ? ??????")
+    parser = argparse.ArgumentParser(description="Context Router: build a minimal load plan")
     parser.add_argument("--workflow", "-w",
                         choices=list(WORKFLOWS.keys()),
                         help="Workflow ID")
     parser.add_argument("--platform", "-p",
                         choices=list(PLATFORM_DOCS.keys()),
                         default="esp32",
-                        help="????")
+                        help="Platform ID")
     parser.add_argument("--rtos", "-r",
                         choices=list(RTOS_DOCS.keys()),
                         default="freertos",
-                        help="RTOS ??")
+                        help="RTOS ID")
     parser.add_argument("--constraints", "-c", nargs="*",
-                        help="?? ID?? C2 C3????????")
+                        help="Constraint IDs, for example C2 C3")
     parser.add_argument("--budget", "-b",
                         choices=["compact", "standard", "full"],
                         default="compact",
-                        help="?????compact????/ standard / full")
+                        help="Load budget: compact / standard / full")
     parser.add_argument("--case",
                         choices=list(QUALITY_CASES.keys()),
-                        help="???? ID?????? workflow/platform/constraints")
+                        help="Quality case ID with predefined workflow/platform/constraints")
     parser.add_argument("--symptom-text",
-                        help="??????????????????")
+                        help="Symptom text or log excerpt to route")
     parser.add_argument("--symptom-file",
-                        help="?????????????????")
+                        help="Path to a symptom or log text file")
     parser.add_argument("--probe-detail",
                         choices=["compact", "full"],
                         default="compact",
-                        help="???????compact????/ full")
+                        help="Diagnostic probe detail: compact / full")
     parser.add_argument("--allow-weak-route",
                         action="store_true",
-                        help="???????????????? missing_facts?")
+                        help="Allow weak symptom routes instead of returning missing_facts")
     parser.add_argument("--json", action="store_true",
-                        help="?? JSON ??")
+                        help="Output JSON")
     parser.add_argument("--self-test", action="store_true",
-                        help="????")
+                        help="Run self-test")
     args = parser.parse_args()
 
     if args.self_test:
@@ -1044,7 +1048,7 @@ def main() -> int:
             print(f"Warning: {plan['budget_warning']}")
         print(f"Required files ({len(plan['required_files'])}):")
         for f in plan["required_files"]:
-            print(f"  {f['path']} ? {f['reason']} (~{f['estimated_tokens']} tokens)")
+            print(f"  {f['path']} - {f['reason']} (~{f['estimated_tokens']} tokens)")
         print(f"Forbidden by default:")
         for f in plan["forbidden_by_default"]:
             print(f"  {f}")

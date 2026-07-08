@@ -56,7 +56,7 @@ behavior, and practical production hardening.
 
 ## Required Context (always load)
 
-- Quick index: [constraint_quick_index](references/constraint_quick_index.md) — C1-C45 名称、场景、分片映射
+- Quick index: [constraint_quick_index](references/constraint_quick_index.md) — C1-C46 名称、场景、分片映射
 - SDK abstraction: [sdk_abstraction](references/sdk_abstraction.yaml) — 标准操作注册表
 
 ## Constraint Shards (workflow Step 1 loads)
@@ -64,7 +64,7 @@ behavior, and practical production hardening.
 - `references/constraint_review.md` — C1-C4, C5-C6, C11-C16 (代码审查、ISR、队列、cJSON、编码规范)
 - `references/constraint_memory.md` — C7, C28, C36 (内存分配、DMA、拷贝预算)
 - `references/constraint_rtos.md` — C8, C15, C17, C29-C35, C43-C44 (启动、优先级、IPC、模块契约、拓扑、锁、临界区)
-- `references/constraint_platform.md` — C18-C21, C23, C42, C45 (GPIO、NVS、网络、低功耗、显示、板级资源、传感器)
+- `references/constraint_platform.md` — C18-C21, C23, C42, C45, C46 (GPIO、NVS、网络、低功耗、显示、板级资源、传感器、蓝牙协议)
 - `references/constraint_media.md` — C25-C27 (A/V 管线、编解码、时钟漂移)
 - `references/constraint_ota.md` — C9, C22, C24 (密钥、OTA 安全、外设关闭)
 - `references/constraint_recover.md` — C37-C41 (背压、故障隔离、配置矩阵、复现、回归)

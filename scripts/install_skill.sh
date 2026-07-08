@@ -29,6 +29,7 @@ rsync -a \
   --exclude 'node_modules' \
   --exclude 'freertos-skill-lite' \
   --exclude 'archive' \
+  --exclude 'forward_tests' \
   --exclude '/README.md' \
   --exclude '/INSTALL.md' \
   --exclude '/CHANGELOG.md' \
