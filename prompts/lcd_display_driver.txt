@@ -1234,3 +1234,28 @@ static StaticQueue_t ui_evt_q_buf;
 - [ ] 路径、写目录、临时文件和命令调用是否有权限边界？
 - [ ] CI 是否能根据环境默认选择 warning/strict/blocking？
 - [ ] 每次审查是否产出 Next Action、Owner、Priority 和 Expected Metric？
+### 19.2 策略-执行入口映射表（文档-实现一致性）
+
+- 约束：节 14~19 每条策略必须在本表中有至少一个可执行入口（脚本、命令或 fixture）。
+- 变更时先更新映射行，再落执行。
+
+| 策略ID | 策略 | 执行入口 | 证据 / fixture |
+|---|---|---|---|
+| S19.1 | 错误可观测性标准化 | `python scripts/check_log_symptom_quality_gate.py --self-test`；`python scripts/check_log_symptom_routes.py --self-test` | `tools/fixtures/logs/quality_gate_missing_fields.json`、`tools/fixtures/logs/quality_gate_conflict_over_threshold.json` |
+| S19.2 | 变更影响分析规范化 | `python scripts/commit_audit.py --self-test`；`python scripts/skill_iterate.py --check` | 变更说明 `迭代记录/iteration_log` |
+| S19.3 | 故障注入与模糊测试 | `python scripts/check_log_symptom_quality_gate.py --self-test` | `tools/fixtures/logs/quality_gate_empty_routes.json`、`quality_gate_missing_fields.json`、`quality_gate_multi_match_routes.json` |
+| S19.4 | 规则元数据版本化 | `python scripts/check_log_symptom_routes.py --self-test`；`python scripts/check_log_symptom_quality_gate.py --self-test` | `references/log_symptom_routes_quality_policy.json`、`references/log_symptom_routes.json` |
+| S19.5 | 回归快照与工件标准化 | `python scripts/quick_gate.py`（quality artifact） | `references/log_symptom_quality_report_schema.json`（待落地 artifact schema） |
+| S19.6 | 配置变更治理 | `python scripts/quick_gate.py --self-test --strict`；`python scripts/commit_audit.py --self-test` | `references/log_symptom_routes_allowlist_governance.md`（需补充自动校验脚本） |
+| S19.7 | 测试金字塔扩展 | `python scripts/check_log_symptom_quality_gate.py --self-test`；`python scripts/quick_gate.py --self-test` | `tools/fixtures/logs/*.json`、`tools/fixtures/logs/*.log` |
+| S19.8 | 文档与实现绑定 | `python scripts/skill_iterate.py --check` | `workflows/l3_lvgl_page.md`、`references/core_rules.md` |
+| S19.9 | 平台能力映射一致性 | `python tools/context_router.py --self-test`；`python tools/run_review.py --self-test` | `platforms/*.md`、`platforms/*_sdk_map.yaml` |
+| S19.10 | 安全与权限边界加固 | `python scripts/test_quality_schema_guardrails.py`（负面测试） | `tools/fixtures/logs`（异常类日志） |
+| S19.11 | CI 质量门禁粒度化 | `python scripts/quick_gate.py --strict`；`python scripts/quick_gate.py --self-test` | `scripts/quick_gate.py` 配置参数（strict） |
+| S19.12 | 交付闭环任务化 | `python scripts/commit_audit.py --self-test`；`python scripts/skill_iterate.py --check` | `CHANGELOG.md`、`references/iteration_log.md` |
+
+### 19.3 缺口补齐清单 V3 映射校验
+- [ ] 所有 `S19.x` 条目在上表中均有非空执行入口？
+- [ ] `S19.6`/`S19.5` 的“待补齐”项在对应提交中关闭（至少变为 `DONE`）？
+- [ ] 映射表缺失条目会被脚本审计为阻断失败？
+- [ ] 每次策略更新时先更新本表，再落地策略条目？
