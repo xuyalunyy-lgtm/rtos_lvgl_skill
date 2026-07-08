@@ -6,7 +6,7 @@ description: >-
   Embedded architecture specialist for MVP firmware and production hardening.
   Covers runtime reliability, memory safety, module contracts, task topology,
   timeout budgets, observability, lifecycle symmetry, recovery, board bring-up,
-  LVGL/DMA/ISR safety, SDK trimming, crash debugging, and OTA firmware update safety.
+  LVGL/DMA/ISR safety, LVGL UI generation from design/cut images, SDK trimming, crash debugging, and OTA firmware update safety.
   SDK abstraction layer: checkers use sdk_lookup.py across ESP32/STM32/JL/BK/Zephyr.
   First-class platforms: ESP32 (ESP-IDF), STM32, JL, BK. First-class RTOS: FreeRTOS, Zephyr.
   Use when the user asks for FreeRTOS, embedded C, GPIO, LCD/OLED, camera,
@@ -77,7 +77,7 @@ Router IDs: `code_review`, `project_review`, `crash_debug`,
 - Platform docs: [esp32](platforms/esp32.md), [stm32](platforms/stm32.md), [jl](platforms/jl.md), [bk](platforms/bk.md).
 - RTOS docs: [freertos](platforms/freertos.md), [zephyr](platforms/zephyr.md).
 - SDK maps: `platforms/*_sdk_map.yaml`, including FreeRTOS and Zephyr RTOS maps.
-- Prompt index: [prompt_index](references/prompt_index.md); load prompts only after workflow and symptom selection. MCP adapter: [server](mcp/server.py) is the execution facade; scripts remain authoritative.
+- Prompt index: [prompt_index](references/prompt_index.md); load prompts only after workflow and symptom selection. MCP adapter: [server](mcp/server.py) plus [lvgl_ui](mcp/lvgl_ui.py) expose resources/tools; scripts remain authoritative.
 
 ## Resource Layers
 
@@ -95,4 +95,5 @@ Router IDs: `code_review`, `project_review`, `crash_debug`,
 - Do not perform unplanned core SDK refactors; preserve critical logs and watchdog behavior.
 - For commit requests, follow [git_commit_style](references/git_commit_style.md) and use `type(scope):`.
 - For self-iteration, run `python scripts/skill_iterate.py --check` before release or commit review.
+- For LVGL design/cut-image UI work, read MCP `lvgl://display-config` then `lvgl://theme-skill`; use `convert_image_to_lvgl_source`, `generate_lvgl_layout_spec`, `generate_lvgl_page_code`, and `validate_lvgl_layout_code`. Prefer Flex/Grid; absolute coordinates require `LVGL_LAYOUT_EXCEPTION`.
 - Default output should be concise; use `--fix-detail full` only when complete details are needed.

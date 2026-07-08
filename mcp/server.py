@@ -14,6 +14,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from lvgl_ui import LVGL_TOOL_SCHEMAS, LVGL_TOOLS, RESOURCE_SCHEMAS, RESOURCE_URIS, get_resource_content
+
 ROOT = Path(__file__).resolve().parent.parent
 PYTHON = sys.executable
 
@@ -93,6 +95,7 @@ def list_capabilities(_: dict[str, Any] | None = None) -> dict[str, Any]:
     return {
         "ok": True,
         "tools": sorted(TOOLS),
+        "resources": sorted(RESOURCE_URIS),
         "workflows": sorted(WORKFLOWS),
         "platforms": sorted(PLATFORMS),
         "router_platforms": sorted(ROUTER_PLATFORMS),
@@ -224,6 +227,7 @@ TOOLS = {
     "lookup_sdk": lookup_sdk,
     "run_gate": run_gate,
 }
+TOOLS.update(LVGL_TOOLS)
 
 TOOL_SCHEMAS: list[dict[str, Any]] = [
     {
@@ -304,6 +308,7 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
         },
     },
 ]
+TOOL_SCHEMAS.extend(LVGL_TOOL_SCHEMAS)
 
 
 def _mcp_result(payload: dict[str, Any]) -> dict[str, Any]:
@@ -325,11 +330,17 @@ def _handle_request(message: dict[str, Any]) -> dict[str, Any] | None:
         if method == "initialize":
             result = {
                 "protocolVersion": "2024-11-05",
-                "capabilities": {"tools": {}},
+                "capabilities": {"tools": {}, "resources": {}},
                 "serverInfo": {"name": "freertos-embedded-architect-mcp", "version": "0.1.0"},
             }
         elif method == "tools/list":
             result = {"tools": TOOL_SCHEMAS}
+        elif method == "resources/list":
+            result = {"resources": RESOURCE_SCHEMAS}
+        elif method == "resources/read":
+            params = message.get("params") or {}
+            uri = str(params.get("uri", ""))
+            result = {"contents": [get_resource_content(uri)]}
         elif method == "tools/call":
             params = message.get("params") or {}
             name = params.get("name")
@@ -371,6 +382,29 @@ def run_self_test() -> int:
 
     caps = list_capabilities({})
     checks.append(("list_capabilities", caps.get("ok") is True and "route_context" in caps.get("tools", []), "missing route_context"))
+    checks.append(("resources registry", "lvgl://display-config" in caps.get("resources", []), "missing lvgl://display-config"))
+
+    display = json.loads(get_resource_content("lvgl://display-config")["text"])
+    checks.append(("display resource", display["display"]["width"] == 480 and display["display"]["color_format"] == "RGB565", "display resource invalid"))
+
+    theme = TOOLS["get_lvgl_theme_skill"]({})
+    checks.append(("theme skill", theme["ok"] and "Flex" in theme["content"], "theme skill invalid"))
+
+    tmp = ROOT / "artifacts" / "mcp_self_test"
+    tmp.mkdir(parents=True, exist_ok=True)
+    ppm = tmp / "tiny.ppm"
+    ppm.write_bytes(b"P6\n2 1\n255\n\xff\x00\x00\x00\xff\x00")
+    image = TOOLS["convert_image_to_lvgl_source"]({"input_path": str(ppm), "output_dir": str(tmp), "name": "tiny_icon"})
+    checks.append(("convert_image_to_lvgl_source", image["ok"] and (tmp / "tiny_icon.c").is_file(), "image conversion failed"))
+
+    spec = TOOLS["generate_lvgl_layout_spec"]({"page_name": "self_test", "design_notes": "title and button"})["spec"]
+    code = TOOLS["generate_lvgl_page_code"]({"spec_json": spec, "output_dir": str(tmp / "ui")})
+    checks.append(("generate_lvgl_page_code", code["ok"] and any(Path(p).name == "ui_self_test.c" for p in code["artifacts"]), "code generation failed"))
+
+    bad = tmp / "bad_layout.c"
+    bad.write_text("void f(lv_obj_t *o){lv_obj_set_pos(o, 1, 2);}\n", encoding="utf-8")
+    bad_check = TOOLS["validate_lvgl_layout_code"]({"path": str(bad)})
+    checks.append(("validate_lvgl_layout_code", not bad_check["ok"] and bool(bad_check["errors"]), "validator did not catch absolute positioning"))
 
     route = route_context({"workflow": "code_review", "platform": "esp32", "rtos": "freertos"})
     checks.append(("route_context", route["ok"] and isinstance(route.get("data"), dict), "route_context failed"))

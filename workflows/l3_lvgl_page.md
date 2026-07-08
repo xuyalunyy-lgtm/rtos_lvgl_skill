@@ -323,6 +323,19 @@ void ui_page_xxx_set_progress(int32_t value)
 ---
 ---
 
+## MCP-assisted LVGL UI Generation
+
+Use the MCP resources before generating page code from design screenshots or cut images:
+
+1. Read `lvgl://display-config` for resolution, color depth, LVGL version, fonts, and asset policy.
+2. Read `lvgl://theme-skill` or call `get_lvgl_theme_skill` for hard layout rules.
+3. Convert cut images with `convert_image_to_lvgl_source` before referencing them in C code.
+4. Create a structured spec with `generate_lvgl_layout_spec`, then generate C/H scaffolding with `generate_lvgl_page_code`.
+5. Run `validate_lvgl_layout_code` before delivering or committing generated LVGL UI code.
+
+Hard layout policy: prefer Flex/Grid containers. Do not use `lv_obj_set_pos`, `lv_obj_set_x`, or `lv_obj_set_y` unless the line is immediately justified by `LVGL_LAYOUT_EXCEPTION: <reason>`.
+
+
 ## 现场调试补充：带 TF 资源和本地媒体的 LVGL 页面
 
 当页面开发包含 TF 卡资源、JPEG/PNG、触摸切页或音视频播放时，改坐标前先完成这些检查：
