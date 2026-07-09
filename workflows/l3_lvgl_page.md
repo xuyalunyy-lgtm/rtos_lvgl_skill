@@ -332,6 +332,8 @@ Use the MCP resources before generating page code from design screenshots or cut
 3. Convert cut images with `convert_image_to_lvgl_source` before referencing them in C code.
 4. Create a structured spec with `generate_lvgl_layout_spec`, then generate C/H scaffolding with `generate_lvgl_page_code`.
 5. Run `validate_lvgl_layout_code` before delivering or committing generated LVGL UI code.
+6. For one-shot rendering, call `lvgl_render` to get `render.png`, `object_tree.json`, and diagnostics.
+7. For regression, call `run_lvgl_ui_regression`; it uses `lvgl_render` output and compares pixels, optional object-tree JSON, and logs against baselines.
 
 Hard layout policy: prefer Flex/Grid containers. Do not use `lv_obj_set_pos`, `lv_obj_set_x`, or `lv_obj_set_y` unless the line is immediately justified by `LVGL_LAYOUT_EXCEPTION: <reason>`.
 

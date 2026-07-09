@@ -6,7 +6,7 @@ description: >-
   Embedded architecture specialist for MVP firmware and production hardening.
   Covers runtime reliability, memory safety, module contracts, task topology,
   timeout budgets, observability, lifecycle symmetry, recovery, board bring-up,
-  LVGL/DMA/ISR safety, LVGL UI generation from design/cut images, SDK trimming, crash debugging, and OTA firmware update safety.
+  LVGL/DMA/ISR safety, LVGL UI generation/regression from design/cut images, SDK trimming, crash debugging, and OTA firmware update safety.
   SDK abstraction layer: checkers use sdk_lookup.py across ESP32/STM32/JL/BK/Zephyr.
   First-class platforms: ESP32 (ESP-IDF), STM32, JL, BK. First-class RTOS: FreeRTOS, Zephyr.
   Use when the user asks for FreeRTOS, embedded C, GPIO, LCD/OLED, camera,
@@ -83,7 +83,7 @@ Router IDs: `code_review`, `project_review`, `crash_debug`,
 
 | Layer | Contents | Runtime policy |
 |---|---|---|
-| Runtime | `SKILL.md`, `agents/`, `workflows/`, routed `references/`, `prompts/`, `platforms/`, active `tools/`, `mcp/` | Keep installed and load by router only. |
+| Runtime | `SKILL.md`, `agents/`, `workflows/`, routed `references/`, `prompts/`, `platforms/`, active `tools/`, `mcp/`, selected `assets/` templates | Keep installed and load by router only. |
 | Test | `tools/fixtures/`, `examples/`, `scene_presets/`, selected `scripts/check_*` | Keep in source and full runtime when required by gates; do not load by default. |
 | Maintenance | root `README.md`, `INSTALL.md`, `CHANGELOG.md`, `archive/`, `forward_tests/`, local caches | Keep out of installed runtime payload unless explicitly maintaining the skill. |
 
@@ -95,5 +95,5 @@ Router IDs: `code_review`, `project_review`, `crash_debug`,
 - Do not perform unplanned core SDK refactors; preserve critical logs and watchdog behavior.
 - For commit requests, follow [git_commit_style](references/git_commit_style.md) and use `type(scope):`.
 - For self-iteration, run `python scripts/skill_iterate.py --check` before release or commit review.
-- For LVGL design/cut-image UI work, read MCP `lvgl://display-config` then `lvgl://theme-skill`; use `convert_image_to_lvgl_source`, `generate_lvgl_layout_spec`, `generate_lvgl_page_code`, and `validate_lvgl_layout_code`. Prefer Flex/Grid; absolute coordinates require `LVGL_LAYOUT_EXCEPTION`.
+- For LVGL design/cut-image UI work, read MCP `lvgl://display-config`, `lvgl://theme-skill`, and `lvgl://regression-sandbox-config`; use image conversion, layout/code generation, validation, `lvgl_render`, and `run_lvgl_ui_regression`. Prefer Flex/Grid; absolute coordinates require `LVGL_LAYOUT_EXCEPTION`; keep baselines/artifacts outside runtime.
 - Default output should be concise; use `--fix-detail full` only when complete details are needed.

@@ -390,6 +390,9 @@ def run_self_test() -> int:
     theme = TOOLS["get_lvgl_theme_skill"]({})
     checks.append(("theme skill", theme["ok"] and "Flex" in theme["content"], "theme skill invalid"))
 
+    sandbox_config = json.loads(get_resource_content("lvgl://regression-sandbox-config")["text"])
+    checks.append(("regression sandbox resource", sandbox_config["default_width"] == 480, "regression sandbox config invalid"))
+
     tmp = ROOT / "artifacts" / "mcp_self_test"
     tmp.mkdir(parents=True, exist_ok=True)
     ppm = tmp / "tiny.ppm"
@@ -405,6 +408,24 @@ def run_self_test() -> int:
     bad.write_text("void f(lv_obj_t *o){lv_obj_set_pos(o, 1, 2);}\n", encoding="utf-8")
     bad_check = TOOLS["validate_lvgl_layout_code"]({"path": str(bad)})
     checks.append(("validate_lvgl_layout_code", not bad_check["ok"] and bool(bad_check["errors"]), "validator did not catch absolute positioning"))
+
+    sandbox = TOOLS["prepare_lvgl_regression_sandbox"]({"output_dir": str(tmp / "sandbox")})
+    checks.append(("prepare_lvgl_regression_sandbox", sandbox["ok"] and (tmp / "sandbox" / "CMakeLists.txt").is_file(), "sandbox prepare failed"))
+
+    baseline = ROOT / "assets" / "lvgl_regression_sandbox_template" / "baselines" / "probe.ppm"
+    compare_ok = TOOLS["compare_lvgl_screenshot"]({"actual_path": str(baseline), "baseline_path": str(baseline)})
+    checks.append(("compare_lvgl_screenshot pass", compare_ok["ok"], "identical screenshot compare failed"))
+
+    changed = tmp / "changed.ppm"
+    changed.write_bytes(b"P6\n2 2\n255\n\x20\x24\x2A\x00\x00\x00\xFF\x98\x00\xFF\xFF\xFF")
+    compare_bad = TOOLS["compare_lvgl_screenshot"]({"actual_path": str(changed), "baseline_path": str(baseline), "max_changed_ratio": 0.0, "max_channel_delta": 0})
+    checks.append(("compare_lvgl_screenshot fail", not compare_bad["ok"], "changed screenshot compare did not fail"))
+
+    render = TOOLS["lvgl_render"]({"output_dir": str(tmp / "render_probe"), "render_mode": "probe"})
+    checks.append(("lvgl_render probe", render["ok"] and Path(render["png_path"]).is_file() and Path(render["object_tree_path"]).is_file(), "lvgl_render probe failed"))
+
+    regression = TOOLS["run_lvgl_ui_regression"]({"output_dir": str(tmp / "regression_probe"), "render_mode": "probe", "baseline_path": str(baseline)})
+    checks.append(("run_lvgl_ui_regression probe", regression["ok"] and regression.get("comparison", {}).get("ok"), "lvgl UI regression probe failed"))
 
     route = route_context({"workflow": "code_review", "platform": "esp32", "rtos": "freertos"})
     checks.append(("route_context", route["ok"] and isinstance(route.get("data"), dict), "route_context failed"))
