@@ -453,6 +453,10 @@ WORKFLOWS = {
     },
     "lvgl_page": {
         "file": "workflows/l3_lvgl_page.md",
+        "quick_file": "workflows/l3_lvgl_page_quick.md",
+        "quick_refs": ["references/lvgl_design_codegen_quick.md"],
+        "quick_constraint_mode": "embedded",
+        "quick_platform_optional": True,
         "constraint_shards": ["review", "media"],
         "description": "LVGL 页面生成",
     },
@@ -707,8 +711,11 @@ def build_load_plan(workflow: str, platform: str, rtos: str, constraints: list[s
         qi = "references/constraint_quick_index.md"
         add_required(qi, "C1-C46 quick constraint index")
 
-        required_files.append(wf["file"])
-        reasons[wf["file"]] = f"Workflow: {wf['description']}"
+        workflow_file = wf.get("quick_file", wf["file"])
+        workflow_reason = "Workflow quick reference" if workflow_file != wf["file"] else "Workflow"
+        add_required(workflow_file, f"{workflow_reason}: {wf['description']}")
+        for quick_ref in wf.get("quick_refs", []):
+            add_required(quick_ref, f"Workflow quick companion: {workflow}")
 
         core_quick = "references/core_rules_quick.md"
         add_required(core_quick, "Core rules quick reference")
@@ -719,6 +726,8 @@ def build_load_plan(workflow: str, platform: str, rtos: str, constraints: list[s
         plat_quick = f"platforms/{platform}_quick.md"
         if (ROOT / plat_quick).is_file():
             add_required(plat_quick, f"Platform quick doc: {platform}")
+        elif wf.get("quick_platform_optional"):
+            quality_risks.append(f"compact {workflow} omits full {platform} platform doc; use standard for platform API details")
         else:
             add_required(plat["doc"], f"Platform doc: {platform} (quick doc missing)")
 
@@ -752,6 +761,9 @@ def build_load_plan(workflow: str, platform: str, rtos: str, constraints: list[s
                 add_constraint_shards(shards)
             if fallback_shards:
                 constraint_doc_mode = "mixed"
+        elif wf.get("quick_constraint_mode") == "embedded":
+            constraint_doc_mode = "quick_embedded"
+            quality_risks.append(f"compact {workflow} uses embedded quick constraints; use standard for full constraint shards")
         else:
             add_constraint_shards(set(wf["constraint_shards"]))
 
@@ -759,7 +771,10 @@ def build_load_plan(workflow: str, platform: str, rtos: str, constraints: list[s
             "Use standard budget for platform/RTOS API details",
             "Use full budget for cross-shard or architecture-wide review",
         ]
-        quality_risks = ["compact budget omits detailed platform/RTOS docs"]
+        if workflow == "lvgl_page":
+            upgrade_hints.insert(0, "Use standard budget for LVGL renderer, platform decoder, or media details")
+        if not quality_risks:
+            quality_risks = ["compact budget omits detailed platform/RTOS docs"]
 
     elif budget == "standard":
         qi = "references/constraint_quick_index.md"
@@ -904,6 +919,15 @@ def run_self_test() -> int:
 
     plan_json = json.dumps(build_load_plan("code_review", "esp32", "freertos"), ensure_ascii=False)
     check("JSON output valid", len(plan_json) > 100)
+
+    plan_lvgl_compact = build_load_plan("lvgl_page", "jl", "freertos", budget="compact")
+    lvgl_paths = {f["path"] for f in plan_lvgl_compact.get("required_files", [])}
+    check("lvgl compact uses quick workflow", "workflows/l3_lvgl_page_quick.md" in lvgl_paths)
+    check("lvgl compact loads quick design codegen reference", "references/lvgl_design_codegen_quick.md" in lvgl_paths)
+    check("lvgl compact skips full jl platform doc", "platforms/jl.md" not in lvgl_paths)
+    check("lvgl compact skips full review/media shards", {"references/constraint_review.md", "references/constraint_media.md"}.isdisjoint(lvgl_paths))
+    check("lvgl compact uses embedded constraints", plan_lvgl_compact.get("constraint_doc_mode") == "quick_embedded")
+    check("lvgl compact stays under 8k estimated tokens", plan_lvgl_compact.get("estimated_tokens", 0) < 8000)
 
     for case_id, case in QUALITY_CASES.items():
         plan = build_load_plan(case["workflow"], case["platform"], case.get("rtos", "freertos"),

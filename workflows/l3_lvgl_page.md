@@ -518,3 +518,77 @@ If the audio page immediately switches but the file is actually playing, inspect
 - ???????????? overlay??? preview???? JSON??? bbox sanity check ??
 - ???????????????
 
+## Design-to-LVGL Cutout Capture Addendum (2026-07-09)
+
+This addendum captures the corrected operating procedure from the sub-screen loading page case.
+
+### Problem Pattern
+
+A design page can appear mostly correct while still missing important cutouts. Common misses include bluetooth/status icons, battery glyphs, loading marks, and small top-bar slices. The main causes are:
+
+- Ranking template matches by absolute composite error instead of improvement over background.
+- Treating a high-confidence cutout as a generated widget too early.
+- Silently dropping low-confidence or state-variant slices instead of recording them.
+- Spending minutes on repeated full-screen brute force searches.
+
+### Required Artifacts
+
+For every design-to-code run, write these artifacts:
+
+- `analysis_report.json`: page layout tree and component source evidence.
+- `cutout_audit.json`: one entry for every input cut image.
+- `debug_overlay.png`: current corrected overlay.
+- `debug_overlay_vN.png`: previous overlays when a detection is corrected.
+- `preview.html`: approximate browser preview only; it is not visual proof.
+
+### Matching Rule
+
+Use this score first:
+
+```text
+improvement = background_error - composite_error
+```
+
+A real cutout may not have the lowest absolute composite error. Background-like false positives often have low absolute error because the background already resembles the design there. A match is stronger when placing the cutout improves the design/background residual by a large positive amount.
+
+### Cutout Audit Status
+
+Every cut image must be classified:
+
+| Status | Meaning | Codegen action |
+|---|---|---|
+| `used_cutout` | High-confidence visible image layer | Generate image object and `UI_IMG_SRC_*` macro |
+| `used_component_calibration` | Slice matches but dynamic widget is preferred | Generate widget, cite slice as calibration evidence |
+| `duplicate_or_low_confidence` | Weak or overlaps stronger match | Do not use by default; keep report entry |
+| `unmatched_or_state_variant` | Not visible in current state | Preserve asset and report for later state pages |
+
+### Cutout vs LVGL Component Decision
+
+Default to visual parity first. If battery, bluetooth, wifi, loading mark, or other status glyphs are high-confidence cutouts, use the cutout by default. If runtime updates are needed, expose a macro switch for a dynamic LVGL implementation, for example:
+
+```c
+#ifndef UI_SUB_LOADING_USE_BATTERY_CUTOUT
+#define UI_SUB_LOADING_USE_BATTERY_CUTOUT 1
+#endif
+```
+
+When the macro is `1`, use the cutout. When it is `0`, use the LVGL component path.
+
+### Speed Rule
+
+Quick generation should not spend minutes on brute-force matching. Use this order:
+
+1. Detect residual connected components after subtracting known background/cutouts.
+2. Build candidate windows around status bars, loading areas, panels, buttons, and residual components.
+3. Match alpha-active pixels only inside candidate windows.
+4. Fall back to full-screen search only for unresolved high-priority assets.
+5. If the time budget is exceeded, stop and mark remaining slices in `cutout_audit.json` as low-confidence or unmatched.
+
+The final response should report the audit result and validation result, not full JSON/code dumps.
+
+
+### Glass And Blur Layers
+
+Do not treat a matched inner icon as proof that the whole visual component is complete. A loading icon inside a frosted circular frame has two layers: the inner icon/cutout and the outer glass component. Generate both layers. Record CSS-like parameters such as `backdrop-filter: blur(12px)` and inset highlights in the report, and emit a renderer hook macro when stock LVGL cannot express the effect directly.
+
+For the sub-screen loading page, the required pattern is: 84x84 outer glass circle at x=198, y=147 with blur radius 12 and left/right `#FFFFFFB2` inset highlights, then the 60x60 loading mark cutout centered at x=210, y=159.

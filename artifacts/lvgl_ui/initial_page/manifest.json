@@ -1,0 +1,25 @@
+{
+  "ok": true,
+  "page_name": "initial_page",
+  "mode": "two_cutout_layered_no_text",
+  "artifacts": [
+    "C:\\Users\\xuyl\\Desktop\\skill\\artifacts\\lvgl_ui\\initial_page\\ui_initial_page.c",
+    "C:\\Users\\xuyl\\Desktop\\skill\\artifacts\\lvgl_ui\\initial_page\\ui_initial_page.h",
+    "C:\\Users\\xuyl\\Desktop\\skill\\artifacts\\lvgl_ui\\initial_page\\ui_initial_page_demo.c",
+    "C:\\Users\\xuyl\\Desktop\\skill\\artifacts\\lvgl_ui\\initial_page\\initial_page_spec.json",
+    "C:\\Users\\xuyl\\Desktop\\skill\\artifacts\\lvgl_ui\\initial_page\\analysis_report.json",
+    "C:\\Users\\xuyl\\Desktop\\skill\\artifacts\\lvgl_ui\\initial_page\\cutout_audit.json",
+    "C:\\Users\\xuyl\\Desktop\\skill\\artifacts\\lvgl_ui\\initial_page\\README.md",
+    "C:\\Users\\xuyl\\Desktop\\skill\\artifacts\\lvgl_ui\\initial_page\\assets\\initial_page_bg.jpg",
+    "C:\\Users\\xuyl\\Desktop\\skill\\artifacts\\lvgl_ui\\initial_page\\assets\\initial_page_pet.png",
+    "C:\\Users\\xuyl\\Desktop\\skill\\artifacts\\lvgl_ui\\initial_page\\assets\\initial_page_reference.png"
+  ],
+  "summary": {
+    "background": [0, 0, 480, 800],
+    "pet": [95, 123, 305, 428],
+    "runtime_macros": [
+      "UI_IMG_SRC_INITIAL_PAGE_BG",
+      "UI_IMG_SRC_INITIAL_PAGE_PET"
+    ]
+  }
+}

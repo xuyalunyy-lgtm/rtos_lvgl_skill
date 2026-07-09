@@ -317,6 +317,20 @@ def analyze_design(design_path: Path, background_path: Path, pet_path: Path, wid
     }
 
 
+
+def _bbox_list(rect: dict[str, Any]) -> list[int]:
+    return [int(rect.get("x", 0)), int(rect.get("y", 0)), int(rect.get("w", 0)), int(rect.get("h", 0))]
+
+
+def _compact_validation(validation: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "ok": bool(validation.get("ok")),
+        "error_count": len(validation.get("errors", [])),
+        "warning_count": len(validation.get("warnings", [])),
+        "checked_files": validation.get("checked_files", []),
+    }
+
+
 def _write_analysis_artifacts(output_dir: Path, design_path: Path, analysis: dict[str, Any]) -> dict[str, str]:
     saved: dict[str, str] = {}
     try:
@@ -381,6 +395,9 @@ def generate_initial_loading_page(args: dict[str, Any]) -> dict[str, Any]:
     output_dir.mkdir(parents=True, exist_ok=True)
     version = str(args.get("lvgl_version", base.DISPLAY_CONFIG["lvgl"]["version"]))
     base.require_choice("lvgl_version", version, base.LVGL_VERSIONS)
+    return_mode = str(args.get("return_mode", "full")).lower()
+    if return_mode not in {"compact", "full"}:
+        raise ValueError("return_mode must be 'compact' or 'full'")
 
     background_path = base.resolve_path(args.get("background_path", design_dir / base.INITIAL_LOADING_BACKGROUND_FILE))
     pet_path = base.resolve_path(args.get("pet_path", design_dir / base.INITIAL_LOADING_PET_FILE))
@@ -800,6 +817,51 @@ Runtime requirements:
         if saved_path:
             artifact_paths.append(Path(saved_path))
     artifacts = [str(item) for item in artifact_paths if item.exists()]
-    manifest = {"ok": validation["ok"], "page_name": page_name, "artifacts": artifacts, "validation": validation, "analysis_ok": analysis.get("ok", False)}
+    all_artifacts = artifacts + [str(manifest_path)]
+    summary = {
+        "return_mode": return_mode,
+        "page_name": page_name,
+        "analysis_method": analysis.get("method"),
+        "analysis_ok": bool(analysis.get("ok", False)),
+        "loading_arc_source": arc.get("source", "unknown"),
+        "key_bboxes": {
+            "pet": [pet_x, pet_y, pet_w, pet_h],
+            "battery": _bbox_list(battery),
+            "loading_arc": _bbox_list(arc),
+            "glass_panel": _bbox_list(panel),
+        },
+        "source_files": {
+            "design": str(design_path),
+            "background": str(background_path),
+            "pet": str(pet_path),
+            "loading_reference": str(loading_path) if loading_path else None,
+        },
+        "reports": {
+            "analysis_report": str(analysis_report_path),
+            "debug_overlay": analysis_artifacts.get("debug_overlay"),
+            "debug_loading_template_match": analysis_artifacts.get("debug_loading_template_match"),
+            "preview": str(preview_path),
+            "manifest": str(manifest_path),
+        },
+        "warnings": list(analysis.get("warnings", []))[:5],
+        "validation": _compact_validation(validation),
+    }
+    manifest = {
+        "ok": validation["ok"],
+        "page_name": page_name,
+        "artifacts": artifacts,
+        "validation": validation,
+        "analysis_ok": analysis.get("ok", False),
+        "summary": summary,
+    }
     base._write_json(manifest_path, manifest)
-    return {**manifest, "artifacts": artifacts + [str(manifest_path)]}
+    if return_mode == "full":
+        return {**manifest, "artifacts": all_artifacts}
+    return {
+        "ok": validation["ok"],
+        "page_name": page_name,
+        "analysis_ok": analysis.get("ok", False),
+        "summary": summary,
+        "artifacts": all_artifacts,
+        "validation": summary["validation"],
+    }

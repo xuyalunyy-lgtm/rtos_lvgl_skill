@@ -8,3 +8,4 @@ __pycache__/
 forward_tests/out/
 # Generated gate artifacts
 artifacts/
+*ui

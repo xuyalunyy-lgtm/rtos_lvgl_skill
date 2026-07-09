@@ -273,6 +273,20 @@ def _copy_asset(src: Path, dst: Path) -> str:
     return str(dst)
 
 
+
+def _bbox_list(rect: dict[str, Any]) -> list[int]:
+    return [int(rect.get("x", 0)), int(rect.get("y", 0)), int(rect.get("w", 0)), int(rect.get("h", 0))]
+
+
+def _compact_validation(validation: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "ok": bool(validation.get("ok")),
+        "error_count": len(validation.get("errors", [])),
+        "warning_count": len(validation.get("warnings", [])),
+        "checked_files": validation.get("checked_files", []),
+    }
+
+
 def generate_interactive_scene_page(args: dict[str, Any]) -> dict[str, Any]:
     import lvgl_ui as base
 
@@ -282,11 +296,18 @@ def generate_interactive_scene_page(args: dict[str, Any]) -> dict[str, Any]:
     assets_dir = output_dir / "assets"
     version = str(args.get("lvgl_version", base.DISPLAY_CONFIG["lvgl"]["version"]))
     base.require_choice("lvgl_version", version, base.LVGL_VERSIONS)
+    return_mode = str(args.get("return_mode", "full")).lower()
+    if return_mode not in {"compact", "full"}:
+        raise ValueError("return_mode must be 'compact' or 'full'")
 
-    design_path = base.resolve_path(args.get("design_path", _find_by_token(design_dir, SCENE_TOKEN)))
+    raw_design_path = args.get("design_path")
+    design_path = base.resolve_path(raw_design_path) if raw_design_path else base.resolve_path(_find_by_token(design_dir, SCENE_TOKEN))
     background_path = base.resolve_path(args.get("background_path", design_dir / base.INITIAL_LOADING_BACKGROUND_FILE))
     pet_path = base.resolve_path(args.get("pet_path", design_dir / base.INITIAL_LOADING_PET_FILE))
-    mood_paths = {key: base.resolve_path(args.get(f"{key}_path", _find_by_token(design_dir, MOOD_TOKENS[key]))) for key in MOOD_ORDER}
+    mood_paths = {}
+    for key in MOOD_ORDER:
+        raw_mood_path = args.get(f"{key}_path")
+        mood_paths[key] = base.resolve_path(raw_mood_path) if raw_mood_path else base.resolve_path(_find_by_token(design_dir, MOOD_TOKENS[key]))
     for item in (design_path, background_path, pet_path, *mood_paths.values()):
         if not item.is_file():
             raise ValueError(f"design asset does not exist: {item}")
@@ -682,6 +703,52 @@ Runtime integration:
         artifact_paths.append(Path(analysis_artifacts["debug_overlay"]))
     artifact_paths.extend(Path(path) for path in asset_aliases.values())
     artifacts = [str(path) for path in artifact_paths if path.exists()]
-    manifest = {"ok": validation["ok"], "page_name": page_name, "artifacts": artifacts, "validation": validation, "analysis_ok": analysis.get("ok", False)}
+    all_artifacts = artifacts + [str(manifest_path)]
+    summary = {
+        "return_mode": return_mode,
+        "page_name": page_name,
+        "analysis_method": analysis.get("method"),
+        "analysis_ok": bool(analysis.get("ok", False)),
+        "key_bboxes": {
+            "pet": _bbox_list(pet),
+            "glass_panel": _bbox_list(panel),
+            "title": _bbox_list(title),
+            "hint": _bbox_list(hint),
+            "mood_buttons": {m["id"]: _bbox_list(m["button"]) for m in moods},
+            "mood_icons": {m["id"]: _bbox_list(m["icon"]) for m in moods},
+        },
+        "source_files": {
+            "design": str(design_path),
+            "background": str(background_path),
+            "pet": str(pet_path),
+            "moods": {key: str(value) for key, value in mood_paths.items()},
+        },
+        "asset_aliases": asset_aliases,
+        "reports": {
+            "analysis_report": str(analysis_report_path),
+            "debug_overlay": analysis_artifacts.get("debug_overlay"),
+            "preview": str(preview_path),
+            "manifest": str(manifest_path),
+        },
+        "warnings": list(analysis.get("warnings", []))[:5],
+        "validation": _compact_validation(validation),
+    }
+    manifest = {
+        "ok": validation["ok"],
+        "page_name": page_name,
+        "artifacts": artifacts,
+        "validation": validation,
+        "analysis_ok": analysis.get("ok", False),
+        "summary": summary,
+    }
     base._write_json(manifest_path, manifest)
-    return {**manifest, "artifacts": artifacts + [str(manifest_path)]}
+    if return_mode == "full":
+        return {**manifest, "artifacts": all_artifacts}
+    return {
+        "ok": validation["ok"],
+        "page_name": page_name,
+        "analysis_ok": analysis.get("ok", False),
+        "summary": summary,
+        "artifacts": all_artifacts,
+        "validation": summary["validation"],
+    }

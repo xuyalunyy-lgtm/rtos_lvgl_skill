@@ -1,0 +1,30 @@
+{
+  "schema": "freertos-embedded-architect.lvgl.cutout-audit.v1",
+  "source_dir": "C:\\Users\\xuyl\\Desktop\\skill\\ui\\VidaWheel 硬件UI",
+  "page_name": "initial_page",
+  "cutout_records": [
+    {
+      "name": "Affirmation-bg.jpg",
+      "status": "used_cutout",
+      "role": "background",
+      "alias": "assets/initial_page_bg.jpg",
+      "runtime_macro": "UI_IMG_SRC_INITIAL_PAGE_BG",
+      "bbox": [0, 0, 480, 800]
+    },
+    {
+      "name": "宠物.png",
+      "status": "used_cutout",
+      "role": "pet",
+      "alias": "assets/initial_page_pet.png",
+      "runtime_macro": "UI_IMG_SRC_INITIAL_PAGE_PET",
+      "bbox": [95, 123, 305, 428]
+    },
+    {
+      "name": "初始页面.png",
+      "status": "used_component_calibration",
+      "role": "reference_composite",
+      "alias": "assets/initial_page_reference.png",
+      "bbox": [0, 0, 480, 800]
+    }
+  ]
+}
