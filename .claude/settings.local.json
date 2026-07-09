@@ -77,7 +77,9 @@
       "Bash(git rm *)",
       "Bash(python scripts/check_skill_metadata.py)",
       "Bash(python tools/check_links.py)",
-      "Bash(python scripts/commit_audit.py --max-log 12 --strict-release)"
+      "Bash(python scripts/commit_audit.py --max-log 12 --strict-release)",
+      "Bash(find 'C:\\\\Users\\\\xuyl/.claude/projects' -name *.json -type f)",
+      "Bash(cp *)"
     ]
   }
 }

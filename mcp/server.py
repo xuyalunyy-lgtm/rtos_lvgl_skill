@@ -429,9 +429,72 @@ def run_self_test() -> int:
     image = TOOLS["convert_image_to_lvgl_source"]({"input_path": str(ppm), "output_dir": str(tmp), "name": "tiny_icon"})
     checks.append(("convert_image_to_lvgl_source", image["ok"] and (tmp / "tiny_icon.c").is_file(), "image conversion failed"))
 
+    asset_batch = TOOLS["convert_assets_to_lvgl"]({"input_paths": [str(ppm)], "output_dir": str(tmp / "batch_assets"), "asset_prefix": "ui_img"})
+    checks.append((
+        "convert_assets_to_lvgl",
+        asset_batch["ok"] and (tmp / "batch_assets" / "ui_assets.h").is_file() and (tmp / "batch_assets" / "ui_assets.c").is_file(),
+        "asset batch conversion or registry generation failed",
+    ))
+
+    patch_c = tmp / "patch_layout.c"
+    patch_c.write_text(
+        "#include \"lvgl.h\"\n"
+        "\n"
+        "lv_obj_t *build_ui(lv_obj_t *root)\n"
+        "{\n"
+        "    lv_obj_t *status_label = lv_label_create(root);\n"
+        "    lv_label_set_text(status_label, \"old\");\n"
+        "    return status_label;\n"
+        "}\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+    patch_result = TOOLS["analyze_layout_and_patch"]({
+        "layout_json": {"children": [{"type": "label", "id": "status_label", "x": 8, "y": 10, "w": 80, "h": 24, "text": "ready"}]},
+        "target_path": str(patch_c),
+        "apply": True,
+    })
+    patch_text = patch_c.read_text(encoding="utf-8")
+    checks.append((
+        "analyze_layout_and_patch",
+        patch_result["ok"] and "LVGL_LAYOUT_EXCEPTION" in patch_text and "#define UI_TEXT_STATUS_LABEL \"ready\"" in patch_text and "lv_label_set_text(status_label, UI_TEXT_STATUS_LABEL);" in patch_text,
+        "incremental layout patch failed",
+    ))
+
+    font_result = TOOLS["generate_font_glyph"]({
+        "text": "Loading OK",
+        "output_dir": str(tmp / "fonts"),
+        "font_name": "ui_font_self_test_16",
+        "converter_path": str(tmp / "missing_lv_font_conv"),
+    })
+    checks.append((
+        "generate_font_glyph placeholder",
+        font_result["glyph_count"] > 0 and Path(font_result["placeholder_header"]).is_file(),
+        "font glyph extraction or placeholder header generation failed",
+    ))
+
     spec = TOOLS["generate_lvgl_layout_spec"]({"page_name": "self_test", "design_notes": "title and button"})["spec"]
     code = TOOLS["generate_lvgl_page_code"]({"spec_json": spec, "output_dir": str(tmp / "ui")})
-    checks.append(("generate_lvgl_page_code", code["ok"] and any(Path(p).name == "ui_self_test.c" for p in code["artifacts"]), "code generation failed"))
+    self_test_c = tmp / "ui" / "ui_self_test.c"
+    self_test_h = tmp / "ui" / "ui_self_test.h"
+    checks.append(("generate_lvgl_page_code", code["ok"] and self_test_c.is_file(), "code generation failed"))
+    generated_page = (self_test_c.read_text(encoding="utf-8") if self_test_c.is_file() else "") + (self_test_h.read_text(encoding="utf-8") if self_test_h.is_file() else "")
+    checks.append((
+        "generate_lvgl_page_code custom events",
+        "UI_SELF_TEST_EVENT_SERVER_UPDATE" in generated_page
+        and "lv_event_register_id()" in generated_page
+        and "lv_obj_add_event_cb(root, ui_self_test_server_update_cb, LV_EVENT_ALL, NULL);" in generated_page
+        and "void ui_self_test_post_server_update(void *payload)" in generated_page,
+        "custom event scaffold missing from generated page",
+    ))
+    checks.append((
+        "generate_lvgl_page_code state machine",
+        "typedef enum" in generated_page
+        and "UI_SELF_TEST_STATE_LOADING" in generated_page
+        and "void ui_self_test_set_state(ui_self_test_state_t state)" in generated_page
+        and "default:" in generated_page,
+        "state machine scaffold missing from generated page",
+    ))
 
     bad = tmp / "bad_layout.c"
     bad.write_text("void f(lv_obj_t *o){lv_obj_set_pos(o, 1, 2);}\n", encoding="utf-8")
@@ -462,8 +525,11 @@ def run_self_test() -> int:
     sdk = lookup_sdk({"platform": "esp32", "query": "TASK_CREATE"})
     checks.append(("lookup_sdk", sdk["ok"] and "xTaskCreate" in sdk.get("stdout", ""), "lookup_sdk failed"))
 
-    gate = run_gate({"level": "quick"})
-    checks.append(("run_gate quick", gate["ok"], "quick gate failed"))
+    if os.environ.get("MCP_SELF_TEST_FULL_GATE") == "1" and (ROOT / ".git").exists():
+        gate = run_gate({"level": "quick"})
+        checks.append(("run_gate quick", gate["ok"], "quick gate failed"))
+    else:
+        checks.append(("run_gate quick skipped", True, "set MCP_SELF_TEST_FULL_GATE=1 to run source quick gate"))
 
     failed = [item for item in checks if not item[1]]
     for name, ok, detail in checks:

@@ -95,5 +95,5 @@ Router IDs: `code_review`, `project_review`, `crash_debug`,
 - Do not perform unplanned core SDK refactors; preserve critical logs and watchdog behavior.
 - For commit requests, follow [git_commit_style](references/git_commit_style.md) and use `type(scope):`.
 - For self-iteration, run `python scripts/skill_iterate.py --check` before release or commit review.
-- For LVGL design/cut-image UI work, read MCP `lvgl://display-config`, `lvgl://theme-skill`, and `lvgl://regression-sandbox-config`; use image conversion, layout/code generation, validation, `lvgl_render`, and `run_lvgl_ui_regression`. Prefer Flex/Grid; absolute coordinates require `LVGL_LAYOUT_EXCEPTION`; keep baselines/artifacts outside runtime.
+- For LVGL design/cut-image UI work, read MCP `lvgl://display-config`, `lvgl://theme-skill`, and `lvgl://regression-sandbox-config`; use image conversion, layout/code generation, validation, `lvgl_render`, and `run_lvgl_ui_regression`. Prefer Flex/Grid; absolute coordinates require `LVGL_LAYOUT_EXCEPTION`; keep baselines/artifacts outside runtime. Before trusting generated code, classify design/cut/reference assets, emit `analysis_report.json` + `debug_overlay.png`, treat `preview.html` only as an approximate preview, and run JSON/C coordinate sanity checks.
 - Default output should be concise; use `--fix-detail full` only when complete details are needed.

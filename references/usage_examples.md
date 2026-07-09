@@ -92,6 +92,24 @@ Agent should:
 - Follow the 7-phase bring-up sequence
 - Reference C8 (boot order), C23 (display), C25 (A/V pipeline)
 
+
+### 7. LVGL ????????
+
+```
+Use the freertos-embedded-architect skill to generate an LVGL page from ui/*.png design and cut assets
+```
+
+Agent should:
+- Select `lvgl_page` workflow and read MCP `display-config` / `theme-skill` first.
+- Classify inputs as design screenshot, runtime cut asset, reference crop, or component-only.
+- Generate `analysis_report.json`, `debug_overlay.png`, and any template-match debug images before trusting the code.
+- Treat `preview.html` only as an approximate browser preview, not as a comparison result.
+- Use constrained template matching: match small icons only inside their detected button/card region, and keep residual detection as fallback only.
+- Generate LVGL components for battery, loading arc, glass panel, cards, buttons, and labels; use images only for real cut assets.
+- Keep text/images/fonts behind macros such as `UI_TEXT_*`, `UI_IMG_SRC_*`, and `UI_FONT_*`.
+- Add custom-event listener and async post helper on the page root so worker threads do not call LVGL directly.
+- Run quick validation first: Pillow analysis, code generation, `validate_lvgl_layout_code`, and JSON/C coordinate sanity checks. Use full `lvgl_render` regression only when needed.
+
 ---
 
 ## Expected Output
