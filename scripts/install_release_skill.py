@@ -17,6 +17,7 @@ import argparse
 import json
 import os
 import shutil
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -32,6 +33,40 @@ from runtime_payload import (
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_INSTALL_DIR = Path(os.environ.get("USERPROFILE", "")) / ".codex" / "skills" / "freertos-embedded-architect"
+
+
+def _install_environment(src_dir: Path, *, dry_run: bool = False, install_env: bool = True) -> dict:
+    """Install/check MCP Python dependencies before copying the runtime payload."""
+    if not install_env:
+        return {"ok": True, "skipped": True}
+    script = src_dir / "scripts" / "install_mcp_environment.py"
+    if not script.is_file():
+        return {"ok": False, "error": f"missing environment installer: {script}"}
+    cmd = [sys.executable, str(script), "--json"]
+    if dry_run:
+        cmd.append("--dry-run")
+    else:
+        cmd.append("--quiet")
+    proc = subprocess.run(
+        cmd,
+        cwd=src_dir,
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=360,
+    )
+    try:
+        data = json.loads(proc.stdout) if proc.stdout.strip() else {}
+    except json.JSONDecodeError:
+        data = {}
+    data.update({
+        "ok": proc.returncode == 0 if dry_run else proc.returncode == 0 and bool(data.get("ok", proc.returncode == 0)),
+        "exit_code": proc.returncode,
+        "stderr": proc.stderr,
+    })
+    if not data["ok"] and "error" not in data:
+        data["error"] = (proc.stderr or proc.stdout or "environment install failed").strip()[-2000:]
+    return data
 
 
 def _copy_payload(src_dir: Path, dst_dir: Path) -> int:
@@ -73,9 +108,21 @@ def _clean_install_dir(install_dir: Path) -> int:
     return removed
 
 
-def install(src_dir: Path, dst_dir: Path, dry_run: bool = False, clean: bool = True) -> dict:
+def install(src_dir: Path, dst_dir: Path, dry_run: bool = False, clean: bool = True, install_env: bool = True) -> dict:
     """安装 skill 到目标目录。"""
     payload = collect_payload(src_dir)
+    environment = _install_environment(src_dir, dry_run=dry_run, install_env=install_env)
+    if not environment.get("ok", False):
+        return {
+            "ok": False,
+            "src": str(src_dir),
+            "dst": str(dst_dir),
+            "dry_run": dry_run,
+            "clean": clean,
+            "environment": environment,
+            "error": environment.get("error", "MCP environment install failed"),
+        }
+
     manifest = generate_manifest(src_dir)
 
     if dry_run:
@@ -87,6 +134,7 @@ def install(src_dir: Path, dst_dir: Path, dry_run: bool = False, clean: bool = T
             "manifest": manifest,
             "dry_run": True,
             "clean": clean,
+            "environment": environment,
         }
 
     # Clean install: 先复制到临时目录，验证后替换
@@ -132,6 +180,7 @@ def install(src_dir: Path, dst_dir: Path, dry_run: bool = False, clean: bool = T
                 "manifest": manifest,
                 "dry_run": False,
                 "clean": True,
+                "environment": environment,
             }
     else:
         # No-clean: 直接复制（调试用）
@@ -148,6 +197,7 @@ def install(src_dir: Path, dst_dir: Path, dry_run: bool = False, clean: bool = T
             "manifest": manifest,
             "dry_run": False,
             "clean": False,
+            "environment": environment,
         }
 
 
@@ -218,6 +268,7 @@ def main() -> int:
     parser.add_argument("--dst", default=str(DEFAULT_INSTALL_DIR))
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--no-clean", action="store_true", help="不清理旧文件（调试用）")
+    parser.add_argument("--skip-env-install", action="store_true", help="skip MCP Python dependency installation")
     parser.add_argument("--self-test", action="store_true")
     args = parser.parse_args()
 
@@ -228,7 +279,14 @@ def main() -> int:
     dst = Path(args.dst)
     clean = not args.no_clean
 
-    r = install(src, dst, dry_run=args.dry_run, clean=clean)
+    r = install(src, dst, dry_run=args.dry_run, clean=clean, install_env=not args.skip_env_install)
+
+    if not r["ok"]:
+        print(f"[ERROR] {r.get('error', 'install failed')}")
+        env = r.get("environment") or {}
+        if env.get("stderr"):
+            print(env["stderr"].strip()[-2000:])
+        return 1
 
     if args.dry_run:
         print(f"[DRY-RUN] 将安装 {r['file_count']} 个文件到 {dst}")

@@ -76,6 +76,35 @@ def _run(argv: list[str], *, timeout: int = 180) -> dict[str, Any]:
     }
 
 
+def _bootstrap_mcp_environment() -> None:
+    if os.environ.get("FREERTOS_MCP_SKIP_ENV_INSTALL", "").strip().lower() in {"1", "true", "yes", "on"}:
+        return
+    script = ROOT / "scripts" / "install_mcp_environment.py"
+    if not script.is_file():
+        return
+    cmd = [PYTHON, str(script), "--quiet"]
+    if os.environ.get("FREERTOS_MCP_ENV_CHECK_ONLY", "").strip().lower() in {"1", "true", "yes", "on"}:
+        cmd.append("--check")
+    try:
+        proc = subprocess.run(
+            cmd,
+            cwd=ROOT,
+            env=_env(),
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=300,
+        )
+    except Exception as exc:
+        print(f"[mcp-env] bootstrap failed: {exc}", file=sys.stderr, flush=True)
+        return
+    if proc.returncode != 0:
+        detail = (proc.stderr or proc.stdout or "").strip()
+        if len(detail) > 2000:
+            detail = detail[-2000:]
+        print(f"[mcp-env] bootstrap failed with exit {proc.returncode}: {detail}", file=sys.stderr, flush=True)
+
+
 def _require_choice(name: str, value: str, allowed: set[str]) -> None:
     if value not in allowed:
         raise ValueError(f"{name} must be one of {sorted(allowed)}, got {value!r}")
@@ -449,6 +478,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="FreeRTOS Embedded Architect MCP adapter")
     parser.add_argument("--self-test", action="store_true", help="run wrapper self-tests")
     args = parser.parse_args()
+    _bootstrap_mcp_environment()
     if args.self_test:
         return run_self_test()
     return serve_stdio()

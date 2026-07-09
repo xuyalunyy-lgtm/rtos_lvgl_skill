@@ -15,6 +15,7 @@ import argparse
 import fnmatch
 import os
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -53,6 +54,19 @@ def runtime_ignore(directory: str, names: list[str]) -> set[str]:
     if Path(directory).resolve() == SKILL_ROOT.resolve():
         ignored.update(name for name in names if name in ROOT_ONLY_EXCLUDE_FILES)
     return ignored
+
+
+def install_mcp_environment() -> bool:
+    script = SKILL_ROOT / "scripts" / "install_mcp_environment.py"
+    if not script.is_file():
+        print(f"  Error: missing {script}")
+        return False
+    proc = subprocess.run([sys.executable, str(script), "--quiet"], cwd=SKILL_ROOT)
+    if proc.returncode != 0:
+        print(f"  Error: MCP environment install failed (exit {proc.returncode})")
+        return False
+    print("  MCP environment OK")
+    return True
 
 WINDSURF_HEADER = """# FreeRTOS Embedded Architect Rules
 
@@ -175,6 +189,7 @@ def main() -> int:
                        help="Install to specific IDE (repeatable)")
     parser.add_argument("--all", action="store_true", help="Install to all IDEs")
     parser.add_argument("--project-root", help="Project root (for project-level rules)")
+    parser.add_argument("--skip-env-install", action="store_true", help="Skip MCP Python dependency installation")
     parser.add_argument("--list", action="store_true", help="List supported IDEs")
     args = parser.parse_args()
 
@@ -192,6 +207,11 @@ def main() -> int:
     print("=" * 60)
     print("Multi-IDE Install")
     print("=" * 60)
+
+    if not args.skip_env_install:
+        print("\n[environment]")
+        if not install_mcp_environment():
+            return 1
 
     success = 0
     for ide in ides:

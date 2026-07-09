@@ -64,6 +64,7 @@ REQUIRED_FILES = [
     "tools/codegen_gate.py",
     "tools/evidence_schema.json",
     "tools/manifest_contract.py",
+    "scripts/install_mcp_environment.py",
     "mcp/server.py",
 ]
 

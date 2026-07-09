@@ -54,6 +54,7 @@ REQUIRED_RUNTIME_PATHS = {
     "references/skill_structure.md",
     "prompts/lvgl_thread_safety.txt",
     "platforms/esp32.md",
+    "scripts/install_mcp_environment.py",
     "tools/checker_registry.py",
     "examples/README.md",
     "mcp/server.py",

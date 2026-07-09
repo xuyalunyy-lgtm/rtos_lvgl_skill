@@ -3,7 +3,8 @@
 
 param(
     [string]$Source = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path,
-    [string]$Dest = (Join-Path $env:USERPROFILE ".cursor\skills\freertos-embedded-architect")
+    [string]$Dest = (Join-Path $env:USERPROFILE ".cursor\skills\freertos-embedded-architect"),
+    [switch]$SkipEnvInstall
 )
 
 $ExcludeDirs = @(
@@ -15,6 +16,25 @@ $RootOnlyExcludeFiles = @("README.md", "INSTALL.md", "CHANGELOG.md")
 if (-not (Test-Path (Join-Path $Source "SKILL.md"))) {
     Write-Error "SKILL.md not found. Run from skill repo root or pass -Source."
     exit 1
+}
+
+if (-not $SkipEnvInstall) {
+    $EnvScript = Join-Path $Source "scripts\install_mcp_environment.py"
+    if (Test-Path $EnvScript) {
+        $PythonCmd = Get-Command python -ErrorAction SilentlyContinue
+        if (-not $PythonCmd) {
+            $PythonCmd = Get-Command python3 -ErrorAction SilentlyContinue
+        }
+        if (-not $PythonCmd) {
+            Write-Error "Python 3.10+ is required to install MCP dependencies."
+            exit 1
+        }
+        & $PythonCmd.Source $EnvScript --quiet
+        if ($LASTEXITCODE -ne 0) {
+            Write-Error "MCP environment install failed."
+            exit 1
+        }
+    }
 }
 
 New-Item -ItemType Directory -Force -Path (Split-Path $Dest -Parent) | Out-Null
