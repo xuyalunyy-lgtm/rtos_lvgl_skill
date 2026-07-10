@@ -1,4 +1,4 @@
-﻿# FreeRTOS Quick Guide
+# FreeRTOS Quick Guide
 
 - Task creation: `xTaskCreate` / `xTaskCreatePinnedToCore`
 - Synchronization: `xSemaphore`, `xQueue`, `EventGroup`

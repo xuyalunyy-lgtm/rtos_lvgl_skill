@@ -1,4 +1,4 @@
-﻿# FreeRTOS Runtime Guide
+# FreeRTOS Runtime Guide
 
 ## Scope
 This doc is the canonical platform/runtime reference for FreeRTOS-based projects in this skill.

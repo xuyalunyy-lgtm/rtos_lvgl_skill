@@ -1,328 +1,172 @@
-﻿<!-- 鏉ユ簮: LVGL porting guide / ESP-IDF LCD 椹卞姩 / STM32 LTDC / 甯﹀睆闊崇/鏅鸿兘闈㈡澘閲忎骇缁忛獙 -->
-<!-- C23: 鏄剧ず椹卞姩瀹夊叏 -->
+<!-- Source: LVGL porting guide / ESP-IDF LCD driver / STM32 LTDC / production display field notes -->
+<!-- C23: display driver safety -->
 
-# 鏄剧ず椹卞姩瀹夊叏涓撶簿鎻愮ず璇?
+# Display Driver Safety Prompt
 
-> 绾︽潫 ID锛欳23.1鈥揅23.6 鈫?[constraint_detail.md](../references/constraint_detail.md)
+> Constraint IDs: C23.1-C23.6. See [constraint_detail.md](../references/constraint_detail.md).
 
-## 閫傜敤鍦烘櫙
+## Scope
 
-LCD/OLED 鏄剧ず椹卞姩鍒濆鍖栥€丩VGL porting銆佽儗鍏夋帶鍒躲€佸抚缂撳啿绠＄悊銆佹挄瑁傞槻鎶ゃ€佷綆鍔熻€楁樉绀恒€?
+Use this prompt for LCD/OLED display driver bring-up, LVGL display porting, backlight control, frame-buffer sizing, tearing prevention, and production UI performance reviews.
 
----
+### 1. C23.1 LCD initialization sequence
 
-## C23.1 鈥?LCD 鍒濆鍖栨椂搴忎弗鏍奸伒寰?datasheet锛圥0锛?
+- Follow the panel datasheet exactly for reset pulse width, reset-release delay, sleep-out delay, display-on delay, and command spacing.
+- Keep reset, power rails, SPI/RGB/DSI bus init, and orientation setup in a single auditable sequence.
+- Log the panel ID, timing profile, resolution, color format, and interface mode during boot.
 
 ```c
-/* 鉁?姝ｇ‘锛氫弗鏍兼寜 datasheet 鏃跺簭 */
 void lcd_init(void)
 {
-    /* 1. 纭欢澶嶄綅 */
     gpio_set_level(LCD_RST_PIN, 0);
     vTaskDelay(pdMS_TO_TICKS(10));
     gpio_set_level(LCD_RST_PIN, 1);
-    vTaskDelay(pdMS_TO_TICKS(120));  /* datasheet 瑕佹眰 鈮?20ms */
+    vTaskDelay(pdMS_TO_TICKS(120));
 
-    /* 2. 鍙戦€佸垵濮嬪寲鍛戒护搴忓垪 */
     lcd_send_cmd(0x11);  /* Sleep Out */
-    vTaskDelay(pdMS_TO_TICKS(120));  /* 蹇呴』绛夊緟 */
+    vTaskDelay(pdMS_TO_TICKS(120));
 
     lcd_send_cmd(0x29);  /* Display On */
     vTaskDelay(pdMS_TO_TICKS(20));
 
-    /* 3. 閰嶇疆鏄剧ず鍙傛暟 */
     lcd_set_orientation(LCD_ORIENTATION_LANDSCAPE);
 }
 ```
 
-```c
-/* 鉂?閿欒锛氬浣嶅悗绔嬪嵆鍙戦€佸懡浠わ紙LCD 鏈氨缁級 */
-gpio_set_level(LCD_RST_PIN, 1);
-lcd_send_cmd(0x11);  /* 澶棭锛孡CD 鍙兘鏃犲搷搴?*/
-```
+Anti-patterns:
+- Sending `Sleep Out` immediately after reset release.
+- Hiding panel timing in board-specific magic delays without comments.
+- Initializing LVGL before the panel bus and framebuffer ownership are stable.
 
-**鍏抽敭鏃跺簭鍙傛暟锛堝父瑙侊級**锛?
-- 澶嶄綅鑴夊锛氣墺10ms
-- 澶嶄綅閲婃斁鍚庣瓑寰咃細鈮?20ms
-- Sleep Out 鍚庣瓑寰咃細鈮?20ms
-- 鍛戒护闂撮棿闅旓細鈮?ms锛圫PI 鎺ュ彛锛?
+### 2. C23.2 Backlight PWM and power control
 
----
-
-## C23.2 鈥?鑳屽厜 PWM 鎺у埗锛圥1锛?
+- Prefer PWM brightness control over direct GPIO on/off control.
+- Disable the backlight power enable pin when brightness is zero if the board supports it.
+- Fade brightness changes that are visible to users; keep emergency blanking immediate.
 
 ```c
-/* 鉁?姝ｇ‘锛歅WM 娓愬彉 + 浣庡姛鑰楀叧鏂?*/
 void lcd_set_brightness(uint8_t percent)
 {
     if (percent == 0) {
         ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, 0);
         ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
-        gpio_set_level(LCD_BL_EN_PIN, 0);  /* 鍏抽棴鑳屽厜鐢垫簮 */
-    } else {
-        gpio_set_level(LCD_BL_EN_PIN, 1);
-        uint32_t duty = (percent * 8191) / 100;  /* 13-bit 鍒嗚鲸鐜?*/
-        ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, duty);
-        ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
+        gpio_set_level(LCD_BL_EN_PIN, 0);
+        return;
     }
-}
 
-/* 鉁?娓愬彉鏁堟灉锛堥伩鍏嶇獊鍙樺埡鐪硷級 */
-void lcd_brightness_fade(uint8_t from, uint8_t to, uint32_t duration_ms)
-{
-    int step = (to > from) ? 1 : -1;
-    uint32_t delay = duration_ms / abs(to - from);
-    for (int i = from; i != to; i += step) {
-        lcd_set_brightness(i);
-        vTaskDelay(pdMS_TO_TICKS(delay));
-    }
+    gpio_set_level(LCD_BL_EN_PIN, 1);
+    uint32_t duty = ((uint32_t)percent * 8191U) / 100U;
+    ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, duty);
+    ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
 }
 ```
 
+Review points:
+- PWM frequency is high enough to avoid visible flicker and audio coupling.
+- Low-power mode turns off both PWM duty and panel/backlight enable where required.
+- Brightness state survives suspend/resume without flashing full white.
+
+### 3. C23.3 Refresh rate, tick, and VSync budget
+
+- Match `lv_timer_handler()` cadence to panel refresh and UI workload; do not spin at 1 ms without evidence.
+- Keep display flush asynchronous when the platform supports DMA or LCD engine callbacks.
+- Track frame time, flush time, dirty area, and dropped/merged updates.
+
 ```c
-/* 鉂?閿欒锛氱洿鎺ュ紑鍏?GPIO锛堟棤浜害璋冭妭锛?*/
-gpio_set_level(LCD_BL_PIN, 1);  /* 鍙湁寮€/鍏筹紝鏃犳笎鍙?*/
-```
+#define LCD_REFRESH_RATE_HZ 60U
+#define LVGL_TICK_PERIOD_MS (1000U / LCD_REFRESH_RATE_HZ)
 
----
-
-## C23.3 鈥?甯х巼涓?VSync 绠＄悊锛圥1锛?
-
-```c
-/* 鉁?姝ｇ‘锛氬尮閰嶉潰鏉垮埛鏂扮巼 */
-#define LCD_REFRESH_RATE_HZ  60
-#define LVGL_TICK_PERIOD_MS  (1000 / LCD_REFRESH_RATE_HZ)  /* 16ms */
-
-/* LVGL timer handler 璋冪敤棰戠巼鍖归厤鍒锋柊鐜?*/
 static void lvgl_task(void *arg)
 {
-    while (1) {
-        lv_timer_handler();
-        vTaskDelay(pdMS_TO_TICKS(LVGL_TICK_PERIOD_MS));
+    for (;;) {
+        uint32_t next_ms = lv_timer_handler();
+        if (next_ms == 0 || next_ms > LVGL_TICK_PERIOD_MS) {
+            next_ms = LVGL_TICK_PERIOD_MS;
+        }
+        vTaskDelay(pdMS_TO_TICKS(next_ms));
     }
 }
 ```
 
-```c
-/* 鉂?閿欒锛歭v_timer_handler 璋冪敤杩囧揩锛圕PU 娴垂锛?*/
-while (1) {
-    lv_timer_handler();
-    vTaskDelay(1);  /* 1ms 璋冪敤涓€娆★紝杩滆秴 60Hz 鎵€闇€ */
-}
-```
+Common targets:
+- 60 Hz panel: 16 ms frame budget.
+- 30 Hz panel or low-power page: 33 ms frame budget.
+- UI task CPU should leave headroom for audio/network/IO tasks.
 
-**甯х巼鍖归厤鍘熷垯**锛?
-- `lv_timer_handler` 璋冪敤闂撮殧 鈮?`1000 / 闈㈡澘鍒锋柊鐜嘸
-- 甯歌闈㈡澘锛?0Hz 鈫?16ms锛?0Hz 鈫?33ms
-- 杩囧揩璋冪敤娴垂 CPU锛岃繃鎱㈠鑷?UI 鍗￠】
+### 4. C23.4 Tearing protection
 
----
-
-## C23.4 鈥?鎾曡闃叉姢锛圱earing Effect锛夛紙P1锛?
+- Prefer panel TE signal, VSYNC interrupt, or double buffering for full-screen updates.
+- Single-buffer direct writes are acceptable only for small dirty areas or non-animated screens verified on hardware.
+- Do not call `lv_disp_flush_ready()` before the active transfer is actually safe to reuse.
 
 ```c
-/* 鉁?鏂规 1锛歍E 淇″彿 + 鍙岀紦鍐?*/
-esp_lcd_panel_handle_t panel;
-
-/* 閰嶇疆 TE 寮曡剼 */
-esp_lcd_panel_io_handle_t io_handle;
-esp_lcd_new_panel_io_spi(&io_config, &io_handle);
-
-/* 鍚敤 TE 淇″彿鍚屾 */
-esp_lcd_panel_io_tx_param(io_handle, 0x35, NULL, 0);  /* Tearing Effect Line On */
-
-/* 鍙岀紦鍐诧細鍚庡彴鍐?buffer锛孴E 淇″彿鏃跺垏鎹?*/
-#define FRAMEBUF_COUNT 2
-static uint8_t *framebuf[FRAMEBUF_COUNT];
-static int active_buf = 0;
-
 void lcd_flush_cb(lv_disp_drv_t *drv, const lv_area_t *area, lv_color_t *color_p)
 {
-    int next_buf = 1 - active_buf;
-    /* 鍐欏叆闈炴椿璺?buffer */
-    lcd_write_pixels(area, color_p, framebuf[next_buf]);
-    /* 绛夊緟 TE 淇″彿鍚庡垏鎹?*/
-    wait_for_te_signal();
-    active_buf = next_buf;
-    lv_disp_flush_ready(drv);
+    lcd_dma_submit(area, color_p);
+    /* DMA completion ISR/task calls lv_disp_flush_ready(drv). */
 }
 ```
 
+Anti-patterns:
+- CPU memcpy inside the flush hot path while holding the LVGL mutex.
+- Reusing draw buffers before DMA completion.
+- Mixing video overlay teardown with LVGL framebuffer close/reopen.
+
+### 5. C23.5 Framebuffer and draw-buffer management
+
+- Size buffers from resolution, color depth, RAM/PSRAM class, DMA alignment, and cache policy.
+- Check every allocation and provide a partial-refresh fallback.
+- Keep DMA-visible buffers aligned and in memory that the display peripheral can read.
+
 ```c
-/* 鉂?閿欒锛氭棤 TE 鍚屾锛屽崟缂撳啿鍐欏叆锛堟挄瑁傚彲瑙侊級 */
-void lcd_flush_cb(lv_disp_drv_t *drv, const lv_area_t *area, lv_color_t *color_p)
+#define PARTIAL_LINES 40U
+static lv_color_t draw_buf1[LCD_WIDTH * PARTIAL_LINES] __attribute__((aligned(32)));
+static lv_color_t draw_buf2[LCD_WIDTH * PARTIAL_LINES] __attribute__((aligned(32)));
+
+void lvgl_display_buffer_init(void)
 {
-    lcd_write_pixels(area, color_p, NULL);  /* 鐩存帴鍐欙紝鍙兘鍦ㄥ埛鏂颁腑閫?*/
-    lv_disp_flush_ready(drv);
+    static lv_disp_draw_buf_t draw_buf;
+    lv_disp_draw_buf_init(&draw_buf, draw_buf1, draw_buf2, LCD_WIDTH * PARTIAL_LINES);
 }
 ```
 
----
+Sizing rule of thumb:
+- RGB565 full screen bytes = `width * height * 2`.
+- Double full-screen buffer doubles that number.
+- On small RAM systems, prefer partial refresh such as 1/5 or 1/10 screen height.
 
-## C23.5 鈥?甯х紦鍐茬鐞嗭紙P0锛?
+### 6. C23.6 LVGL display driver registration
 
-```c
-/* 鉁?姝ｇ‘锛氭牴鎹?RAM 閫夋嫨缂撳啿绛栫暐 */
-#if CONFIG_LCD_USE_PSRAM
-    /* PSRAM 鍙敤锛氬叏灞忓弻缂撳啿 */
-    #define FB_SIZE (LCD_WIDTH * LCD_HEIGHT * sizeof(lv_color_t) * 2)
-    static lv_color_t *buf1 = NULL;
-    static lv_color_t *buf2 = NULL;
-
-    void lvgl_display_init(void) {
-        buf1 = heap_caps_malloc(FB_SIZE, MALLOC_CAP_SPIRAM);
-        buf2 = heap_caps_malloc(FB_SIZE, MALLOC_CAP_SPIRAM);
-        static lv_disp_draw_buf_t draw_buf;
-        lv_disp_draw_buf_init(&draw_buf, buf1, buf2, LCD_WIDTH * LCD_HEIGHT);
-    }
-#else
-    /* RAM 涓嶈冻锛氶儴鍒嗗埛鏂帮紙1/10 灞忥級 */
-    #define PARTIAL_LINES (LCD_HEIGHT / 10)
-    static lv_color_t buf1[LCD_WIDTH * PARTIAL_LINES];
-
-    void lvgl_display_init(void) {
-        static lv_disp_draw_buf_t draw_buf;
-        lv_disp_draw_buf_init(&draw_buf, buf1, NULL, LCD_WIDTH * PARTIAL_LINES);
-    }
-#endif
-```
+- Register draw buffer, flush callback, resolution, color format, and rotation in one place.
+- For LVGL v8/v9 differences, keep a narrow porting layer instead of scattering version checks through app code.
+- Validate linkability of deinit APIs on the target SDK before promising full global teardown.
 
 ```c
-/* 鉂?閿欒锛歅SRAM 甯х紦鍐叉湭妫€鏌ュ垎閰嶅け璐?*/
-buf1 = heap_caps_malloc(FB_SIZE, MALLOC_CAP_SPIRAM);
-/* buf1 鍙兘涓?NULL 鈫?LVGL 宕╂簝 */
-```
-
-**甯х紦鍐蹭及绠?*锛?
-- 鍏ㄥ睆 = `瀹?脳 楂?脳 2 bytes`锛圧GB565锛?
-- 240脳320 = 150KB锛?80脳800 = 750KB
-- RAM 涓嶈冻鏃剁敤閮ㄥ垎鍒锋柊锛?/5 鎴?1/10 灞忥級
-
----
-
-## C23.6 鈥?LVGL disp_drv 娉ㄥ唽瑙勮寖锛圥1锛?
-
-```c
-/* 鉁?姝ｇ‘锛氬畬鏁存敞鍐屾祦绋?*/
 void lvgl_port_init(void)
 {
-    /* 1. 鍒涘缓鏄剧ず璁惧 */
-    static lv_disp_draw_buf_t draw_buf;
-    lv_disp_draw_buf_init(&draw_buf, buf1, buf2, buf_size);
-
-    /* 2. 娉ㄥ唽椹卞姩 */
     static lv_disp_drv_t disp_drv;
     lv_disp_drv_init(&disp_drv);
-    disp_drv.draw_buf = &draw_buf;
+    disp_drv.draw_buf = &g_draw_buf;
     disp_drv.flush_cb = lcd_flush_cb;
     disp_drv.hor_res = LCD_WIDTH;
     disp_drv.ver_res = LCD_HEIGHT;
-    disp_drv.full_refresh = 0;      /* 閮ㄥ垎鍒锋柊 */
-    disp_drv.direct_mode = 0;       /* 闈炵洿鎺ユā寮?*/
-    disp_drv.sw_rotate = 0;         /* 纭欢鏃嬭浆 */
+    disp_drv.full_refresh = 0;
     lv_disp_drv_register(&disp_drv);
-
-    /* 3. 璁剧疆鏃嬭浆锛堣嫢鏀寔锛?*/
-    lv_disp_set_rotation(disp, LV_DISP_ROT_90);
 }
 ```
 
-```c
-/* 鉂?閿欒锛氭湭璁剧疆 hor_res/ver_res锛圠VGL 榛樿 0锛?*/
-lv_disp_drv_init(&disp_drv);
-disp_drv.flush_cb = lcd_flush_cb;
-/* 缂哄皯 hor_res/ver_res 鈫?娓叉煋鍖哄煙閿欒 */
-```
+Review points:
+- `hor_res`/`ver_res` match physical rotation and touch coordinates.
+- Flush callback always calls `lv_disp_flush_ready()` on every success/failure path.
+- Display teardown stops UI timers/tasks before freeing buffers or closing framebuffers.
 
----
+### 7. Layout and style performance
 
-## 鍔熻€椾笌鎬ц兘鍙傝€?
-
-| 鍦烘櫙 | 鍏稿瀷鍔熻€?| 浼樺寲寤鸿 |
-|------|----------|----------|
-| 鑳屽厜 100% | 20鈥?0 mA | 鏍规嵁鐜鍏夎嚜鍔ㄨ皟鑺?|
-| 鑳屽厜 50% | 10鈥?0 mA | 榛樿浜害 |
-| 鑳屽厜 0% | 0 mA | 娣辩潯鐪犲墠鍏抽棴 |
-| 鍏ㄥ睆鍒锋柊 60Hz | 5鈥?5 mA锛圫PI锛?| 鐢ㄩ儴鍒嗗埛鏂伴檷浣?|
-| PSRAM 甯х紦鍐?| +2鈥? mA | 浠呭湪闇€瑕佹椂鍒嗛厤 |
-
----
-
-## 鎬ц兘浼樺寲琛ュ厖锛堝缓璁級
-
-浠ヤ笅鍐呭鐢ㄤ簬鈥滆兘璺戝氨鑳戒紭鍖栤€濈殑宸ョ▼瀹炶返锛屼紭鍏堟寜闂瀹氫綅閾捐矾瀹炴柦锛?
-
-### 1. 鍐呭瓨涓庢樉绀虹紦鍐插尯锛坙v_conf.h锛?
-
-- 寤鸿鍚敤鍙岀紦鍐插尯锛岃娓叉煋涓庡彂閫佸苟琛屻€傛渶鐩存帴鏀剁泭閫氬父鏉ヨ嚜 `lv_disp_draw_buf_t` 鐨勫弻鍚戞祦姘达細
-  - 涓€涓?buffer 姝ｅ湪 flush锛屽彟涓€涓鍦ㄦ覆鏌撱€?
-- 缂撳啿鍖哄缓璁嚦灏戜负 `灞忓箷楂樺害 * 1/10`锛孲RAM 瀵屼綑鏃朵紭鍏堢敤鍏ㄥ睆缂撳啿锛堟€ц兘鏇村钩婊戯級銆?
-- 灏介噺鎶?LVGL 缂撳啿涓庡爢鏀惧湪鐗囦笂楂樺甫瀹?SRAM锛圱CM/AHB SRAM锛夛紝閬垮厤鎱㈤€?PSRAM/SDRAM 琚綋浣滀富宸ヤ綔鍖恒€?
+- Reuse global `lv_style_t` objects; avoid repeated runtime style allocation on every page switch.
+- Keep layout hierarchy shallow. For static pages, absolute positions can be cheaper than nested Flex/Grid trees.
+- Avoid software-heavy effects such as alpha blending, shadows, blur, and canvas drawing on low-end MCUs unless measured.
 
 ```c
-/* 绀轰緥锛氬弻缂撳啿锛堝叏灞忥級 */
-static lv_disp_draw_buf_t draw_buf;
-static lv_color_t buf1[MY_DISP_HOR_RES * MY_DISP_VER_RES];
-static lv_color_t buf2[MY_DISP_HOR_RES * MY_DISP_VER_RES];
-lv_disp_draw_buf_init(&draw_buf, buf1, buf2, MY_DISP_HOR_RES * MY_DISP_VER_RES);
-```
-
-```c
-/* lv_conf.h */
-#define LV_MEM_CUSTOM         0
-#define LV_MEM_SIZE           (64U * 1024U)   /* 鎸夌墖涓?SRAM 鍙敤鎬ц皟鏁?*/
-```
-
-### 2. 娓叉煋涓庡埛鏂拌妭濂?
-
-- 鍒锋柊鍛ㄦ湡锛?
-  - `LV_DISP_DEF_REFR_PERIOD` 璁句负 16锛堢害 60FPS锛夋垨 33锛堢害 30FPS锛?
-  - 涓嶈楂樹簬灞忓箷瀹為檯鍒锋柊鐜囷紝閬垮厤绌鸿浆銆?
-- 闄嶄綆鏃犳晥閲嶇粯锛氭壒閲忔洿鏂板悗鍐嶇粺涓€瑙﹀彂閲嶇粯锛屽敖閲忛伩鍏嶆瘡涓帶浠跺崟鐙Е鍙戙€?
-- 鎺т欢灏介噺鐢ㄤ笉閫忔槑鑳屾櫙/绾壊銆?
-  - 涓嶈杩囧害浣跨敤 `opacity` 涓庡鏉?blend锛岄€忔槑鍙犲姞浼氬鍔?CPU 鍚堟垚寮€閿€銆?
-
-```c
-/* 鎵归噺鏇存柊鍚庣粺涓€鍒锋柊 */
-lv_obj_invalidate(lv_scr_act());
-```
-
-### 3. 鍥剧墖涓庡瓧浣撲紭鍖?
-
-- 鍥剧墖棰滆壊鏍煎紡灏介噺涓庡睆骞曞儚绱犳牸寮忎竴鑷达紙濡?RGB565 / ARGB8888锛夛紝閬垮厤杩愯鏃堕€愬儚绱犺浆鎹€?
-- 鍥剧墖灏介噺鐢?C 鏁扮粍/浜岃繘鍒跺父椹诲唴瀛橈紝骞舵墦寮€鍥剧墖缂撳瓨锛岄伩鍏嶉绻佹參閫?IO銆?
-- 瀛椾綋瑁佸壀鍒板疄闄呬娇鐢ㄥ瓧绗﹂泦锛涢粯璁ゅ紑鍚ぇ瀛楁ā浼樺寲鏇撮€傚悎涓枃/甯哥敤瀛楃杈冨鍦烘櫙銆?
-
-```c
-/* 浠呭缓璁細鎸夊疄闄呭瓧闆嗚鍓悗鍐嶉泦鎴愬瓧浣?*/
-```
-
-### 4. 纭欢鍔犻€熶笌 DMA
-
-- flush 鍥炶皟寤鸿浣跨敤 DMA 闈為樆濉炲彂閫佸儚绱狅紱鍙戦€佸畬鎴愬悗鍐?`lv_disp_flush_ready()`銆?
-- 鑻ュ钩鍙版湁纭欢鍔犻€?鍥惧舰寮曟搸锛屾寜 MCU 鍨嬪彿鍦?LVGL 閰嶇疆涓墦寮€瀵瑰簲鐗规€э紙濡?STM32 DMA2D / NXP PXP / ESP32 LCD CAM锛夈€?
-
-### 5. 鎬ц兘鍙娴嬫€?
-
-- 鍏抽敭鎬ц兘璺緞寤鸿寮€鍚洃鎺э紙鐢ㄤ簬绾夸笂鍒ゆ柇鍗￠】鏄惁鏉ヨ嚜 LVGL锛夛細
-
-```c
-#define LV_USE_PERF_MONITOR     1
-#define LV_USE_MEM_MONITOR      1
-```
-
-- 甯哥敤鐩爣锛氬姩鐢诲満鏅繚鎸?30~60 FPS锛孋PU 鍏稿瀷璐熻浇 < 80%銆?
-- 鑻?FPS 鍋忎綆涓?CPU 鎸佺画楂橈紝浼樺厛鎺掓煡锛?
-  - Alpha 娣峰悎鏄惁杩囧锛?
-  - DMA / flush 璺緞鏄惁璧颁簡闃诲/CPU memcpy锛?
-  - flush 鍥炶皟鏄惁鍦?hot path 鍋氫簡棰濆鍐呭瓨鍒嗛厤鎴栭噸閫昏緫銆?
-
-> 鈿狅笍 娉ㄦ剰锛氫唬鐮佺ず渚嬩负绛栫暐绀轰緥锛屽叿浣撳弬鏁伴渶鎸夋澘绾у垎杈ㄧ巼銆佸甫瀹藉拰鍐呭瓨涓婇檺璇勪及銆?
-
-### 6. 甯冨眬涓庢牱寮忎紭鍖栵紙Layout & Style锛?
-- 甯冨眬璁＄畻鏄?CPU 鐨勯殣褰㈡潃鎵嬨€傚噺灏戝祵濂楁繁搴︼紙濡?`Object -> Container -> Row -> Item`锛夛紝閬垮厤姣忔灏哄鍙樺寲瑙﹀彂閫掑綊閲嶇畻鏀惧ぇ鎴愭湰銆?- Flex/Grid 瀵瑰姩鎬佸彉鍖栧銆佸竷灞€棰戠箒鏇存柊鐨勯潤鎬侀〉闈㈠苟涓嶄竴瀹氭渶浼橈紝闈欐€佺晫闈紭鍏堣€冭檻鐩存帴璁剧疆缁濆浣嶇疆/灏哄锛坄lv_obj_set_pos`銆乣lv_obj_set_size`锛夊噺灏戦噸澶嶅竷灞€寮€閿€銆?- 鏍峰紡寤鸿闆嗕腑涓哄叏灞€ `lv_style_t`锛岄€氳繃 `lv_obj_add_style` 澶嶇敤锛岄檷浣?`lv_obj_set_style_*` 鐨勮繍琛屾椂閲嶅啓涓庨噸澶嶅垎閰嶃€?
-```c
-/* 绀轰緥锛氬鐢ㄥ叕鍏辨牱寮?*/
 static lv_style_t common_style;
 
 void init_style(void)
@@ -331,106 +175,79 @@ void init_style(void)
     lv_style_set_bg_color(&common_style, lv_color_hex(0x000000));
     lv_style_set_text_font(&common_style, &lv_font_montserrat_14);
 }
-
-void create_btn(lv_obj_t *parent)
-{
-    lv_obj_t *btn = lv_btn_create(parent);
-    lv_obj_add_style(btn, &common_style, LV_PART_MAIN);
-}
 ```
 
-### 7. 鎺т欢绾у埆鐨勫畾鍒朵笌闃叉姈锛圵idgets & Events锛?
-- 椤甸潰鍒囨崲鏃讹紝鏃ч〉闈㈠敖閲?`lv_obj_del`锛屾垨鐭湡淇濈暀鍒欐敼涓?`LV_OBJ_FLAG_HIDDEN`锛涢殣钘忓璞′笉搴斿弬涓庨噸缁樸€?- `indev_drv` 寤鸿鍦ㄩ┍鍔ㄥ眰鍋氭姈鍔ㄥ鐞嗕笌閲囨牱鑺傛祦锛堝寘鎷Е鎽搁槻鎶栨椂闂淬€侀噰鏍烽鐜囷級锛岄伩鍏嶅井鎶栧姩浜х敓鏃犳剰涔夌偣鍑?鎷栨嫿浜嬩欢銆?- 璋ㄦ厧浣跨敤 `lv_canvas`锛氬畠浼氬垱寤轰笓鐢ㄩ€忔槑缂撳啿骞剁敱杞欢缁樺埗锛屼笉閫傚悎楂橀瀹炴椂娉㈠舰杩欑被澶ч噺閫愬抚鍒锋柊鐨勫満鏅紱鑳界敤鍥剧墖/鏅€氭帶浠舵浛浠ｅ氨鏇夸唬銆?
+### 8. Widget events and input debounce
+
+- Input drivers should debounce and rate-limit raw touch/key events before they reach business logic.
+- Page navigation callbacks should post an event and return; heavy page creation must run on the UI task boundary.
+- During media playback, page transitions, or async reload, guard repeated clicks with an explicit state machine.
+
 ```c
-/* 绀轰緥锛氶〉闈㈤殣钘忓垏鎹?*/
-void switch_page(lv_obj_t *current, lv_obj_t *next)
-{
-    if (current) lv_obj_add_flag(current, LV_OBJ_FLAG_HIDDEN);
-    if (next) lv_obj_clear_flag(next, LV_OBJ_FLAG_HIDDEN);
+if (g_page_state != PAGE_IDLE) {
+    LOG_W("click ignored during transition state=%d", g_page_state);
+    return;
 }
+post_ui_nav_event(NAV_NEXT_PAGE);
 ```
 
-### 8. 缂栬瘧鍣ㄤ笌鍐呮牳绾т紭鍖栵紙Compiler & OS锛?
-- LVGL 婧愮爜鐩稿叧鐩爣鏂囦欢寤鸿閲囩敤 `-O2`/`-O3`锛屽苟鍦ㄥ彲鎺ュ彈鏃舵墦寮€ `-flto`銆?- 灏?`lv_timer_handler()` 浠诲姟璁句负涓瓑浼樺厛绾э紝涓嶈鍦ㄨ浠诲姟涓墽琛岄樆濉炵綉缁?IO锛涙樉绀哄埛鏂扮浉鍏崇殑 DMA 瀹屾垚淇″彿灏介噺鏇撮珮浼樺厛绾с€?- 纭繚鍍忕礌缂撳啿/甯х紦鍐叉寜 32 瀛楄妭瀵归綈锛屽噺灏?cache miss 涓?DMA 浼犺緭闃诲銆?
+### 9. Compiler, RTOS, and DMA alignment
+
+- Build LVGL and display port sources with optimized flags appropriate for the target project.
+- Keep `lv_timer_handler()` in a medium-priority task; never perform blocking network or file IO in that task.
+- Apply cache clean/invalidate rules around DMA transfers on platforms with non-coherent caches.
+
 ```c
-/* 缂栬瘧/閾炬帴浼樺寲鎻愮ず锛堢ず鎰忥級 */
-/* 浠呯ず渚嬶細璇峰湪宸ョ▼閰嶇疆閲屽 lvgl 鐩稿叧瀵硅薄璁剧疆 -O2/-O3 涓?-flto */
 __attribute__((aligned(32))) static lv_color_t framebuf[BUFFER_SIZE];
 ```
 
-### 9. 鏋佺鍦烘櫙涓嬬殑浣庡姛鑰椾笌鎸夐渶鍒锋柊
+### 10. Low-power and dirty refresh
 
-- 鏃犲姩鐢汇€佹棤瑙︽懜鏃跺彲浠ユ牴鎹?`lv_timer_handler()` 杩斿洖鍊煎喅瀹氫綆鍔熻€楃瓑寰呮椂闀匡紱杩斿洖鍊煎ぇ琛ㄧず鍙紤鐪犮€?- 瀵瑰眬閮ㄥ彉鍖栫晫闈紙鏃堕挓銆佺琛級鍔″繀鎺у埗 dirty 鍖哄煙锛岄伩鍏嶅叏灞忔棤鏁堝寲銆?- 澶嶆潅鍔ㄧ敾缁撴潫鍚庢竻鐞嗘洿鏂伴鐜囷紝绂佹鎸佺画鎻愪氦鏃犳剰涔夌殑 `invalidate`銆?
+- Use the return value of `lv_timer_handler()` to extend sleep when the UI is idle.
+- Keep clock/second updates dirty-area based; avoid full-screen invalidation for small labels.
+- Stop nonessential animations before entering low power and restore them explicitly on wake.
+
 ```c
-/* 绀轰緥锛氭牴鎹笅涓€娆?timer 寤舵椂杩涘叆浣庡姛鑰?*/
-void lvgl_task(void *arg)
-{
-    while (1) {
-        int next_ms = lv_timer_handler();
-        if (next_ms > 100) {
-            enter_low_power_wait(next_ms);
-        } else {
-            vTaskDelay(pdMS_TO_TICKS(next_ms));
-        }
-    }
+uint32_t next_ms = lv_timer_handler();
+if (next_ms > 100U) {
+    enter_low_power_wait(next_ms);
 }
 ```
 
+### 11. Page lifecycle and navigation stack
 
-### 10. 椤甸潰鐢熷懡鍛ㄦ湡涓庣瓥鐣ワ紙Page Lifecycle Strategy锛?
-- **榛樿鎺ㄨ崘閿€姣佺瓥鐣ワ紙Destruction锛?*锛氶〉闈㈠垏鎹㈡椂鎵ц `lv_obj_del(old_screen)`锛屼粎淇濈暀椤甸潰 ID 涓庡垱寤哄洖璋冨嚱鏁版寚閽堬紙濡?`create_setting_page()`锛夈€傝繑鍥炴椂閲嶅缓椤甸潰銆?  - 浼樼偣锛氬唴瀛樺崰鐢ㄦ渶灏忥紝娲诲姩椤甸€氬父鍙湁 1 涓€?  - 缂虹偣锛氳繑鍥炴椂闇€閲嶅缓锛屽瓨鍦ㄤ竴娆℃€ч噸缁樺紑閿€銆?- **缂撳瓨绛栫暐锛圕aching锛?*锛氫粎鐢ㄤ簬鈥滈珮棰戝洖鍒般€佺姸鎬佸鏉備笖閲嶅缓鎴愭湰楂樷€濈殑椤甸潰锛堟挱鏀惧櫒涓荤晫闈€佸鏉備华琛ㄧ洏绛夛級銆?  - 鍒囧嚭鏃朵娇鐢?`lv_obj_add_flag(old_screen, LV_OBJ_FLAG_HIDDEN)`銆?  - 娉ㄦ剰锛氶殣钘忛〉闈笉鍙備笌閲嶇粯锛屼絾鎸佺画鍗犵敤鍐呭瓨銆?- 寤鸿璁剧疆椤甸潰鏍堟繁搴︿笂闄愪负 `2~3`锛氳秴杩囦笂闄愭椂寮哄埗閿€姣佹渶鏃╅〉锛岄伩鍏嶉暱鏈熷唴瀛樻攢鍗囥€?
-### 11. 閬垮厤鍐呭瓨纰庣墖锛團ragmentation Rule锛?
-- 澶ч噺鍒涘缓/鍒犻櫎澶у璞★紙椤甸潰銆佸鍣級浼氬姞鍓х鐗囧寲锛屽敖閲忔彁楂?`LV_MEM_SIZE` 骞剁‘淇濋珮浼樺厛绾у唴瀛樹粠杩炵画楂橀€?RAM 鍒嗛厤銆?- 涓ょ瀹炶返鏂瑰悜锛?  - 榛樿浣跨敤 LVGL 鍐呯疆鍒嗛厤锛坄LV_MEM_CUSTOM == 0`锛夊苟鍚堢悊閰嶇疆 `LV_MEM_SIZE`銆?  - 蹇呰鏃跺皢 `lv_obj_class` 鍙婂璞＄浉鍏崇紦鍐插垎閰嶅埌 TCM/SRAM / AHB SRAM 绛夌墖涓婅繛缁唴瀛樸€?- 鍏抽敭瀹夊叏鍘熷垯锛?*涓嶈鍦ㄤ簨浠堕摼璺腑鐩存帴鍒犺嚜韬璞?*銆?  - 渚嬪 `LV_EVENT_CLICKED` 鍥炶皟閲岀洿鎺?`lv_obj_del(current_scr)` 瀹规槗鍦ㄤ簨浠朵紶鎾繃绋嬩腑璁块棶鏃犳晥鎸囬拡銆?  - 鏀逛负鍙戣捣鈥滈〉闈㈠垏鎹㈣姹傗€濓紙鐘舵€佹爣璁帮級鎴?`lv_async_call(page_switch_task, data)`锛屽湪瀹夊叏闃舵寮傛閿€姣併€?
-### 12. 鍔ㄧ敾鏈熼棿浼樺寲
+- Create normal pages under the provided content parent; do not create a screen and later reparent it.
+- Own timers, allocations, image descriptors, and media handles at the page/container level and release them from delete hooks.
+- Root pages need explicit back-boundary handling to avoid empty stack or black screen states.
 
-- 鍔ㄧ敾鍒囨崲锛圱ransition锛夋椂寤鸿锛?  - 鎵撳紑鍏ㄥ睆閬僵鎴?`lv_indev_set_blur()`锛岀姝㈢敤鎴峰湪鍔ㄧ敾鏈熼噸澶嶈Е鍙戜簨浠躲€?  - 鍑忓皯鍔ㄧ敾澶嶆潅搴︼紝浣庨厤缃?MCU 鍙紭鍏?`LV_SCR_LOAD_ANIM_FADE_ON` 鎴?`LV_SCR_LOAD_ANIM_NONE`銆?- 娉ㄦ剰锛歚LV_SCR_LOAD_ANIM_MOVE_*` 浼氫娇鏂版棫椤甸潰鍚屾椂椹荤暀锛岀灛鏃跺唴瀛?娓叉煋寮€閿€鏇撮珮锛涘浣庣骞冲彴閫氬父涓嶅弸濂姐€?
-### 13. 椤甸潰鏍堣璁℃牱渚嬶紙杞婚噺锛?
-```c
-typedef struct {
-    void (*create_cb)(void);
-    void *page_data;
-} lv_page_target_t;
+Checklist:
+- [ ] No duplicate push caused by double click or repeated async callback.
+- [ ] Every page-local allocation has one owner and one release path.
+- [ ] Cached pages restore shared background and resource handles before becoming visible.
 
-#define PAGE_STACK_SIZE 10
-lv_page_target_t page_stack[PAGE_STACK_SIZE];
-int8_t stack_top = -1;
+### 12. Resource, image, and media overlay lifecycle
 
-// 鍘嬫爤骞惰烦杞?void page_router_push(void (*new_page_cb)(void)) {
-    if (stack_top >= PAGE_STACK_SIZE - 1) return; // 鏍堟弧
+- Put all background/icon access behind the common resource layer so cache policy and fallback are consistent.
+- Decode large JPEG/PNG backgrounds outside the touch callback path where possible.
+- For short video overlays, keep LVGL and its primary framebuffer alive; render video on a dedicated top layer when the SDK supports it.
 
-    lv_obj_t *cur_scr = lv_scr_act();
-    if(cur_scr) {
-        // 鍙€夛細淇濆瓨椤甸潰鐘舵€侊紝濡傛粴鍔ㄤ綅缃€佺劍鐐圭瓑
-        lv_obj_del_async(cur_scr);
-    }
+Required logs:
+- `page transition begin/end`
+- `asset decode begin/end`
+- `page cache hit/store/evict`
+- `media done, ui nav requested`
+- `ui nav done`
 
-    stack_top++;
-    page_stack[stack_top].create_cb = new_page_cb;
+### 13. Agent checklist
 
-    new_page_cb();
-}
-
-// 鍑烘爤骞惰繑鍥?void page_router_pop(void) {
-    if (stack_top <= 0) return; // 鏍归〉淇濇姢
-
-    lv_obj_del_async(lv_scr_act());
-    stack_top--;
-    page_stack[stack_top].create_cb();
-}
-```
-
-### 椤甸潰鏍堥珮闃舵鏌ユ竻鍗?
-- [ ] 閬垮厤閲嶅鍘嬫爤锛氭鏌ュ悓涓€鎸夐挳鏄惁浜х敓閲嶅鍏ユ爤锛堝鍙屽嚮鈥滆缃€濆鑷翠袱涓悓椤靛帇鍏ワ級銆?- [ ] 鐢熷懡鍛ㄦ湡閲婃斁瀹屾暣鎬э細椤甸潰鑷缓璧勬簮锛坄lv_mem_alloc/malloc/timer`锛夋槸鍚﹀湪 `LV_EVENT_DELETE` 涓粺涓€閲婃斁銆?- [ ] 鏍归〉淇濇姢锛氫富椤碉紙鏍堝簳锛夊簲鍏峰杩斿洖杈圭晫淇濇姢锛岄伩鍏嶈繛缁繑鍥炲鑷寸┖鏍堟垨榛戝睆銆?
-## Agent 妫€鏌ユ竻鍗?
-
-- [ ] C23.1 LCD 鍒濆鍖栨椂搴忔槸鍚︿弗鏍兼寜 datasheet锛堝浣嶈剦瀹姐€佸懡浠ら棿寤惰繜锛夛紵
-- [ ] C23.2 鑳屽厜鏄惁鐢?PWM 鎺у埗锛堥潪 GPIO 寮€鍏筹級锛熶綆鍔熻€楁椂鏄惁鍏抽棴鑳屽厜鐢垫簮锛?
-- [ ] C23.3 `lv_timer_handler` 璋冪敤棰戠巼鏄惁鍖归厤闈㈡澘鍒锋柊鐜囷紵
-- [ ] C23.4 鏄惁鏈夋挄瑁傞槻鎶わ紙TE 淇″彿 / 鍙岀紦鍐诧級锛?
-- [ ] C23.5 甯х紦鍐插ぇ灏忔槸鍚︽牴鎹?RAM 鍙敤鎬ч€夋嫨锛堝叏灞?閮ㄥ垎鍒锋柊锛夛紵
-- [ ] C23.6 `lv_disp_drv_t` 鏄惁姝ｇ‘璁剧疆 `hor_res`銆乣ver_res`銆乣draw_buf`锛?
-
-
+- [ ] C23.1 LCD reset and command timing follows the datasheet.
+- [ ] C23.2 Backlight uses PWM and has a real low-power off path.
+- [ ] C23.3 `lv_timer_handler()` cadence matches panel refresh and CPU budget.
+- [ ] C23.4 Tearing prevention and DMA completion ownership are explicit.
+- [ ] C23.5 Framebuffer size, memory class, allocation failure, and cache policy are reviewed.
+- [ ] C23.6 LVGL display driver registration and teardown paths are complete.
+- [ ] Page navigation is async, guarded, and single-owner.
+- [ ] Display/media/resource logs can explain low FPS, black screen, and reboot-after-video cases.
 ### 14. 生产级策略（补充）
 
 以上 1~13 条更偏优化手法，下面是可落地的生产化策略（10 项）：

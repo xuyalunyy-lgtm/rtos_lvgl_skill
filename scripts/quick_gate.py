@@ -39,6 +39,7 @@ STEPS = [
     GateStep("context router self-test", [sys.executable, "tools/context_router.py", "--self-test"]),
     GateStep("post-install smoke self-test", [sys.executable, "scripts/post_install_smoke.py", "--self-test"]),
     GateStep("skill metadata", [sys.executable, "scripts/check_skill_metadata.py"]),
+    GateStep("text encoding", [sys.executable, "scripts/check_text_encoding.py"]),
     GateStep("runtime distribution", [sys.executable, "scripts/check_runtime_distribution.py"]),
     GateStep("link check", [sys.executable, "tools/check_links.py"]),
 ]

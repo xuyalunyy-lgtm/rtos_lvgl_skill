@@ -1,4 +1,4 @@
-﻿# log symptom allowlist governance
+# log symptom allowlist governance
 
 ## Allowlist Change Approval Path
 
