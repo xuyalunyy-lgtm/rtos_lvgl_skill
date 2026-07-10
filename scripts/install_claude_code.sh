@@ -62,4 +62,46 @@ if [[ -n "$PROJECT_ROOT" && -d "$PROJECT_ROOT" ]]; then
     fi
 fi
 
-echo "Restart Claude Code to discover skill."
+# Configure MCP server in Claude Code settings
+CLAUDE_SETTINGS_DIR="${HOME}/.claude"
+CLAUDE_SETTINGS_FILE="${CLAUDE_SETTINGS_DIR}/settings.json"
+
+if [[ -f "$CLAUDE_SETTINGS_FILE" ]]; then
+    # Update existing settings using Python for safe JSON manipulation
+    python3 -c "
+import json, sys
+with open('$CLAUDE_SETTINGS_FILE', 'r') as f:
+    settings = json.load(f)
+if 'mcpServers' not in settings:
+    settings['mcpServers'] = {}
+settings['mcpServers']['freertos-embedded-architect'] = {
+    'command': 'python3',
+    'args': ['mcp/server.py'],
+    'cwd': '$DEST',
+    'env': {'PYTHONUTF8': '1', 'PYTHONIOENCODING': 'utf-8'}
+}
+with open('$CLAUDE_SETTINGS_FILE', 'w') as f:
+    json.dump(settings, f, indent=2)
+" 2>/dev/null || echo "Warning: Could not update MCP config in existing settings.json" >&2
+    echo "MCP server configured in: $CLAUDE_SETTINGS_FILE"
+else
+    mkdir -p "$CLAUDE_SETTINGS_DIR"
+    cat > "$CLAUDE_SETTINGS_FILE" << EOJSON
+{
+  "mcpServers": {
+    "freertos-embedded-architect": {
+      "command": "python3",
+      "args": ["mcp/server.py"],
+      "cwd": "$DEST",
+      "env": {
+        "PYTHONUTF8": "1",
+        "PYTHONIOENCODING": "utf-8"
+      }
+    }
+  }
+}
+EOJSON
+    echo "Created Claude Code settings with MCP: $CLAUDE_SETTINGS_FILE"
+fi
+
+echo "Restart Claude Code to discover skill and MCP server."

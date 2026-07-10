@@ -73,4 +73,32 @@ if ($ProjectRoot -and (Test-Path $ProjectRoot)) {
     }
 }
 
-Write-Host "Restart Claude Code to discover skill."
+# Configure MCP server in Claude Code settings
+$claudeSettingsDir = Join-Path $env:USERPROFILE ".claude"
+$claudeSettingsFile = Join-Path $claudeSettingsDir "settings.json"
+
+$mcpConfig = @{
+    command = "python"
+    args = @("mcp/server.py")
+    cwd = $Dest
+    env = @{
+        PYTHONUTF8 = "1"
+        PYTHONIOENCODING = "utf-8"
+    }
+}
+
+if (Test-Path $claudeSettingsFile) {
+    $settings = Get-Content $claudeSettingsFile -Raw | ConvertFrom-Json
+    if (-not $settings.mcpServers) {
+        $settings | Add-Member -NotePropertyName "mcpServers" -NotePropertyValue @{} -Force
+    }
+    $settings.mcpServers | Add-Member -NotePropertyName "freertos-embedded-architect" -NotePropertyValue $mcpConfig -Force
+    $settings | ConvertTo-Json -Depth 10 | Set-Content $claudeSettingsFile -Encoding UTF8
+    Write-Host "MCP server configured in: $claudeSettingsFile"
+} else {
+    New-Item -ItemType Directory -Force -Path $claudeSettingsDir | Out-Null
+    @{ mcpServers = @{ "freertos-embedded-architect" = $mcpConfig } } | ConvertTo-Json -Depth 10 | Set-Content $claudeSettingsFile -Encoding UTF8
+    Write-Host "Created Claude Code settings with MCP: $claudeSettingsFile"
+}
+
+Write-Host "Restart Claude Code to discover skill and MCP server."

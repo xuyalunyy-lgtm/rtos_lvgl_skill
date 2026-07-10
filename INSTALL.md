@@ -189,8 +189,49 @@ v31 起 Lite 版不在源码树维护；若只需规则与 prompt，应由发布
 ```
 
 - Skill → `~/.claude/skills/freertos-embedded-architect/`，invoke `/freertos-embedded-architect`
+- MCP Server → 自动配置到 `~/.claude/settings.json`（`mcpServers.freertos-embedded-architect`）
 - 省 token 指南 → [references/claude_code.md](references/claude_code.md)
 - 项目模板 → [templates/CLAUDE.embedded.md](templates/CLAUDE.embedded.md)
+
+### MCP Server
+
+安装脚本会自动配置 MCP server。如需手动配置，在 `~/.claude/settings.json` 中添加：
+
+```json
+{
+  "mcpServers": {
+    "freertos-embedded-architect": {
+      "command": "python",
+      "args": ["mcp/server.py"],
+      "cwd": "~/.claude/skills/freertos-embedded-architect",
+      "env": {
+        "PYTHONUTF8": "1",
+        "PYTHONIOENCODING": "utf-8"
+      }
+    }
+  }
+}
+```
+
+MCP 提供以下工具（`list_capabilities` 查看完整列表）：
+
+| Tool | 用途 |
+|------|------|
+| `route_context` | 构建最小上下文加载计划 |
+| `run_review` | 运行静态审查流水线 |
+| `triage_log` | 分类固件日志 |
+| `lookup_sdk` | 查询 SDK 操作映射 |
+| `run_gate` | 运行 skill 验证门 |
+| `get_lvgl_theme_skill` | 获取 LVGL UI 生成规则 |
+| `convert_image_to_lvgl_source` | 图片转 LVGL C-array |
+| `generate_lvgl_page_code` | 生成 LVGL 页面代码 |
+
+资源（`lvgl://` 协议）：
+- `lvgl://display-config` — 显示配置
+- `lvgl://theme-skill` — 布局规则
+- `lvgl://regression-sandbox-config` — 回归沙箱配置
+
+环境依赖：`python scripts/install_mcp_environment.py`（自动安装 PyYAML、Pillow）。
 
 ## Codex
 

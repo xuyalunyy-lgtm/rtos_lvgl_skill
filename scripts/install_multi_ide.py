@@ -120,6 +120,7 @@ def install_cursor(project_root: str | None = None) -> bool:
 
 
 def install_claude(project_root: str | None = None) -> bool:
+    import json
     dest = Path.home() / ".claude" / "skills" / "freertos-embedded-architect"
     if dest.exists():
         shutil.rmtree(dest)
@@ -131,6 +132,27 @@ def install_claude(project_root: str | None = None) -> bool:
             dest_claude = Path(project_root) / "CLAUDE.md"
             shutil.copy2(template, dest_claude)
             print(f"  CLAUDE.md -> {dest_claude}")
+    # Configure MCP server in Claude Code settings
+    claude_dir = Path.home() / ".claude"
+    settings_file = claude_dir / "settings.json"
+    mcp_config = {
+        "command": sys.executable,
+        "args": ["mcp/server.py"],
+        "cwd": str(dest),
+        "env": {"PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"},
+    }
+    try:
+        if settings_file.exists():
+            settings = json.loads(settings_file.read_text(encoding="utf-8"))
+            if "mcpServers" not in settings:
+                settings["mcpServers"] = {}
+            settings["mcpServers"]["freertos-embedded-architect"] = mcp_config
+        else:
+            settings = {"mcpServers": {"freertos-embedded-architect": mcp_config}}
+        settings_file.write_text(json.dumps(settings, indent=2, ensure_ascii=False), encoding="utf-8")
+        print(f"  MCP -> {settings_file}")
+    except Exception as exc:
+        print(f"  Warning: MCP config failed: {exc}")
     return True
 
 
