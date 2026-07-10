@@ -17,7 +17,6 @@ import argparse
 import json
 import os
 import shutil
-import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -36,37 +35,8 @@ DEFAULT_INSTALL_DIR = Path(os.environ.get("USERPROFILE", "")) / ".codex" / "skil
 
 
 def _install_environment(src_dir: Path, *, dry_run: bool = False, install_env: bool = True) -> dict:
-    """Install/check MCP Python dependencies before copying the runtime payload."""
-    if not install_env:
-        return {"ok": True, "skipped": True}
-    script = src_dir / "scripts" / "install_mcp_environment.py"
-    if not script.is_file():
-        return {"ok": False, "error": f"missing environment installer: {script}"}
-    cmd = [sys.executable, str(script), "--json"]
-    if dry_run:
-        cmd.append("--dry-run")
-    else:
-        cmd.append("--quiet")
-    proc = subprocess.run(
-        cmd,
-        cwd=src_dir,
-        capture_output=True,
-        encoding="utf-8",
-        errors="replace",
-        timeout=360,
-    )
-    try:
-        data = json.loads(proc.stdout) if proc.stdout.strip() else {}
-    except json.JSONDecodeError:
-        data = {}
-    data.update({
-        "ok": proc.returncode == 0 if dry_run else proc.returncode == 0 and bool(data.get("ok", proc.returncode == 0)),
-        "exit_code": proc.returncode,
-        "stderr": proc.stderr,
-    })
-    if not data["ok"] and "error" not in data:
-        data["error"] = (proc.stderr or proc.stdout or "environment install failed").strip()[-2000:]
-    return data
+    """MCP server uses only Python stdlib — no external dependencies to install."""
+    return {"ok": True, "skipped": True, "reason": "stdlib only"}
 
 
 def _copy_payload(src_dir: Path, dst_dir: Path) -> int:

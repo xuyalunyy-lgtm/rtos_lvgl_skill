@@ -35,7 +35,6 @@ def smoke(install_dir: Path) -> list[str]:
         "tools/log_triage_batch.py",
         "tools/project_gate.py",
         "scripts/check_skill_metadata.py",
-        "scripts/install_mcp_environment.py",
     ]
     for rel in required:
         if not (install_dir / rel).is_file():
@@ -45,7 +44,6 @@ def smoke(install_dir: Path) -> list[str]:
         return issues
 
     checks = [
-        [sys.executable, "scripts/install_mcp_environment.py", "--check", "--quiet"],
         [sys.executable, "scripts/check_skill_metadata.py"],
         [sys.executable, "tools/log_triage_batch.py", "--self-test"],
         [sys.executable, "tools/project_gate.py", "--self-test"],

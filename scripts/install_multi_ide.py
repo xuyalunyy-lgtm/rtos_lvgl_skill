@@ -15,7 +15,6 @@ import argparse
 import fnmatch
 import os
 import shutil
-import subprocess
 import sys
 from pathlib import Path
 
@@ -57,15 +56,8 @@ def runtime_ignore(directory: str, names: list[str]) -> set[str]:
 
 
 def install_mcp_environment() -> bool:
-    script = SKILL_ROOT / "scripts" / "install_mcp_environment.py"
-    if not script.is_file():
-        print(f"  Error: missing {script}")
-        return False
-    proc = subprocess.run([sys.executable, str(script), "--quiet"], cwd=SKILL_ROOT)
-    if proc.returncode != 0:
-        print(f"  Error: MCP environment install failed (exit {proc.returncode})")
-        return False
-    print("  MCP environment OK")
+    """MCP server uses only Python stdlib — no external dependencies to install."""
+    print("  MCP environment OK (stdlib only, no external deps)")
     return True
 
 WINDSURF_HEADER = """# FreeRTOS Embedded Architect Rules

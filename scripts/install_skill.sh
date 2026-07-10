@@ -13,20 +13,7 @@ if [[ ! -f "${SOURCE}/SKILL.md" ]]; then
   exit 1
 fi
 
-if [[ "${SKIP_MCP_ENV_INSTALL:-0}" != "1" && -f "${SOURCE}/scripts/install_mcp_environment.py" ]]; then
-  PYTHON_BIN="${PYTHON:-}"
-  if [[ -z "${PYTHON_BIN}" ]]; then
-    if command -v python3 >/dev/null 2>&1; then
-      PYTHON_BIN="python3"
-    elif command -v python >/dev/null 2>&1; then
-      PYTHON_BIN="python"
-    else
-      echo "错误: Python 3.10+ is required to install MCP dependencies." >&2
-      exit 1
-    fi
-  fi
-  "${PYTHON_BIN}" "${SOURCE}/scripts/install_mcp_environment.py" --quiet
-fi
+# MCP server uses only Python stdlib — no external dependency install needed.
 
 mkdir -p "$(dirname "$DEST")"
 rm -rf "$DEST"

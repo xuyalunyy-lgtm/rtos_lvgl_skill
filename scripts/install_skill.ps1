@@ -18,24 +18,7 @@ if (-not (Test-Path (Join-Path $Source "SKILL.md"))) {
     exit 1
 }
 
-if (-not $SkipEnvInstall) {
-    $EnvScript = Join-Path $Source "scripts\install_mcp_environment.py"
-    if (Test-Path $EnvScript) {
-        $PythonCmd = Get-Command python -ErrorAction SilentlyContinue
-        if (-not $PythonCmd) {
-            $PythonCmd = Get-Command python3 -ErrorAction SilentlyContinue
-        }
-        if (-not $PythonCmd) {
-            Write-Error "Python 3.10+ is required to install MCP dependencies."
-            exit 1
-        }
-        & $PythonCmd.Source $EnvScript --quiet
-        if ($LASTEXITCODE -ne 0) {
-            Write-Error "MCP environment install failed."
-            exit 1
-        }
-    }
-}
+# MCP server uses only Python stdlib — no external dependency install needed.
 
 New-Item -ItemType Directory -Force -Path (Split-Path $Dest -Parent) | Out-Null
 if (Test-Path $Dest) {

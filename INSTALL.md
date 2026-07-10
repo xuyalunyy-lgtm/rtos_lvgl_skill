@@ -231,7 +231,7 @@ MCP 提供以下工具（`list_capabilities` 查看完整列表）：
 - `lvgl://theme-skill` — 布局规则
 - `lvgl://regression-sandbox-config` — 回归沙箱配置
 
-环境依赖：`python scripts/install_mcp_environment.py`（自动安装 PyYAML、Pillow）。
+MCP server 使用纯 Python stdlib，无外部依赖。
 
 ## Codex
 
