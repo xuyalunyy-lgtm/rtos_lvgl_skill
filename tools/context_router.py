@@ -942,6 +942,49 @@ def run_self_test() -> int:
         else:
             check(f"case {case_id}: no forbidden files", True)
 
+    # ── Snapshot fixtures: pin expected file sets for key combos ──
+    SNAPSHOT_FIXTURES = [
+        ("lvgl_page", "jl", "freertos", ["compact"]),
+        ("memory_analysis", "esp32", "freertos", ["compact", "standard"]),
+        ("code_review", "esp32", "freertos", ["compact", "standard"]),
+        ("sdk_trim", "bk", "zephyr", ["compact"]),
+        ("crash_debug", "bk", "freertos", ["compact"]),
+    ]
+    snapshots: dict[str, list[str]] = {}
+    for wf, plat, rtos, budgets in SNAPSHOT_FIXTURES:
+        for budget in budgets:
+            key = f"{wf}+{plat}+{rtos}+{budget}"
+            plan = build_load_plan(wf, plat, rtos, budget=budget)
+            check(f"snapshot {key}: no error", "error" not in plan)
+            paths = [f["path"] for f in plan.get("required_files", [])]
+            snapshots[key] = paths
+            check(f"snapshot {key}: has required_files", len(paths) > 0)
+
+    # ── Assertion: required files must exist on disk ──
+    for key, paths in snapshots.items():
+        for p in paths:
+            check(f"{key}: required file exists: {p}", (ROOT / p).is_file())
+
+    # ── Assertion: forbidden files must not appear in required ──
+    for key, paths in snapshots.items():
+        forbidden_leaked = [p for p in paths if p in FORBIDDEN_BY_DEFAULT]
+        check(f"{key}: no forbidden leaked", len(forbidden_leaked) == 0)
+
+    # ── Assertion: platform and RTOS docs must not be mixed ──
+    PLATFORM_ONLY = {"platforms/esp32", "platforms/stm32", "platforms/jl", "platforms/bk"}
+    RTOS_ONLY = {"platforms/freertos", "platforms/zephyr"}
+    for key, paths in snapshots.items():
+        # Both can be present, but a platform doc should not also be an RTOS doc.
+        mixed = [p for p in paths
+                 if any(po in p for po in PLATFORM_ONLY) and any(ro in p for ro in RTOS_ONLY)]
+        check(f"{key}: no platform/RTOS doc mixed", len(mixed) == 0)
+
+    # ── Assertion: each workflow loads at least one workflow doc and one constraint doc ──
+    for key, paths in snapshots.items():
+        has_workflow_doc = any("workflows/" in p for p in paths)
+        has_constraint = any("constraint_" in p or "core_rules" in p for p in paths)
+        check(f"{key}: has workflow doc", has_workflow_doc)
+        check(f"{key}: has constraint doc", has_constraint)
     print(f"\nSelf-test: {passed} passed, {failed} failed")
     return 0 if failed == 0 else 1
 
