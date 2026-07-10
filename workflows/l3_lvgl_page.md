@@ -122,6 +122,29 @@ Agent 输出以下模板，要求用户逐项填写：
 
 ---
 
+## Step 1.5 — MCP 工具链强制检查（必做）
+
+**铁律：禁止跳过 MCP 工具直接生成 LVGL C 代码。**
+
+在生成任何 LVGL 页面代码前，必须按序调用 MCP 工具：
+
+| 顺序 | MCP 工具 | 作用 | 跳过后果 |
+|------|----------|------|----------|
+| 1 | `get_lvgl_theme_skill` | 加载 Flex/Grid 布局约束和显示配置 | 可能使用绝对坐标，违反布局策略 |
+| 2 | `convert_image_to_lvgl_source` | 将设计切图转为 RGB565 C-array | 图片资源格式不匹配，编译失败 |
+| 3 | `generate_lvgl_layout_spec` | 生成结构化布局规格 JSON | 缺少规格校验，代码质量不可控 |
+| 4 | `generate_lvgl_page_code` | 从 spec 生成 C/H scaffold | 手写代码难以保证一致性 |
+| 5 | `validate_lvgl_layout_code` | 校验生成代码的布局和约束 | 坐标/尺寸错误无法提前发现 |
+
+### 执行要求
+
+- 每一步都必须实际调用 MCP 工具并获取返回值，不能"跳过因为已有信息"
+- 步骤 2（图片转换）仅在有设计切图时执行，无切图可跳过
+- 如果 MCP server 连接失败，先尝试排查连接问题；确认无法修复后才可回退到手动流程
+- 回退手动流程时，必须在输出中标注 `[MCP unavailable - manual fallback]`
+
+---
+
 ## Step 2 — 代码生成
 
 ### 2.1 代码结构模板

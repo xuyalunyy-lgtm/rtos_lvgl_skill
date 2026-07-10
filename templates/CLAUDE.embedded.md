@@ -18,5 +18,8 @@ Skill 路径：`~/.claude/skills/freertos-embedded-architect/`（安装见 skill
 ## L3 自主实施
 实现/修 Bug：**全权改代码**，无需逐步确认，直至功能完成且 **编译 0 error**。铁律 C1–C8 仍遵守。
 
+## LVGL UI 生成
+**必须**使用 MCP 工具链（`get_lvgl_theme_skill` → `convert_image` → `generate_spec` → `generate_code` → `validate`）。禁止绕过 MCP 直接手写 LVGL 页面代码。详见 skill `workflows/l3_lvgl_page.md`。
+
 ## 忽略大目录
 见同目录 `.claudeignore`（SDK/build 勿进 context）。

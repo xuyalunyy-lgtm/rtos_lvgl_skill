@@ -77,6 +77,20 @@
 
 ---
 
+## MCP Server
+
+安装后自动配置到 `~/.claude/settings.json`。LVGL UI 生成任务**必须**通过 MCP 工具链完成，禁止绕过直接手写代码。
+
+| Tool | 用途 |
+|------|------|
+| `get_lvgl_theme_skill` | 加载 Flex/Grid 布局约束和显示配置 |
+| `convert_image_to_lvgl_source` | 设计切图转 RGB565 C-array |
+| `generate_lvgl_layout_spec` | 生成结构化布局规格 JSON |
+| `generate_lvgl_page_code` | 从 spec 生成 C/H scaffold |
+| `validate_lvgl_layout_code` | 校验生成代码 |
+
+MCP 不可用时回退到 `workflows/l3_lvgl_page.md` 手动流程，需标注 `[MCP unavailable]`。
+
 ## 维护
 
 改铁律时同步 `constraint_index.md` 一行摘要；Claude 侧无需改 SKILL 体积。

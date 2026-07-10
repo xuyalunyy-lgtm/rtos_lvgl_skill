@@ -89,5 +89,12 @@ Router IDs: `code_review`, `project_review`, `crash_debug`,
 - Do not perform unplanned core SDK refactors; preserve critical logs and watchdog behavior.
 - For commit requests, follow [git_commit_style](references/git_commit_style.md) and use `type(scope):`.
 - For self-iteration, run `python scripts/skill_iterate.py --check` before release or commit review.
-- For LVGL design/cut-image UI work, read MCP `lvgl://display-config`, `lvgl://theme-skill`, and `lvgl://regression-sandbox-config`; use image conversion, layout/code generation, validation, `lvgl_render`, and `run_lvgl_ui_regression`. Prefer Flex/Grid; absolute coordinates require `LVGL_LAYOUT_EXCEPTION`; keep baselines/artifacts outside runtime. Before trusting generated code, classify design/cut/reference assets, emit `analysis_report.json` + `debug_overlay.png`, treat `preview.html` only as an approximate preview, and run JSON/C coordinate sanity checks.
+- **LVGL UI 生成必须使用 MCP 工具链**，禁止绕过 MCP 直接手写 LVGL 页面代码。强制流程：
+  1. `get_lvgl_theme_skill` — 加载布局约束（Flex/Grid 优先，禁止裸坐标）
+  2. `convert_image_to_lvgl_source` — 转换设计切图为 C-array（如有切图）
+  3. `generate_lvgl_layout_spec` — 生成结构化布局规格 JSON
+  4. `generate_lvgl_page_code` — 从 spec 生成 C/H scaffold
+  5. `validate_lvgl_layout_code` — 校验生成代码
+  缺少任一步骤不得输出最终 LVGL 代码。仅当 MCP server 不可用时，回退到 `workflows/l3_lvgl_page.md` 手动流程并明确告知用户。
+- LVGL 设计切图工作额外要求：读 MCP `lvgl://display-config`、`lvgl://theme-skill`、`lvgl://regression-sandbox-config`；分类设计/切图/参考资产，输出 `analysis_report.json` + `debug_overlay.png`，`preview.html` 仅作近似预览，必须运行 JSON/C 坐标校验。绝对坐标需 `LVGL_LAYOUT_EXCEPTION` 注释。基线和产物不放运行时目录。
 - Default output should be concise; use `--fix-detail full` only when complete details are needed.
