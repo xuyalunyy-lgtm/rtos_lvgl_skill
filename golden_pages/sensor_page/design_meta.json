@@ -1,10 +1,10 @@
 {
-  "page_name": "media_page",
+  "page_name": "sensor_page",
   "screen": {
     "width": 480,
     "height": 800,
     "lvgl_version": "v9",
     "color_depth": 16
   },
-  "description": "Media player with cover art, progress bar, play controls"
+  "description": "Sensor data display with real-time values and gauges"
 }

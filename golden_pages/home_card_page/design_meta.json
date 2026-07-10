@@ -1,5 +1,10 @@
 {
   "page_name": "home_card_page",
-  "screen": {"width": 480, "height": 800, "lvgl_version": "v9", "color_depth": 16},
-  "description": "Home page with weather card, schedule card, and navigation button"
+  "screen": {
+    "width": 480,
+    "height": 800,
+    "lvgl_version": "v9",
+    "color_depth": 16
+  },
+  "description": "Home page with weather card, schedule card, and navigation"
 }

@@ -1,0 +1,17 @@
+{
+  "schema_version": "1.0",
+  "page_name": "sensor_page",
+  "screen": {
+    "width": 480,
+    "height": 800,
+    "lvgl_version": "v9",
+    "color_depth": 16
+  },
+  "detected_regions": [],
+  "detected_text": [],
+  "color_palette": [],
+  "layout_candidates": [],
+  "confidence": 0.0,
+  "uncertain_regions": [],
+  "questions": []
+}
