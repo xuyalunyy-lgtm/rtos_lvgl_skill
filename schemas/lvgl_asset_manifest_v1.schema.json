@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "lvgl-asset-manifest-v1",
+  "title": "LVGL Asset Manifest v1",
+  "description": "Manifest of all compiled assets (images, fonts) with resource budgets.",
+  "type": "object",
+  "required": ["schema_version", "assets", "fonts", "total_flash_bytes", "total_ram_bytes"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "assets": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/compiled_asset" },
+      "maxItems": 128
+    },
+    "fonts": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/compiled_font" },
+      "maxItems": 16
+    },
+    "total_flash_bytes": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Total flash consumption for all assets and fonts"
+    },
+    "total_ram_bytes": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Total RAM consumption (typically 0 for static assets)"
+    },
+    "budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "max_flash_bytes": { "type": "integer", "minimum": 0 },
+        "max_ram_bytes": { "type": "integer", "minimum": 0 },
+        "within_budget": { "type": "boolean" }
+      }
+    }
+  },
+  "$defs": {
+    "compiled_asset": {
+      "type": "object",
+      "required": ["symbol", "source", "width", "height", "color_format", "flash_bytes"],
+      "additionalProperties": false,
+      "properties": {
+        "symbol": { "type": "string", "pattern": "^UI_IMG_[A-Z][A-Z0-9_]*$" },
+        "source": { "type": "string", "description": "Original source file" },
+        "output_c": { "type": "string", "description": "Generated .c file path" },
+        "output_h": { "type": "string", "description": "Generated .h file path" },
+        "width": { "type": "integer", "minimum": 1 },
+        "height": { "type": "integer", "minimum": 1 },
+        "color_format": { "type": "string", "enum": ["RGB565", "RGB565A8", "RGB888", "ARGB8888", "A8"] },
+        "flash_bytes": { "type": "integer", "minimum": 0 },
+        "compress": { "type": "string", "enum": ["none", "rle", "lz4"] },
+        "sha256": { "type": "string" },
+        "lvgl_version": { "type": "string", "enum": ["v8", "v9"] }
+      }
+    },
+    "compiled_font": {
+      "type": "object",
+      "required": ["name", "size", "glyph_count", "flash_bytes"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "size": { "type": "integer", "minimum": 1 },
+        "bpp": { "type": "integer", "enum": [1, 2, 4, 8] },
+        "glyph_count": { "type": "integer", "minimum": 0 },
+        "flash_bytes": { "type": "integer", "minimum": 0 },
+        "output_c": { "type": "string" },
+        "output_h": { "type": "string" },
+        "source": { "type": "string" },
+        "missing_glyphs": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Glyphs that could not be generated"
+        }
+      }
+    }
+  }
+}
