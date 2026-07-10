@@ -21,7 +21,7 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-# 纯 stdlib YAML 解析器，替代 PyYAML 外部依赖
+# SDK map 子集解析器；不是通用 YAML loader
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from minimal_yaml import safe_load as _yaml_load
 

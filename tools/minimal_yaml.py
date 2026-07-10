@@ -1,13 +1,18 @@
-"""Minimal YAML parser — stdlib only, no PyYAML dependency.
+"""SDK-map-only YAML subset loader, stdlib only.
 
-Handles the YAML subset used by sdk_abstraction.yaml and *_sdk_map.yaml:
+This module is intentionally scoped to the YAML shape used by
+references/sdk_abstraction.yaml and platforms/*_sdk_map.yaml. It is not a
+general YAML parser and should not grow into one; unsupported YAML features are
+rejected at load time instead of being partially interpreted.
+
+Supported project subset:
   - Nested mappings (indent-based)
   - Block sequences (- item) and flow sequences (["a", "b"])
   - Scalars: str (quoted/unquoted), int, float, bool (true/false), null
   - Comments (# ...)
   - Folded (>) and literal (|) block scalars
 
-Does NOT support: anchors/aliases (&/*), merge keys (<<), tags (!!),
+Explicitly rejected: anchors/aliases (&/*), merge keys (<<), tags (!!),
 flow mappings ({...}), complex keys, multi-document (---), directives.
 """
 from __future__ import annotations
@@ -15,6 +20,18 @@ from __future__ import annotations
 import re
 from pathlib import Path
 from typing import Any, TextIO
+
+
+SUPPORTED_SCOPE = "references/sdk_abstraction.yaml and platforms/*_sdk_map.yaml"
+
+
+class UnsupportedYamlFeature(ValueError):
+    """Raised when input uses YAML outside the project SDK-map subset."""
+
+
+_FLOW_MAPPING_RE = re.compile(r"(^|[:\[,]\s*)\{[^}]*:[^}]*\}")
+_ANCHOR_ALIAS_RE = re.compile(r"(^|[\s\[,])([&*][A-Za-z0-9_-]+)")
+_TAG_RE = re.compile(r"(^|[\s\[,])![A-Za-z!][^\s,\]]*")
 
 
 # ── Scalar parsing ──────────────────────────────────────────────
@@ -141,6 +158,52 @@ def _strip_comment(line: str) -> str:
 def _is_blank_or_comment(line: str) -> bool:
     stripped = line.strip()
     return not stripped or stripped.startswith("#")
+
+
+def _mask_quoted_segments(text: str) -> str:
+    """Replace quoted content with spaces so feature checks see only syntax."""
+    out: list[str] = []
+    in_quote: str | None = None
+    escaped = False
+    for ch in text:
+        if in_quote:
+            out.append(" ")
+            if escaped:
+                escaped = False
+            elif in_quote == '"' and ch == "\\":
+                escaped = True
+            elif ch == in_quote:
+                in_quote = None
+            continue
+        if ch in ('"', "'"):
+            in_quote = ch
+            out.append(ch)
+        else:
+            out.append(ch)
+    return "".join(out)
+
+
+def _reject_unsupported_features(lines: list[str]) -> None:
+    """Reject YAML features outside the SDK-map subset before parsing."""
+    for line_no, line in enumerate(lines, start=1):
+        stripped = _strip_comment(line).strip()
+        if not stripped:
+            continue
+        visible = _mask_quoted_segments(stripped)
+        if stripped in {"---", "..."}:
+            raise UnsupportedYamlFeature(f"line {line_no}: multi-document YAML is not supported")
+        if stripped.startswith("%"):
+            raise UnsupportedYamlFeature(f"line {line_no}: YAML directives are not supported")
+        if "\t" in line[: _indent_level(line)]:
+            raise UnsupportedYamlFeature(f"line {line_no}: tab indentation is not supported")
+        if re.search(r"(^|[\s\[,])<<\s*:", visible):
+            raise UnsupportedYamlFeature(f"line {line_no}: merge keys are not supported")
+        if _FLOW_MAPPING_RE.search(visible):
+            raise UnsupportedYamlFeature(f"line {line_no}: flow mappings are not supported")
+        if _ANCHOR_ALIAS_RE.search(visible):
+            raise UnsupportedYamlFeature(f"line {line_no}: anchors and aliases are not supported")
+        if _TAG_RE.search(visible):
+            raise UnsupportedYamlFeature(f"line {line_no}: YAML tags are not supported")
 
 
 # ── Block scalar collection ─────────────────────────────────────
@@ -355,10 +418,10 @@ def _find_child_indent(lines: list[str], start: int, parent_indent: int) -> int 
 # ── Public API ──────────────────────────────────────────────────
 
 def safe_load(stream: TextIO | str) -> Any:
-    """Parse YAML from a file-like object or string.
+    """Parse the project SDK-map YAML subset from a file-like object or string.
 
-    Drop-in replacement for yaml.safe_load() for the YAML subset
-    used by this project.
+    This is intentionally not a general-purpose yaml.safe_load replacement.
+    It accepts only the subset used by SUPPORTED_SCOPE.
     """
     if isinstance(stream, str):
         text = stream
@@ -370,12 +433,13 @@ def safe_load(stream: TextIO | str) -> Any:
         text = text[1:]
 
     lines = text.split("\n")
+    _reject_unsupported_features(lines)
     result, _ = _parse_block(lines, 0, 0)
     return result
 
 
 def safe_load_str(text: str) -> Any:
-    """Parse YAML from a string. Convenience alias for safe_load(text)."""
+    """Parse SDK-map subset YAML from a string. Convenience alias."""
     return safe_load(text)
 
 
@@ -383,8 +447,24 @@ def safe_load_str(text: str) -> Any:
 
 def _self_test() -> int:
     """Validate against the project's actual YAML files."""
-    import json
     root = Path(__file__).resolve().parent.parent
+
+    unsupported_samples = {
+        "flow mapping": "mappings: {SEM_TAKE: {apis: [xSemaphoreTake]}}\n",
+        "anchor": "base: &base\n  apis: [xSemaphoreTake]\n",
+        "alias": "copy: *base\n",
+        "merge key": "mapping:\n  <<: *base\n",
+        "tag": "value: !!str 1\n",
+        "multi-document": "---\nvalue: 1\n",
+    }
+    for feature, sample in unsupported_samples.items():
+        try:
+            safe_load(sample)
+        except UnsupportedYamlFeature:
+            pass
+        else:
+            raise AssertionError(f"unsupported YAML feature was accepted: {feature}")
+    print("OK: unsupported general YAML features are rejected")
 
     # Test 1: sdk_abstraction.yaml
     abstr_path = root / "references" / "sdk_abstraction.yaml"
@@ -424,5 +504,5 @@ if __name__ == "__main__":
     if "--self-test" in sys.argv:
         raise SystemExit(_self_test())
     else:
-        print("Usage: python minimal_yaml.py --self-test")
+        print("Usage: python minimal_yaml.py --self-test  # SDK-map subset only")
         raise SystemExit(1)
