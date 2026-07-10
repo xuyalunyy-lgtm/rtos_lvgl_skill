@@ -80,6 +80,12 @@ Router IDs: `code_review`, `project_review`, `crash_debug`,
 | Test | `tools/fixtures/`, `examples/`, `scene_presets/`, selected `scripts/check_*` | Keep in source and full runtime when required by gates; do not load by default. |
 | Maintenance | root `README.md`, `INSTALL.md`, `CHANGELOG.md`, `archive/`, `forward_tests/`, local caches | Keep out of installed runtime payload unless explicitly maintaining the skill. |
 
+## Entry Points
+
+- **CLI / CI**: `python tools/run_review.py` and `tools/*.py`. See [QUICKSTART.md](QUICKSTART.md).
+- **IDE / Claude Code**: MCP tools via `.mcp.json` (thin adapter over `tools/*.py`).
+- **LVGL**: MCP-first; fallback to `workflows/l3_lvgl_page.md` when MCP unavailable.
+
 ## Rules
 
 - Keep L1/L2/L3 mapping explicit; select a workflow before acting.
@@ -88,12 +94,6 @@ Router IDs: `code_review`, `project_review`, `crash_debug`,
 - Do not perform unplanned core SDK refactors; preserve critical logs and watchdog behavior.
 - For commit requests, follow [git_commit_style](references/git_commit_style.md) and use `type(scope):`.
 - For self-iteration, run `python scripts/skill_iterate.py --check` before release or commit review.
-- **LVGL UI generation must use the MCP toolchain** — bypassing MCP to hand-write LVGL page code is prohibited. Mandatory flow:
-  1. `get_lvgl_theme_skill` — load layout constraints (Flex/Grid preferred, bare coordinates forbidden)
-  2. `convert_image_to_lvgl_source` — convert design cut images to C-array (if cut images exist)
-  3. `generate_lvgl_layout_spec` — generate structured layout spec JSON
-  4. `generate_lvgl_page_code` — generate C/H scaffold from spec
-  5. `validate_lvgl_layout_code` — validate generated code
-  Missing any step means no final LVGL code may be output. Only when the MCP server is unavailable may you fall back to the `workflows/l3_lvgl_page.md` manual flow and explicitly inform the user.
+- **LVGL UI generation must use the MCP toolchain** — bypassing MCP to hand-write LVGL page code is prohibited. Mandatory flow: `get_lvgl_theme_skill` → `convert_image_to_lvgl_source` → `generate_lvgl_layout_spec` → `generate_lvgl_page_code` → `validate_lvgl_layout_code`. Missing any step means no final LVGL code may be output. Fallback to `workflows/l3_lvgl_page.md` only when MCP unavailable.
 - LVGL design cut-image work has additional requirements: read MCP `lvgl://display-config`, `lvgl://theme-skill`, `lvgl://regression-sandbox-config`; classify design/cut/reference assets; output `analysis_report.json` + `debug_overlay.png`; `preview.html` is only an approximate preview; JSON/C coordinate validation must be run. Absolute coordinates require a `LVGL_LAYOUT_EXCEPTION` comment. Baselines and artifacts must not be placed in the runtime directory.
 - Default output should be concise; use `--fix-detail full` only when complete details are needed.
