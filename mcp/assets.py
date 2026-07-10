@@ -196,7 +196,10 @@ def read_image(path: Path) -> tuple[int, int, list[tuple[int, int, int]]]:
     if suffix == ".bmp":
         return read_bmp(path)
     if suffix == ".png":
-        from image_io import read_png as _read_png
+        try:
+            from image_io import read_png as _read_png
+        except ImportError:
+            from .image_io import read_png as _read_png
         return _read_png(path)
     # JPG/other formats: try Windows System.Drawing fallback (no Pillow needed)
     try:
@@ -231,13 +234,126 @@ def convert_image_to_png(source: Path, target: Path) -> dict[str, Any]:
     write_png(target, width, height, pixels)
     return {"path": str(target), "width": width, "height": height, "sha256": _hash_bytes(target.read_bytes())}
 
-def rgb565_bytes(pixels: list[tuple[int, int, int]]) -> bytes:
+def rgb565_bytes(pixels: list[tuple[int, int, int]], byte_swap: bool = False) -> bytes:
+    """Convert RGB pixels to RGB565 bytes.
+
+    Args:
+        pixels: List of (R, G, B) tuples.
+        byte_swap: If True, swap high/low bytes (big-endian RGB565).
+    """
     out = bytearray()
     for r, g, b in pixels:
         value = ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3)
-        out.append(value & 0xFF)
-        out.append((value >> 8) & 0xFF)
+        if byte_swap:
+            out.append((value >> 8) & 0xFF)
+            out.append(value & 0xFF)
+        else:
+            out.append(value & 0xFF)
+            out.append((value >> 8) & 0xFF)
     return bytes(out)
+
+
+def rgb565a8_bytes(pixels: list[tuple[int, int, int, int]]) -> tuple[bytes, bytes]:
+    """Convert RGBA pixels to RGB565 + A8 alpha plane.
+
+    Returns:
+        (rgb565_data, alpha_data) tuple.
+    """
+    rgb_out = bytearray()
+    alpha_out = bytearray()
+    for r, g, b, a in pixels:
+        value = ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3)
+        rgb_out.append(value & 0xFF)
+        rgb_out.append((value >> 8) & 0xFF)
+        alpha_out.append(a & 0xFF)
+    return bytes(rgb_out), bytes(alpha_out)
+
+
+def argb8888_bytes(pixels: list[tuple[int, int, int, int]]) -> bytes:
+    """Convert RGBA pixels to ARGB8888 bytes (LVGL format: A-R-G-B)."""
+    out = bytearray()
+    for r, g, b, a in pixels:
+        out.extend((a & 0xFF, r & 0xFF, g & 0xFF, b & 0xFF))
+    return bytes(out)
+
+
+def rgb888_bytes(pixels: list[tuple[int, int, int]]) -> bytes:
+    """Convert RGB pixels to RGB888 bytes."""
+    out = bytearray()
+    for r, g, b in pixels:
+        out.extend((r & 0xFF, g & 0xFF, b & 0xFF))
+    return bytes(out)
+
+
+def a8_bytes(pixels: list[tuple[int, int, int, int]]) -> bytes:
+    """Extract alpha channel as A8 bytes."""
+    return bytes(a & 0xFF for _, _, _, a in pixels)
+
+
+def floyd_steinberg_dither(pixels: list[tuple[int, int, int]], width: int, height: int) -> list[tuple[int, int, int]]:
+    """Apply Floyd-Steinberg dithering for RGB565 target.
+
+    Reduces color banding when converting to RGB565.
+    """
+    # Create error diffusion buffer
+    err = [[0.0] * width for _ in range(height)]
+    result = []
+    for y in range(height):
+        for x in range(width):
+            idx = y * width + x
+            r, g, b = pixels[idx]
+            # Add accumulated error
+            er = r + err[y][x]
+            eg = g + err[y][x]
+            eb = b + err[y][x]
+            # Quantize to RGB565
+            qr = max(0, min(255, int(round(er / 8)) * 8))
+            qg = max(0, min(255, int(round(eg / 4)) * 4))
+            qb = max(0, min(255, int(round(eb / 8)) * 8))
+            result.append((qr, qg, qb))
+            # Diffuse error
+            dr = er - qr
+            dg = eg - qg
+            db = eb - qb
+            if x + 1 < width:
+                err[y][x + 1] += dr * 7 / 16
+            if y + 1 < height:
+                if x > 0:
+                    err[y + 1][x - 1] += dr * 3 / 16
+                err[y + 1][x] += dr * 5 / 16
+                if x + 1 < width:
+                    err[y + 1][x + 1] += dr * 1 / 16
+    return result
+
+
+def auto_crop_alpha(pixels: list[tuple[int, int, int, int]], width: int, height: int) -> tuple[list[tuple[int, int, int, int]], int, int, tuple[int, int, int, int]]:
+    """Crop transparent borders from RGBA image.
+
+    Returns:
+        (cropped_pixels, new_width, new_height, original_offset)
+    """
+    # Find content bounds
+    min_x, min_y = width, height
+    max_x, max_y = 0, 0
+    for y in range(height):
+        for x in range(width):
+            idx = y * width + x
+            if len(pixels[idx]) == 4 and pixels[idx][3] > 0:
+                min_x = min(min_x, x)
+                min_y = min(min_y, y)
+                max_x = max(max_x, x)
+                max_y = max(max_y, y)
+    if min_x >= width:  # Fully transparent
+        return [], 0, 0, (0, 0, width, height)
+    # Crop
+    new_w = max_x - min_x + 1
+    new_h = max_y - min_y + 1
+    cropped = []
+    for y in range(min_y, max_y + 1):
+        for x in range(min_x, max_x + 1):
+            cropped.append(pixels[y * width + x])
+    return cropped, new_w, new_h, (min_x, min_y, width, height)
+
 
 def format_c_bytes(data: bytes) -> str:
     lines: list[str] = []
@@ -246,13 +362,25 @@ def format_c_bytes(data: bytes) -> str:
         lines.append("    " + ", ".join(f"0x{byte:02X}" for byte in chunk) + ",")
     return "\n".join(lines)
 
-def lvgl_image_descriptor(symbol: str, width: int, height: int, data_name: str, version: str) -> str:
+
+# Color format to LVGL cf mapping
+COLOR_FORMAT_MAP = {
+    "RGB565": {"v8": "LV_IMG_CF_TRUE_COLOR", "v9": "LV_COLOR_FORMAT_RGB565"},
+    "RGB565A8": {"v8": "LV_IMG_CF_TRUE_COLOR_ALPHA", "v9": "LV_COLOR_FORMAT_RGB565A8"},
+    "RGB888": {"v8": "LV_IMG_CF_TRUE_COLOR", "v9": "LV_COLOR_FORMAT_RGB888"},
+    "ARGB8888": {"v8": "LV_IMG_CF_TRUE_COLOR_ALPHA", "v9": "LV_COLOR_FORMAT_ARGB8888"},
+    "A8": {"v8": "LV_IMG_CF_ALPHA_8BIT", "v9": "LV_COLOR_FORMAT_A8"},
+}
+
+
+def lvgl_image_descriptor(symbol: str, width: int, height: int, data_name: str, version: str, color_format: str = "RGB565") -> str:
+    cf = COLOR_FORMAT_MAP.get(color_format, COLOR_FORMAT_MAP["RGB565"]).get(version, "LV_COLOR_FORMAT_RGB565")
     if version == "v9":
         return textwrap.dedent(
             f"""\
             const lv_image_dsc_t {symbol} = {{
                 .header.magic = LV_IMAGE_HEADER_MAGIC,
-                .header.cf = LV_COLOR_FORMAT_RGB565,
+                .header.cf = {cf},
                 .header.w = {width},
                 .header.h = {height},
                 .data_size = sizeof({data_name}),
@@ -267,7 +395,7 @@ def lvgl_image_descriptor(symbol: str, width: int, height: int, data_name: str, 
             .header.w = {width},
             .header.h = {height},
             .data_size = sizeof({data_name}),
-            .header.cf = LV_IMG_CF_TRUE_COLOR,
+            .header.cf = {cf},
             .data = {data_name},
         }};
         """
@@ -283,46 +411,99 @@ def convert_image_to_lvgl_source(args: dict[str, Any]) -> dict[str, Any]:
     output_format = str(args.get("format", "c_array"))
     color_format = str(args.get("color_format", "RGB565")).upper()
     version = str(args.get("lvgl_version", DISPLAY_CONFIG["lvgl"]["version"]))
+    byte_swap = bool(args.get("byte_swap", False))
+    dither = bool(args.get("dither", False))
+    auto_crop = bool(args.get("auto_crop", True))
     require_choice("format", output_format, IMAGE_FORMATS)
     require_choice("color_format", color_format, COLOR_FORMATS)
     require_choice("lvgl_version", version, LVGL_VERSIONS)
 
     width, height, pixels = read_image(input_path)
-    raw = rgb565_bytes(pixels)
+
+    # ── Auto-crop alpha if RGBA ──
+    crop_offset = (0, 0, width, height)
+    if auto_crop and len(pixels) > 0 and len(pixels[0]) == 4:
+        pixels, width, height, crop_offset = auto_crop_alpha(pixels, width, height)
+        if not pixels:
+            raise ValueError("Image is fully transparent after auto-crop")
+
+    # ── Apply dithering for RGB565 ──
+    if dither and color_format in ("RGB565", "RGB565A8"):
+        rgb_pixels = [(p[0], p[1], p[2]) for p in pixels]
+        pixels = floyd_steinberg_dither(rgb_pixels, width, height)
+        if color_format == "RGB565A8":
+            # Re-add alpha from original
+            pixels = [(p[0], p[1], p[2], orig[3]) for p, orig in zip(pixels, pixels)]
+
+    # ── Convert to target format ──
+    raw = b""
+    alpha_raw = b""
+    if color_format == "RGB565":
+        rgb_pixels = [(p[0], p[1], p[2]) for p in pixels]
+        raw = rgb565_bytes(rgb_pixels, byte_swap=byte_swap)
+    elif color_format == "RGB565A8":
+        rgba_pixels = [(p[0], p[1], p[2], p[3] if len(p) > 3 else 255) for p in pixels]
+        raw, alpha_raw = rgb565a8_bytes(rgba_pixels)
+    elif color_format == "RGB888":
+        rgb_pixels = [(p[0], p[1], p[2]) for p in pixels]
+        raw = rgb888_bytes(rgb_pixels)
+    elif color_format == "ARGB8888":
+        rgba_pixels = [(p[0], p[1], p[2], p[3] if len(p) > 3 else 255) for p in pixels]
+        raw = argb8888_bytes(rgba_pixels)
+    elif color_format == "A8":
+        rgba_pixels = [(p[0], p[1], p[2], p[3] if len(p) > 3 else 255) for p in pixels]
+        raw = a8_bytes(rgba_pixels)
+
+    flash_bytes = len(raw) + len(alpha_raw)
+
     artifacts: list[str] = []
     if output_format in {"binary", "both"}:
         bin_path = output_dir / f"{symbol}.bin"
         bin_path.write_bytes(raw)
         artifacts.append(str(bin_path))
+        if alpha_raw:
+            alpha_bin_path = output_dir / f"{symbol}_alpha.bin"
+            alpha_bin_path.write_bytes(alpha_raw)
+            artifacts.append(str(alpha_bin_path))
     if output_format in {"c_array", "both"}:
         data_name = f"{symbol}_map"
+        alpha_data_name = f"{symbol}_alpha_map"
         c_path = output_dir / f"{symbol}.c"
         h_path = output_dir / f"{symbol}.h"
         descriptor_type = "lv_image_dsc_t" if version == "v9" else "lv_img_dsc_t"
-        c_path.write_text(
-            textwrap.dedent(
-                f"""\
-                #include "lvgl.h"
-                #include "{symbol}.h"
 
-                #ifndef LV_ATTRIBUTE_MEM_ALIGN
-                #define LV_ATTRIBUTE_MEM_ALIGN
-                #endif
+        # Build C source
+        c_source = textwrap.dedent(
+            f"""\
+            #include "lvgl.h"
+            #include "{symbol}.h"
 
-                #ifndef LV_ATTRIBUTE_LARGE_CONST
-                #define LV_ATTRIBUTE_LARGE_CONST
-                #endif
+            #ifndef LV_ATTRIBUTE_MEM_ALIGN
+            #define LV_ATTRIBUTE_MEM_ALIGN
+            #endif
 
-                const LV_ATTRIBUTE_MEM_ALIGN LV_ATTRIBUTE_LARGE_CONST uint8_t {data_name}[] = {{
-                {format_c_bytes(raw)}
-                }};
+            #ifndef LV_ATTRIBUTE_LARGE_CONST
+            #define LV_ATTRIBUTE_LARGE_CONST
+            #endif
 
-                {lvgl_image_descriptor(symbol, width, height, data_name, version)}
-                """
-            ),
-            encoding="utf-8",
-            newline="\n",
+            const LV_ATTRIBUTE_MEM_ALIGN LV_ATTRIBUTE_LARGE_CONST uint8_t {data_name}[] = {{
+            {format_c_bytes(raw)}
+            }};
+            """
         )
+        # Add alpha plane for RGB565A8
+        if alpha_raw:
+            c_source += textwrap.dedent(
+                f"""
+                const LV_ATTRIBUTE_MEM_ALIGN LV_ATTRIBUTE_LARGE_CONST uint8_t {alpha_data_name}[] = {{
+                {format_c_bytes(alpha_raw)}
+                }};
+                """
+            )
+        c_source += "\n" + lvgl_image_descriptor(symbol, width, height, data_name, version, color_format)
+
+        c_path.write_text(c_source, encoding="utf-8", newline="\n")
+
         guard = f"{symbol.upper()}_H"
         h_path.write_text(
             textwrap.dedent(
@@ -351,9 +532,12 @@ def convert_image_to_lvgl_source(args: dict[str, Any]) -> dict[str, Any]:
         "width": width,
         "height": height,
         "color_format": color_format,
-        "byte_order": "RGB565 little-endian bytes",
+        "byte_order": "little-endian" if not byte_swap else "big-endian",
         "symbol": symbol,
+        "flash_bytes": flash_bytes,
         "artifacts": artifacts,
+        "crop_offset": list(crop_offset) if auto_crop else None,
+        "dithered": dither,
     }
 
 def collect_asset_paths(args: dict[str, Any]) -> list[Path]:
