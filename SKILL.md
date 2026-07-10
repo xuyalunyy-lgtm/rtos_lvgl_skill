@@ -5,7 +5,7 @@ metadata:
 description: >-
   FreeRTOS/IoT firmware architect: MVP code review, LVGL UI generation,
   crash debugging, OTA safety, SDK trimming. Multi-platform (ESP32/STM32/JL/BK/Zephyr).
-  Use for embedded C, RTOS tasks, DMA/ISR safety, A/V sync, memory analysis, board bring-up.
+  Use when working on embedded C, RTOS tasks, DMA/ISR safety, A/V sync, memory analysis, or board bring-up.
 mentions: >
   assertion, HardFault, stack overflow, Guru Meditation, code review,
   SDK trimming, driver bring-up, debugging, FreeRTOS, GPIO, LCD/OLED,
@@ -17,7 +17,6 @@ mentions: >
   sample metadata, calibration lifecycle, zero-copy, DMA cache, frame pool, git commit,
   OTA, firmware update, rollback, partition, secure boot, Zephyr, devicetree, Kconfig.
 ---
-
 # FreeRTOS Embedded Architect
 
 Build and review MVP embedded firmware with RTOS discipline: hardware
