@@ -408,18 +408,14 @@ def read_image(path: Path) -> tuple[int, int, list[tuple[int, int, int]]]:
         return read_ppm(path)
     if suffix == ".bmp":
         return read_bmp(path)
+    if suffix == ".png":
+        from image_io import read_png as _read_png
+        return _read_png(path)
+    # JPG/other formats: try Windows System.Drawing fallback (no Pillow needed)
     try:
-        from PIL import Image  # type: ignore
-    except Exception as exc:
-        try:
-            return read_image_with_system_drawing(path)
-        except Exception as fallback_exc:
-            raise ValueError(f"{suffix or 'image'} conversion requires Pillow or Windows System.Drawing fallback: {fallback_exc}") from fallback_exc
-    with Image.open(path) as image:
-        rgb = image.convert("RGB")
-        width, height = rgb.size
-        pixels = list(rgb.getdata())
-    return width, height, [(int(r), int(g), int(b)) for r, g, b in pixels]
+        return read_image_with_system_drawing(path)
+    except Exception as fallback_exc:
+        raise ValueError(f"{suffix or 'image'} conversion requires System.Drawing fallback (Windows) or Pillow: {fallback_exc}") from fallback_exc
 
 
 def write_png(path: Path, width: int, height: int, pixels: list[tuple[int, int, int]]) -> None:
@@ -2097,7 +2093,6 @@ def prepare_lvgl_sim_project(args: dict[str, Any]) -> dict[str, Any]:
     output_dir = resolve_path(args.get("output_dir", ROOT / "artifacts" / "lvgl_sim"))
     output_dir.mkdir(parents=True, exist_ok=True)
     lvgl_root = str(args.get("lvgl_root") or os.environ.get("LVGL_ROOT") or "")
-    sdl_ready = bool(os.environ.get("SDL2_DIR") or os.environ.get("SDL_ROOT"))
     readme = output_dir / "README.md"
     readme.write_text(
         textwrap.dedent(
@@ -2108,17 +2103,18 @@ def prepare_lvgl_sim_project(args: dict[str, Any]) -> dict[str, Any]:
 
             Required before native build:
             - Set `LVGL_ROOT` to a local LVGL checkout.
-            - Install/configure SDL2 and expose `SDL2_DIR` or `SDL_ROOT`.
             - Copy generated `ui_*.c/.h` files into the app source list.
 
+            Optional (for SDL2 display):
+            - Install/configure SDL2 and expose `SDL2_DIR` or `SDL_ROOT`.
+
             Detected LVGL_ROOT: {lvgl_root or "not configured"}
-            SDL configured: {sdl_ready}
             """
         ),
         encoding="utf-8",
         newline="\n",
     )
-    available = bool(lvgl_root and Path(lvgl_root).exists() and sdl_ready)
+    available = bool(lvgl_root and Path(lvgl_root).exists())
     return {
         "ok": True,
         "available": available,
@@ -2333,6 +2329,7 @@ def run_lvgl_regression_sandbox(args: dict[str, Any]) -> dict[str, Any]:
     timeout = int(args.get("timeout_seconds", REGRESSION_SANDBOX_CONFIG["timeout_seconds"]))
     config = _sandbox_config(sandbox_dir)
     toolchain_bin = str(args.get("toolchain_bin") or os.environ.get("MINGW_BIN") or "")
+    # SDL2 is optional — null display driver doesn't need SDL2.dll at runtime
     sdl2_bin = str(args.get("sdl2_bin") or config.get("sdl2_bin") or os.environ.get("SDL2_BIN") or "")
     sdl2_dir = Path(str(args.get("sdl2_dir") or config.get("sdl2_dir") or os.environ.get("SDL2_DIR") or ""))
     if not sdl2_bin and sdl2_dir:
@@ -2559,7 +2556,7 @@ def lvgl_render(args: dict[str, Any]) -> dict[str, Any]:
     output_dir = resolve_path(args.get("output_dir", ROOT / "artifacts" / "lvgl_render"))
     output_dir.mkdir(parents=True, exist_ok=True)
     mode = str(args.get("render_mode", "auto"))
-    require_choice("render_mode", mode, {"auto", "probe"})
+    require_choice("render_mode", mode, {"auto", "probe", "preview"})
     cache_dir = lvgl_render_cache_dir(args)
     cache_dir.mkdir(parents=True, exist_ok=True)
 
@@ -2585,6 +2582,71 @@ def lvgl_render(args: dict[str, Any]) -> dict[str, Any]:
             "object_tree_path": str(object_tree_path),
             "diagnostics_path": str(diagnostics_path),
             "artifacts": [str(screenshot_path), str(png_path), str(object_tree_path), str(diagnostics_path)],
+        }
+
+    # Preview mode: pure Python rendering, zero native dependencies.
+    if mode == "preview":
+        from lvgl_preview import render_tree_to_png, spec_to_tree, write_object_tree
+
+        spec_json = args.get("spec_json")
+        spec_path = args.get("spec_path")
+        tree_json = args.get("object_tree_json")
+        tree_path = args.get("object_tree_path")
+        width = int(args.get("width", DISPLAY_CONFIG["display"]["width"]))
+        height = int(args.get("height", DISPLAY_CONFIG["display"]["height"]))
+        base_dir = resolve_path(args.get("base_dir", ROOT))
+
+        if tree_json:
+            tree = tree_json
+            source = "object_tree"
+        elif tree_path:
+            source_path = resolve_path(tree_path)
+            tree = json.loads(source_path.read_text(encoding="utf-8"))
+            base_dir = source_path.parent
+            source = "object_tree_path"
+        elif spec_json:
+            tree = spec_to_tree(spec_json, display_width=width, display_height=height)
+            source = "layout_spec"
+        elif spec_path:
+            source_path = resolve_path(spec_path)
+            spec = json.loads(source_path.read_text(encoding="utf-8"))
+            tree = spec_to_tree(spec, display_width=width, display_height=height)
+            base_dir = source_path.parent
+            source = "layout_spec_path"
+        else:
+            page_name = str(args.get("page_name", "page"))
+            design_notes = str(args.get("design_notes", ""))
+            default_spec = generate_lvgl_layout_spec({
+                "page_name": page_name,
+                "design_notes": design_notes,
+            })
+            tree = spec_to_tree(default_spec, display_width=width, display_height=height)
+            source = "generated_spec"
+
+        png_path = render_tree_to_png(tree, output_dir, "render.png", base_dir=base_dir, display_width=width, display_height=height)
+        object_tree_path = write_object_tree(tree, output_dir, "object_tree.json")
+        diagnostics = {
+            "ok": True,
+            "available": True,
+            "status": "preview",
+            "source": source,
+            "mode": mode,
+            "screenshot_path": str(png_path),
+            "png_path": str(png_path),
+            "object_tree_path": str(object_tree_path),
+            "log_issues": [],
+        }
+        _write_json(diagnostics_path, diagnostics)
+        return {
+            "ok": True,
+            "available": True,
+            "status": "preview",
+            "source": source,
+            "screenshot_path": str(png_path),
+            "png_path": str(png_path),
+            "object_tree_path": str(object_tree_path),
+            "diagnostics_path": str(diagnostics_path),
+            "artifacts": [str(png_path), str(object_tree_path), str(diagnostics_path)],
         }
 
     snippet_dir_arg = resolve_path(args.get("snippet_dir", cache_dir / "snippet"))
@@ -3083,14 +3145,21 @@ LVGL_TOOL_SCHEMAS: list[dict[str, Any]] = [
     },
     {
         "name": "lvgl_render",
-        "description": "Render one LVGL C snippet or UI entry through the local sandbox and return PNG screenshot plus object-tree JSON.",
+        "description": "Render one LVGL C snippet or UI entry through the local sandbox, or use pure-Python preview mode, and return PNG screenshot plus object-tree JSON.",
         "inputSchema": {
             "type": "object",
             "properties": {
                 "c_code": {"type": "string"},
                 "c_header": {"type": "string"},
                 "output_dir": {"type": "string", "default": "artifacts/lvgl_render"},
-                "render_mode": {"type": "string", "enum": ["auto", "probe"], "default": "auto"},
+                "render_mode": {"type": "string", "enum": ["auto", "probe", "preview"], "default": "auto"},
+                "spec_json": {"type": "object"},
+                "spec_path": {"type": "string"},
+                "object_tree_json": {"type": "object"},
+                "object_tree_path": {"type": "string"},
+                "base_dir": {"type": "string"},
+                "page_name": {"type": "string", "default": "page"},
+                "design_notes": {"type": "string"},
                 "width": {"type": "integer", "default": 480},
                 "height": {"type": "integer", "default": 800},
                 "lvgl_root": {"type": "string"},
@@ -3124,7 +3193,16 @@ LVGL_TOOL_SCHEMAS: list[dict[str, Any]] = [
                 "baseline_path": {"type": "string"},
                 "baseline_object_tree_path": {"type": "string"},
                 "c_code": {"type": "string"},
-                "render_mode": {"type": "string", "enum": ["auto", "probe"], "default": "auto"},
+                "render_mode": {"type": "string", "enum": ["auto", "probe", "preview"], "default": "auto"},
+                "spec_json": {"type": "object"},
+                "spec_path": {"type": "string"},
+                "object_tree_json": {"type": "object"},
+                "object_tree_path": {"type": "string"},
+                "base_dir": {"type": "string"},
+                "page_name": {"type": "string", "default": "page"},
+                "design_notes": {"type": "string"},
+                "width": {"type": "integer", "default": 480},
+                "height": {"type": "integer", "default": 800},
                 "lvgl_root": {"type": "string"},
                 "sdl2_root": {"type": "string"},
                 "sdl2_dir": {"type": "string"},

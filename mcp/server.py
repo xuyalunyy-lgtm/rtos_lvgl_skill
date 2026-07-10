@@ -81,35 +81,6 @@ def _run(argv: list[str], *, timeout: int = 180) -> dict[str, Any]:
     }
 
 
-def _bootstrap_mcp_environment() -> None:
-    if os.environ.get("FREERTOS_MCP_SKIP_ENV_INSTALL", "").strip().lower() in {"1", "true", "yes", "on"}:
-        return
-    script = ROOT / "scripts" / "install_mcp_environment.py"
-    if not script.is_file():
-        return
-    cmd = [PYTHON, str(script), "--quiet"]
-    if os.environ.get("FREERTOS_MCP_ENV_CHECK_ONLY", "").strip().lower() in {"1", "true", "yes", "on"}:
-        cmd.append("--check")
-    try:
-        proc = subprocess.run(
-            cmd,
-            cwd=ROOT,
-            env=_env(),
-            capture_output=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=300,
-        )
-    except Exception as exc:
-        print(f"[mcp-env] bootstrap failed: {exc}", file=sys.stderr, flush=True)
-        return
-    if proc.returncode != 0:
-        detail = (proc.stderr or proc.stdout or "").strip()
-        if len(detail) > 2000:
-            detail = detail[-2000:]
-        print(f"[mcp-env] bootstrap failed with exit {proc.returncode}: {detail}", file=sys.stderr, flush=True)
-
-
 def _require_choice(name: str, value: str, allowed: set[str]) -> None:
     if value not in allowed:
         raise ValueError(f"{name} must be one of {sorted(allowed)}, got {value!r}")
@@ -521,6 +492,34 @@ def run_self_test() -> int:
     render = TOOLS["lvgl_render"]({"output_dir": str(tmp / "render_probe"), "render_mode": "probe"})
     checks.append(("lvgl_render probe", render["ok"] and Path(render["png_path"]).is_file() and Path(render["object_tree_path"]).is_file(), "lvgl_render probe failed"))
 
+    preview_spec = {
+        "spec": {
+            "display_config": {"width": 160, "height": 120},
+            "theme": {"colors": {"background": "#20242A", "primary": "#2196F3", "text": "#FFFFFF"}},
+            "components": [
+                {
+                    "id": "root",
+                    "type": "container",
+                    "w": 160,
+                    "h": 120,
+                    "pad": 10,
+                    "gap": 8,
+                    "children": [
+                        {"id": "title", "type": "label", "text": "Preview"},
+                        {"id": "go", "type": "button", "text": "OK", "w": 72, "h": 30},
+                        {"id": "bar", "type": "bar", "w": 120, "h": 10, "value": 60},
+                    ],
+                }
+            ],
+        }
+    }
+    preview = TOOLS["lvgl_render"]({"output_dir": str(tmp / "render_preview"), "render_mode": "preview", "spec_json": preview_spec})
+    checks.append((
+        "lvgl_render preview",
+        preview["ok"] and Path(preview["png_path"]).is_file() and Path(preview["object_tree_path"]).is_file(),
+        "pure Python preview render failed",
+    ))
+
     regression = TOOLS["run_lvgl_ui_regression"]({"output_dir": str(tmp / "regression_probe"), "render_mode": "probe", "baseline_path": str(baseline)})
     checks.append(("run_lvgl_ui_regression probe", regression["ok"] and regression.get("comparison", {}).get("ok"), "lvgl UI regression probe failed"))
 
@@ -549,7 +548,6 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="FreeRTOS Embedded Architect MCP adapter")
     parser.add_argument("--self-test", action="store_true", help="run wrapper self-tests")
     args = parser.parse_args()
-    _bootstrap_mcp_environment()
     if args.self_test:
         return run_self_test()
     return serve_stdio()
