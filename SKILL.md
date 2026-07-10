@@ -3,15 +3,9 @@ name: freertos-embedded-architect
 metadata:
   version: 44.0.0
 description: >-
-  Embedded architecture specialist for MVP firmware and production hardening.
-  Covers runtime reliability, memory safety, module contracts, task topology,
-  timeout budgets, observability, lifecycle symmetry, recovery, board bring-up,
-  LVGL/DMA/ISR safety, LVGL UI generation/regression from design/cut images, SDK trimming, crash debugging, and OTA firmware update safety.
-  SDK abstraction layer: checkers use sdk_lookup.py across ESP32/STM32/JL/BK/Zephyr.
-  First-class platforms: ESP32 (ESP-IDF), STM32, JL, BK. First-class RTOS: FreeRTOS, Zephyr.
-  Use when the user asks for FreeRTOS, embedded C, GPIO, LCD/OLED, camera,
-  audio/video, A/V sync, zero-copy, DMA cache, logging, WDT, HardFault,
-  code review, OTA update, firmware upgrade, rollback, or git commit audit help.
+  FreeRTOS/IoT firmware architect: MVP code review, LVGL UI generation,
+  crash debugging, OTA safety, SDK trimming. Multi-platform (ESP32/STM32/JL/BK/Zephyr).
+  Use for embedded C, RTOS tasks, DMA/ISR safety, A/V sync, memory analysis, board bring-up.
 mentions: >
   assertion, HardFault, stack overflow, Guru Meditation, code review,
   SDK trimming, driver bring-up, debugging, FreeRTOS, GPIO, LCD/OLED,
