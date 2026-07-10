@@ -31,11 +31,10 @@ golden_pages/
 
 | Status | Meaning |
 |--------|---------|
-| `pending` | Directory exists but missing required files |
-| `ready` | All files present, not yet verified |
-| `rendered` | Render produced, not yet diffed |
-| `diff_passed` | Visual diff run, changed_ratio within threshold |
-| `regression_passed` | Full cycle: render → diff → verdict=pass |
+| `regression_passed` | file_check, IR validation, cutout audit, and visual diff all passed |
+| `regression_passed_with_warnings` | All stages passed, but at least one warning was emitted |
+| `failed` | At least one validation or visual diff stage failed |
+| `incomplete` | Required design or expected files are missing |
 
 ## Running Regression
 
@@ -46,8 +45,11 @@ python tools/run_lvgl_regression.py --all
 # Check one golden page fixture
 python tools/run_lvgl_regression.py --page golden_pages/loading_page
 
-# Compare a current render against baseline
-python tools/run_lvgl_regression.py --page golden_pages/loading_page --compare artifacts/render.png
+# JSON report
+python tools/run_lvgl_regression.py --all --json
+
+# List pages with unified status
+python tools/run_lvgl_regression.py --list
 ```
 
 ## Adding a New Golden Page
