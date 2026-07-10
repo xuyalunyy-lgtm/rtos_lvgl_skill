@@ -14,8 +14,8 @@
 #define LV_USE_ASSERT_STYLE 1
 #define LV_USE_PERF_MONITOR 1
 #define LV_USE_MEM_MONITOR 1
-#define LV_USE_SDL 1
-#define LV_USE_LIBPNG 1
+#define LV_USE_SDL 0
+#define LV_USE_LIBPNG 0
 #define LV_USE_SNAPSHOT 1
 
 #endif /* LV_CONF_H */

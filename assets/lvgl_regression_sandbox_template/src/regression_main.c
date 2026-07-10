@@ -11,8 +11,6 @@
 
 #include "lvgl.h"
 #include "ui_under_test_default.h"
-#include "lvgl/drivers/sdl/lv_sdl_mouse.h"
-#include "lvgl/drivers/sdl/lv_sdl_window.h"
 
 #ifndef REGRESSION_WIDTH
 #define REGRESSION_WIDTH 480
@@ -23,6 +21,30 @@
 #ifndef REGRESSION_OUTPUT_DIR
 #define REGRESSION_OUTPUT_DIR "regression"
 #endif
+
+/* Null display driver (no SDL2 needed). */
+
+static uint32_t s_framebuf[REGRESSION_WIDTH * REGRESSION_HEIGHT];
+
+static void null_flush_cb(lv_display_t *disp, const lv_area_t *area, uint8_t *px_map)
+{
+    (void)area;
+    (void)px_map;
+    lv_display_flush_ready(disp);
+}
+
+static lv_display_t *create_null_display(int width, int height)
+{
+    lv_display_t *disp = lv_display_create(width, height);
+    if(disp == NULL) return NULL;
+    lv_display_set_flush_cb(disp, null_flush_cb);
+    lv_display_set_buffers(disp, s_framebuf, NULL,
+                           width * height * sizeof(uint32_t),
+                           LV_DISPLAY_RENDER_MODE_DIRECT);
+    return disp;
+}
+
+/* Output helpers. */
 
 static void make_output_dir(void)
 {
@@ -180,22 +202,19 @@ static void write_object_tree_json(const char *path, lv_obj_t *screen)
     fclose(fp);
 }
 
+/* Main. */
+
 int main(void)
 {
     make_output_dir();
     lv_init();
 
-    lv_display_t *disp = lv_sdl_window_create(REGRESSION_WIDTH, REGRESSION_HEIGHT);
+    lv_display_t *disp = create_null_display(REGRESSION_WIDTH, REGRESSION_HEIGHT);
     if(disp == NULL) {
-        fprintf(stderr, "SDL display initialization failed\n");
+        fprintf(stderr, "Display initialization failed\n");
         return 2;
     }
     lv_display_set_default(disp);
-
-    lv_indev_t *mouse = lv_sdl_mouse_create();
-    if(mouse != NULL) {
-        lv_indev_set_display(mouse, disp);
-    }
 
     lv_obj_t *screen = lv_screen_active();
     if(screen == NULL) {
