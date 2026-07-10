@@ -2763,12 +2763,12 @@ LVGL_TOOLS = {
 LVGL_TOOL_SCHEMAS: list[dict[str, Any]] = [
     {
         "name": "get_lvgl_theme_skill",
-        "description": "Return Flex/Grid-first LVGL UI generation rules and the default display config.",
+        "description": "Return Flex/Grid-first LVGL UI generation rules and default display config. Use before generating any LVGL page to load layout constraints (no absolute positioning, Flex/Grid preferred).",
         "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
     },
     {
         "name": "convert_image_to_lvgl_source",
-        "description": "Convert a cut image into LVGL RGB565 C-array and/or binary assets.",
+        "description": "Convert a cut image (PNG/JPG/BMP) into LVGL RGB565 C-array header and/or binary asset. Returns generated file paths. Use when user provides design cut images for LVGL UI.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -2785,7 +2785,7 @@ LVGL_TOOL_SCHEMAS: list[dict[str, Any]] = [
     },
     {
         "name": "generate_lvgl_layout_spec",
-        "description": "Create a Flex/Grid-first LVGL page spec skeleton from design notes and assets.",
+        "description": "Create Flex/Grid-first LVGL page spec JSON from design notes and asset list. Returns spec object for generate_lvgl_page_code. Use as step 1 of LVGL page generation pipeline.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -2800,7 +2800,7 @@ LVGL_TOOL_SCHEMAS: list[dict[str, Any]] = [
     },
     {
         "name": "generate_lvgl_page_code",
-        "description": "Generate LVGL C/H page scaffold from a layout spec using Flex/Grid-first layout.",
+        "description": "Generate LVGL C/H page scaffold from a layout spec. Returns .c/.h file paths with Flex/Grid layout, event handlers, and state machine. Use as step 2 of LVGL page generation pipeline.",
         "inputSchema": {
             "type": "object",
             "properties": {

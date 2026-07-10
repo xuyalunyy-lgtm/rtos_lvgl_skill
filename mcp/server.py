@@ -261,12 +261,12 @@ TOOLS.update(LVGL_TOOLS)
 TOOL_SCHEMAS: list[dict[str, Any]] = [
     {
         "name": "list_capabilities",
-        "description": "List supported workflows, platforms, RTOS choices, gates, and MCP tools.",
+        "description": "Discover available MCP tools, workflows, platforms, RTOS choices, and gates. Use first to understand skill capabilities.",
         "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
     },
     {
         "name": "route_context",
-        "description": "Build the minimal context load plan using tools/context_router.py.",
+        "description": "Build minimal context load plan for a workflow+platform combination. Returns required files, forbidden files, and constraint shards. Use before loading skill references to avoid context overflow.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -282,7 +282,7 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
     },
     {
         "name": "run_review",
-        "description": "Run the static review pipeline against a file or directory using tools/run_review.py.",
+        "description": "Run static review pipeline (31+ checkers) against C/H files or directory. Returns issues with constraint IDs, severity, and evidence. Use for code review, PR audit, or pre-commit validation.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -298,7 +298,7 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
     },
     {
         "name": "triage_log",
-        "description": "Classify a firmware log using tools/log_triage.py.",
+        "description": "Classify firmware crash/log output. Returns symptom category, root cause candidates, and recommended prompts. Use when user pastes a crash log, HardFault trace, or Guru Meditation backtrace.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -312,7 +312,7 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
     },
     {
         "name": "lookup_sdk",
-        "description": "Query normalized SDK operation mappings using tools/sdk_lookup.py.",
+        "description": "Query normalized SDK operation mappings across ESP32/STM32/JL/BK/Zephyr. Returns platform-specific API for a given operation (e.g. 'gpio_set', 'i2c_read'). Use for cross-platform API lookup or SDK trimming.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -326,7 +326,7 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
     },
     {
         "name": "run_gate",
-        "description": "Run the quick or full skill validation gate.",
+        "description": "Run skill validation gate (quick or full). Returns pass/fail with details. Use to verify skill integrity, checker health, and metadata consistency.",
         "inputSchema": {
             "type": "object",
             "properties": {
