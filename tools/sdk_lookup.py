@@ -18,9 +18,12 @@ import argparse
 import os
 import re
 import sys
-import yaml
 from pathlib import Path
 from typing import Optional
+
+# 纯 stdlib YAML 解析器，替代 PyYAML 外部依赖
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from minimal_yaml import safe_load as _yaml_load
 
 # 项目根目录
 SKILL_ROOT = Path(__file__).resolve().parent.parent
@@ -45,7 +48,7 @@ class SdkLookup:
 
         # 加载标准操作注册表
         with open(self._abstraction_path, "r", encoding="utf-8") as f:
-            self._registry = yaml.safe_load(f)
+            self._registry = _yaml_load(f)
 
         # 加载平台映射（支持多平台）
         self._platform_maps = []
@@ -54,7 +57,7 @@ class SdkLookup:
             if not map_path.exists():
                 raise FileNotFoundError(f"Platform map not found: {map_path}")
             with open(map_path, "r", encoding="utf-8") as f:
-                self._platform_maps.append(yaml.safe_load(f))
+                self._platform_maps.append(_yaml_load(f))
 
         # 单平台时保持兼容
         self._platform_map = self._platform_maps[0] if len(self._platform_maps) == 1 else None
