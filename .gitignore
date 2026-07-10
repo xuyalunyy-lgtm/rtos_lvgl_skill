@@ -1,8 +1,9 @@
 # Local chip SDK (reference only, do not commit)
 fw-AC79_AIoT_SDK/
 bk_idk-release-v2.2.1/
-# Claude Code local settings (machine-specific tool permissions)
+# Local IDE configs (machine-specific, not distributed)
 .claude/settings.local.json
+.codex/config.toml
 # Python
 __pycache__/
 *.py[cod]

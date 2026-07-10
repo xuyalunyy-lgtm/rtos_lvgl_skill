@@ -19,6 +19,45 @@ except ImportError:  # pragma: no cover - package import fallback
     from .codegen import asset_macro_for, load_json_like, require_choice, resolve_path, safe_symbol, walk_text_values
 
 
+# ── Converter Preset Allowlist ──────────────────────────────────────
+# Only these presets may be used for image conversion. Arbitrary commands
+# are no longer accepted via MCP to prevent command injection.
+
+CONVERTER_PRESETS: dict[str, dict[str, Any]] = {
+    "lv_img_conv": {
+        "description": "LVGL official image converter (Node.js)",
+        "binary": "lv_img_conv",
+        "template": [
+            "lv_img_conv", "{input}",
+            "--output", "{output_dir}",
+            "--name", "{symbol}",
+            "--cf", "{color_format}",
+            "--format", "c_array",
+        ],
+    },
+    "lvgl_image_converter": {
+        "description": "Python-based LVGL image converter",
+        "binary": "python",
+        "template": [
+            "python", "-m", "lvgl_image_converter",
+            "{input}", "-o", "{output}",
+            "--name", "{symbol}", "--cf", "{color_format}",
+        ],
+    },
+}
+
+
+def _check_preset_binary(preset_name: str) -> str | None:
+    """Check if the preset's binary is available in PATH. Returns error msg or None."""
+    preset = CONVERTER_PRESETS.get(preset_name)
+    if preset is None:
+        return f"Unknown converter preset: {preset_name}. Available: {sorted(CONVERTER_PRESETS)}"
+    binary = preset["binary"]
+    if shutil.which(binary) is None:
+        return f"Converter binary '{binary}' not found in PATH. Install it first."
+    return None
+
+
 def _hash_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
@@ -335,15 +374,6 @@ def collect_asset_paths(args: dict[str, Any]) -> list[Path]:
         unique[str(path.resolve())] = path.resolve()
     return sorted(unique.values(), key=lambda item: str(item).lower())
 
-def command_from_template(template: Any, values: dict[str, str]) -> list[str]:
-    if isinstance(template, str):
-        parts = shlex.split(template, posix=False)
-    elif isinstance(template, list):
-        parts = [str(item) for item in template]
-    else:
-        raise ValueError("converter_command/converter_args_template must be string or list")
-    return [part.format(**values) for part in parts]
-
 def default_asset_symbol(path: Path, prefix: str) -> str:
     stem = safe_symbol(path.stem)
     if stem.endswith("_map"):
@@ -430,8 +460,7 @@ def convert_assets_to_lvgl(args: dict[str, Any]) -> dict[str, Any]:
     if not paths:
         raise ValueError("no input assets found")
 
-    converter_template = args.get("converter_command") or args.get("converter_args_template")
-    converter_path = str(args.get("converter_path") or os.environ.get("LVGL_IMAGE_CONVERTER", "")).strip()
+    converter_preset = str(args.get("converter_preset", "")).strip()
     strict_converter = bool(args.get("strict_converter", False))
     converted: list[dict[str, Any]] = []
     for asset in paths:
@@ -447,14 +476,16 @@ def convert_assets_to_lvgl(args: dict[str, Any]) -> dict[str, Any]:
             "lvgl_version": lvgl_version,
         }
         result: dict[str, Any] = {"name": name, "symbol": symbol, "input": str(asset), "ok": False, "artifacts": []}
-        if converter_template or converter_path:
-            if converter_template:
-                cmd = command_from_template(converter_template, values)
-            else:
-                cmd = [converter_path, "{input}", "--output", "{output}", "--name", "{symbol}", "--cf", "{color_format}"]
-                cmd = [part.format(**values) for part in cmd]
+        if converter_preset:
+            err = _check_preset_binary(converter_preset)
+            if err:
+                result["error"] = err
+                converted.append(result)
+                continue
+            preset = CONVERTER_PRESETS[converter_preset]
+            cmd = [part.format(**values) for part in preset["template"]]
             proc = subprocess.run(cmd, cwd=ROOT, capture_output=True, encoding="utf-8", errors="replace", timeout=int(args.get("timeout_seconds", 120)))
-            result.update({"converter": cmd, "stdout": proc.stdout, "stderr": proc.stderr, "exit_code": proc.returncode})
+            result.update({"converter": converter_preset, "command": cmd, "stdout": proc.stdout, "stderr": proc.stderr, "exit_code": proc.returncode})
             result["ok"] = proc.returncode == 0
             if result["ok"]:
                 result["artifacts"] = [str(path) for path in output_dir.glob(f"{symbol}*")]
@@ -463,7 +494,7 @@ def convert_assets_to_lvgl(args: dict[str, Any]) -> dict[str, Any]:
                 continue
         if not result["ok"]:
             if color_format != "RGB565":
-                result["error"] = f"fallback converter supports RGB565 only, got {color_format}; provide converter_command for this format"
+                result["error"] = f"fallback converter supports RGB565 only, got {color_format}; provide converter_preset for this format"
             else:
                 try:
                     fallback = convert_image_to_lvgl_source({"input_path": str(asset), "output_dir": str(output_dir), "name": symbol, "format": output_format, "lvgl_version": lvgl_version})
@@ -486,10 +517,11 @@ def default_font_path() -> Path | None:
             return candidate
     return None
 
-def find_lv_font_conv(explicit: Any = None) -> str | None:
-    if explicit:
-        path = str(explicit)
-        return path if Path(path).exists() else shutil.which(path)
+def find_lv_font_conv() -> str | None:
+    """Find lv_font_conv binary. Checks LV_FONT_CONV env var first, then PATH."""
+    env_path = os.environ.get("LV_FONT_CONV", "").strip()
+    if env_path and Path(env_path).exists():
+        return env_path
     return shutil.which("lv_font_conv") or shutil.which("lv_font_conv.cmd")
 
 def unique_glyph_text(text: str) -> str:
@@ -522,7 +554,7 @@ def generate_font_glyph(args: dict[str, Any]) -> dict[str, Any]:
     bpp = int(args.get("bpp", 4))
     font_name = safe_symbol(str(args.get("font_name", f"ui_font_design_{size}")))
     font_path = resolve_path(args["font_path"]) if args.get("font_path") else default_font_path()
-    converter = find_lv_font_conv(args.get("converter_path"))
+    converter = find_lv_font_conv()
     c_path = output_dir / f"{font_name}.c"
     h_path = output_dir / f"{font_name}.h"
     manifest_path = output_dir / f"{font_name}_manifest.json"

@@ -475,6 +475,7 @@ CONSTRAINT_SHARDS = {
     "rtos": "references/constraint_rtos.md",
     "platform": "references/constraint_platform.md",
     "media": "references/constraint_media.md",
+    "voice": "references/constraint_voice.md",
     "ota": "references/constraint_ota.md",
     "recover": "references/constraint_recover.md",
 }
@@ -495,7 +496,7 @@ CONSTRAINT_TO_SHARD = {
     "C9": "ota", "C22": "ota", "C24": "ota",
     "C37": "recover", "C38": "recover", "C39": "recover",
     "C40": "recover", "C41": "recover",
-    "C10": "media", "C11": "review", "C12": "review", "C13": "review",
+    "C10": "voice", "C11": "review", "C12": "review", "C13": "review",
     "C14": "review", "C16": "review",
 }
 

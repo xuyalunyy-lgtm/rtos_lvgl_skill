@@ -12,11 +12,30 @@ from __future__ import annotations
 try:
     from assets import convert_assets_to_lvgl, convert_image_to_lvgl_source, generate_font_glyph
     from codegen import (
+        DISPLAY_CONFIG,
+        INITIAL_LOADING_BACKGROUND_FILE,
+        INITIAL_LOADING_PET_FILE,
+        LVGL_VERSIONS,
+        ROOT,
+        _write_json,
         analyze_layout_and_patch,
+        c_identifier,
+        c_string,
+        c_text_expr,
         generate_initial_loading_page,
         generate_interactive_scene_page,
         generate_lvgl_layout_spec,
         generate_lvgl_page_code,
+        html_attr,
+        image_source_expr,
+        normalize_generated_source,
+        relative_asset_path,
+        render_runtime_c_support,
+        render_runtime_h_decls,
+        require_choice,
+        resolve_path,
+        safe_symbol,
+        state_names_from_config,
         validate_lvgl_layout_code,
     )
     from regression import (
@@ -35,11 +54,30 @@ try:
 except ImportError:  # pragma: no cover - package import fallback
     from .assets import convert_assets_to_lvgl, convert_image_to_lvgl_source, generate_font_glyph
     from .codegen import (
+        DISPLAY_CONFIG,
+        INITIAL_LOADING_BACKGROUND_FILE,
+        INITIAL_LOADING_PET_FILE,
+        LVGL_VERSIONS,
+        ROOT,
+        _write_json,
         analyze_layout_and_patch,
+        c_identifier,
+        c_string,
+        c_text_expr,
         generate_initial_loading_page,
         generate_interactive_scene_page,
         generate_lvgl_layout_spec,
         generate_lvgl_page_code,
+        html_attr,
+        image_source_expr,
+        normalize_generated_source,
+        relative_asset_path,
+        render_runtime_c_support,
+        render_runtime_h_decls,
+        require_choice,
+        resolve_path,
+        safe_symbol,
+        state_names_from_config,
         validate_lvgl_layout_code,
     )
     from .regression import (

@@ -34,7 +34,7 @@
 
 | ID | 约束 | 严重度 | 验证 | 正例 | 反例 |
 |----|------|--------|------|------|------|
-| C15.1 | 相邻任务优先级差 ≥2 | P1 | 人工 | `PRIO_WSS = MAX-3, PRIO_LVGL = MAX-5` | `PRIO_WSS=5, PRIO_LVGL=6` |
+| C15.1 | 建议相邻任务优先级差 ≥2（避免优先级反转风险；非硬性要求，需文档说明原因） | P2 | 人工 | `PRIO_WSS = MAX-3, PRIO_LVGL = MAX-5` | `PRIO_WSS=5, PRIO_LVGL=6` 无注释 |
 | C15.2 | 共享资源用 mutex（优先级继承），禁止 binary semaphore 保护 | P1 | 人工 | `xSemaphoreCreateMutex()` [MUTEX_CREATE] | `xSemaphoreCreateBinary()` [SEM_CREATE] 保护共享变量 |
 | C15.3 | 禁止运行时 `vTaskPrioritySet`（需文档说明原因和恢复条件） | P2 | grep | 初始化时设定 | 运行时无注释改优先级 |
 

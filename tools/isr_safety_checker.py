@@ -64,13 +64,57 @@ def find_function_name(lines: list[str], line_idx: int) -> str:
     return "unknown"
 
 
+def _strip_comments(line: str) -> str:
+    """Strip C/C++ comments from a line for brace counting."""
+    # Remove // comments
+    in_string = False
+    in_char = False
+    i = 0
+    result = []
+    while i < len(line):
+        c = line[i]
+        if in_string:
+            result.append(c)
+            if c == '"' and (i == 0 or line[i-1] != '\\'):
+                in_string = False
+        elif in_char:
+            result.append(c)
+            if c == "'" and (i == 0 or line[i-1] != '\\'):
+                in_char = False
+        elif c == '"' and not in_char:
+            in_string = True
+            result.append(c)
+        elif c == "'" and not in_string:
+            in_char = True
+            result.append(c)
+        elif c == '/' and i + 1 < len(line) and line[i+1] == '/':
+            break  # rest is line comment
+        elif c == '/' and i + 1 < len(line) and line[i+1] == '*':
+            # block comment - skip to */
+            end = line.find('*/', i + 2)
+            if end >= 0:
+                i = end + 2
+                continue
+            else:
+                break  # comment continues to next line
+        else:
+            result.append(c)
+        i += 1
+    return ''.join(result)
+
+
 def is_isr_function_start(line: str) -> bool:
     stripped = line.strip()
+    # Skip lines that are entirely comments
     if stripped.startswith("//") or stripped.startswith("/*"):
         return False
-    if ISR_ATTR.search(line):
+    # Strip inline comments before checking for ISR attributes
+    code_part = _strip_comments(line).strip()
+    if not code_part:
+        return False
+    if ISR_ATTR.search(code_part):
         return True
-    return ISR_FUNC_DEF.match(stripped) is not None
+    return ISR_FUNC_DEF.match(code_part) is not None
 
 
 def extract_function_body(lines: list[str], start: int) -> tuple[str, int, int]:
@@ -79,15 +123,17 @@ def extract_function_body(lines: list[str], start: int) -> tuple[str, int, int]:
     brace = 0
     body_start = start
     for i in range(start, len(lines)):
-        if "{" in lines[i]:
-            brace += lines[i].count("{")
+        code = _strip_comments(lines[i])
+        brace += code.count("{")
+        if brace > 0:
             body_start = i
             break
     if brace == 0:
         return func_name, start, min(start + 40, len(lines))
 
     for i in range(body_start, len(lines)):
-        brace += lines[i].count("{") - lines[i].count("}")
+        code = _strip_comments(lines[i])
+        brace += code.count("{") - code.count("}")
         if brace <= 0 and i > body_start:
             return func_name, body_start, i + 1
     return func_name, body_start, len(lines)

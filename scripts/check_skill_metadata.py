@@ -131,6 +131,10 @@ def check_skill(path: Path, errors: list[str], root: Path) -> tuple[str | None, 
     elif "Use when" not in description:
         errors.append(f"{label} description should include 'Use when' trigger guidance")
 
+    # mentions is rejected by official validator — must not be present
+    if re.search(r"^mentions:\s*", raw, re.MULTILINE):
+        errors.append(f"{label} 'mentions' field is not allowed (rejected by official validator). Move keywords into description.")
+
     if line_count > SKILL_LINE_LIMIT:
         errors.append(f"{label} has {line_count} lines > {SKILL_LINE_LIMIT}")
 

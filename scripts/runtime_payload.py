@@ -19,13 +19,12 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 
+# Import unified excludes from single source of truth
+sys.path.insert(0, str(ROOT / "references"))
+from runtime_excludes import RUNTIME_EXCLUDE_DIRS, RUNTIME_EXCLUDE_ROOT_FILES
+
 # ── 安装时排除的目录 ──
-EXCLUDE_DIRS = {
-    ".git", ".github", "__pycache__", ".mypy_cache", ".pytest_cache",
-    "node_modules", "forward_tests", "freertos-skill-lite", "artifacts",
-    ".skill_metrics", ".skill_evidence", ".codex",
-    "out",  # 测试输出
-}
+EXCLUDE_DIRS = RUNTIME_EXCLUDE_DIRS
 
 # ── 安装时排除的文件名 ──
 EXCLUDE_FILES = {

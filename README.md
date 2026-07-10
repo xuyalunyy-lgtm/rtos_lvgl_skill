@@ -4,7 +4,9 @@ Cursor Agent Skill: FreeRTOS IoT firmware architecture (MVP layering, LVGL threa
 
 ## Quick Start
 
-需要 Python 3.10+，无需安装任何依赖。详细安装见 [INSTALL.md](INSTALL.md)。
+需要 Python 3.10+。核心功能（checker、router、review）**零依赖**，仅用标准库。
+LVGL 图片转换和 SDK YAML 解析需要可选依赖：`pip install Pillow PyYAML`。
+详细安装见 [INSTALL.md](INSTALL.md)。
 
 ### 环境变量（Windows 必设）
 

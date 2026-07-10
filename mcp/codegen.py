@@ -44,9 +44,9 @@ except ImportError:  # pragma: no cover - package import fallback
 ROOT = Path(__file__).resolve().parent.parent
 
 
-
-
-
+def _write_json(path: Path, data: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="\n")
 
 
 def require_choice(name: str, value: str, allowed: set[str]) -> None:
@@ -70,7 +70,13 @@ def safe_symbol(name: str) -> str:
 
 
 def c_string(value: str) -> str:
-    return value.replace("\\", "\\\\").replace('"', '\\"')
+    return (
+        value.replace("\\", "\\\\")
+        .replace("\r", "\\r")
+        .replace("\n", "\\n")
+        .replace("\t", "\\t")
+        .replace('"', '\\"')
+    )
 
 
 def macro_symbol(prefix: str, name: str) -> str:
@@ -143,13 +149,32 @@ def ensure_c_macro(lines: list[str], name: str, default_expr: str) -> str:
     return "inserted_macro"
 
 
-def resolve_path(value: Any, *, base: Path = ROOT) -> Path:
+def resolve_path(value: Any, *, base: Path = ROOT, allow_write: bool = False) -> Path:
+    """Resolve a path with containment checks to prevent path traversal.
+
+    Args:
+        value: The path string to resolve.
+        base: Base directory for relative paths (default: project ROOT).
+        allow_write: If True, the path must be under WRITE_ROOT (artifacts/).
+
+    Raises:
+        ValueError: If the path is None, outside allowed roots, or a symlink
+                    pointing outside allowed roots.
+    """
     if value is None:
         raise ValueError("path is required")
     path = Path(str(value))
     if not path.is_absolute():
         path = base / path
-    return path.resolve()
+    resolved = path.resolve()
+    # Block symlink traversal: the resolved path must stay under ROOT
+    if not resolved.is_relative_to(ROOT):
+        raise ValueError(f"Path {resolved} is outside project root — path traversal blocked")
+    if allow_write:
+        write_root = (ROOT / "artifacts").resolve()
+        if not resolved.is_relative_to(write_root):
+            raise ValueError(f"Write path {resolved} is outside artifacts/ — only artifacts/ may be written via MCP")
+    return resolved
 
 
 
@@ -1264,7 +1289,8 @@ def generate_lvgl_node_block(node: dict[str, Any], index: int, *, parent: str, l
 
 def analyze_layout_and_patch(args: dict[str, Any]) -> dict[str, Any]:
     layout = load_json_like(args, "layout_json", "layout_path")
-    target_path = resolve_path(args.get("target_path")) if args.get("target_path") else None
+    apply_changes = bool(args.get("apply", False))
+    target_path = resolve_path(args.get("target_path"), allow_write=apply_changes) if args.get("target_path") else None
     existing_code = str(args.get("existing_code", ""))
     if target_path:
         if not target_path.is_file():
@@ -1279,7 +1305,6 @@ def analyze_layout_and_patch(args: dict[str, Any]) -> dict[str, Any]:
     lvgl_version = str(args.get("lvgl_version", DISPLAY_CONFIG["lvgl"]["version"]))
     require_choice("lvgl_version", lvgl_version, LVGL_VERSIONS)
     parent_var = str(args.get("parent_var", "root"))
-    apply_changes = bool(args.get("apply", False))
     reason = str(args.get("exception_reason", "visual model incremental layout patch"))
     nodes = flatten_layout_nodes(layout)
     lines = original_text.splitlines()
@@ -1342,13 +1367,22 @@ def analyze_layout_and_patch(args: dict[str, Any]) -> dict[str, Any]:
     diff = "\n".join(difflib.unified_diff(original_text.splitlines(), patched_text.splitlines(), fromfile=from_name, tofile=f"{from_name}.patched", lineterm=""))
     patch_path = None
     if args.get("patch_path"):
-        patch_path = resolve_path(args["patch_path"])
+        patch_path = resolve_path(args["patch_path"], allow_write=True)
         patch_path.parent.mkdir(parents=True, exist_ok=True)
         patch_path.write_text(diff + "\n", encoding="utf-8", newline="\n")
     if apply_changes:
         if target_path is None:
             raise ValueError("apply=true requires target_path")
-        target_path.write_text(patched_text, encoding="utf-8", newline="\n")
+        # Atomic write: write to temp file, then replace
+        tmp_fd, tmp_path = tempfile.mkstemp(dir=target_path.parent, suffix=".tmp", prefix=".codegen_")
+        try:
+            with os.fdopen(tmp_fd, "w", encoding="utf-8", newline="\n") as f:
+                f.write(patched_text)
+            os.replace(tmp_path, target_path)
+        except Exception:
+            if os.path.exists(tmp_path):
+                os.unlink(tmp_path)
+            raise
     validation = None
     if apply_changes and target_path is not None:
         validation = validate_lvgl_layout_code({"path": str(target_path)})

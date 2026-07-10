@@ -427,10 +427,12 @@ def _handle_request(message: dict[str, Any]) -> dict[str, Any] | None:
     try:
         if method == "initialize":
             result = {
-                "protocolVersion": "2024-11-05",
+                "protocolVersion": "2025-11-25",
                 "capabilities": {"tools": {}, "resources": {}},
-                "serverInfo": {"name": "freertos-embedded-architect-mcp", "version": "0.1.0"},
+                "serverInfo": {"name": "freertos-embedded-architect-mcp", "version": "0.2.0"},
             }
+        elif method == "ping":
+            result = {}
         elif method == "tools/list":
             result = {"tools": TOOL_SCHEMAS}
         elif method == "resources/list":
@@ -447,7 +449,7 @@ def _handle_request(message: dict[str, Any]) -> dict[str, Any] | None:
         elif method == "notifications/initialized":
             return None
         else:
-            raise ValueError(f"unsupported method: {method}")
+            return {"jsonrpc": "2.0", "id": msg_id, "error": {"code": -32601, "message": f"Method not found: {method}"}}
         return {"jsonrpc": "2.0", "id": msg_id, "result": result}
     except Exception as exc:  # MCP errors must still be JSON-RPC responses.
         return {
@@ -466,8 +468,26 @@ def serve_stdio() -> int:
             message = json.loads(line)
         except json.JSONDecodeError as exc:
             response = {"jsonrpc": "2.0", "id": None, "error": {"code": -32700, "message": str(exc)}}
-        else:
-            response = _handle_request(message)
+            print(json.dumps(response, ensure_ascii=False), flush=True)
+            continue
+        # Handle batch requests (JSON-RPC array)
+        if isinstance(message, list):
+            responses = []
+            for msg in message:
+                if not isinstance(msg, dict):
+                    responses.append({"jsonrpc": "2.0", "id": None, "error": {"code": -32600, "message": "Invalid Request: batch item must be object"}})
+                    continue
+                resp = _handle_request(msg)
+                if resp is not None:
+                    responses.append(resp)
+            if responses:
+                print(json.dumps(responses, ensure_ascii=False), flush=True)
+            continue
+        if not isinstance(message, dict):
+            response = {"jsonrpc": "2.0", "id": None, "error": {"code": -32600, "message": "Invalid Request: must be object or array"}}
+            print(json.dumps(response, ensure_ascii=False), flush=True)
+            continue
+        response = _handle_request(message)
         if response is not None:
             print(json.dumps(response, ensure_ascii=False), flush=True)
     return 0

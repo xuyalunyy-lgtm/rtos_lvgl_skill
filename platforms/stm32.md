@@ -6,7 +6,7 @@ Agent reads this file when confirming target platform is STM32 series.
 
 | Item | STM32 + CubeMX Convention | Note |
 |------|---------------------|------|
-| Task priority | CMSIS-RTOS v1/v2: `osPriorityXxx`; native FreeRTOS: **smaller number = higher priority** | Opposite to ESP-IDF |
+| Task priority | CMSIS-RTOS v1/v2: `osPriorityXxx`; native FreeRTOS: **数字越大越高**（0 最低）。`osPriorityXxx` 是抽象枚举，内部映射到 FreeRTOS 高优先级数值 | 所有平台统一：FreeRTOS Task 优先级数字越大越高 |
 | Task creation | CubeMX generates `MX_FREERTOS_Init()` + `osThreadNew` / `xTaskCreate` | Prefer configuring in CubeMX before manual changes |
 | Heap memory | `pvPortMalloc` / `configTOTAL_HEAP_SIZE` | Default heap is small, TLS+LVGL need to increase to 32KB+ |
 | Stack unit | `xTaskCreate`'s `usStackDepth` unit is **word** (32-bit = 4 bytes) | 2048 words = 8192 bytes |
@@ -16,8 +16,10 @@ Agent reads this file when confirming target platform is STM32 series.
 ## Recommended Task Priority (CMSIS-RTOS v2 / FreeRTOS)
 
 ```c
-/* smaller number = higher priority */
-#define AUDIO_TASK_PRIO      (osPriorityRealtime)    /* highest — 24 */
+/* FreeRTOS: 数字越大越高优先级。osPriorityXxx 是 CMSIS-RTOS 抽象枚举，
+   内部映射到 FreeRTOS 的高数值（如 osPriorityRealtime → 24）。
+   注意：Cortex-M NVIC 中断优先级是数字越小越高，与 Task 优先级方向相反。 */
+#define AUDIO_TASK_PRIO      (osPriorityRealtime)    /* highest — maps to 24 */
 #define WSS_TASK_PRIO        (osPriorityAboveNormal) /* above normal */
 #define LVGL_TASK_PRIO       (osPriorityNormal)
 #define PRESENTER_TASK_PRIO  (osPriorityBelowNormal)

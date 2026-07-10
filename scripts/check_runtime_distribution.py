@@ -17,6 +17,11 @@ if hasattr(sys.stdout, "reconfigure"):
 ROOT = Path(__file__).resolve().parent.parent
 SCRIPTS = ROOT / "scripts"
 LITE = ROOT / "freertos-skill-lite"
+
+# Import unified excludes from single source of truth
+sys.path.insert(0, str(ROOT / "references"))
+from runtime_excludes import RUNTIME_EXCLUDE_DIRS, RUNTIME_EXCLUDE_ROOT_FILES
+
 sys.path.insert(0, str(SCRIPTS))
 
 try:
@@ -26,25 +31,9 @@ except Exception as exc:  # pragma: no cover - defensive checker path
     sys.exit(1)
 
 
-ROOT_ONLY_FORBIDDEN = {
-    "README.md",
-    "INSTALL.md",
-    "CHANGELOG.md",
-}
+ROOT_ONLY_FORBIDDEN = RUNTIME_EXCLUDE_ROOT_FILES
 
-FORBIDDEN_RUNTIME_DIRS = {
-    ".git",
-    ".github",
-    ".vscode",
-    "__pycache__",
-    ".pytest_cache",
-    "node_modules",
-    "freertos-skill-lite",
-    "fw-AC79_AIoT_SDK",
-    "bk_idk-release-v2.2.1",
-    "artifacts",
-    "archive",
-}
+FORBIDDEN_RUNTIME_DIRS = RUNTIME_EXCLUDE_DIRS
 
 REQUIRED_RUNTIME_PATHS = {
     "SKILL.md",

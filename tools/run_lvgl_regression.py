@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Golden page regression pipeline.
 
-Runs: file check → IR validation → cutout audit → visual diff → unified report.
+Runs: file check -> IR validation -> cutout audit -> visual diff -> unified report.
 
 Usage:
     python tools/run_lvgl_regression.py --all                # full pipeline on all pages
@@ -207,13 +207,179 @@ def regression_pipeline(page_dir: Path) -> dict:
     return result
 
 
+def _make_page(tmp_dir: Path, name: str, *, design: bool = True, render: bool = True,
+               report: bool = True, audit: bool = True, manifest: bool = True,
+               bad_report: bool = False, bad_audit: bool = False,
+               render_size: tuple[int, int] | None = None) -> Path:
+    """Create a minimal golden page fixture in tmp_dir."""
+    from PIL import Image
+    import numpy as np
+
+    page_dir = tmp_dir / name
+    expected = page_dir / "expected"
+    expected.mkdir(parents=True, exist_ok=True)
+    (page_dir / "cutouts").mkdir(exist_ok=True)
+
+    W, H = 480, 800
+    if design:
+        img = np.zeros((H, W, 3), dtype=np.uint8)
+        img[:, :] = [26, 26, 46]
+        Image.fromarray(img).save(page_dir / "design.png")
+
+    if render:
+        rw, rh = render_size or (W, H)
+        img = np.zeros((rh, rw, 3), dtype=np.uint8)
+        img[:, :] = [26, 26, 46]
+        Image.fromarray(img).save(expected / "render.png")
+
+    if report:
+        if bad_report:
+            report_data = {"screen": {"width": 480}}
+        else:
+            report_data = {
+                "screen": {"width": W, "height": H},
+                "assets": [],
+                "components": [{"id": "root", "type": "container", "bbox": [0, 0, W, H],
+                                "source": "layout_root", "confidence": 1.0}],
+                "layout_policy": {"mode": "pixel_exact"},
+                "warnings": [],
+            }
+        (expected / "analysis_report.json").write_text(
+            json.dumps(report_data, indent=2), encoding="utf-8")
+
+    if audit:
+        if bad_audit:
+            audit_data = {"page_name": name, "audit_version": "1.0",
+                          "cutouts": [{"filename": "x.png", "status": "bad_status"}], "summary": {}}
+        else:
+            audit_data = {"page_name": name, "audit_version": "1.0", "cutouts": [],
+                          "summary": {"total": 0, "used_cutout": 0, "used_component_calibration": 0,
+                                      "duplicate_or_low_confidence": 0, "unmatched_or_state_variant": 0}}
+        (expected / "cutout_audit.json").write_text(
+            json.dumps(audit_data, indent=2), encoding="utf-8")
+
+    if manifest:
+        (expected / "manifest.json").write_text(
+            json.dumps({"page_name": name, "assets": []}), encoding="utf-8")
+
+    return page_dir
+
+
+def run_self_test() -> int:
+    """Run failure-mode self-tests using temp directories."""
+    from PIL import Image
+    import numpy as np
+
+    passed = 0
+    failed = 0
+
+    def check(name: str, condition: bool, detail: str = ""):
+        nonlocal passed, failed
+        if condition:
+            passed += 1
+            print(f"  PASS: {name}")
+        else:
+            failed += 1
+            msg = f"  FAIL: {name}"
+            if detail:
+                msg += f" ({detail})"
+            print(msg)
+
+    print("run_lvgl_regression.py - failure-mode self-test")
+
+    # 1: incomplete - missing render.png
+    with tempfile.TemporaryDirectory() as tmp:
+        r = regression_pipeline(_make_page(Path(tmp), "no_render", render=False))
+        check("incomplete: missing render.png", r["verdict"] == "incomplete", f"got {r['verdict']}")
+
+    # 2: incomplete - missing analysis_report.json
+    with tempfile.TemporaryDirectory() as tmp:
+        r = regression_pipeline(_make_page(Path(tmp), "no_report", report=False))
+        check("incomplete: missing analysis_report.json", r["verdict"] == "incomplete", f"got {r['verdict']}")
+
+    # 3: incomplete - missing design.png
+    with tempfile.TemporaryDirectory() as tmp:
+        r = regression_pipeline(_make_page(Path(tmp), "no_design", design=False))
+        check("incomplete: missing design.png", r["verdict"] == "incomplete", f"got {r['verdict']}")
+
+    # 4: failed.ir_validation - bad IR
+    with tempfile.TemporaryDirectory() as tmp:
+        r = regression_pipeline(_make_page(Path(tmp), "bad_ir", bad_report=True))
+        check("failed: bad IR (missing keys)",
+              r["verdict"] == "failed" and "ir_validation" in r.get("failed_stages", []),
+              f"got {r['verdict']}")
+
+    # 5: failed.cutout_audit - bad audit status
+    with tempfile.TemporaryDirectory() as tmp:
+        r = regression_pipeline(_make_page(Path(tmp), "bad_audit", bad_audit=True))
+        check("failed: bad cutout audit (invalid status)",
+              r["verdict"] == "failed" and "cutout_audit" in r.get("failed_stages", []),
+              f"got {r['verdict']}")
+
+    # 6: failed.visual_diff - size mismatch
+    with tempfile.TemporaryDirectory() as tmp:
+        r = regression_pipeline(_make_page(Path(tmp), "size_mismatch", render_size=(240, 400)))
+        check("failed: visual diff size mismatch",
+              r["verdict"] == "failed" and "visual_diff" in r.get("failed_stages", []),
+              f"got {r['verdict']}")
+
+    # 7: regression_passed - identical images
+    with tempfile.TemporaryDirectory() as tmp:
+        r = regression_pipeline(_make_page(Path(tmp), "identical"))
+        check("regression_passed: identical images", r["verdict"] == "regression_passed", f"got {r['verdict']}")
+
+    # 8: regression_passed_with_warnings - slight diff
+    with tempfile.TemporaryDirectory() as tmp:
+        page_dir = Path(tmp) / "slight_diff"
+        expected = page_dir / "expected"
+        expected.mkdir(parents=True)
+        (page_dir / "cutouts").mkdir()
+
+        design = np.zeros((800, 480, 3), dtype=np.uint8)
+        design[:, :] = [26, 26, 46]
+        Image.fromarray(design).save(page_dir / "design.png")
+
+        # Render with diff in warn range (50x80 block = 4000 pixels, ~1% of 384000)
+        render = design.copy()
+        render[100:150, 100:180, :] = [200, 200, 200]
+        Image.fromarray(render).save(expected / "render.png")
+
+        report_data = {"screen": {"width": 480, "height": 800}, "assets": [],
+                       "components": [{"id": "root", "type": "container", "bbox": [0, 0, 480, 800],
+                                       "source": "layout_root", "confidence": 1.0}],
+                       "layout_policy": {}, "warnings": []}
+        (expected / "analysis_report.json").write_text(json.dumps(report_data), encoding="utf-8")
+        audit_data = {"page_name": "slight_diff", "audit_version": "1.0", "cutouts": [],
+                      "summary": {"total": 0, "used_cutout": 0, "used_component_calibration": 0,
+                                  "duplicate_or_low_confidence": 0, "unmatched_or_state_variant": 0}}
+        (expected / "cutout_audit.json").write_text(json.dumps(audit_data), encoding="utf-8")
+        (expected / "manifest.json").write_text(json.dumps({"page_name": "slight_diff", "assets": []}), encoding="utf-8")
+
+        r = regression_pipeline(page_dir)
+        v4 = r["stages"].get("visual_diff", {})
+        check("warn: slight diff triggers warning",
+              r["verdict"] == "regression_passed_with_warnings",
+              f"got {r['verdict']} diff_verdict={v4.get('verdict')}")
+
+    # 9: non-existent page directory
+    r = regression_pipeline(Path("/nonexistent/path"))
+    check("incomplete: non-existent page", r["verdict"] == "incomplete", f"got {r['verdict']}")
+
+    print(f"\nSelf-test: {passed} passed, {failed} failed")
+    return 0 if failed == 0 else 1
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Golden page regression pipeline")
     parser.add_argument("--page", help="Page directory to run regression on")
     parser.add_argument("--all", action="store_true", help="Run on all golden pages")
     parser.add_argument("--list", action="store_true", help="List pages and status")
+    parser.add_argument("--self-test", action="store_true", help="Run failure-mode self-tests")
     parser.add_argument("--json", action="store_true", help="JSON output")
     args = parser.parse_args()
+
+    if args.self_test:
+        return run_self_test()
 
     if args.list:
         pages = list_pages()

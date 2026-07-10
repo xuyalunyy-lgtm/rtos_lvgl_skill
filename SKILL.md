@@ -4,18 +4,11 @@ metadata:
   version: 44.0.0
 description: >-
   FreeRTOS/IoT firmware architect: MVP code review, LVGL UI generation,
-  crash debugging, OTA safety, SDK trimming. Multi-platform (ESP32/STM32/JL/BK/Zephyr).
-  Use when working on embedded C, RTOS tasks, DMA/ISR safety, A/V sync, memory analysis, or board bring-up.
-mentions: >
-  assertion, HardFault, stack overflow, Guru Meditation, code review,
-  SDK trimming, driver bring-up, debugging, FreeRTOS, GPIO, LCD/OLED,
-  frame buffer, camera, video, A/V sync, lip-sync, PTS, jitter, codec,
-  sample rate, module contract, task topology, timeout budget, observability,
-  lifecycle, hot path, critical path, copy budget, backpressure, recovery,
-  config matrix, reproduce, regression sample, board resource, lock budget, priority inversion,
-  critical section, irq mask, interrupt latency, sensor, i2c, spi, data-ready,
-  sample metadata, calibration lifecycle, zero-copy, DMA cache, frame pool, git commit,
-  OTA, firmware update, rollback, partition, secure boot, Zephyr, devicetree, Kconfig.
+  crash debugging, OTA safety, SDK trimming, module contracts, task topology,
+  DMA/ISR safety, A/V sync, clock jitter, zero-copy buffers, cJSON leak prevention,
+  WSS/mbedTLS, sensor integration, lock budget, priority inversion, critical sections.
+  Multi-platform (ESP32/STM32/JL/BK/Zephyr). Use when working on embedded C, RTOS tasks,
+  board bring-up, memory analysis, peripheral drivers, or firmware review.
 ---
 # FreeRTOS Embedded Architect
 

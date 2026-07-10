@@ -93,9 +93,11 @@ Agent 在 L2/L3 或 workflow 要求时读取本文件。L1 概念问答可跳过
 **栈单位：** 上表为 bytes 经验估算。`xTaskCreate` [TASK_CREATE] / `thread_fork` [TASK_CREATE] 单位因平台而异（words 或 bytes），填参前必查 `platforms/xxx.md` 与 `stack_calculator.py`。
 
 **优先级数值：**
-- STM32 / 原生 FreeRTOS：**数字越小越高**
-- ESP32 / JL / BK：常见**数字越大越高**，以 `FreeRTOSConfig.h` / SDK 文档为准
+- FreeRTOS Task 优先级：**数字越大越高**（0 是最低优先级），所有平台统一（ESP32/STM32/JL/BK/Zephyr）
+- 易混淆：Cortex-M NVIC **中断**优先级是数字越小越高，但这是硬件层面，与 FreeRTOS Task 优先级无关
+- `osPriorityXxx`（CMSIS-RTOS2）是抽象枚举，内部映射到 FreeRTOS 数值，不直接比较大小
 - 输出写**相对顺序** + 平台数值，禁止跨平台照搬
+- 建议用 `configMAX_PRIORITIES - N` 的相对方式定义，避免硬编码绝对数值
 
 ```bash
 python tools/stack_calculator.py --describe "WSS TLS cJSON" --platform jl

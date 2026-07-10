@@ -19,27 +19,15 @@ import sys
 from pathlib import Path
 
 SKILL_ROOT = Path(__file__).resolve().parent.parent
-RUNTIME_EXCLUDE_NAMES = {
-    ".git",
-    ".github",
-    ".vscode",
-    "__pycache__",
-    ".pytest_cache",
-    "node_modules",
-    "fw-AC79_AIoT_SDK",
-    "bk_idk-release-v2.2.1",
-    "freertos-skill-lite",
-    "archive",
-    "artifacts",
-}
+# Import unified excludes from single source of truth
+sys.path.insert(0, str(SKILL_ROOT / "references"))
+from runtime_excludes import RUNTIME_EXCLUDE_DIRS, RUNTIME_EXCLUDE_ROOT_FILES
+
+RUNTIME_EXCLUDE_NAMES = RUNTIME_EXCLUDE_DIRS
 RUNTIME_EXCLUDE_FILE_PATTERNS = (
     "*.pyc",
 )
-ROOT_ONLY_EXCLUDE_FILES = {
-    "README.md",
-    "INSTALL.md",
-    "CHANGELOG.md",
-}
+ROOT_ONLY_EXCLUDE_FILES = RUNTIME_EXCLUDE_ROOT_FILES
 
 
 def runtime_ignore(directory: str, names: list[str]) -> set[str]:

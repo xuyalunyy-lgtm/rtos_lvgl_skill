@@ -12,7 +12,7 @@ Agent 做跨平台 review 或迁移时读取本文件，快速了解各平台差
 |------|-------|-------|-----------|-------------|--------|
 | CPU 架构 | Xtensa LX6/双核 | Cortex-M4/M7/M33 | Cortex-M33 | ARM968/三核 | 多架构 |
 | RTOS | FreeRTOS (ESP-IDF) | FreeRTOS (CubeMX) | FreeRTOS (JL SDK) | FreeRTOS (Armino) | Zephyr Kernel |
-| 优先级方向 | 数字越大越高 | 数字越小越高 | 数字越大越高 | 数字越大越高 | 数字越小越高 |
+| 优先级方向 | 数字越大越高 | 数字越大越高 | 数字越大越高 | 数字越大越高 | 数字越大越高 |
 | 栈单位 | bytes | words (4B) | bytes | bytes | bytes |
 | 双核 | 是 | 否 | 否 | 是(三核) | AMP 支持 |
 | PSRAM | 是 (SPI) | 否 | 否 | 否 | 平台相关 |
@@ -110,7 +110,7 @@ Agent 做跨平台 review 或迁移时读取本文件，快速了解各平台差
 
 ### ESP32 → STM32
 
-1. 优先级方向反转（数字越大越高 → 数字越小越高）
+1. FreeRTOS Task 优先级方向不变（数字越大越高）；但 NVIC 中断优先级是数字越小越高，需注意区分
 2. 栈单位变更（bytes → words）
 3. PSRAM 不可用，需要重新规划内存
 4. WiFi/TLS 需要外接模块或手动集成
@@ -118,7 +118,7 @@ Agent 做跨平台 review 或迁移时读取本文件，快速了解各平台差
 
 ### STM32 → ESP32
 
-1. 优先级方向反转
+1. FreeRTOS Task 优先级方向不变（数字越大越高）
 2. 栈单位变更
 3. 可利用 PSRAM 扩展内存
 4. WiFi/TLS 内置，简化网络开发
