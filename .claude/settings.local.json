@@ -82,7 +82,15 @@
       "Bash(cp *)",
       "mcp__freertos-embedded-architect__run_gate",
       "mcp__freertos-embedded-architect__list_capabilities",
-      "Bash(grep -v ':0$')"
+      "Bash(grep -v ':0$')",
+      "Bash(where ar *)",
+      "Read(//c/x86_64-16.1.0-release-win32-seh-ucrt-rt_v14-rev1/mingw64/bin/**)",
+      "mcp__freertos-embedded-architect__lvgl_render",
+      "Bash(.\\\\lvgl_regression_sandbox.exe)",
+      "Bash(git *)",
+      "Bash(PYTHONUTF8=1 PYTHONIOENCODING=utf-8 python mcp/server.py --self-test)",
+      "Bash(where cmake *)",
+      "Bash(where gcc *)"
     ]
   },
   "enabledMcpjsonServers": [
