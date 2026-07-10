@@ -3,7 +3,7 @@
 This file contains constraints for audio/video pipeline/A/V Sync, audio/video codec/media format consistency, audio/video clock drift/Jitter Buffer, etc.
 
 > Corresponding constraint IDs: C25–C27
-> Other shards:[constraint_review.md](constraint_review.md) | [constraint_memory.md](constraint_memory.md) | [constraint_rtos.md](constraint_rtos.md) | [constraint_platform.md](constraint_platform.md) | [constraint_ota.md](constraint_ota.md) | [constraint_recover.md](constraint_recover.md)
+> Other shards:[constraint_review.md](constraint_review.md) | [constraint_memory.md](constraint_memory.md) | [constraint_rtos.md](constraint_rtos.md) | [constraint_platform.md](constraint_platform.md) | [constraint_ota.md](constraint_ota.md) | [constraint_recover.md](constraint_recover.md) | [constraint_bluetooth_protocol.md](constraint_bluetooth_protocol.md)
 
 ---
 

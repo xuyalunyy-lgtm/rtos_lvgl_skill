@@ -3,7 +3,7 @@
 本文件包含 LVGL 线程安全、Queue 所有权、cJSON 防泄漏、ISR/DMA、测试宏、SDK 裁剪、编码规范、错误处理、状态机、日志规范、任务优先级、定时器管理等约束，以及严重度定义、症状快查表、约束冲突权衡矩阵。
 
 > 对应约束 ID：C1–C6, C11–C16
-> 其他分片：[constraint_memory.md](constraint_memory.md) | [constraint_rtos.md](constraint_rtos.md) | [constraint_platform.md](constraint_platform.md) | [constraint_media.md](constraint_media.md) | [constraint_ota.md](constraint_ota.md) | [constraint_recover.md](constraint_recover.md)
+> 其他分片：[constraint_memory.md](constraint_memory.md) | [constraint_rtos.md](constraint_rtos.md) | [constraint_platform.md](constraint_platform.md) | [constraint_media.md](constraint_media.md) | [constraint_ota.md](constraint_ota.md) | [constraint_recover.md](constraint_recover.md) | [constraint_bluetooth_protocol.md](constraint_bluetooth_protocol.md)
 
 ---
 

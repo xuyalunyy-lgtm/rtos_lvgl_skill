@@ -3,7 +3,7 @@
 This file contains constraints for key/credential/repo hygiene, OTA/firmware upgrade safety, and peripheral shutdown safety.
 
 > Corresponding constraint IDs: C9, C22, C24
-> Other shards:[constraint_review.md](constraint_review.md) | [constraint_memory.md](constraint_memory.md) | [constraint_rtos.md](constraint_rtos.md) | [constraint_platform.md](constraint_platform.md) | [constraint_media.md](constraint_media.md) | [constraint_recover.md](constraint_recover.md)
+> Other shards:[constraint_review.md](constraint_review.md) | [constraint_memory.md](constraint_memory.md) | [constraint_rtos.md](constraint_rtos.md) | [constraint_platform.md](constraint_platform.md) | [constraint_media.md](constraint_media.md) | [constraint_recover.md](constraint_recover.md) | [constraint_bluetooth_protocol.md](constraint_bluetooth_protocol.md)
 
 ---
 

@@ -2,6 +2,33 @@
 
 Use this compact workflow for fast design/cut-image to LVGL generation. It keeps model context small and stores detailed evidence on disk.
 
+**触发：** 快速 LVGL 页面生成 / 简单 UI 页面 / 设计稿转 LVGL / quick LVGL page
+
+```yaml
+# Workflow Input Schema
+inputs:
+  required:
+    - name: design_screenshot
+      type: string
+      description: 设计稿截图路径
+    - name: cut_assets
+      type: string[]
+      description: 切图资源路径列表
+  optional:
+    - name: lvgl_version
+      type: enum[v8, v9]
+      default: v9
+
+# Workflow Output Schema
+outputs:
+  format: mixed
+  sections:
+    - LVGL C/H 页面代码
+    - preview.html（近似预览）
+  verification: validate_lvgl_layout_code exit=0
+  note: 使用 MCP 工具链，比标准 l3_lvgl_page 更快但跳过信息完整度评估
+```
+
 ## Load Policy
 
 - Default to MCP/local scripts for image analysis, code generation, validation, and artifact writing.
@@ -50,3 +77,6 @@ Time guard:
 
 - Do not run repeated full-screen brute force for all small slices. Cache alpha samples, residual components, and candidate windows.
 - If matching exceeds the quick budget, stop and emit low-confidence audit entries instead of continuing silently.
+
+---
+验收标准：[acceptance_criteria.md](../references/acceptance_criteria.md#lvgl-page-generationl3_lvgl_page)

@@ -1,6 +1,35 @@
 # Workflow: L3 SDK 搭建 / Demo 改造 / 裁剪
 
-**触发：** 新工程、SDK Demo 改造、删模块、sdkconfig/Makefile 裁剪、JL/BK 扫描。
+**触发：** 新工程 / SDK Demo 改造 / 删模块 / sdkconfig/Makefile 裁剪 / JL/BK 扫描 / SDK trimming
+
+```yaml
+# Workflow Input Schema
+inputs:
+  required:
+    - name: platform
+      type: enum[esp32, stm32, jl, bk]
+      description: 目标平台
+    - name: product_description
+      type: string
+      description: 产品功能描述（用于判断哪些模块需要保留）
+  optional:
+    - name: sdk_path
+      type: string
+      description: SDK 路径（JL/BK 强制需要）
+    - name: existing_config
+      type: string
+      description: 现有 sdkconfig/Makefile 路径
+
+# Workflow Output Schema
+outputs:
+  format: markdown
+  sections:
+    - 产品需求问卷结果
+    - 保留/裁剪驱动列表
+    - 裁剪步骤（逐步编译冒烟）
+    - 裁剪后编译验证结果
+  verification: 裁剪后编译通过 + 核心功能不受影响
+```
 
 <thinking>
 1. 必须先问卷，禁止直接给删除清单
@@ -35,3 +64,6 @@
 ```
 
 **裁剪通过前不写业务代码。**
+
+---
+验收标准：[acceptance_criteria.md](../references/acceptance_criteria.md#sdk-trimmingl3_sdk_trim)

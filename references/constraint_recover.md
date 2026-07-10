@@ -3,7 +3,7 @@
 This file contains constraints for backpressure and degradation strategies, fault isolation and automatic recovery, configuration matrix constraints, one-click reproduction closed-loop, and regression sample prioritization.
 
 > Corresponding Constraint IDs: C37–C41
-> Other Shards: [constraint_review.md](constraint_review.md) | [constraint_memory.md](constraint_memory.md) | [constraint_rtos.md](constraint_rtos.md) | [constraint_platform.md](constraint_platform.md) | [constraint_media.md](constraint_media.md) | [constraint_ota.md](constraint_ota.md)
+> Other Shards: [constraint_review.md](constraint_review.md) | [constraint_memory.md](constraint_memory.md) | [constraint_rtos.md](constraint_rtos.md) | [constraint_platform.md](constraint_platform.md) | [constraint_media.md](constraint_media.md) | [constraint_ota.md](constraint_ota.md) | [constraint_bluetooth_protocol.md](constraint_bluetooth_protocol.md)
 
 ---
 

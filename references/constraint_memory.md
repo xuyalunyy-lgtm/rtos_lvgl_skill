@@ -3,7 +3,7 @@
 This file contains constraints for general memory allocation optimization, media DMA/Cache/zero-copy Buffer lifecycle, data copy budget, etc.
 
 > Corresponding constraint IDs: C7, C28, C36
-> Other shards: [constraint_review.md](constraint_review.md) | [constraint_rtos.md](constraint_rtos.md) | [constraint_platform.md](constraint_platform.md) | [constraint_media.md](constraint_media.md) | [constraint_ota.md](constraint_ota.md) | [constraint_recover.md](constraint_recover.md)
+> Other shards: [constraint_review.md](constraint_review.md) | [constraint_rtos.md](constraint_rtos.md) | [constraint_platform.md](constraint_platform.md) | [constraint_media.md](constraint_media.md) | [constraint_ota.md](constraint_ota.md) | [constraint_recover.md](constraint_recover.md) | [constraint_bluetooth_protocol.md](constraint_bluetooth_protocol.md)
 
 ---
 

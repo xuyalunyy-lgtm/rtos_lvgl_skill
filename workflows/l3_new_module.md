@@ -1,6 +1,36 @@
 # Workflow: L3 新增模块 / 多任务设计
 
-**触发：** 新功能模块、WSS+LVGL MVP、多任务架构、codegen 骨架。
+**触发：** 新功能模块 / WSS+LVGL MVP / 多任务架构 / codegen 骨架 / new module / module design
+
+```yaml
+# Workflow Input Schema
+inputs:
+  required:
+    - name: module_description
+      type: string
+      description: 模块功能描述（如 "WSS+LVGL MVP"、"传感器采集模块"）
+    - name: platform
+      type: enum[esp32, stm32, jl, bk, freertos, zephyr]
+      description: 目标平台
+  optional:
+    - name: module_type
+      type: enum[driver, service, ui, network, media]
+      default: service
+      description: 模块类型
+    - name: existing_codebase
+      type: string
+      description: 现有代码目录（增量模式）
+
+# Workflow Output Schema
+outputs:
+  format: mixed
+  sections:
+    - 相对优先级表 + 平台数值
+    - Codegen Contract（workflow/platform/tasks/queues/locks/constraints）
+    - Module Boundary Table（responsibility/API/dependencies/forbidden）
+    - 生成代码（.c/.h 文件）
+  verification: codegen_gate.py exit=0
+```
 
 <thinking>
 1. 判定是否需 Step 0 裁剪（新 Demo → 是；量产加功能 → 增量）
@@ -101,3 +131,6 @@ python tools/run_review.py --dir ./src --platform xxx
 - [core_rules.md](../references/core_rules.md) L3 模板全文 + 校验 checklist
 - `generation_manifest.json`（生成清单）
 - 约束证明：列出每个必选约束如何在生成代码中满足（注释、结构、API 调用）
+
+---
+验收标准：[acceptance_criteria.md](../references/acceptance_criteria.md#new-modulel3_new_module)

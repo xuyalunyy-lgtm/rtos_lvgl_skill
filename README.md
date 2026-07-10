@@ -4,10 +4,57 @@ Cursor Agent Skill: FreeRTOS IoT firmware architecture (MVP layering, LVGL threa
 
 ## Quick Start
 
-1. Installation: see [INSTALL.md](INSTALL.md)
-2. Control plane: [SKILL.md](SKILL.md)
-3. Structure overview: [references/skill_structure.md](references/skill_structure.md)
-4. Agent conversation example: "BK7258 WSS + LVGL MVP architecture review"
+需要 Python 3.10+，无需安装任何依赖。详细安装见 [INSTALL.md](INSTALL.md)。
+
+### 环境变量（Windows 必设）
+
+```bash
+# Windows (PowerShell)
+$env:PYTHONUTF8='1'
+$env:PYTHONIOENCODING='utf-8'
+
+# macOS / Linux
+export PYTHONUTF8=1
+export PYTHONIOENCODING=utf-8
+```
+
+### 一键 Review
+
+```bash
+# 单文件
+python tools/run_review.py examples/bad_unchecked_return.c --platform esp32 --include-bad
+
+# 整个目录
+python tools/run_review.py --dir ./src --platform esp32
+```
+
+`exit=1` 表示发现问题，`exit=0` 表示全部通过。`--platform` 可选：`esp32` / `stm32` / `jl` / `bk` / `freertos` / `zephyr`。
+
+### Quick Gate（全量自测）
+
+```bash
+python scripts/quick_gate.py
+```
+
+依次运行 15 项检查（self-test、example 验证、log triage、text encoding、LVGL regression 等）。LVGL regression 是 non-blocking，其余全部 PASS 才算通过。
+
+### 上下文路由
+
+```bash
+python tools/context_router.py --workflow code_review --platform esp32 --json
+python tools/context_router.py --symptom-text "HardFault in audio task" --json
+```
+
+### 入口一览
+
+| 场景 | 入口 | 说明 |
+|------|------|------|
+| CLI / CI | `python tools/run_review.py` | 一键静态审查 |
+| Claude Code / IDE | MCP tools | 通过 `.mcp.json` 自动加载 |
+| LVGL 页面生成 | MCP 优先 | fallback 到 `workflows/l3_lvgl_page.md` |
+| Quick Gate | `python scripts/quick_gate.py` | 发布前全量自测 |
+
+控制平面：[SKILL.md](SKILL.md) · 结构总览：[references/skill_structure.md](references/skill_structure.md)
 
 ## Four-Layer Structure
 
@@ -69,3 +116,11 @@ python scripts/skill_iterate.py --check
 | Good Example C22 OTA | [examples/good_ota_update.c](examples/good_ota_update.c) |
 | Bad Example C22 OTA | [examples/bad_ota_no_rollback.c](examples/bad_ota_no_rollback.c) |
 | 共享类型 | [examples/app_mvp.h](examples/app_mvp.h) |
+
+## 常见问题
+
+**Q: Windows 下输出乱码？** 设置 `PYTHONUTF8=1` 和 `PYTHONIOENCODING=utf-8`。
+
+**Q: 想看某个 checker 的详细规则？** 查看 `references/constraint_quick_index.md` 找到对应约束 ID，再查对应分片文件。
+
+**Q: 如何给自己的代码写 fixture？** 参考 `tools/fixtures/` 目录下的 `good_*.c` 和 `bad_*.c` 文件。

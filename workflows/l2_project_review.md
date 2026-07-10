@@ -1,6 +1,33 @@
 # Workflow: L2 工程审查（多仓 / 固件产品）
 
-**触发：** 用户要求审查整个工程、workspace review、量产前审计、架构 review。
+**触发：** 工程审查 / workspace review / 量产前审计 / 架构 review / project review / production audit
+
+```yaml
+# Workflow Input Schema
+inputs:
+  required:
+    - name: project_dir
+      type: string
+      description: 项目根目录（含产品仓 + SDK 仓）
+  optional:
+    - name: platform
+      type: enum[esp32, stm32, jl, bk, freertos, zephyr]
+      description: 目标平台（可从仓库结构自动推断）
+    - name: scope
+      type: enum[full, components-only, config-only]
+      default: full
+      description: 审查范围
+
+# Workflow Output Schema
+outputs:
+  format: markdown
+  sections:
+    - 仓库卫生（C9 密钥扫描结果）
+    - 架构文档审查
+    - 组件代码审查（run_review 结果）
+    - 综合评估 + 修复优先级
+  verification: run_review.py exit=0 + secret_scan_checker.py exit=0
+```
 
 <thinking>
 1. 识别工作区：产品仓 + SDK 仓 + skill（若有）
@@ -128,3 +155,6 @@ rg "super\.init\(\)|_tool_init|_instance\(\)->start" <产品仓>/main --glob '*.
 ```
 
 </output_format>
+
+---
+验收标准：[acceptance_criteria.md](../references/acceptance_criteria.md#project-reviewl2_project_review)

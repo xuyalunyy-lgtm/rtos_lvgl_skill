@@ -1,6 +1,35 @@
 # Workflow: L2 内存专项分析
 
-**触发：** 内存不足、堆持续下降、栈溢出、缩池/缩栈需求、OOM 复位、内存优化专项。
+**触发：** 内存不足 / 堆持续下降 / 栈溢出 / 缩池/缩栈需求 / OOM 复位 / 内存优化专项 / memory analysis / heap leak / stack overflow
+
+```yaml
+# Workflow Input Schema
+inputs:
+  required:
+    - name: platform
+      type: enum[esp32, stm32, jl, bk, freertos, zephyr]
+      description: 目标平台
+  optional:
+    - name: source_dir
+      type: string
+      description: 用户源码目录
+    - name: heap_log
+      type: string
+      description: heap 使用日志（如有）
+    - name: symptom
+      type: enum[heap_decreasing, stack_overflow, oom_reboot, pool_shrink]
+      description: 内存症状分类
+
+# Workflow Output Schema
+outputs:
+  format: markdown
+  sections:
+    - 内存基线（heap free/min/largest + stack high-water）
+    - 泄漏分析（cjson_leak_checker 结果）
+    - 优化建议（按 C7.2 优先级：修泄漏 → 关模块 → 缩池 → 缩栈）
+    - 风险评估
+  verification: run_review.py exit=0 + cjson_leak_checker exit=0
+```
 
 <thinking>
 1. 内存问题是最常见的嵌入式量产杀手——必须先有基线数据，再谈优化
@@ -397,3 +426,6 @@ python tools/stack_calculator.py --describe "WSS TLS cJSON" --platform <平台>
 | **l3_bring_up** | 本 workflow | Bring-up 采集的基线是分析输入 |
 | 本 workflow | **l3_sdk_trim** | 关未用模块（Step 2） |
 | 本 workflow | **debug_crash** | 栈溢出 → crash 诊断 |
+
+---
+验收标准：[acceptance_criteria.md](../references/acceptance_criteria.md#memory-analysisl2_memory_analysis)

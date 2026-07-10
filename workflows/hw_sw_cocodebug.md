@@ -1,6 +1,35 @@
 # Workflow: Hardware-Software Co-debug / IO Pin Planning
 
-**Trigger:** Hardware co-debug, IO pin allocation, GPIO conflict investigation, pin muxing, peripheral wiring, new board bring-up, PCB layout review.
+**触发：** 硬件联调 / IO pin allocation / GPIO conflict / pin muxing / 外设接线 / 新板 bring-up / PCB layout review / 硬件软件协同调试
+
+```yaml
+# Workflow Input Schema
+inputs:
+  required:
+    - name: io_pin_table
+      type: string
+      description: IO 引脚使用表（用户必须提供，禁止 Agent 假设）
+    - name: platform
+      type: enum[esp32, stm32, jl, bk]
+      description: 目标平台
+  optional:
+    - name: peripherals
+      type: string[]
+      description: 需要验证的外设列表
+    - name: schematic_path
+      type: string
+      description: 原理图路径（如有）
+
+# Workflow Output Schema
+outputs:
+  format: markdown
+  sections:
+    - IO 分配表（GPIO/功能/电气约束/冲突检查）
+    - 平台能力验证（pin mux + 电气参数）
+    - 软件配置建议
+    - 已知风险 + 验证命令
+  verification: GPIO 无冲突 + 外设配置符合平台文档
+```
 
 <thinking>
 1. IO pins are the physical constraints of an embedded system — no matter how correct the software is, wrong IO wiring means hardware won't work
@@ -319,3 +348,6 @@ board_io.h
 | **debug_crash** GPIO 相关 HardFault | 核对 IO 配置是否正确 |
 | **l2_code_review** 审查引脚配置 | 检查 `board_io.h` 是否与 IO 表一致 |
 | **l3_sdk_trim** 裁剪外设驱动 | 更新 IO 表，释放不再使用的引脚 |
+
+---
+验收标准：[acceptance_criteria.md](../references/acceptance_criteria.md#hwsw-co-debughw_sw_cocodebug)

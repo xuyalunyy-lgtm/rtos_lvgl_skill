@@ -1,6 +1,35 @@
 # Workflow: Bug Diagnosis / Crash Log
 
-**Trigger:** HardFault, Guru Meditation, crash dump, stack overflow, WDT, UI frozen, WSS handshake failure.
+**触发：** HardFault / Guru Meditation / crash dump / stack overflow / WDT / UI frozen / WSS handshake failure / 崩溃 / 死机 / 看门狗复位
+
+```yaml
+# Workflow Input Schema
+inputs:
+  required:
+    - name: crash_log
+      type: string
+      description: crash 日志、HardFault trace、backtrace、或症状描述
+  optional:
+    - name: platform
+      type: enum[esp32, stm32, jl, bk, freertos, zephyr]
+      description: 目标平台（可从日志自动推断）
+    - name: source_dir
+      type: string
+      description: 用户源码目录（修复时需要）
+    - name: symptom_text
+      type: string
+      description: 自然语言症状描述（用于 context_router 症状路由）
+
+# Workflow Output Schema
+outputs:
+  format: markdown
+  sections:
+    - 症状匹配（matched_symptoms + confidence）
+    - 根因假设（top_hypotheses + 约束 ID）
+    - 验证探针（diagnostic_probes + 验证命令）
+    - 修复建议（如有源码访问）
+  exit_code: 0=诊断完成, 1=需更多信息
+```
 
 <thinking>
 1. Log first, then code changes
@@ -69,3 +98,6 @@ python tools/run_review.py --dir ./src --platform xxx
 ## Fix (MVP Compliance)
 ## Verification
 ```
+
+---
+验收标准：[acceptance_criteria.md](../references/acceptance_criteria.md#crash-debugdebug_crash)

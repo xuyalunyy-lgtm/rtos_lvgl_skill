@@ -82,7 +82,7 @@ Router IDs: `code_review`, `project_review`, `crash_debug`,
 
 ## Entry Points
 
-- **CLI / CI**: `python tools/run_review.py` and `tools/*.py`. See [QUICKSTART.md](QUICKSTART.md).
+- **CLI / CI**: `python tools/run_review.py` and `tools/*.py`. See [README.md](README.md#quick-start).
 - **IDE / Claude Code**: MCP tools via `.mcp.json` (thin adapter over `tools/*.py`).
 - **LVGL**: MCP-first; fallback to `workflows/l3_lvgl_page.md` when MCP unavailable.
 

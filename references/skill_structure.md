@@ -23,11 +23,9 @@ L4 可执行     tools/                完整版 L2+；Lite 无此层
 
 | 主链路 | 典型 workflow | 核心工具 | 输出 |
 |--------|--------------|---------|------|
-| **review** | l2_code_review, l2_project_review, l2_rtos_system_review | run_review, task_graph_analyzer, scheduler_analyzer | issues + constraints + evidence |
-| **generate** | l3_new_module, l3_bring_up, l3_sdk_trim | project_scaffold, module_contract_gen, codegen_gate | manifest + files + proof |
-| **debug** | debug_crash, l2_memory_analysis | telemetry_parser, rtos_model | root_cause + repro_bundle |
-| **release** | self_iterate, l2_release_qualification | skill_iterate, commit_audit, release_qualifier | pass/fail + report |
-| **learn** | l2_learning_candidate | evidence_store, pattern_miner, eval_runner | candidates + trends |
+| **review** | l2_code_review, l2_project_review, hw_sw_cocodebug | run_review, module_boundary_checker | issues + constraints + evidence |
+| **generate** | l3_new_module, l3_bring_up, l3_sdk_trim, l3_lvgl_page | project_scaffold, module_contract_gen, codegen_gate, MCP LVGL tools | manifest + files + proof |
+| **debug** | debug_crash, l2_memory_analysis | context_router, log_triage | root_cause + verify_probes |
 
 ---
 
@@ -118,12 +116,11 @@ L4 可执行     tools/                完整版 L2+；Lite 无此层
 |--------|----------|---------|---------|
 | review | l2_code_review | core_rules + constraint_index | 嫌疑 prompt |
 | review | l2_project_review | core_rules + constraint_index | 平台 prompt |
-| review | l2_rtos_system_review | core_rules + constraint_index | rtos model prompt |
+| review | hw_sw_cocodebug | core_rules + constraint_index | 平台 prompt |
 | generate | l3_new_module | core_rules + codegen_contract | 模块 prompt |
 | generate | l3_bring_up | core_rules + codegen_contract | boot_wdt prompt |
+| generate | l3_sdk_trim | core_rules + sdk_abstraction | 平台 SDK prompt |
+| generate | l3_lvgl_page | core_rules + MCP theme skill | LVGL prompt |
 | debug | debug_crash | constraint_detail 症状表 | 症状 prompt |
 | debug | l2_memory_analysis | core_rules + constraint_index | memory prompt |
-| release | self_iterate | 本文件 + iteration_log | — |
-| release | l2_release_qualification | release_governance | — |
-| learn | l2_learning_candidate | evidence store + pattern miner | — |
 | — | **Session strict mode** | session_strict_mode.txt | — |

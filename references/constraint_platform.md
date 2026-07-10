@@ -3,7 +3,7 @@
 本文件包含外设驱动安全（GPIO/I2C/SPI/DMA/ADC/PWM）、Flash/NVS 状态持久化、网络韧性、低功耗管理、显示驱动安全、板级资源契约、传感器集成契约等约束。
 
 > 对应约束 ID：C18–C21, C23, C42, C45
-> 其他分片：[constraint_review.md](constraint_review.md) | [constraint_memory.md](constraint_memory.md) | [constraint_rtos.md](constraint_rtos.md) | [constraint_media.md](constraint_media.md) | [constraint_ota.md](constraint_ota.md) | [constraint_recover.md](constraint_recover.md)
+> 其他分片：[constraint_review.md](constraint_review.md) | [constraint_memory.md](constraint_memory.md) | [constraint_rtos.md](constraint_rtos.md) | [constraint_media.md](constraint_media.md) | [constraint_ota.md](constraint_ota.md) | [constraint_recover.md](constraint_recover.md) | [constraint_bluetooth_protocol.md](constraint_bluetooth_protocol.md)
 
 ---
 

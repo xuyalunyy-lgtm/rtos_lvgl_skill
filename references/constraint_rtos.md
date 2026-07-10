@@ -2,8 +2,8 @@
 
 本文件包含启动顺序、任务优先级、模块契约、任务/队列拓扑、超时预算、可观测性、生命周期对称、热路径禁区、关键路径预算、锁预算与优先级反转防护、临界区/关中断预算等约束。
 
-> 对应约束 ID：C8, C15, C29–C35, C43–C44
-> 其他分片：[constraint_review.md](constraint_review.md) | [constraint_memory.md](constraint_memory.md) | [constraint_platform.md](constraint_platform.md) | [constraint_media.md](constraint_media.md) | [constraint_ota.md](constraint_ota.md) | [constraint_recover.md](constraint_recover.md)
+> 对应约束 ID：C8, C15, C17, C29–C35, C43–C44
+> 其他分片：[constraint_review.md](constraint_review.md) | [constraint_memory.md](constraint_memory.md) | [constraint_platform.md](constraint_platform.md) | [constraint_media.md](constraint_media.md) | [constraint_ota.md](constraint_ota.md) | [constraint_recover.md](constraint_recover.md) | [constraint_bluetooth_protocol.md](constraint_bluetooth_protocol.md)
 
 ---
 
@@ -37,6 +37,34 @@
 | C15.1 | 相邻任务优先级差 ≥2 | P1 | 人工 | `PRIO_WSS = MAX-3, PRIO_LVGL = MAX-5` | `PRIO_WSS=5, PRIO_LVGL=6` |
 | C15.2 | 共享资源用 mutex（优先级继承），禁止 binary semaphore 保护 | P1 | 人工 | `xSemaphoreCreateMutex()` [MUTEX_CREATE] | `xSemaphoreCreateBinary()` [SEM_CREATE] 保护共享变量 |
 | C15.3 | 禁止运行时 `vTaskPrioritySet`（需文档说明原因和恢复条件） | P2 | grep | 初始化时设定 | 运行时无注释改优先级 |
+
+---
+
+## C17 — 多核 IPC
+
+| ID | 约束 | 严重度 | 验证 | 正例 | 反例 |
+|----|------|--------|------|------|------|
+| C17.1 | 跨核通信**禁止**直接共享全局变量（无同步机制 → 数据竞争） | P0 | 人工 | `mailbox_send(MAILBOX_CPU1, &data, sizeof(data))` | `volatile int g_sensor_data;` CPU0 写 CPU1 读无屏障 |
+| C17.2 | 跨核 Queue **须**用平台 IPC mailbox，禁止不同 FreeRTOS 实例间用 `xQueueSend`（无效或未定义行为） | P0 | 人工 | `bk_mailbox_send(CPU1, MB_CMD_USER, &msg, sizeof(msg))` | `xQueueSend(cp1_queue, &msg, portMAX_DELAY)` 跨实例 |
+| C17.3 | 核间同步**须**用硬件信号量，禁止不同 FreeRTOS 实例间用 `xSemaphoreTake`（mutex 无效） | P0 | 人工 | `hw_semaphore_take(SEM_ID_SHARED_MEM)` | `xSemaphoreTake(cross_core_mutex, portMAX_DELAY)` 跨实例 |
+
+**平台注记**：
+
+| 平台 | IPC 机制 | 文档 |
+|------|----------|------|
+| BK7258 | `CONFIG_MAILBOX` + `bk_mailbox_*` | `platforms/bk.md` 三核架构节 |
+| ESP32 | `esp_ipc_*` + 双核 FreeRTOS 共享实例 | ESP-IDF IPC 文档 |
+| JL | `thread_fork` + DSP 核专有 API | `platforms/jl.md` |
+
+**症状表**：
+
+| 症状 | 可能约束 |
+|------|----------|
+| 多核数据竞争、偶发值错乱 | C17.1 全局变量无同步 |
+| 跨核 Queue 发送无效果 | C17.2 用了错误的 Queue API |
+| 跨核 mutex 不生效、死锁 | C17.3 用了软件信号量 |
+
+> 详细提示词：[multi_core_ipc.txt](../prompts/multi_core_ipc.txt)
 
 ---
 

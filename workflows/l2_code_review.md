@@ -1,6 +1,36 @@
 # Workflow: L2 Code Review
 
-**触发：** 用户要求 review / audit / 审查嵌入式 C 代码质量。
+**触发：** code review / audit / 审查 / 嵌入式 C 代码质量检查
+
+```yaml
+# Workflow Input Schema
+inputs:
+  required:
+    - name: source_dir
+      type: string
+      description: 用户源码目录（如 ./src）
+    - name: platform
+      type: enum[esp32, stm32, jl, bk, freertos, zephyr]
+      description: 目标平台
+  optional:
+    - name: constraints
+      type: string[]
+      description: 指定约束 ID（如 C1, C7）
+    - name: budget
+      type: enum[compact, standard, full]
+      default: standard
+      description: context_router 预算级别
+
+# Workflow Output Schema
+outputs:
+  format: markdown
+  sections:
+    - 结论（通过/需修复，一句话）
+    - 违规项（C#.file:line — 问题 — 修复建议，引用 good 范例）
+    - Checker 结果（run_review 摘要或「未运行」）
+    - 修复优先级（P0 安全/崩溃 → P1 泄漏/死锁 → P2 风格）
+  exit_code: 0=通过, 1=发现问题
+```
 
 <thinking>
 1. 确认目标平台（ESP32/STM32/JL/BK）
@@ -63,3 +93,6 @@ P0 安全/崩溃 → P1 泄漏/死锁 → P2 风格
 ```
 
 </output_format>
+
+---
+验收标准：[acceptance_criteria.md](../references/acceptance_criteria.md#code-reviewl2_code_review)

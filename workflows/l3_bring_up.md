@@ -1,6 +1,35 @@
 # Workflow: L3 板级 Bring-up（从上电到全功能跑通）
 
-**触发：** 新板 bring-up、最小系统验证、外设逐个点亮、首次全链路联调、量产前闭环验证。
+**触发：** 新板 bring-up / 最小系统验证 / 外设逐个点亮 / 首次全链路联调 / 量产前闭环验证 / board bring-up
+
+```yaml
+# Workflow Input Schema
+inputs:
+  required:
+    - name: board_name
+      type: string
+      description: 板级名称（如 "BK7258_EVB"、"ESP32-S3-DevKit"）
+    - name: platform
+      type: enum[esp32, stm32, jl, bk]
+      description: 目标平台
+  optional:
+    - name: peripherals
+      type: string[]
+      description: 需要验证的外设列表（如 ["i2c_sensor", "lcd_display", "wifi"]）
+    - name: sdk_path
+      type: string
+      description: SDK 路径
+
+# Workflow Output Schema
+outputs:
+  format: markdown
+  sections:
+    - IO 规划表（GPIO 分配 + 冲突检查）
+    - 最小系统配置（boot sequence + WDT）
+    - 外设逐个验证结果（每外设：pass/fail + 日志）
+    - 全链路联调结果
+  verification: 编译通过 + 每外设独立验证命令
+```
 
 <thinking>
 1. Bring-up 是嵌入式开发的「从 0 到 1」，每个阶段都有明确交付物
@@ -397,3 +426,6 @@ Presenter Looper（等待 Queue）
 | 本 workflow | **l3_new_module** | 新增外设时回到阶段 2 验证 |
 | 本 workflow | **l2_memory_analysis** | 深度内存分析（堆/栈/池） |
 | 本 workflow | **debug_crash** | 冒烟中出问题 → crash 诊断 |
+
+---
+验收标准：[acceptance_criteria.md](../references/acceptance_criteria.md#bring-upl3_bring_up)

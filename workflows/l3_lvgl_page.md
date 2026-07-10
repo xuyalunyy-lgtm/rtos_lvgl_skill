@@ -1,6 +1,43 @@
 # Workflow: L3 LVGL 单页面生成
 
-**触发：** 新 UI 页面、LVGL 代码生成、带屏产品页面开发、UI 布局调整。
+**触发：** 新 UI 页面 / LVGL 代码生成 / 带屏产品页面开发 / UI 布局调整 / LVGL page generation
+
+```yaml
+# Workflow Input Schema
+inputs:
+  required:
+    - name: design_screenshot
+      type: string
+      description: 设计稿截图路径（PNG/JPG）
+    - name: cut_assets
+      type: string[]
+      description: 切图资源路径列表
+  optional:
+    - name: screen_params
+      type: object
+      description: "{width, height, color_depth, screen_type}"
+    - name: font_resources
+      type: array
+      description: "[{size, language, path}]"
+    - name: color_theme
+      type: object
+      description: "{primary, secondary, background, text}"
+    - name: lvgl_version
+      type: enum[v8, v9]
+      default: v9
+
+# Workflow Output Schema
+outputs:
+  format: mixed
+  sections:
+    - 信息完整度评估（8 项必需信息 checklist）
+    - analysis_report.json（资产分析）
+    - debug_overlay.png（调试叠加图）
+    - LVGL C/H 页面代码
+    - preview.html（近似预览）
+  verification: validate_lvgl_layout_code exit=0 + 截图像素差异 < 1%
+  note: 必须使用 MCP 工具链（get_lvgl_theme_skill → convert_image → generate_spec → generate_code → validate）
+```
 
 <thinking>
 1. 仅提供「页面组件 + 坐标 + 交互方式」**不足以**生成完美效果
@@ -639,3 +676,6 @@ The final response should report the audit result and validation result, not ful
 Do not treat a matched inner icon as proof that the whole visual component is complete. A loading icon inside a frosted circular frame has two layers: the inner icon/cutout and the outer glass component. Generate both layers. Record CSS-like parameters such as `backdrop-filter: blur(12px)` and inset highlights in the report, and emit a renderer hook macro when stock LVGL cannot express the effect directly.
 
 For the sub-screen loading page, the required pattern is: 84x84 outer glass circle at x=198, y=147 with blur radius 12 and left/right `#FFFFFFB2` inset highlights, then the 60x60 loading mark cutout centered at x=210, y=159.
+
+---
+验收标准：[acceptance_criteria.md](../references/acceptance_criteria.md#lvgl-page-generationl3_lvgl_page)
