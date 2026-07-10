@@ -26,6 +26,7 @@ DEFAULT_QUALITY_ARTIFACT = ROOT / "artifacts" / "log_symptom_routes_quality.json
 class GateStep:
     name: str
     cmd: list[str]
+    blocking: bool = True
 
 
 STEPS = [
@@ -42,6 +43,7 @@ STEPS = [
     GateStep("text encoding", [sys.executable, "scripts/check_text_encoding.py"]),
     GateStep("runtime distribution", [sys.executable, "scripts/check_runtime_distribution.py"]),
     GateStep("link check", [sys.executable, "tools/check_links.py"]),
+    GateStep("lvgl regression", [sys.executable, "scripts/check_lvgl_regression.py"], blocking=False),
 ]
 
 
@@ -104,13 +106,19 @@ def _file_fingerprint(path: Path) -> tuple[str, str]:
 
 def run_step(index: int, total: int, step: GateStep, *, verbose: bool) -> bool:
     cmd_text = " ".join(step.cmd)
-    print(f"[{index}/{total}] {step.name}")
+    label = f"[{index}/{total}] {step.name}"
+    if not step.blocking:
+        label += " (non-blocking)"
+    print(label)
     print(f"  {cmd_text}")
 
     if verbose:
         proc = subprocess.run(step.cmd, cwd=ROOT, env=_env())
         if proc.returncode == 0:
             print(f"  PASS {step.name}")
+            return True
+        if not step.blocking:
+            print(f"  WARN {step.name}: exit {proc.returncode} (non-blocking)")
             return True
         print(f"  FAIL {step.name}: exit {proc.returncode}")
         return False
@@ -125,6 +133,16 @@ def run_step(index: int, total: int, step: GateStep, *, verbose: bool) -> bool:
     )
     if proc.returncode == 0:
         print(f"  PASS {step.name}")
+        return True
+
+    if not step.blocking:
+        print(f"  WARN {step.name}: exit {proc.returncode} (non-blocking)")
+        if proc.stdout:
+            for line in proc.stdout.splitlines():
+                print(f"    {line}")
+        if proc.stderr:
+            for line in proc.stderr.splitlines():
+                print(f"    {line}")
         return True
 
     print(f"  FAIL {step.name}: exit {proc.returncode}")

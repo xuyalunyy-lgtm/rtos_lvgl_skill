@@ -55,7 +55,7 @@ python tools/run_review.py --list-checkers
 python scripts/quick_gate.py
 ```
 
-这会依次运行：self-test、example 验证、log triage、text encoding、runtime distribution、link check 等 14 项检查。全部 PASS 才算通过。
+这会依次运行：self-test、example 验证、log triage、text encoding、runtime distribution、link check、LVGL regression 等 15 项检查。LVGL regression 是 non-blocking，失败会显示 WARN；其余阻断项全部 PASS 才算通过。
 
 ## 6. JSON 输出（CI 集成）
 
