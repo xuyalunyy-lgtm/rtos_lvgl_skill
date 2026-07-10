@@ -314,6 +314,7 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
     },
 ]
 TOOL_SCHEMAS.extend(LVGL_TOOL_SCHEMAS)
+TOOL_SCHEMA_BY_NAME = {schema["name"]: schema.get("inputSchema", {}) for schema in TOOL_SCHEMAS}
 
 
 def _mcp_result(payload: dict[str, Any]) -> dict[str, Any]:
@@ -326,6 +327,98 @@ def _mcp_result(payload: dict[str, Any]) -> dict[str, Any]:
         ],
         "isError": not bool(payload.get("ok", True)),
     }
+
+
+def _tool_error(tool: str, code: str, message: str, *, details: list[str] | None = None) -> dict[str, Any]:
+    error: dict[str, Any] = {
+        "code": code,
+        "message": message,
+        "tool": tool,
+    }
+    if details:
+        error["details"] = details
+    return {"ok": False, "error": error, "artifacts": []}
+
+
+def _schema_types(schema: dict[str, Any]) -> set[str]:
+    raw = schema.get("type")
+    if raw is None:
+        return set()
+    if isinstance(raw, list):
+        return {str(item) for item in raw}
+    return {str(raw)}
+
+
+def _type_matches(value: Any, expected: str) -> bool:
+    if expected == "object":
+        return isinstance(value, dict)
+    if expected == "array":
+        return isinstance(value, list)
+    if expected == "string":
+        return isinstance(value, str)
+    if expected == "boolean":
+        return isinstance(value, bool)
+    if expected == "integer":
+        return isinstance(value, int) and not isinstance(value, bool)
+    if expected == "number":
+        return isinstance(value, (int, float)) and not isinstance(value, bool)
+    return True
+
+
+def _validate_schema_value(path: str, value: Any, schema: dict[str, Any]) -> list[str]:
+    errors: list[str] = []
+    expected = _schema_types(schema)
+    if expected and not any(_type_matches(value, item) for item in expected):
+        errors.append(f"{path} must be one of {sorted(expected)}, got {type(value).__name__}")
+        return errors
+
+    if "enum" in schema and value not in schema["enum"]:
+        errors.append(f"{path} must be one of {schema['enum']}, got {value!r}")
+
+    if isinstance(value, dict):
+        properties = schema.get("properties", {})
+        required = schema.get("required", [])
+        for key in required:
+            if key not in value:
+                errors.append(f"{path}.{key} is required")
+        if schema.get("additionalProperties") is False:
+            extra = sorted(set(value) - set(properties))
+            if extra:
+                errors.append(f"{path} has unknown field(s): {', '.join(extra)}")
+        for key, item in value.items():
+            item_schema = properties.get(key)
+            if isinstance(item_schema, dict):
+                errors.extend(_validate_schema_value(f"{path}.{key}", item, item_schema))
+
+    if isinstance(value, list):
+        item_schema = schema.get("items")
+        if isinstance(item_schema, dict):
+            for index, item in enumerate(value):
+                errors.extend(_validate_schema_value(f"{path}[{index}]", item, item_schema))
+
+    return errors
+
+
+def _validate_tool_args(name: str, args: Any) -> list[str]:
+    schema = TOOL_SCHEMA_BY_NAME.get(name, {"type": "object"})
+    return _validate_schema_value("arguments", args, schema)
+
+
+def _call_tool(name: str, args: Any) -> dict[str, Any]:
+    if name not in TOOLS:
+        return _tool_error(str(name), "unknown_tool", f"unknown tool: {name}")
+    if not isinstance(args, dict):
+        return _tool_error(str(name), "invalid_arguments", "tool arguments must be an object")
+    validation_errors = _validate_tool_args(str(name), args)
+    if validation_errors:
+        return _tool_error(str(name), "invalid_arguments", "tool arguments failed schema validation", details=validation_errors)
+    try:
+        payload = TOOLS[name](args)
+    except Exception as exc:
+        return _tool_error(str(name), "tool_exception", str(exc))
+    if isinstance(payload, dict):
+        return payload
+    return {"ok": True, "data": payload, "artifacts": []}
 
 
 def _handle_request(message: dict[str, Any]) -> dict[str, Any] | None:
@@ -350,9 +443,7 @@ def _handle_request(message: dict[str, Any]) -> dict[str, Any] | None:
             params = message.get("params") or {}
             name = params.get("name")
             args = params.get("arguments") or {}
-            if name not in TOOLS:
-                raise ValueError(f"unknown tool: {name}")
-            result = _mcp_result(TOOLS[name](args))
+            result = _mcp_result(_call_tool(str(name), args))
         elif method == "notifications/initialized":
             return None
         else:
@@ -525,6 +616,25 @@ def run_self_test() -> int:
 
     route = route_context({"workflow": "code_review", "platform": "esp32", "rtos": "freertos"})
     checks.append(("route_context", route["ok"] and isinstance(route.get("data"), dict), "route_context failed"))
+
+    bad_tool_call = _handle_request({
+        "jsonrpc": "2.0",
+        "id": 99,
+        "method": "tools/call",
+        "params": {
+            "name": "route_context",
+            "arguments": {"workflow": "not_a_workflow", "platform": "esp32"},
+        },
+    })
+    bad_content = json.loads(bad_tool_call["result"]["content"][0]["text"]) if bad_tool_call else {}
+    checks.append((
+        "tool argument validation",
+        bad_tool_call is not None
+        and bad_tool_call["result"].get("isError") is True
+        and bad_content.get("error", {}).get("code") == "invalid_arguments"
+        and bad_content.get("error", {}).get("tool") == "route_context",
+        "invalid tool arguments did not use structured MCP error payload",
+    ))
 
     sdk = lookup_sdk({"platform": "esp32", "query": "TASK_CREATE"})
     checks.append(("lookup_sdk", sdk["ok"] and "xTaskCreate" in sdk.get("stdout", ""), "lookup_sdk failed"))
