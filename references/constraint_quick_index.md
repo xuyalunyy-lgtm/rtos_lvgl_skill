@@ -40,7 +40,7 @@
 | C19 | Flash/NVS | commit 返回值、磨损均衡 | platform |
 | C20 | 网络韧性 | 重连退避、超时 | platform |
 | C21 | 低功耗 | 深睡眠状态保存 | platform |
-| OTA | OTA 安全 | 签名验证、回滚 | ota |
+| C22 | OTA 安全 | 签名验证、回滚 | ota |
 | C23 | 显示驱动 | LCD 初始化、帧缓冲 | platform |
 | C24 | 外设关闭 | 异常退出收尾、DMA 等待 | ota |
 | C25 | A/V 管线 | 音视频同步、背压 | media |
