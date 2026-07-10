@@ -14,6 +14,11 @@ import sys
 from pathlib import Path
 from typing import Any
 
+# Ensure mcp/ directory is on sys.path so lvgl_ui imports regardless of cwd
+_MCP_DIR = str(Path(__file__).resolve().parent)
+if _MCP_DIR not in sys.path:
+    sys.path.insert(0, _MCP_DIR)
+
 from lvgl_ui import LVGL_TOOL_SCHEMAS, LVGL_TOOLS, RESOURCE_SCHEMAS, RESOURCE_URIS, get_resource_content
 
 ROOT = Path(__file__).resolve().parent.parent
