@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-C12 错误处理启发式检查器。
+C12 error handling heuristic checker.
 
-检查项:
-  C12.1 — FreeRTOS API 返回值未检查
-  C12.2 — pvPortMalloc 未检查即使用
+Checks:
+  C12.1 — FreeRTOS API return value unchecked
+  C12.2 — pvPortMalloc used without checking
 
-用法:
+Usage:
     python tools/return_check_checker.py <file.c> [file2.c ...]
     python tools/return_check_checker.py --dir src/
 """
@@ -88,17 +88,17 @@ def check_file(path: Path) -> list[dict]:
                 if not checked:
                     issues.append(make_issue(
                         path, i, "C12.1", "P0",
-                        f"{api} 返回值已赋给 {var_name} 但未检查",
+                        f"{api} return value assigned to {var_name} but not checked",
                     ))
             else:
                 # Return value discarded entirely
                 issues.append(make_issue(
                     path, i, "C12.1", "P0",
-                    f"{api} 返回值未检查（直接调用无赋值）",
+                    f"{api} return value unchecked (direct call without assignment)",
                 ))
 
     return issues
 
 
 if __name__ == "__main__":
-    raise SystemExit(run_checker(check_file, "C12 错误处理检查器", ("C12",)))
+    raise SystemExit(run_checker(check_file, "C12 error handling checker", ("C12",)))

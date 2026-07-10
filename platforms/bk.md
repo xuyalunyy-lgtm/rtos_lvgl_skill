@@ -1,18 +1,18 @@
-# BK 博通集成（Beken）平台专档
+# BK Beken Platform Guide
 
-Agent 确认目标平台为博通集成 BK 系列时读取本文件。
+Read this file when the target platform is confirmed to be Beken BK series.
 
-**本专档基线 SDK：** `bk_idk-release-v2.2.1`（Armino IDK，Tag 格式 `v2.2.1.x`）
+**Baseline SDK for this guide:** `bk_idk-release-v2.2.1` (Armino IDK, Tag format `v2.2.1.x`)
 
-| 项 | 值 |
-|----|-----|
-| 基线 repo | `bk_idk`（Armino 生态基础 SDK） |
-| 版本源 | SDK 根目录 `README.md` / `git tag` / 编译日志 `APP_VERSION` |
-| 官方文档 | https://docs.bekencorp.com/（芯片文档在 `docs/bk7239/`、`docs/bk7236n/`） |
-| 烧录工具 | https://dl.bekencorp.com/tools/flash/（BKFIL） |
-| 维护要求 | Phase A 扫描后在本表填写实测 tag，禁止照搬未验证版本号 |
+| Item | Value |
+|------|-------|
+| Baseline repo | `bk_idk` (Armino ecosystem base SDK) |
+| Version source | SDK root `README.md` / `git tag` / build log `APP_VERSION` |
+| Official documentation | https://docs.bekencorp.com/ (chip documentation in `docs/bk7239/`, `docs/bk7236n/`) |
+| Flash tool | https://dl.bekencorp.com/tools/flash/ (BKFIL) |
+| Maintenance requirement | After Phase A scan, fill in the verified tag in this table; do not copy unverified version numbers |
 
-适用芯片：**BK7258**（三核 AIoT/带屏主流）、BK7236/BK7236N、BK7239、BK7234 等 2022 年后芯片。BK7231/BK7251 等旧芯片**不在** Armino 支持范围。
+Supported chips: **BK7258** (triple-core AIoT / display mainstream), BK7236/BK7236N, BK7239, BK7234 and other post-2022 chips. Legacy chips such as BK7231/BK7251 are **not** in Armino's support scope.
 
 ---
 

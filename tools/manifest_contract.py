@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-Manifest Contract Validator v20.0.1 — 校验 manifest 1.2 合同。
+Manifest Contract Validator v20.0.1 — Validate manifest 1.2 contract.
 
-校验必填字段、枚举值、跨引用、timeout、full_policy、drop_counter、
-task lifecycle、lock budget、timer callback budget、memory pool owner。
+Validates required fields, enum values, cross-references, timeout, full_policy, drop_counter,
+task lifecycle, lock budget, timer callback budget, memory pool owner.
 
-用法:
+Usage:
     python tools/manifest_contract.py --manifest generation_manifest.json --strict
     python tools/manifest_contract.py --self-test
 """
@@ -16,7 +16,7 @@ import json
 import sys
 from pathlib import Path
 
-# ── 枚举定义 ──
+# ── Enum definitions ──
 VALID_LIFECYCLE = {"long_running", "on_demand", "periodic"}
 VALID_EXIT_POLICY = {"stop_token", "never_exit", "delete_on_complete"}
 VALID_WATCHDOG = {"feed", "notify", "none"}
@@ -27,17 +27,17 @@ VALID_EVIDENCE_TYPE = {"code", "config", "topology", "comment", "structure"}
 
 
 def validate(manifest: dict, strict: bool = False) -> dict:
-    """校验 manifest 合同，返回统一结构。"""
+    """Validate manifest contract, return unified structure."""
     errors = []
     warnings = []
     violations = []
 
     version = manifest.get("schema_version", "1.0")
 
-    # ── 基础字段 ──
+    # ── Basic fields ──
     for f in ["schema_version", "generator", "platform", "generated_files", "constraints"]:
         if f not in manifest:
-            errors.append(f"缺少必填字段: {f}")
+            errors.append(f"Missing required field: {f}")
 
     if errors:
         return _result(False, errors, warnings, violations)
@@ -48,31 +48,31 @@ def validate(manifest: dict, strict: bool = False) -> dict:
     for i, t in enumerate(tasks):
         prefix = f"tasks[{i}]({t.get('name', '?')})"
 
-        # 必填字段
+        # Required fields
         for f in ["name", "entry", "stack_bytes", "priority", "lifecycle", "exit_policy"]:
             if not t.get(f) and t.get(f) != 0:
-                errors.append(f"{prefix} 缺少 {f}")
+                errors.append(f"{prefix} missing {f}")
 
         task_names.add(t.get("name", ""))
 
-        # 枚举值
+        # Enum values
         if t.get("lifecycle") and t["lifecycle"] not in VALID_LIFECYCLE:
-            errors.append(f"{prefix} lifecycle 无效: {t['lifecycle']}")
+            errors.append(f"{prefix} invalid lifecycle: {t['lifecycle']}")
         if t.get("exit_policy") and t["exit_policy"] not in VALID_EXIT_POLICY:
-            errors.append(f"{prefix} exit_policy 无效: {t['exit_policy']}")
+            errors.append(f"{prefix} invalid exit_policy: {t['exit_policy']}")
         if t.get("watchdog") and t["watchdog"] not in VALID_WATCHDOG:
-            errors.append(f"{prefix} watchdog 无效: {t['watchdog']}")
+            errors.append(f"{prefix} invalid watchdog: {t['watchdog']}")
 
-        # 周期任务额外要求
+        # Extra requirements for periodic tasks
         if t.get("lifecycle") == "periodic":
             if not t.get("period_ms"):
-                errors.append(f"{prefix} 周期任务缺少 period_ms")
+                errors.append(f"{prefix} periodic task missing period_ms")
             if not t.get("deadline_ms") and strict:
-                errors.append(f"{prefix} 周期任务缺少 deadline_ms")
+                errors.append(f"{prefix} periodic task missing deadline_ms")
             if not t.get("wcet_ms") and strict:
-                warnings.append(f"{prefix} 周期任务缺少 wcet_ms")
+                warnings.append(f"{prefix} periodic task missing wcet_ms")
 
-        # 栈大小检查
+        # Stack size check
         if t.get("stack_bytes") and t["stack_bytes"] < 512:
             violations.append(f"{prefix} stack_bytes < 512 ({t['stack_bytes']})")
 
@@ -85,23 +85,23 @@ def validate(manifest: dict, strict: bool = False) -> dict:
         for f in ["name", "depth", "item_type", "item_size", "producer_tasks", "consumer_tasks",
                    "send_timeout_ms", "recv_timeout_ms", "full_policy", "drop_counter"]:
             if not q.get(f) and q.get(f) != 0:
-                errors.append(f"{prefix} 缺少 {f}")
+                errors.append(f"{prefix} missing {f}")
 
         queue_names.add(q.get("name", ""))
 
-        # 枚举值
+        # Enum values
         if q.get("full_policy") and q["full_policy"] not in VALID_FULL_POLICY:
-            errors.append(f"{prefix} full_policy 无效: {q['full_policy']}")
+            errors.append(f"{prefix} invalid full_policy: {q['full_policy']}")
 
-        # 消费者检查
+        # Consumer check
         if not q.get("consumer_tasks"):
-            errors.append(f"{prefix} 缺少 consumer_tasks")
+            errors.append(f"{prefix} missing consumer_tasks")
 
-        # 生产者检查
+        # Producer check
         if not q.get("producer_tasks"):
-            errors.append(f"{prefix} 缺少 producer_tasks")
+            errors.append(f"{prefix} missing producer_tasks")
 
-        # 超时检查
+        # Timeout check
         if q.get("send_timeout_ms") and q["send_timeout_ms"] > 10000:
             warnings.append(f"{prefix} send_timeout_ms > 10s ({q['send_timeout_ms']})")
 
@@ -112,16 +112,16 @@ def validate(manifest: dict, strict: bool = False) -> dict:
 
         for f in ["name", "type", "holder_tasks", "lock_order"]:
             if not l.get(f) and l.get(f) != 0 and l.get(f) is not False:
-                errors.append(f"{prefix} 缺少 {f}")
-        # max_hold_ms 必须 > 0
+                errors.append(f"{prefix} missing {f}")
+        # max_hold_ms must be > 0
         if not l.get("max_hold_ms") or l["max_hold_ms"] <= 0:
-            errors.append(f"{prefix} 缺少 max_hold_ms (必须 > 0)")
-        # priority_inheritance 必须显式设置
+            errors.append(f"{prefix} missing max_hold_ms (must be > 0)")
+        # priority_inheritance must be explicitly set
         if l.get("priority_inheritance") is None:
-            errors.append(f"{prefix} 缺少 priority_inheritance")
+            errors.append(f"{prefix} missing priority_inheritance")
 
         if l.get("type") and l["type"] not in VALID_LOCK_TYPE:
-            errors.append(f"{prefix} type 无效: {l['type']}")
+            errors.append(f"{prefix} invalid type: {l['type']}")
 
         if l.get("max_hold_ms") and l["max_hold_ms"] > 100:
             violations.append(f"{prefix} max_hold_ms > 100ms ({l['max_hold_ms']})")
@@ -133,12 +133,12 @@ def validate(manifest: dict, strict: bool = False) -> dict:
 
         for f in ["name", "period_ms", "auto_reload", "callback_max_ms", "callback_policy"]:
             if not t.get(f) and t.get(f) != 0 and t.get(f) is not False:
-                errors.append(f"{prefix} 缺少 {f}")
+                errors.append(f"{prefix} missing {f}")
         if t.get("notifies_tasks") is None:
-            errors.append(f"{prefix} 缺少 notifies_tasks")
+            errors.append(f"{prefix} missing notifies_tasks")
 
         if t.get("callback_policy") and t["callback_policy"] not in VALID_CALLBACK_POLICY:
-            errors.append(f"{prefix} callback_policy 无效: {t['callback_policy']}")
+            errors.append(f"{prefix} invalid callback_policy: {t['callback_policy']}")
 
         if t.get("callback_max_ms") and t.get("period_ms") and t["callback_max_ms"] > t["period_ms"]:
             errors.append(f"{prefix} callback_max_ms > period_ms")
@@ -150,32 +150,32 @@ def validate(manifest: dict, strict: bool = False) -> dict:
 
         for f in ["name", "block_size", "num_blocks", "owner_tasks", "full_policy", "runtime_expand_allowed"]:
             if not p.get(f) and p.get(f) != 0 and p.get(f) is not False:
-                errors.append(f"{prefix} 缺少 {f}")
+                errors.append(f"{prefix} missing {f}")
 
         if p.get("runtime_expand_allowed") and strict:
-            violations.append(f"{prefix} runtime_expand_allowed=true 需显式例外")
+            violations.append(f"{prefix} runtime_expand_allowed=true requires explicit exception")
 
-    # ── Cross-reference 检查 ──
+    # ── Cross-reference checks ──
     if strict:
-        # task 的 produces/consumes 引用的 queue 必须存在
+        # queues referenced by task's produces/consumes must exist
         for t in tasks:
             for qname in t.get("produces", []) + t.get("consumes", []):
                 if qname and qname not in queue_names:
-                    errors.append(f"task {t.get('name')} 引用不存在的 queue: {qname}")
+                    errors.append(f"task {t.get('name')} references non-existent queue: {qname}")
 
-        # queue 的 producer/consumer 引用的 task 必须存在（允许 "external" 表示外部输入）
+        # tasks referenced by queue's producer/consumer must exist ("external" allowed for external input)
         for q in queues:
             for tname in q.get("producer_tasks", []) + q.get("consumer_tasks", []):
                 if tname and tname not in task_names and tname != "external":
-                    errors.append(f"queue {q.get('name')} 引用不存在的 task: {tname}")
+                    errors.append(f"queue {q.get('name')} references non-existent task: {tname}")
 
-        # lock 的 holder_tasks 引用的 task 必须存在
+        # tasks referenced by lock's holder_tasks must exist
         for l in locks:
             for tname in l.get("holder_tasks", []):
                 if tname and tname not in task_names:
-                    errors.append(f"lock {l.get('name')} 引用不存在的 task: {tname}")
+                    errors.append(f"lock {l.get('name')} references non-existent task: {tname}")
 
-    # ── Constraints ──
+    # ── Constraints (unchanged) ──
     constraints = manifest.get("constraints", {})
     c29_covered = any(str(c).startswith("C29") for c in constraints.get("covered", []))
     if strict and c29_covered:
@@ -192,21 +192,21 @@ def validate(manifest: dict, strict: bool = False) -> dict:
                 errors.append(f"C29 module boundary missing field: {f}")
 
     if strict:
-        # deferred 必须有 reason 和 evidence
+        # deferred must have reason and evidence
         for d in constraints.get("deferred", []):
             if not d.get("reason"):
-                errors.append(f"deferred 约束 {d.get('id')} 缺少 reason")
+                errors.append(f"deferred constraint {d.get('id')} missing reason")
             if not d.get("evidence"):
-                errors.append(f"deferred 约束 {d.get('id')} 缺少 evidence")
+                errors.append(f"deferred constraint {d.get('id')} missing evidence")
 
-        # evidence 必须有 constraint_id 和 detail
+        # evidence must have constraint_id and detail
         for e in constraints.get("evidence", []):
             if not e.get("constraint_id"):
-                errors.append(f"evidence 缺少 constraint_id")
+                errors.append(f"evidence missing constraint_id")
             if not e.get("detail"):
-                errors.append(f"evidence 缺少 detail")
+                errors.append(f"evidence missing detail")
             if e.get("evidence_type") and e["evidence_type"] not in VALID_EVIDENCE_TYPE:
-                errors.append(f"evidence_type 无效: {e['evidence_type']}")
+                errors.append(f"invalid evidence_type: {e['evidence_type']}")
 
     passed = len(errors) == 0 and len(violations) == 0
 
@@ -242,7 +242,7 @@ def run_self_test() -> int:
     passed = 0
     failed = 0
 
-    # 1. 合法 manifest
+    # 1. Valid manifest
     good = {
         "schema_version": "1.2", "generator": "test", "platform": "esp32",
         "generated_files": [{"path": "main.c"}],
@@ -271,7 +271,7 @@ def run_self_test() -> int:
     print("[PASS] valid manifest → pass")
     passed += 1
 
-    # 2. 缺 lifecycle
+    # 2. Missing lifecycle
     bad = {**good, "tasks": [{**good["tasks"][0], "lifecycle": ""}]}
     r = validate(bad)
     assert r["passed"] is False
@@ -279,7 +279,7 @@ def run_self_test() -> int:
     print("[PASS] missing lifecycle → fail")
     passed += 1
 
-    # 3. queue 缺 consumer
+    # 3. Queue missing consumer
     bad = {**good, "queues": [{**good["queues"][0], "consumer_tasks": []}]}
     r = validate(bad)
     assert r["passed"] is False
@@ -287,7 +287,7 @@ def run_self_test() -> int:
     print("[PASS] queue no consumer → fail")
     passed += 1
 
-    # 4. queue 缺 full_policy
+    # 4. Queue missing full_policy
     bad = {**good, "queues": [{**good["queues"][0], "full_policy": ""}]}
     r = validate(bad)
     assert r["passed"] is False
@@ -295,7 +295,7 @@ def run_self_test() -> int:
     print("[PASS] queue no full_policy → fail")
     passed += 1
 
-    # 5. periodic task 缺 deadline
+    # 5. Periodic task missing deadline
     bad = {**good, "tasks": [{**good["tasks"][0], "lifecycle": "periodic", "period_ms": 100, "deadline_ms": 0}]}
     r = validate(bad, strict=True)
     assert r["passed"] is False
@@ -303,7 +303,7 @@ def run_self_test() -> int:
     print("[PASS] periodic task no deadline → fail")
     passed += 1
 
-    # 6. lock 缺 max_hold_ms
+    # 6. Lock missing max_hold_ms
     bad = {**good, "locks": [{**good["locks"][0], "max_hold_ms": 0}]}
     r = validate(bad)
     assert r["passed"] is False
@@ -311,7 +311,7 @@ def run_self_test() -> int:
     print("[PASS] lock no max_hold_ms → fail")
     passed += 1
 
-    # 7. timer callback > period
+    # 7. Timer callback > period
     bad = {**good, "timers": [{**good["timers"][0], "callback_max_ms": 2000}]}
     r = validate(bad)
     assert r["passed"] is False
@@ -319,7 +319,7 @@ def run_self_test() -> int:
     print("[PASS] timer callback > period → fail")
     passed += 1
 
-    # 8. cross-reference: task 引用不存在的 queue
+    # 8. Cross-reference: task references non-existent queue
     bad_task = {**good["tasks"][0], "produces": ["nonexistent_q"]}
     bad = {**good, "tasks": [bad_task, good["tasks"][1]]}
     r = validate(bad, strict=True)
@@ -334,8 +334,8 @@ def run_self_test() -> int:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Manifest Contract Validator v20.0.1")
-    parser.add_argument("--manifest", help="manifest JSON 路径")
-    parser.add_argument("--strict", action="store_true", help="严格模式")
+    parser.add_argument("--manifest", help="manifest JSON path")
+    parser.add_argument("--strict", action="store_true", help="Strict mode")
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--self-test", action="store_true")
     args = parser.parse_args()

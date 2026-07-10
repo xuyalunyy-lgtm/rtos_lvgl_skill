@@ -1,26 +1,26 @@
-# Git commit 模板（通用）
+# Git Commit Template (General)
 
-## 产品固件仓
-
-```
-type(scope): 中文简述
-
-- 要点（why）
-- 要点
-```
-
-示例 scope: `audio` `network` `ui` `board` `ci` `config`
-
-## SDK fork 仓
+## Product Firmware Repository
 
 ```
-type(scope): 中文简述
+type(scope): brief description
+
+- key point (why)
+- key point
 ```
 
-示例 scope: `build` 及 SDK 内组件目录名
+Example scopes: `audio` `network` `ui` `board` `ci` `config`
 
-## skill 仓
+## SDK Fork Repository
 
 ```
-feat: Skill vX.Y.Z — 中文简述
+type(scope): brief description
+```
+
+Example scopes: `build` and SDK internal component directory names
+
+## Skill Repository
+
+```
+feat: Skill vX.Y.Z — brief description
 ```

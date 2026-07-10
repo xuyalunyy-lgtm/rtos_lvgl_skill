@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Codegen Matrix 检查 — 五 preset 生成后逐个跑 codegen_gate --strict。
+Codegen Matrix check — run codegen_gate --strict on each of five presets after generation.
 
-用法:
+Usage:
     python scripts/check_codegen_matrix.py
     python scripts/check_codegen_matrix.py --self-test
 """
@@ -22,7 +22,7 @@ TOOLS = ROOT / "tools"
 
 PRESETS = ["voice_screen", "audio_video", "low_power_sensor", "ota_network", "pure_controller"]
 
-# 风险预算（每个 preset 允许的 P1/P2 上限）
+# Risk budget (allowed P1/P2 ceiling per preset)
 RISK_BUDGET = {
     "voice_screen": {"p1": 10, "p2": 15},
     "audio_video": {"p1": 10, "p2": 15},
@@ -45,7 +45,7 @@ def run_cmd(cmd: str, timeout: int = 120) -> dict:
 
 
 def check_preset(preset: str, tmpdir: Path) -> dict:
-    """检查单个 preset。"""
+    """Check a single preset."""
     project_name = f"matrix_{preset}"
     project_dir = tmpdir / project_name / project_name
     manifest_path = project_dir / "generation_manifest.json"
@@ -53,11 +53,11 @@ def check_preset(preset: str, tmpdir: Path) -> dict:
     # 1. Generate
     r = run_cmd(f'{sys.executable} "{TOOLS / "project_scaffold.py"}" --name {project_name} --preset {preset} --platform esp32 --outdir "{tmpdir / project_name}"')
     if r["exit_code"] != 0:
-        return {"preset": preset, "passed": False, "errors": [f"scaffold 失败: {r.get('error', r.get('stderr', '')[:200])}"]}
+        return {"preset": preset, "passed": False, "errors": [f"scaffold failed: {r.get('error', r.get('stderr', '')[:200])}"]}
 
     # 2. Check manifest exists
     if not manifest_path.exists():
-        return {"preset": preset, "passed": False, "errors": ["generation_manifest.json 不存在"]}
+        return {"preset": preset, "passed": False, "errors": ["generation_manifest.json does not exist"]}
 
     # 3. Check generated_files includes README/config/Kconfig
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -80,12 +80,12 @@ def check_preset(preset: str, tmpdir: Path) -> dict:
     # 5. Run codegen_gate --strict --json
     r = run_cmd(f'{sys.executable} "{TOOLS / "codegen_gate.py"}" --dir "{project_dir}" --manifest "{manifest_path}" --platform esp32 --strict --json')
     if r["exit_code"] != 0 and r["exit_code"] != 1:
-        return {"preset": preset, "passed": False, "errors": [f"gate 异常: exit={r['exit_code']}"]}
+        return {"preset": preset, "passed": False, "errors": [f"gate abnormal: exit={r['exit_code']}"]}
 
     try:
         gate = json.loads(r["stdout"])
     except json.JSONDecodeError:
-        return {"preset": preset, "passed": False, "errors": [f"gate JSON 解析失败"]}
+        return {"preset": preset, "passed": False, "errors": [f"gate JSON parse failed"]}
 
     # 6. Track optional archived analyzer presence for diagnostics only.
     analyzer_reports = gate.get("analyzer_reports", {})
@@ -103,13 +103,13 @@ def check_preset(preset: str, tmpdir: Path) -> dict:
     # Collect errors
     errors = []
     if missing_files:
-        errors.append(f"generated_files 缺少: {missing_files}")
+        errors.append(f"generated_files missing: {missing_files}")
     if missing_cmds:
-        errors.append(f"verification_commands 缺少用户验证命令: {missing_cmds}")
+        errors.append(f"verification_commands missing user verification commands: {missing_cmds}")
     if not gate.get("passed"):
         errors.append(f"gate failed: {gate.get('errors', [])[:3]}")
     if budget_exceeded:
-        errors.append(f"风险预算超限: {budget_exceeded}")
+        errors.append(f"risk budget exceeded: {budget_exceeded}")
 
     return {
         "preset": preset,
@@ -126,7 +126,7 @@ def check_preset(preset: str, tmpdir: Path) -> dict:
 
 
 def check_all() -> dict:
-    """检查全部 preset。"""
+    """Check all presets."""
     results = []
     all_passed = True
 
@@ -150,7 +150,7 @@ def run_self_test() -> int:
     passed = 0
     failed = 1
 
-    # 1. check_all 基本结构
+    # 1. check_all basic structure
     r = check_all()
     assert "passed" in r
     assert "results" in r
@@ -159,7 +159,7 @@ def run_self_test() -> int:
     passed += 1
     failed -= 1
 
-    # 2. 每个 preset 结果结构
+    # 2. Per-preset result structure
     for pr in r["results"]:
         assert "preset" in pr
         assert "passed" in pr
@@ -167,7 +167,7 @@ def run_self_test() -> int:
     print("[PASS] result structure valid")
     passed += 1
 
-    # 3. 风险预算检查
+    # 3. Risk budget check
     for pr in r["results"]:
         if pr.get("budget_exceeded"):
             print(f"  [WARN] {pr['preset']}: budget exceeded {pr['budget_exceeded']}")
@@ -179,7 +179,7 @@ def run_self_test() -> int:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Codegen Matrix 检查")
+    parser = argparse.ArgumentParser(description="Codegen Matrix check")
     parser.add_argument("--self-test", action="store_true")
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()

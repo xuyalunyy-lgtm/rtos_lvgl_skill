@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-LVGL 跨线程调用静态审查工具。
+LVGL cross-thread call static audit tool.
 
-检测非 View 层文件中对 lv_obj_* / lv_label_* 等 LVGL API 的直接调用。
+Detects direct calls to lv_obj_* / lv_label_* and other LVGL APIs in non-View layer files.
 
-用法:
+Usage:
     python tools/lvgl_thread_checker.py path/to/src
     python tools/lvgl_thread_checker.py --dir src/
 """
@@ -26,7 +26,7 @@ LVGL_API_PATTERN = re.compile(
     r"timer|style|theme|async_call|lock|unlock)\w*\s*\("
 )
 
-# 允许调用 lv_async_call / lv_lock 的文件名模式
+# File name patterns allowed to call lv_async_call / lv_lock
 ALLOWED_FILE_PATTERNS = [
     re.compile(r"view", re.I),
     re.compile(r"ui_", re.I),
@@ -50,7 +50,7 @@ ALLOWED_PATH_MARKERS = [
     "/lvgl/port/",
 ]
 
-# 高风险的 Model 层文件名模式
+# High-risk Model layer file name patterns
 RISK_FILE_PATTERNS = [
     re.compile(r"network|wss|wifi|net_", re.I),
     re.compile(r"audio|i2s|mic|enc|dec", re.I),
@@ -72,8 +72,8 @@ def _is_allowed_file(path: Path) -> bool:
 def _risk_level_for_file(path: Path) -> str:
     name = path.name
     if any(p.search(name) for p in RISK_FILE_PATTERNS):
-        return "高"
-    return "中"
+        return "High"
+    return "Medium"
 
 
 def check_file(path: Path) -> list[dict]:
@@ -92,7 +92,7 @@ def check_file(path: Path) -> list[dict]:
         stripped = line.strip()
         if stripped.startswith("//") or stripped.startswith("/*"):
             continue
-        # lv_async_call 在非 view 文件中是推荐写法，不算违规
+        # lv_async_call in non-view files is the recommended pattern, not a violation
         if "lv_async_call" in line:
             continue
 
@@ -100,10 +100,10 @@ def check_file(path: Path) -> list[dict]:
         if m:
             api = m.group(0).rstrip("(")
             issues.append(make_issue(path, i, "C-LVGL", risk,
-                f"非 View 层 LVGL 直接调用 {api}（应改为 lv_async_call 或 view_xxx 接口）"))
+                f"Direct LVGL call {api} in non-View layer (should use lv_async_call or view_xxx interface)"))
 
     return issues
 
 
 if __name__ == "__main__":
-    raise SystemExit(run_checker(check_file, "LVGL 跨线程调用审查", ("C-LVGL",)))
+    raise SystemExit(run_checker(check_file, "LVGL Cross-Thread Call Audit", ("C-LVGL",)))

@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-端到端 MVP + LVGL 页面生成引擎。
+End-to-end MVP + LVGL page generation engine.
 
-从产品需求 JSON 生成完整 MVP 模块（Presenter + Model + View + UI 页面）。
-所有生成代码自动满足 C1-C21 约束。
+Generates complete MVP modules from product requirements JSON (Presenter + Model + View + UI pages).
+All generated code automatically satisfies C1-C21 constraints.
 
-用法:
+Usage:
     python tools/mvp_page_engine.py product_spec.json -o ./generated
     python tools/mvp_page_engine.py product_spec.json --platform bk -o ./generated
     python tools/mvp_page_engine.py --list-spec
@@ -20,7 +20,7 @@ from pathlib import Path
 from checker_io import configure_stdout
 
 
-# ─── 默认产品规格 ───
+# ─── Default product spec ───
 
 DEFAULT_SPEC = {
     "product_name": "SmartSpeaker",
@@ -82,16 +82,16 @@ DEFAULT_SPEC = {
 }
 
 
-# ─── 代码生成器 ───
+# ─── Code generators ───
 
 def generate_board_io(spec: dict) -> str:
-    """生成 board_io.h — 引脚定义（来自 IO 表，非模板）"""
+    """Generate board_io.h — pin definitions (from IO table, not template)"""
     pins = spec.get("io_pins", {})
     lines = [
         "/**",
         " * @file board_io.h",
-        " * @brief 板级 IO 口定义（自动生成，严格按用户 IO 表）",
-        " * @warning 修改引脚前必须走 hw_sw_cocodebug workflow 重新核对",
+        " * @brief Board-level IO pin definitions (auto-generated, strictly per user IO table)",
+        " * @warning Must go through hw_sw_cocodebug workflow to re-verify before modifying pins",
         " */",
         "",
         "#ifndef BOARD_IO_H",
@@ -110,7 +110,7 @@ def generate_board_io(spec: dict) -> str:
     # Button
     if "btn_wake" in pins:
         btn = pins["btn_wake"]
-        lines.append("/* ── 按键 ─────────────────────────────── */")
+        lines.append("/* ── Button ────────────────────────────── */")
         lines.append(f'#define BOARD_BTN_WAKE_PIN          {btn["pin"]}')
         lines.append(f'#define BOARD_BTN_WAKE_ACTIVE       {btn.get("active", 0)}')
         lines.append("")
@@ -118,7 +118,7 @@ def generate_board_io(spec: dict) -> str:
     # I2S
     i2s_pins = {k: v for k, v in pins.items() if k.startswith("i2s_")}
     if i2s_pins:
-        lines.append("/* ── I2S 音频 ─────────────────────────── */")
+        lines.append("/* ── I2S Audio ─────────────────────────── */")
         for name, cfg in i2s_pins.items():
             macro = f"BOARD_{name.upper()}_PIN"
             lines.append(f"#define {macro:<30s} {cfg['pin']}")
@@ -147,11 +147,11 @@ def generate_board_io(spec: dict) -> str:
 
 
 def generate_ui_theme(spec: dict) -> str:
-    """生成 ui_theme.h"""
+    """Generate ui_theme.h"""
     theme = spec.get("theme", {})
     return f"""/**
  * @file ui_theme.h
- * @brief UI 颜色主题（自动生成）
+ * @brief UI color theme (auto-generated)
  */
 #ifndef UI_THEME_H
 #define UI_THEME_H
@@ -167,12 +167,12 @@ def generate_ui_theme(spec: dict) -> str:
 
 
 def generate_app_mvp_header(spec: dict) -> str:
-    """生成 app_mvp.h — 跨层事件类型"""
+    """Generate app_mvp.h — cross-layer event types"""
     queues = spec.get("queue_config", {})
     return f"""/**
  * @file app_mvp.h
- * @brief MVP 跨层事件类型定义（自动生成）
- * @warning 所有任务共用此头文件，修改须走 l3_new_module workflow
+ * @brief MVP cross-layer event type definitions (auto-generated)
+ * @warning All tasks share this header, modifications must go through l3_new_module workflow
  */
 #ifndef APP_MVP_H
 #define APP_MVP_H
@@ -180,7 +180,7 @@ def generate_app_mvp_header(spec: dict) -> str:
 #include <stdint.h>
 #include <stdbool.h>
 
-/* ── 网络事件（Model → Presenter）── */
+/* ── Network events (Model → Presenter) ── */
 typedef enum {{
     NET_EVT_CONNECTED,
     NET_EVT_DISCONNECTED,
@@ -190,11 +190,11 @@ typedef enum {{
 
 typedef struct {{
     net_evt_type_t type;
-    char *payload;      /* heap 分配，Presenter 消费后 vPortFree */
+    char *payload;      /* heap allocated, Presenter frees after consumption */
     uint32_t len;
 }} net_evt_t;
 
-/* ── UI 事件（Presenter → View）── */
+/* ── UI events (Presenter → View) ── */
 typedef enum {{
     UI_EVT_SET_TEXT,
     UI_EVT_SET_PROGRESS,
@@ -209,7 +209,7 @@ typedef struct {{
     int32_t value;
 }} ui_evt_t;
 
-/* ── 测试模式宏（C5）── */
+/* ── Test mode macros (C5) ── */
 #ifndef APP_TEST_MODE_PRESENTER
 #define APP_TEST_MODE_PRESENTER  0
 #endif
@@ -225,16 +225,16 @@ typedef struct {{
 
 
 def generate_presenter(spec: dict) -> str:
-    """生成 app_presenter.c — Presenter Looper"""
+    """Generate app_presenter.c — Presenter Looper"""
     product = spec.get("product_name", "Speaker")
     return f"""/**
  * @file app_presenter.c
- * @brief Presenter Looper（自动生成）
+ * @brief Presenter Looper (auto-generated)
  *
- * Android Handler/Looper 对标：
- *   Model → Queue → Presenter.handleMessage → View（lv_async_call）
+ * Android Handler/Looper equivalent:
+ *   Model → Queue → Presenter.handleMessage → View (lv_async_call)
  *
- * 内存所有权：payload 由 Model 分配，Presenter 消费后 vPortFree（C2.3）
+ * Memory ownership: payload allocated by Model, Presenter frees after consumption (C2.3)
  */
 #include "app_mvp.h"
 #include "FreeRTOS.h"
@@ -247,42 +247,42 @@ def generate_presenter(spec: dict) -> str:
 #define NET_EVT_QUEUE_LEN  4
 #define UI_EVT_QUEUE_LEN   4
 
-/* ── 队列句柄 ────────────────────────── */
+/* ── Queue handles ────────────────────── */
 static QueueHandle_t s_net_evt_queue = NULL;
 
 QueueHandle_t network_get_evt_queue(void) {{ return s_net_evt_queue; }}
 
-/* ── View 接口（runOnUiThread 等价）── */
+/* ── View interface (runOnUiThread equivalent) ── */
 static void ui_async_set_text_cb(void *user_data)
 {{
     app_mvp_ui_async_t *p = (app_mvp_ui_async_t *)user_data;
     if (p == NULL) return;
-    /* TODO: 调用 ui_page_main_set_status(p->text) */
+    /* TODO: call ui_page_main_set_status(p->text) */
     vPortFree(p);
 }}
 
-/* ── handleMessage（业务状态机）── */
+/* ── handleMessage (business state machine) ── */
 static void presenter_handle_message(const net_evt_t *msg)
 {{
     if (msg == NULL) return;
     switch (msg->type) {{
     case NET_EVT_CONNECTED:
-        /* TODO: 更新 UI 状态 */
+        /* TODO: update UI status */
         break;
     case NET_EVT_DATA:
         if (msg->payload != NULL && msg->len > 0) {{
-            /* TODO: 解析数据，更新 UI */
+            /* TODO: parse data, update UI */
         }}
         break;
     case NET_EVT_ERROR:
-        /* TODO: 显示错误 */
+        /* TODO: show error */
         break;
     default:
         break;
     }}
 }}
 
-/* ── Looper 任务 ─────────────────────── */
+/* ── Looper task ──────────────────────── */
 static void presenter_looper_task(void *arg)
 {{
     (void)arg;
@@ -292,17 +292,17 @@ static void presenter_looper_task(void *arg)
     net_evt_t msg;
     for (;;) {{
         if (xQueueReceive(inbox, &msg, pdMS_TO_TICKS(100)) != pdTRUE) {{
-            continue;  /* C8.3：有限超时，非 portMAX_DELAY */
+            continue;  /* C8.3: finite timeout, not portMAX_DELAY */
         }}
         presenter_handle_message(&msg);
         if (msg.payload != NULL) {{
-            vPortFree(msg.payload);  /* C2.3：Presenter 释放 payload */
+            vPortFree(msg.payload);  /* C2.3: Presenter frees payload */
             msg.payload = NULL;
         }}
     }}
 }}
 
-/* ── 启动 ─────────────────────────────── */
+/* ── Start ────────────────────────────── */
 void app_presenter_start(void)
 {{
     s_net_evt_queue = xQueueCreate(NET_EVT_QUEUE_LEN, sizeof(net_evt_t));
@@ -310,20 +310,20 @@ void app_presenter_start(void)
 
     BaseType_t ret = xTaskCreate(
         presenter_looper_task, "{product}Presenter",
-        512, NULL, configMAX_PRIORITIES - 7, NULL  /* C15.1：优先级差 ≥2 */
+        512, NULL, configMAX_PRIORITIES - 7, NULL  /* C15.1: priority gap >=2 */
     );
-    configASSERT(ret == pdPASS);  /* C12.1：检查返回值 */
+    configASSERT(ret == pdPASS);  /* C12.1: check return value */
 }}
 """
 
 
 def generate_wss_model(spec: dict) -> str:
-    """生成 network_wss_task.c — WSS Model"""
+    """Generate network_wss_task.c — WSS Model"""
     return f"""/**
  * @file network_wss_task.c
- * @brief WSS Model（自动生成）
+ * @brief WSS Model (auto-generated)
  *
- * 内存所有权：cJSON 树在本函数内 Delete，仅传 plain heap buffer 进 Queue（C3.3）
+ * Memory ownership: cJSON tree is Deleted within this function, only plain heap buffer passed to Queue (C3.3)
  */
 #include "app_mvp.h"
 #include "FreeRTOS.h"
@@ -332,11 +332,11 @@ def generate_wss_model(spec: dict) -> str:
 #include "cJSON.h"
 #include <string.h>
 
-/* ── 配置 ────────────────────────────── */
+/* ── Configuration ────────────────────── */
 #define WSS_RECONNECT_BASE_MS   1000
 #define WSS_RECONNECT_MAX_MS   60000
 
-/* ── cJSON 解析（goto cleanup 模板，C3.2）── */
+/* ── cJSON parsing (goto cleanup template, C3.2) ── */
 static int parse_message(const char *json, char *out_text, size_t out_len)
 {{
     int ret = -1;
@@ -355,11 +355,11 @@ static int parse_message(const char *json, char *out_text, size_t out_len)
     }}
 
 cleanup:
-    if (root != NULL) cJSON_Delete(root);  /* C3.1：唯一 Delete 出口 */
+    if (root != NULL) cJSON_Delete(root);  /* C3.1: single Delete exit point */
     return ret;
 }}
 
-/* ── Model：发送事件给 Presenter ─────── */
+/* ── Model: send events to Presenter ──── */
 static bool emit_net_event(QueueHandle_t q, net_evt_type_t type,
                            const char *data, uint32_t len)
 {{
@@ -373,13 +373,13 @@ static bool emit_net_event(QueueHandle_t q, net_evt_type_t type,
 
     net_evt_t evt = {{ .type = type, .payload = heap_copy, .len = len }};
     if (xQueueSend(q, &evt, pdMS_TO_TICKS(50)) != pdTRUE) {{
-        vPortFree(heap_copy);  /* C2.4：Queue 满时 Model 释放 */
+        vPortFree(heap_copy);  /* C2.4: Model frees when Queue full */
         return false;
     }}
     return true;
 }}
 
-/* ── WSS 任务 ─────────────────────────── */
+/* ── WSS task ─────────────────────────── */
 static void wss_task(void *arg)
 {{
     (void)arg;
@@ -394,8 +394,8 @@ static void wss_task(void *arg)
     emit_net_event(evt_q, NET_EVT_CONNECTED, NULL, 0);
 
     for (;;) {{
-        /* TODO: 接收 WSS 消息 */
-        /* 消息处理示例：*/
+        /* TODO: receive WSS messages */
+        /* Message processing example: */
         char text_buf[128];
         /* if (parse_message(received_json, text_buf, sizeof(text_buf)) == 0) {{*/
         /*     emit_net_event(evt_q, NET_EVT_DATA, text_buf, strlen(text_buf));*/
@@ -409,7 +409,7 @@ void network_wss_start(void)
 {{
     BaseType_t ret = xTaskCreate(
         wss_task, "WssTask",
-        6144, NULL,  /* C7.5：WSS TLS 握手峰值 */
+        6144, NULL,  /* C7.5: WSS TLS handshake peak */
         configMAX_PRIORITIES - 3,  /* C15.1 */
         NULL
     );
@@ -419,7 +419,7 @@ void network_wss_start(void)
 
 
 def generate_lvgl_page(spec: dict, page_spec: dict) -> str:
-    """生成 LVGL 页面代码"""
+    """Generate LVGL page code"""
     page_name = page_spec.get("page_name", "main")
     res = spec.get("resolution", {"width": 240, "height": 320})
     theme = spec.get("theme", {})
@@ -444,7 +444,7 @@ def generate_lvgl_page(spec: dict, page_spec: dict) -> str:
     # Dynamic handles
     dynamic = [c for c in components if c.get("data_binding")]
     if dynamic:
-        lines.append("/* ── 动态组件句柄 ──────────────────── */")
+        lines.append("/* ── Dynamic component handles ──────── */")
         for c in dynamic:
             var = "s_" + c["name"].lower().replace(" ", "_")
             lines.append(f"static lv_obj_t *{var} = NULL;")
@@ -457,7 +457,7 @@ def generate_lvgl_page(spec: dict, page_spec: dict) -> str:
             lines.append(f"static void on_{var}_click(lv_event_t *e)")
             lines.append("{")
             lines.append("    (void)e;")
-            lines.append(f"    /* TODO: {c['name']} 点击逻辑 */")
+            lines.append(f"    /* TODO: {c['name']} click logic */")
             lines.append("}")
             lines.append("")
         elif c["type"] == "slider":
@@ -466,7 +466,7 @@ def generate_lvgl_page(spec: dict, page_spec: dict) -> str:
             lines.append("{")
             lines.append("    lv_obj_t *slider = lv_event_get_target(e);")
             lines.append("    int32_t val = lv_slider_get_value(slider);")
-            lines.append(f"    /* TODO: {c['name']} 值变化处理 */")
+            lines.append(f"    /* TODO: {c['name']} value change handler */")
             lines.append("}")
             lines.append("")
 
@@ -526,7 +526,7 @@ def generate_lvgl_page(spec: dict, page_spec: dict) -> str:
     # External update interfaces for dynamic components
     if dynamic:
         lines.append("")
-        lines.append("/* ── 外部更新接口（Presenter 调用）── */")
+        lines.append("/* ── External update interfaces (called by Presenter) ── */")
         for c in dynamic:
             var = "s_" + c["name"].lower().replace(" ", "_")
             fname = c["name"].lower().replace(" ", "_")
@@ -550,15 +550,15 @@ def generate_lvgl_page(spec: dict, page_spec: dict) -> str:
     return "\n".join(lines)
 
 
-# ─── 主流程 ───
+# ─── Main flow ───
 
 def main() -> int:
     configure_stdout()
-    parser = argparse.ArgumentParser(description="端到端 MVP + LVGL 页面生成引擎")
-    parser.add_argument("spec", nargs="?", help="产品规格 JSON 文件")
-    parser.add_argument("-o", "--output", default="./generated", help="输出目录")
-    parser.add_argument("--platform", choices=["esp32", "stm32", "jl", "bk"], help="覆盖平台")
-    parser.add_argument("--list-spec", action="store_true", help="输出示例规格 JSON")
+    parser = argparse.ArgumentParser(description="End-to-end MVP + LVGL page generation engine")
+    parser.add_argument("spec", nargs="?", help="Product spec JSON file")
+    parser.add_argument("-o", "--output", default="./generated", help="Output directory")
+    parser.add_argument("--platform", choices=["esp32", "stm32", "jl", "bk"], help="Override platform")
+    parser.add_argument("--list-spec", action="store_true", help="Print example spec JSON")
     args = parser.parse_args()
 
     if args.list_spec:
@@ -608,15 +608,15 @@ def main() -> int:
 
     # 7. Summary
     print(f"\n{'='*60}")
-    print(f"MVP 代码生成完成: {product}")
-    print(f"平台: {spec.get('platform', 'unknown')}")
-    print(f"输出目录: {outdir}")
-    print(f"文件数: {len(list(outdir.iterdir()))}")
-    print(f"\n下一步:")
-    print(f"  1. 检查生成代码中的 TODO 注释")
-    print(f"  2. 填写业务逻辑（<30% 工作量）")
-    print(f"  3. 运行 python tools/run_review.py --dir {outdir} --platform {spec.get('platform', 'freertos')}")
-    print(f"  4. 编译验证")
+    print(f"MVP code generation complete: {product}")
+    print(f"Platform: {spec.get('platform', 'unknown')}")
+    print(f"Output directory: {outdir}")
+    print(f"File count: {len(list(outdir.iterdir()))}")
+    print(f"\nNext steps:")
+    print(f"  1. Check TODO comments in generated code")
+    print(f"  2. Fill in business logic (<30% effort)")
+    print(f"  3. Run python tools/run_review.py --dir {outdir} --platform {spec.get('platform', 'freertos')}")
+    print(f"  4. Compile and verify")
 
     return 0
 

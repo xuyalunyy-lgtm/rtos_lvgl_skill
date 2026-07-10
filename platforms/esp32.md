@@ -1,8 +1,8 @@
-# ESP32 / ESP-IDF 平台专档
+# ESP32 / ESP-IDF Platform Guide
 
-Agent 确认目标平台为 ESP32 系列时读取本文件。
+Read this file when the Agent confirms the target platform is the ESP32 family.
 
-**基线：** ESP-IDF v5.x（v5.1+ 为主流）。v4.x 差异见文末。
+**Baseline:** ESP-IDF v5.x (v5.1+ is the mainstream). For v4.x differences, see the end of the document.
 
 ---
 

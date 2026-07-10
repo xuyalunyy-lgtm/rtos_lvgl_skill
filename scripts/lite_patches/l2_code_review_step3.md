@@ -1,3 +1,3 @@
-## Step 3 — 人工审查（Lite）
+## Step 3 — Manual Review (Lite)
 
-使用 [l2_code_review_lite.md](l2_code_review_lite.md)。
+Use [l2_code_review_lite.md](l2_code_review_lite.md).

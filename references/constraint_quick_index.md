@@ -1,9 +1,9 @@
 # Constraint Quick Index
 
-> 轻量约束索引。只列 C1-C46 名称、适用场景、对应 detail 分片。
-> 完整规则见对应分片文件。
+> Lightweight constraint index. Lists only C1-C46 names, applicable scenarios, and corresponding detail shards.
+> See corresponding shard files for complete rules.
 
-## 约束分片映射
+## Constraint Shard Mapping
 
 | 分片文件 | 包含约束 | 场景 |
 |---|---|---|

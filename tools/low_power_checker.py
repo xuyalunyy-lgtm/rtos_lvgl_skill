@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-C21 低功耗管理启发式检查器。
+C21 Low power management heuristic checker.
 
-检查项:
-  C21.1 — 深度睡眠前必须保存状态到 NVS/Flash
-  C21.4 — 深度睡眠前必须关闭外设电源
+Checks:
+  C21.1 — Must save state to NVS/Flash before deep sleep
+  C21.4 — Must power down peripherals before deep sleep
 
-用法:
+Usage:
     python tools/low_power_checker.py <file.c> [file2.c ...]
     python tools/low_power_checker.py --dir src/
 """
@@ -31,7 +31,7 @@ POWER_DOWN_INDICATORS = lookup.get_apis("PERIPHERAL_POWER_DOWN")
 
 
 def check_state_save_before_sleep(path: Path, lines: list[str]) -> list[dict]:
-    """C21.1 — deep_sleep 前必须有状态保存"""
+    """C21.1 — Must have state save before deep_sleep"""
     issues = []
 
     for i, line in enumerate(lines, 1):
@@ -54,14 +54,14 @@ def check_state_save_before_sleep(path: Path, lines: list[str]) -> list[dict]:
             if not has_state_save:
                 issues.append(make_issue(
                     path, i, "C21.1", "P0",
-                    f"{api} 前未见状态保存（nvs_set_* / nvs_commit）",
+                    f"No state save found before {api} (nvs_set_* / nvs_commit)",
                 ))
 
     return issues
 
 
 def check_power_down_before_sleep(path: Path, lines: list[str]) -> list[dict]:
-    """C21.4 — deep_sleep 前必须关闭外设电源"""
+    """C21.4 — Must power down peripherals before deep_sleep"""
     issues = []
 
     for i, line in enumerate(lines, 1):
@@ -84,7 +84,7 @@ def check_power_down_before_sleep(path: Path, lines: list[str]) -> list[dict]:
             if not has_power_down:
                 issues.append(make_issue(
                     path, i, "C21.4", "P1",
-                    f"{api} 前未见外设断电（LCD/音频/WiFi）",
+                    f"No peripheral power down found before {api} (LCD/Audio/WiFi)",
                 ))
 
     return issues
@@ -103,4 +103,4 @@ def check_file(path: Path) -> list[dict]:
 
 
 if __name__ == "__main__":
-    raise SystemExit(run_checker(check_file, "C21 低功耗管理检查器", ("C21",)))
+    raise SystemExit(run_checker(check_file, "C21 Low Power Management Checker", ("C21",)))

@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-Log Triage v24 — 基于日志和证据的根因分流系统（发布级）。
+Log Triage v24 — Log and evidence-based root cause triage system (release grade).
 
 Exit codes:
-  0 — 检测到症状（software/hardware/architecture 任一候选存在）
-  1 — 未检测到已知症状
-  2 — 输入/路由/JSON 错误
+  0 — Symptoms detected (any software/hardware/architecture candidate exists)
+  1 — No known symptoms detected
+  2 — Input/routing/JSON error
 
-用法:
+Usage:
     python tools/log_triage.py --log serial.log --platform esp32
     python tools/log_triage.py --log serial.log --platform esp32 --json
     python tools/log_triage.py --self-test
@@ -23,7 +23,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 ROUTES_FILE = ROOT / "references" / "log_symptom_routes.json"
 
-# Windows-safe 标签
+# Windows-safe tags
 TAG_SW = "[SOFTWARE]"
 TAG_HW = "[HARDWARE]"
 TAG_ARCH = "[ARCH]"
@@ -38,7 +38,7 @@ def load_symptom_routes() -> list[dict]:
 
 
 def parse_log(lines: list[str]) -> list[dict]:
-    """解析日志行，提取时间戳、级别、结构化字段。"""
+    """Parse log lines, extract timestamps, levels, and structured fields."""
     events = []
     for i, line in enumerate(lines):
         s = line.strip()
@@ -55,7 +55,7 @@ def parse_log(lines: list[str]) -> list[dict]:
         if lv_m:
             level = lv_m.group(1)
 
-        # Raw boot/reset 行（无标准前缀）
+        # Raw boot/reset lines (no standard prefix)
         is_raw = bool(re.search(r"^(ets_|rst:|boot:|ROM:|pc=|lr=|EXC_RETURN)", s))
 
         fields = {}
@@ -76,27 +76,27 @@ def parse_log(lines: list[str]) -> list[dict]:
 
 
 def match_symptoms(events: list[dict], routes: list[dict]) -> list[dict]:
-    """匹配日志事件与症状路由。
+    """Match log events against symptom routes.
 
-    match_level 控制匹配范围：
-      - "error"（默认）：只匹配 E/F 级别
-      - "raw_boot"：匹配 raw boot/reset 行 + I/W/E/F
-      - "all"：匹配所有级别
+    match_level controls matching scope:
+      - "error" (default): only match E/F levels
+      - "raw_boot": match raw boot/reset lines + I/W/E/F
+      - "all": match all levels
     """
     matched = []
     for route in routes:
         match_level = route.get("match_level", "error")
         for pattern in route.get("patterns", []):
             for evt in events:
-                # 根据 match_level 决定是否匹配
+                # Decide whether to match based on match_level
                 if match_level == "error":
                     if evt["level"] not in ("E", "F"):
                         continue
                 elif match_level == "raw_boot":
-                    # 允许 raw boot 行和 I/W/E/F
+                    # Allow raw boot lines and I/W/E/F
                     if not evt["is_raw"] and evt["level"] not in ("I", "W", "E", "F"):
                         continue
-                # "all" 不过滤
+                # "all" does not filter
 
                 if re.search(pattern, evt["raw"], re.IGNORECASE):
                     matched.append({
@@ -123,7 +123,7 @@ def match_symptoms(events: list[dict], routes: list[dict]) -> list[dict]:
 
 
 def classify_symptoms(symptoms: list[dict]) -> dict:
-    """将症状分流到四类。"""
+    """Classify symptoms into four categories."""
     software = []
     hardware = []
     architecture = []
@@ -156,7 +156,7 @@ def classify_symptoms(symptoms: list[dict]) -> dict:
         else:
             software.append(entry)
 
-        # architecture_flags 也加入架构候选
+        # architecture_flags also added to architecture candidates
         if s.get("architecture_flags"):
             arch_entry = {
                 "symptom_id": s["symptom_id"],
@@ -176,15 +176,15 @@ def detect_missing_evidence(events: list[dict]) -> list[str]:
 
     has_structured = any(e["fields"] for e in events)
     if not has_structured:
-        missing.append("日志缺少结构化字段 (evt/state/err/seq/task)，置信度受限")
+        missing.append("Log lacks structured fields (evt/state/err/seq/task), confidence limited")
 
     has_timestamp = any(e["timestamp"] for e in events)
     if not has_timestamp:
-        missing.append("日志缺少时间戳")
+        missing.append("Log lacks timestamps")
 
     has_error = any(e["level"] in ("E", "F") for e in events)
     if not has_error:
-        missing.append("日志中未发现 E/F 级别日志")
+        missing.append("No E/F level logs found")
 
     return missing
 
@@ -225,7 +225,7 @@ def build_do_not_patch_until(symptoms: list[dict]) -> list[str]:
 
 
 def triage(log_text: str, platform: str = "") -> dict:
-    """主分析函数。"""
+    """Main analysis function."""
     lines = log_text.splitlines()
     routes = load_symptom_routes()
 
@@ -247,7 +247,7 @@ def triage(log_text: str, platform: str = "") -> dict:
         parts.append(f"hw: {', '.join(s['symptom_id'] for s in classified['hardware'])}")
     if classified["architecture"]:
         parts.append(f"arch: {', '.join(s['symptom_id'] for s in classified['architecture'])}")
-    summary = "; ".join(parts) if parts else "未检测到已知症状"
+    summary = "; ".join(parts) if parts else "No known symptoms detected"
 
     has_symptoms = bool(classified["software"] or classified["hardware"] or classified["architecture"])
 
@@ -267,7 +267,7 @@ def triage(log_text: str, platform: str = "") -> dict:
     }
 
 
-# ── 自测 ──
+# ── Self-test ──
 
 def run_self_test() -> int:
     passed = 0
@@ -324,7 +324,7 @@ def run_self_test() -> int:
         },
         "raw_esp32_reset": {
             "log": "rst:0x3 (SW_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)\n",
-            "expect_software": 0, "expect_hardware": 0,  # raw boot 不匹配软件/硬件症状
+            "expect_software": 0, "expect_hardware": 0,  # raw boot does not match software/hardware symptoms
             "expect_no_symptoms": True,
         },
         "raw_brownout": {
@@ -367,17 +367,17 @@ def run_self_test() -> int:
             print(f"[PASS] {name}: {', '.join(cats) if cats else 'clean'}")
             passed += 1
 
-    # 缺失证据
+    # Missing evidence
     minimal = "just text\n"
     r = triage(minimal)
     assert len(r["missing_evidence"]) > 0
     print(f"[PASS] missing evidence: {len(r['missing_evidence'])} items")
     passed += 1
 
-    # Windows-safe 输出检查
+    # Windows-safe output check
     r = triage("E (100) panic: HardFault\n", "esp32")
     text = json.dumps(r)
-    assert "WARN" not in text or TAG_WARN in text or "[" not in text  # JSON 中无所谓
+    assert "WARN" not in text or TAG_WARN in text or "[" not in text  # Does not matter in JSON
     print("[PASS] Windows-safe output")
     passed += 1
 
@@ -386,9 +386,9 @@ def run_self_test() -> int:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Log Triage v24 -- 根因分流系统")
-    parser.add_argument("--log", help="日志文件路径")
-    parser.add_argument("--platform", default="", help="平台")
+    parser = argparse.ArgumentParser(description="Log Triage v24 -- Root Cause Triage System")
+    parser.add_argument("--log", help="Log file path")
+    parser.add_argument("--platform", default="", help="Platform")
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--self-test", action="store_true")
     args = parser.parse_args()
@@ -398,18 +398,18 @@ def main() -> int:
 
     if not args.log:
         parser.print_help()
-        return 2  # 输入错误
+        return 2  # Input error
 
     try:
         log_text = Path(args.log).read_text(encoding="utf-8", errors="replace")
     except Exception as e:
-        print(f"[ERROR] 无法读取日志: {e}", file=sys.stderr)
+        print(f"[ERROR] Failed to read log: {e}", file=sys.stderr)
         return 2
 
     try:
         r = triage(log_text, args.platform)
     except Exception as e:
-        print(f"[ERROR] 分析失败: {e}", file=sys.stderr)
+        print(f"[ERROR] Analysis failed: {e}", file=sys.stderr)
         return 2
 
     if args.json:
@@ -456,7 +456,7 @@ def main() -> int:
             for a in r["next_actions"][:10]:
                 print(f"  {a}")
 
-    # Exit code: 0=有症状, 1=无症状, 2=错误
+    # Exit code: 0=has symptoms, 1=no symptoms, 2=error
     return 0 if r.get("has_symptoms") else 1
 
 

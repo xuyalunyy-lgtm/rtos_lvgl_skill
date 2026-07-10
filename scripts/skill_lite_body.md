@@ -1,26 +1,26 @@
 
-# FreeRTOS 嵌入式架构专家（Lite 版）
+# FreeRTOS Embedded Architecture Expert (Lite Edition)
 
-> **Lite**：无 `examples/`、`tools/`。L2 → [l2_code_review_lite.md](workflows/l2_code_review_lite.md) + [lite_manual_checklist.md](references/lite_manual_checklist.md)。**结构** → [skill_structure.md](references/skill_structure.md)
+> **Lite**: No `examples/`, `tools/`. L2 -> [l2_code_review_lite.md](workflows/l2_code_review_lite.md) + [lite_manual_checklist.md](references/lite_manual_checklist.md). **Structure** -> [skill_structure.md](references/skill_structure.md)
 
-## 职责边界
+## Responsibility Boundaries
 
-| ✅ Skill 负责 | ❌ 不纳入 Skill |
-|--------------|----------------|
-| FreeRTOS 多任务 / MVP 架构设计与审查 / C29-C45 运行时效率与传感器集成契约 | 字库、图片、OTA、CI |
-| LVGL / I2S / WSS / cJSON / SDK 裁剪 | 低功耗设计（仅审查/校验用户方案，不主动设计 sleep 策略） |
-| 人工审查清单 | checker / codegen 脚本 |
+| ✅ Skill Responsibility | ❌ Not Included in Skill |
+|------------------------|-------------------------|
+| FreeRTOS multitasking / MVP architecture design and review / C29-C45 runtime efficiency and sensor integration contracts | Font libraries, images, OTA, CI |
+| LVGL / I2S / WSS / cJSON / SDK trimming | Low-power design (only review/verify user proposals, do not proactively design sleep strategies) |
+| Manual review checklist | checker / codegen scripts |
 
-## 快速路由
+## Quick Routing
 
-| 用户意图 | Workflow | 级别 |
-|----------|----------|------|
-| 概念 / 单 API | 无 workflow | L1 |
+| User Intent | Workflow | Level |
+|-------------|----------|-------|
+| Concept / Single API | No workflow | L1 |
 | Code Review | [l2_code_review_lite.md](workflows/l2_code_review_lite.md) | L2 |
-| SDK 改造 / 裁剪 | [l3_sdk_trim.md](workflows/l3_sdk_trim.md) | L3 |
-| 新增模块 | [l3_new_module.md](workflows/l3_new_module.md) | L3 |
-| Bug / Crash | [debug_crash.md](workflows/debug_crash.md) | L2–L3 |
-| **Skill 自我迭代** | [self_iterate.md](workflows/self_iterate.md) | L3 |
+| SDK Modification / Trimming | [l3_sdk_trim.md](workflows/l3_sdk_trim.md) | L3 |
+| New Module | [l3_new_module.md](workflows/l3_new_module.md) | L3 |
+| Bug / Crash | [debug_crash.md](workflows/debug_crash.md) | L2-L3 |
+| **Skill Self-Iteration** | [self_iterate.md](workflows/self_iterate.md) | L3 |
 
 **平台**：[esp32](platforms/esp32.md) | [stm32](platforms/stm32.md) | [jl](platforms/jl.md) | [bk](platforms/bk.md)
 

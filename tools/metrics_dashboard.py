@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-全链路度量仪表盘 — 生成 HTML 报告，展示项目健康度。
+Full-chain metrics dashboard — generates HTML report showing project health.
 
-功能：
-  1. 度量数据持久化到 .skill_metrics/ 目录
-  2. 项目健康度评分（0-100）
-  3. 生成单页 HTML 仪表盘
+Features:
+  1. Persist metrics data to .skill_metrics/ directory
+  2. Project health score (0-100)
+  3. Generate single-page HTML dashboard
 
-用法:
+Usage:
     python tools/metrics_dashboard.py --project ./my_firmware
     python tools/metrics_dashboard.py --project ./my_firmware --output report.html
     python tools/metrics_dashboard.py --self-test
@@ -32,7 +32,7 @@ if sys.platform == "win32":
 
 
 def collect_metrics(project_dir: Path, suite: str = "default") -> dict:
-    """收集项目度量数据，从 checker_registry 读取 checker 列表。"""
+    """Collect project metrics, read checker list from checker_registry."""
     from checker_registry import get_suite
 
     tools_dir = Path(__file__).parent
@@ -93,7 +93,7 @@ def collect_metrics(project_dir: Path, suite: str = "default") -> dict:
 
 
 def calculate_health_score(metrics: dict) -> dict:
-    """计算项目健康度评分（0-100）"""
+    """Calculate project health score (0-100)"""
     score = 100
     issues = []
 
@@ -141,7 +141,7 @@ def calculate_health_score(metrics: dict) -> dict:
 
 
 def generate_html_dashboard(metrics: dict, health: dict) -> str:
-    """生成 HTML 仪表盘"""
+    """Generate HTML dashboard"""
     checker_rows = ""
     for domain, result in sorted(metrics.get("checkers", {}).items()):
         violations = result.get("violations", 0)
@@ -208,7 +208,7 @@ h2 {{ color: #663; }}
 
 
 def run_self_test() -> int:
-    """自测"""
+    """Self-test"""
     passed = 0
     failed = 0
 
@@ -246,15 +246,15 @@ def run_self_test() -> int:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="全链路度量仪表盘")
-    parser.add_argument("--project", "-p", help="项目目录")
-    parser.add_argument("--output", "-o", help="HTML 输出文件")
+    parser = argparse.ArgumentParser(description="Full-chain metrics dashboard")
+    parser.add_argument("--project", "-p", help="Project directory")
+    parser.add_argument("--output", "-o", help="HTML output file")
     parser.add_argument("--suite", default="default",
                         choices=["default", "all", "security", "media", "platform", "realtime", "enhanced"],
                         help="checker suite (default: default)")
-    parser.add_argument("--evidence", metavar="FILE", help="输出交付证据包到指定文件")
-    parser.add_argument("--evidence-dir", metavar="DIR", help="读取证据包目录做趋势分析")
-    parser.add_argument("--self-test", action="store_true", help="运行自测")
+    parser.add_argument("--evidence", metavar="FILE", help="Output delivery evidence package to specified file")
+    parser.add_argument("--evidence-dir", metavar="DIR", help="Read evidence package directory for trend analysis")
+    parser.add_argument("--self-test", action="store_true", help="Run self-test")
     args = parser.parse_args()
 
     if args.self_test:
@@ -295,12 +295,12 @@ def main() -> int:
     for issue in health.get("issues", []):
         print(f"  - {issue}")
 
-    # ── 交付证据包输出 ──
+    # ── Delivery evidence package output ──
     if args.evidence:
         try:
             from evidence_schema import issue_entry, make_evidence, save_evidence
         except ImportError:
-            print("[warn] evidence_schema 模块不可用（已归档），跳过证据包输出", file=sys.stderr)
+            print("[warn] evidence_schema module not available (archived), skipping evidence package output", file=sys.stderr)
             return 0
 
         ev_issues = []
@@ -310,7 +310,7 @@ def main() -> int:
                 ev_issues.append(issue_entry(
                     cid=checker_name, severity="P2",
                     file=str(project_dir),
-                    message=f"{violations} 个违规",
+                    message=f"{violations} violations",
                     checker=checker_name,
                 ))
 
@@ -327,30 +327,30 @@ def main() -> int:
             },
         )
         save_evidence(ev, args.evidence)
-        print(f"[evidence] 已保存交付证据包: {args.evidence}")
+        print(f"[evidence] Delivery evidence package saved: {args.evidence}")
 
-    # ── 证据目录趋势分析 ──
+    # ── Evidence directory trend analysis ──
     if args.evidence_dir:
         try:
             from evidence_schema import load_evidence
         except ImportError:
-            print("[warn] evidence_schema 模块不可用（已归档），跳过证据趋势分析", file=sys.stderr)
+            print("[warn] evidence_schema module not available (archived), skipping evidence trend analysis", file=sys.stderr)
             return 0
         evidence_dir = Path(args.evidence_dir)
         if evidence_dir.is_dir():
             ev_files = sorted(evidence_dir.glob("*.json"))
             if ev_files:
-                print(f"\n=== 证据趋势分析 ({len(ev_files)} 个证据包) ===")
-                for ef in ev_files[-5:]:  # 最近 5 个
+                print(f"\n=== Evidence trend analysis ({len(ev_files)} evidence packages) ===")
+                for ef in ev_files[-5:]:  # Last 5
                     try:
                         ev = load_evidence(ef)
                         score = ev.metadata.get("health_score", "N/A")
                         issues = len(ev.issues)
                         print(f"  {ef.name}: score={score}, issues={issues}")
                     except Exception as exc:
-                        print(f"  {ef.name}: 解析失败 ({exc})")
+                        print(f"  {ef.name}: parse failed ({exc})")
             else:
-                print(f"[evidence-dir] 目录为空: {evidence_dir}")
+                print(f"[evidence-dir] Directory is empty: {evidence_dir}")
 
     return 0
 

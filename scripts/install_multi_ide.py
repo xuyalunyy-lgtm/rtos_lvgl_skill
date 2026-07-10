@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-多 IDE 安装脚本：一条命令安装 skill 到任意 AI IDE。
+Multi-IDE install script: install skill to any AI IDE with a single command.
 
-支持: Cursor / Claude Code / Codex / Windsurf / GitHub Copilot / Cline
+Supported: Cursor / Claude Code / Codex / Windsurf / GitHub Copilot / Cline
 
-用法:
+Usage:
     python scripts/install_multi_ide.py --all
     python scripts/install_multi_ide.py --ide cursor --ide windsurf
     python scripts/install_multi_ide.py --list
@@ -70,36 +70,36 @@ def install_mcp_environment() -> bool:
 
 WINDSURF_HEADER = """# FreeRTOS Embedded Architect Rules
 
-本规则在编辑 .c/.h 文件时自动加载。
+Auto-loaded when editing .c/.h files.
 
-## 核心规则
-- 非 View 禁止 lv_obj_*（C1.1）
-- cJSON 树不得跨 Queue 传递（C2.1/C3.3）
-- ISR 仅 FromISR API（C4.1）
-- 先量后改（C7.1）
-- 配置文件独立：禁止直接复用原项目配置
+## Core Rules
+- lv_obj_* forbidden outside View (C1.1)
+- cJSON tree must not cross Queue boundary (C2.1/C3.3)
+- ISR must use FromISR API only (C4.1)
+- Measure first, then modify (C7.1)
+- Config files must be independent: direct reuse of original project configs is forbidden
 
-## 完整约束
--> references/constraint_index.md（C1-C45，带屏音视频与运行时效率优先）
+## Full Constraints
+-> references/constraint_index.md (C1-C45, audio/video with screen and runtime efficiency prioritized)
 
 ## Workflow
--> SKILL.md 快速路由表
+-> SKILL.md quick routing table
 """
 
 COPILOT_HEADER = """# FreeRTOS Embedded Architect Instructions
 
-遵循 FreeRTOS IoT 固件约束体系（C1-C45）。
+Follow the FreeRTOS IoT firmware constraint system (C1-C45).
 
-## 关键规则
-- UI 仅在 LVGL Task 或 lv_async_call 回调中更新（C1）
-- Queue payload：Model alloc -> Presenter free（C2）
-- cJSON goto cleanup 模板（C3）
-- ISR 禁止阻塞 API / malloc / printf（C4）
-- A/V sync、codec 格式、jitter buffer、DMA/cache buffer 生命周期（C25-C28）
-- 模块契约、任务拓扑、超时预算、可观测性、生命周期、热路径禁区、关键路径预算、数据拷贝预算、背压降级、故障恢复、配置矩阵、一键复现、回归样本、板级资源契约、锁预算与优先级反转防护、临界区/关中断预算、传感器集成契约（C29-C45）
-- 配置文件独立：新项目只能参考格式，严格按用户输入编写
+## Key Rules
+- UI must only be updated in LVGL Task or lv_async_call callback (C1)
+- Queue payload: Model alloc -> Presenter free (C2)
+- cJSON goto cleanup template (C3)
+- ISR must not use blocking API / malloc / printf (C4)
+- A/V sync, codec format, jitter buffer, DMA/cache buffer lifecycle (C25-C28)
+- Module contract, task topology, timeout budget, observability, lifecycle, hot-path prohibition, critical-path budget, data-copy budget, backpressure degradation, fault recovery, config matrix, one-click repro, regression samples, board-level resource contract, lock budget & priority inversion protection, critical-section/interrupt-off budget, sensor integration contract (C29-C45)
+- Config files must be independent: new projects may only reference the format, and must be written strictly per user input
 
-## 平台专档
+## Platform Docs
 -> platforms/esp32.md | stm32.md | jl.md | bk.md
 """
 

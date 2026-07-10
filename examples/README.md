@@ -1,37 +1,37 @@
-# Examples 索引（铁律 ↔ 约束 ID ↔ Checker）
+# Examples Index (Iron Rules <-> Constraint IDs <-> Checkers)
 
-L2 Code Review 时按嫌疑加载对应文件；违规报告引用 `C#.#`（见 [constraint_detail.md](../references/constraint_detail.md)）。
+During L2 Code Review, load the corresponding files based on suspicion; violation reports reference `C#.#` (see [constraint_detail.md](../references/constraint_detail.md)).
 
-## C1 — LVGL 线程安全
+## C1 — LVGL Thread Safety
 
 | | 文件 | ID | Checker |
 |---|------|-----|---------|
 | ❌ | [bad_lvgl_cross_thread.c](bad_lvgl_cross_thread.c) | C1.1 | `lvgl_thread_checker.py` |
-| ✅ | [good_mvp_pattern.c](good_mvp_pattern.c) `lv_async_call` | C1.2, C1.3 | 同上 |
-| ✅ | [good_presenter_consumer.c](good_presenter_consumer.c) `view_post_set_text` | C1.2 | 同上 |
+| ✅ | [good_mvp_pattern.c](good_mvp_pattern.c) `lv_async_call` | C1.2, C1.3 | same |
+| ✅ | [good_presenter_consumer.c](good_presenter_consumer.c) `view_post_set_text` | C1.2 | same |
 
-## C2 — Queue payload 所有权
+## C2 — Queue Payload Ownership
 
 | | 文件 | ID | Checker |
 |---|------|-----|---------|
 | ❌ | [bad_queue_stack_pointer.c](bad_queue_stack_pointer.c) | C2.1, C2.2 | **`queue_ownership_checker.py`** |
-| ✅ | [good_wss_json_parse.c](good_wss_json_parse.c) heap payload | C2.3, C2.4 | 同上 |
-| ✅ | [good_presenter_consumer.c](good_presenter_consumer.c) Presenter `vPortFree` | C2.3 | 同上 |
+| ✅ | [good_wss_json_parse.c](good_wss_json_parse.c) heap payload | C2.3, C2.4 | same |
+| ✅ | [good_presenter_consumer.c](good_presenter_consumer.c) Presenter `vPortFree` | C2.3 | same |
 
-## C3 — cJSON 防泄漏
+## C3 — cJSON Leak Prevention
 
 | | 文件 | ID | Checker |
 |---|------|-----|---------|
 | ❌ | [bad_cjson_leak.c](bad_cjson_leak.c) | C3.1, C3.2 | `cjson_leak_checker.py` |
-| ✅ | [good_wss_json_parse.c](good_wss_json_parse.c) `parse_message_text` | C3.1, C3.3 | 同上 |
+| ✅ | [good_wss_json_parse.c](good_wss_json_parse.c) `parse_message_text` | C3.1, C3.3 | same |
 
-## WSS / mbedTLS（栈、SNTP、重连）
+## WSS / mbedTLS (stack, SNTP, reconnection)
 
 | | 文件 | ID | Checker |
 |---|------|-----|---------|
 | ❌ | [bad_wss_blocking.c](bad_wss_blocking.c) | C1.5 | `stack_calculator.py` + 人工 |
-| ✅ | [good_wss_reconnect.c](good_wss_reconnect.c) 指数退避 + SNTP 前置 | — | 人工 + `queue_ownership_checker.py` |
-| ✅ | [good_wss_json_parse.c](good_wss_json_parse.c) 解析闭环 | C3.3 | 同上 |
+| ✅ | [good_wss_reconnect.c](good_wss_reconnect.c) exponential backoff + SNTP prerequisite | — | manual + `queue_ownership_checker.py` |
+| ✅ | [good_wss_json_parse.c](good_wss_json_parse.c) 解析闭环 | C3.3 | same |
 
 ## C4 — ISR / DMA
 
@@ -39,52 +39,52 @@ L2 Code Review 时按嫌疑加载对应文件；违规报告引用 `C#.#`（见 
 |---|------|-----|---------|
 | ❌ | [bad_isr_blocking.c](bad_isr_blocking.c) | C4.1, C4.3 | `isr_safety_checker.py` |
 
-Cache 一致性细则 → [audio_dma_pingpong.txt](../prompts/audio_dma_pingpong.txt) **C4.8**
+Cache consistency details -> [audio_dma_pingpong.txt](../prompts/audio_dma_pingpong.txt) **C4.8**
 
-## C10 — 语音 / ASR / Uplink（共享引擎）
+## C10 — Voice / ASR / Uplink (shared engine)
 
 | | 文件 | ID | Checker |
 |---|------|-----|---------|
 | ❌ | [bad_prompt_no_detach.c](bad_prompt_no_detach.c) | C10.1, C10.2, C10.5 | `voice_sequence_checker.py` |
 | ✅ | [good_voice_prompt_uplink.c](good_voice_prompt_uplink.c) detach + settle + session generation | C10.1–C10.6 | `voice_sequence_checker.py` |
 
-深细节 → [voice_asr_uplink.txt](../prompts/voice_asr_uplink.txt)
+Deep details -> [voice_asr_uplink.txt](../prompts/voice_asr_uplink.txt)
 
-## C25 — 音视频管线 / A/V Sync
+## C25 — A/V Pipeline / A/V Sync
 
 | | 文件 | ID | Checker |
 |---|------|-----|---------|
 | ❌ | [bad_av_pipeline_blocking.c](bad_av_pipeline_blocking.c) | C25.1–C25.5 | `av_pipeline_checker.py` |
 | ✅ | [good_av_pipeline_sync.c](good_av_pipeline_sync.c) audio clock master + PTS/seq + bounded queue | C25.1–C25.6 | `av_pipeline_checker.py` |
 
-深细节 → [av_pipeline_sync.txt](../prompts/av_pipeline_sync.txt)
+Deep details -> [av_pipeline_sync.txt](../prompts/av_pipeline_sync.txt)
 
-## C26 — 编解码 / 媒体格式一致性
+## C26 — Codec / Media Format Consistency
 
 | | 文件 | ID | Checker |
 |---|------|-----|---------|
 | ❌ | [bad_media_format_mismatch.c](bad_media_format_mismatch.c) | C26.1–C26.6 | `media_format_checker.py` |
 | ✅ | [good_media_format_contract.c](good_media_format_contract.c) sample rate/frame/stride/codec lifecycle | C26.1–C26.6 | `media_format_checker.py` |
 
-深细节 → [av_codec_format.txt](../prompts/av_codec_format.txt)
+Deep details -> [av_codec_format.txt](../prompts/av_codec_format.txt)
 
-## C27 — 音视频时钟漂移 / Jitter Buffer
+## C27 — A/V Clock Drift / Jitter Buffer
 
 | | 文件 | ID | Checker |
 |---|------|-----|---------|
 | ❌ | [bad_av_clock_jitter.c](bad_av_clock_jitter.c) | C27.1–C27.6 | `av_clock_jitter_checker.py` |
 | ✅ | [good_av_clock_jitter.c](good_av_clock_jitter.c) audio clock master + jitter watermarks + drift clamp | C27.1–C27.6 | `av_clock_jitter_checker.py` |
 
-深细节 → [av_clock_jitter.txt](../prompts/av_clock_jitter.txt)
+Deep details -> [av_clock_jitter.txt](../prompts/av_clock_jitter.txt)
 
-## C28 — 媒体 DMA/cache/零拷贝 buffer 生命周期
+## C28 — Media DMA/cache/Zero-copy Buffer Lifecycle
 
 | | 文件 | ID | Checker |
 |---|------|-----|---------|
 | ❌ | [bad_av_dma_buffer_lifecycle.c](bad_av_dma_buffer_lifecycle.c) | C28.1–C28.6 | `av_dma_buffer_checker.py` |
 | ✅ | [good_av_dma_buffer_lifecycle.c](good_av_dma_buffer_lifecycle.c) DMA-capable pool + cache sync + owner lifecycle | C28.1–C28.6 | `av_dma_buffer_checker.py` |
 
-深细节 → [av_dma_buffer_lifecycle.txt](../prompts/av_dma_buffer_lifecycle.txt)
+Deep details -> [av_dma_buffer_lifecycle.txt](../prompts/av_dma_buffer_lifecycle.txt)
 
 ## C29 - Module Boundary / High Cohesion, Low Coupling
 

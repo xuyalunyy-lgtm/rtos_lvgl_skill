@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-一键静态审查：串联 Skill 内 checker 脚本。
+One-click static review: chain checker scripts within the Skill.
 
-用法:
+Usage:
     python tools/run_review.py --dir ./src --platform jl
     python tools/run_review.py --dir ./examples --platform freertos
     python tools/run_review.py --self-test
@@ -23,7 +23,7 @@ SKILL_ROOT = TOOLS_DIR.parent
 
 
 def checker_env() -> dict[str, str]:
-    """Windows GBK 控制台下避免 checker emoji 输出触发 UnicodeEncodeError。"""
+    """Avoid UnicodeEncodeError from checker emoji output under Windows GBK console."""
     env = os.environ.copy()
     env.setdefault("PYTHONIOENCODING", "utf-8")
     return env
@@ -108,13 +108,13 @@ def run_checker(script: str, checker_args: list[str]) -> int:
 def run_checker_case(case: CheckerCase, base_dir: Path) -> bool:
     path = base_dir / case.path
     if not path.is_file():
-        print(f"[FAIL] 缺少测试文件: {path}")
+        print(f"[FAIL] Missing test file: {path}")
         return False
 
     rc = run_checker(case.script, [str(path)])
     ok = rc == case.expected
     status = "PASS" if ok else "FAIL"
-    print(f"[{status}] {case.label}: {case.script} {path.name} → exit {rc} (期望 {case.expected})")
+    print(f"[{status}] {case.label}: {case.script} {path.name} -> exit {rc} (expected {case.expected})")
     return ok
 
 
@@ -130,9 +130,9 @@ def run_case_group(title: str, cases: tuple[CheckerCase, ...], base_dir: Path) -
 
     print(f"\n{'=' * 60}")
     if failed == 0:
-        print(f"{title.split(' — ')[-1]}: 全部通过")
+        print(f"{title.split(' -- ')[-1]}: all passed")
     else:
-        print(f"{title.split(' — ')[-1]}: {failed} 项失败")
+        print(f"{title.split(' -- ')[-1]}: {failed} failed")
     print(f"{'=' * 60}\n")
     return 1 if failed else 0
 
@@ -142,8 +142,8 @@ def run_self_test() -> int:
 
 
 def run_validate_examples() -> int:
-    """铁律范例约束：good_* 须通过，bad_* 须触发对应 checker 失败。"""
-    return run_case_group("run_review.py — examples/ 铁律约束验证", VALIDATE_EXAMPLE_CASES, SKILL_ROOT)
+    """Iron rule example constraints: good_* must pass, bad_* must trigger corresponding checker failure."""
+    return run_case_group("run_review.py -- examples/ iron rule constraint validation", VALIDATE_EXAMPLE_CASES, SKILL_ROOT)
 
 
 def list_checkers(as_json: bool = False) -> int:
@@ -162,11 +162,11 @@ def list_checkers(as_json: bool = False) -> int:
         json.dump(data, sys.stdout, ensure_ascii=False, indent=2)
         print()
     else:
-        print("默认 checker 管线:")
+        print("Default checker pipeline:")
         for spec in DEFAULT_CHECKERS:
             domains = ",".join(spec.domains)
             print(f"  --skip-{spec.skip_arg:<14} {spec.name:<28} {spec.mode:<8} {domains}")
-        print("\n特殊项: --skip-stack 跳过 stack_calculator；--scan-secrets / --git-remotes 单独启用 C9 扫描")
+        print("\nSpecial: --skip-stack skips stack_calculator; --scan-secrets / --git-remotes enable C9 scan individually")
     return 0
 
 
@@ -197,7 +197,7 @@ def _run_and_capture(label: str, argv: list[str], quiet: bool = False) -> tuple[
     return proc.returncode, combined
 
 
-_ISSUE_COUNT_RE = re.compile(r'发现\s*(\d+)\s*个')
+_ISSUE_COUNT_RE = re.compile(r'(?:found|发现)\s*(\d+)\s*(?:issues?|个)')
 _WARN_COUNT_RE = re.compile(r'(\d+)\s+warnings?', re.IGNORECASE)
 
 
@@ -223,7 +223,7 @@ def run_registered_checkers(args: argparse.Namespace, c_files: list[Path]) -> in
             continue
         if not c_files:
             if not json_mode:
-                print(f"\n[skip] {spec.name}: 无 .c 文件")
+                print(f"\n[skip] {spec.name}: no .c files")
             if json_mode:
                 results.append({
                     "checker": spec.name, "script": spec.script,
@@ -259,7 +259,7 @@ def run_registered_checkers(args: argparse.Namespace, c_files: list[Path]) -> in
                 })
         else:
             if not json_mode:
-                print(f"[warn] 未知 checker mode: {spec.name} mode={spec.mode}")
+                print(f"[warn] Unknown checker mode: {spec.name} mode={spec.mode}")
             exit_code = max(exit_code, 1)
 
     if json_mode:
@@ -268,33 +268,33 @@ def run_registered_checkers(args: argparse.Namespace, c_files: list[Path]) -> in
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="FreeRTOS Skill 一键静态审查")
-    parser.add_argument("files", nargs="*", help="待审查 .c 文件")
-    parser.add_argument("--dir", "-d", help="递归审查目录下所有 .c")
+    parser = argparse.ArgumentParser(description="FreeRTOS Skill one-click static review")
+    parser.add_argument("files", nargs="*", help="Files to review (.c)")
+    parser.add_argument("--dir", "-d", help="Recursively review all .c files in directory")
     parser.add_argument(
         "--platform", "-p", default="freertos",
         choices=["freertos", "esp32", "stm32", "jl", "bk", "zephyr"],
-        help="目标平台",
+        help="Target platform",
     )
     parser.add_argument(
         "--describe",
         default="WSS TLS cJSON LVGL Presenter",
-        help="stack_calculator 任务描述",
+        help="stack_calculator task description",
     )
     parser.add_argument(
         "--include-bad",
         action="store_true",
-        help="包含 bad_*.c 反例（默认排除）",
+        help="Include bad_*.c counter-examples (excluded by default)",
     )
     parser.add_argument(
         "--self-test",
         action="store_true",
-        help="运行 tools/fixtures/ 自测并退出",
+        help="Run tools/fixtures/ self-test and exit",
     )
     parser.add_argument(
         "--list-checkers",
         action="store_true",
-        help="列出默认 checker 管线并退出",
+        help="List default checker pipeline and exit",
     )
     parser.add_argument("--skip-stack", action="store_true")
     for spec in DEFAULT_CHECKERS:

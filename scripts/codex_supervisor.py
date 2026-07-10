@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-Codex Supervisor v10 — 受监管的 Codex 托管执行系统。
+Codex Supervisor v10 — Supervised Codex managed execution system.
 
-四阶段受控流程: Plan → Gate → Execute → Verify
-子命令架构:     plan | gate | run | verify | status | queue
+Four-phase controlled flow: Plan → Gate → Execute → Verify
+Subcommand architecture:    plan | gate | run | verify | status | queue
 
-用法:
+Usage:
     python scripts/codex_supervisor.py plan --job .codex/jobs/fix-checker.json
     python scripts/codex_supervisor.py gate --plan .codex/runs/<id>/plan.json
     python scripts/codex_supervisor.py run  --job .codex/jobs/fix-checker.json
@@ -15,13 +15,13 @@ Codex Supervisor v10 — 受监管的 Codex 托管执行系统。
     python scripts/codex_supervisor.py queue
     python scripts/codex_supervisor.py --self-test
 
-架构:
-    Plan  → Codex 只读分析，输出结构化 JSON 计划
-    Gate  → 安全门禁：风险/路径/命令/网络/destructive 综合决策
-    Execute → Codex workspace-write 按计划改代码（隔离 branch/worktree）
-    Verify  → git diff --check + checker 套件 + iteration check
-    Report  → 聚合 Plan+Gate+AgentResult+Evidence+diff+验证
-    Retry   → 失败带上下文重试，每轮重新 gate，有界循环
+Architecture:
+    Plan  → Codex read-only analysis, outputs structured JSON plan
+    Gate  → Safety gate: risk/path/command/network/destructive composite decision
+    Execute → Codex workspace-write modifies code per plan (isolated branch/worktree)
+    Verify  → git diff --check + checker suite + iteration check
+    Report  → Aggregate Plan+Gate+AgentResult+Evidence+diff+verification
+    Retry   → Retry with context on failure, re-gate each iteration, bounded loop
 """
 from __future__ import annotations
 
@@ -53,12 +53,12 @@ RUNS_DIR = CODEX_DIR / "runs"
 
 
 # ============================================================================
-# 数据结构
+# Data Structures
 # ============================================================================
 
 @dataclass
 class JobDef:
-    """任务定义。"""
+    """Job definition."""
     job_id: str = ""
     intent: str = ""
     created_at: str = ""
@@ -82,7 +82,7 @@ class JobDef:
 
 @dataclass
 class PlanResult:
-    """Plan 阶段输出。"""
+    """Plan phase output."""
     intent: str = ""
     analysis: str = ""
     files_to_change: list[str] = field(default_factory=list)
@@ -100,7 +100,7 @@ class PlanResult:
 
 @dataclass
 class GateDecision:
-    """门禁决策。"""
+    """Gate decision."""
     decision: str = "reject"       # approve / reject / needs_confirmation / needs_review
     risk_level: str = "medium"
     risk_score: float = 0.0
@@ -118,7 +118,7 @@ class GateDecision:
 
 @dataclass
 class AgentResult:
-    """Agent 执行阶段输出。"""
+    """Agent execution phase output."""
     status: str = "failed"
     files_changed: list[dict] = field(default_factory=list)
     commands_run: list[dict] = field(default_factory=list)
@@ -129,7 +129,7 @@ class AgentResult:
 
 @dataclass
 class SupervisorReport:
-    """最终托管交付报告。"""
+    """Final managed delivery report."""
     run_id: str = ""
     job_id: str = ""
     status: str = "pending"
@@ -157,7 +157,7 @@ class SupervisorReport:
 
 
 # ============================================================================
-# 配置加载
+# Configuration Loading
 # ============================================================================
 
 def load_hooks() -> dict:
@@ -176,7 +176,7 @@ def save_json(data: dict, path: Path):
 
 
 # ============================================================================
-# 路径/命令安全
+# Path/Command Safety
 # ============================================================================
 
 PROTECTED_PATHS = [
@@ -221,7 +221,7 @@ def _is_in_allowed_dir(path: str) -> bool:
 
 
 # ============================================================================
-# Git 操作
+# Git Operations
 # ============================================================================
 
 def git_status_short() -> str:
@@ -298,7 +298,7 @@ def git_diff_numstat() -> dict:
 
 
 # ============================================================================
-# Codex 交互
+# Codex Interaction
 # ============================================================================
 
 def _extract_json(text: str) -> dict | None:
@@ -330,7 +330,7 @@ def _extract_json(text: str) -> dict | None:
 
 
 def run_codex(prompt: str, mode: str = "read-only", timeout: int = 300) -> dict:
-    """运行 Codex（CLI 优先，fallback 到 OpenAI API）。"""
+    """Run Codex (CLI preferred, fallback to OpenAI API)."""
     # CLI
     cmd = ["codex", "exec", "--json"]
     if mode == "read-only":
@@ -370,7 +370,7 @@ def run_codex(prompt: str, mode: str = "read-only", timeout: int = 300) -> dict:
 
 
 # ============================================================================
-# Gate 引擎 (v10.0.4)
+# Gate Engine (v10.0.4)
 # ============================================================================
 
 RISK_SCORE = {"low": 15, "medium": 40, "high": 70, "critical": 95}
@@ -378,7 +378,7 @@ RISK_ORDER = {"low": 0, "medium": 1, "high": 2, "critical": 3}
 
 
 def run_gate(plan: PlanResult, job: JobDef | None = None) -> GateDecision:
-    """运行门禁引擎，返回决策。"""
+    """Run gate engine and return decision."""
     hooks = load_hooks()
     protected = hooks.get("protected_paths", PROTECTED_PATHS)
     protected_patterns = hooks.get("protected_patterns", PROTECTED_PATTERNS)
@@ -389,30 +389,30 @@ def run_gate(plan: PlanResult, job: JobDef | None = None) -> GateDecision:
         risk_score=RISK_SCORE.get(plan.risk_level, 50),
     )
 
-    # Gate 1: 保护路径
+    # Gate 1: Protected paths
     for f in plan.files_to_change:
         if _match_path(f, protected):
-            decision.violations.append(f"保护路径: {f}")
+            decision.violations.append(f"Protected path: {f}")
             decision.blocked_paths.append(f)
         elif _match_path(f, protected_patterns):
-            decision.violations.append(f"保护模式: {f}")
+            decision.violations.append(f"Protected pattern: {f}")
             decision.blocked_paths.append(f)
         else:
             decision.allowed_paths.append(f)
     decision.reasons.append({
         "gate": "protected_paths",
-        "result": "fail" if any("保护" in v for v in decision.violations) else "pass",
-        "detail": f"检查 {len(plan.files_to_change)} 个文件",
+        "result": "fail" if any("Protected" in v for v in decision.violations) else "pass",
+        "detail": f"Checked {len(plan.files_to_change)} file(s)",
         "weight": 30,
     })
 
-    # Gate 2: 危险命令
+    # Gate 2: Dangerous commands
     for cmd_entry in plan.commands:
         cmd = cmd_entry.get("cmd", "") if isinstance(cmd_entry, dict) else str(cmd_entry)
         blocked = False
         for pat in DANGEROUS_COMMANDS:
             if re.search(pat, cmd, re.IGNORECASE):
-                decision.violations.append(f"危险命令: {cmd}")
+                decision.violations.append(f"Dangerous command: {cmd}")
                 decision.blocked_commands.append(cmd)
                 blocked = True
                 break
@@ -420,54 +420,54 @@ def run_gate(plan: PlanResult, job: JobDef | None = None) -> GateDecision:
             decision.allowed_commands.append(cmd)
     decision.reasons.append({
         "gate": "dangerous_commands",
-        "result": "fail" if any("危险命令" in v for v in decision.violations) else "pass",
-        "detail": f"检查 {len(plan.commands)} 个命令",
+        "result": "fail" if any("Dangerous command" in v for v in decision.violations) else "pass",
+        "detail": f"Checked {len(plan.commands)} command(s)",
         "weight": 25,
     })
 
-    # Gate 3: 风险等级（软门禁，不直接 reject）
+    # Gate 3: Risk level (soft gate, does not directly reject)
     pref = job.risk_preference if job else "auto_low"
     pref_map = {"auto_low": 0, "auto_medium": 1, "manual_high": 2, "reject_critical": 3}
     pref_order = pref_map.get(pref, 0)
     plan_risk = RISK_ORDER.get(plan.risk_level, 2)
 
     if plan_risk > pref_order:
-        decision.warnings.append(f"风险 {plan.risk_level} 超过偏好 {pref}")
+        decision.warnings.append(f"Risk {plan.risk_level} exceeds preference {pref}")
     decision.reasons.append({
         "gate": "risk_preference",
         "result": "warn" if plan_risk > pref_order else "pass",
-        "detail": f"计划风险={plan.risk_level}, 偏好={pref}",
+        "detail": f"Plan risk={plan.risk_level}, preference={pref}",
         "weight": 20,
     })
 
-    # Gate 4: critical 直接拒绝
+    # Gate 4: Critical direct rejection
     if plan.risk_level == "critical":
-        decision.violations.append("critical 风险不允许自动执行")
+        decision.violations.append("Critical risk does not allow automatic execution")
     decision.reasons.append({
         "gate": "critical_block",
         "result": "fail" if plan.risk_level == "critical" else "pass",
-        "detail": "critical 风险硬阻断",
+        "detail": "Critical risk hard block",
         "weight": 50,
     })
 
-    # Gate 5: destructive
+    # Gate 5: Destructive
     if plan.destructive:
-        decision.warnings.append("包含删除/覆盖操作")
+        decision.warnings.append("Contains delete/overwrite operations")
         decision.risk_score += 10
 
-    # Gate 6: 网络需求
+    # Gate 6: Network requirement
     if plan.requires_network:
-        decision.warnings.append("需要网络访问")
+        decision.warnings.append("Requires network access")
         decision.risk_score += 5
 
-    # Gate 7: 文件范围
+    # Gate 7: File scope
     for f in plan.files_to_change:
         if not _is_in_allowed_dir(f):
-            decision.warnings.append(f"非标准目录: {f}")
+            decision.warnings.append(f"Non-standard directory: {f}")
 
-    # Gate 8: 修改量
+    # Gate 8: Change volume
     if plan.estimated_changes > 500:
-        decision.warnings.append(f"预计修改 {plan.estimated_changes} 行（>500）")
+        decision.warnings.append(f"Estimated {plan.estimated_changes} lines changed (>500)")
         decision.risk_score += 10
 
     decision.estimated_impact = {
@@ -475,7 +475,7 @@ def run_gate(plan: PlanResult, job: JobDef | None = None) -> GateDecision:
         "lines_changed": plan.estimated_changes,
     }
 
-    # 综合决策
+    # Composite decision
     has_violations = len(decision.violations) > 0
     decision.auto_approve = (
         not has_violations
@@ -493,35 +493,35 @@ def run_gate(plan: PlanResult, job: JobDef | None = None) -> GateDecision:
     else:
         decision.decision = "approve"
 
-    # 钳制风险分
+    # Clamp risk score
     decision.risk_score = min(100, max(0, decision.risk_score))
 
     return decision
 
 
 # ============================================================================
-# Plan 阶段
+# Plan Phase
 # ============================================================================
 
 def phase_plan(job: JobDef, context: str = "") -> PlanResult:
-    """Plan 阶段：只读分析。"""
+    """Plan phase: read-only analysis."""
     schema_path = SCHEMAS_DIR / "plan.schema.json"
     schema_str = ""
     if schema_path.exists():
         schema_str = schema_path.read_text(encoding="utf-8")
 
-    prompt = f"""分析以下任务，输出结构化 JSON 计划。
+    prompt = f"""Analyze the following task and output a structured JSON plan.
 
-任务: {job.intent}
-{f'上下文: {context}' if context else ''}
-{f'Job 上下文: {job.context}' if job.context else ''}
+Task: {job.intent}
+{f'Context: {context}' if context else ''}
+{f'Job context: {job.context}' if job.context else ''}
 
-仓库: FreeRTOS 嵌入式 skill，主要目录: tools/ scripts/ references/ examples/ scene_presets/ forward_tests/
+Repository: FreeRTOS embedded skill, main directories: tools/ scripts/ references/ examples/ scene_presets/ forward_tests/
 
-输出 JSON 必须包含: intent, files_to_change, risk_level(low/medium/high/critical), destructive(bool), requires_network(bool)
-风险标准: low=文档/测试, medium=工具脚本, high=checker 核心, critical=SKILL/checker_registry
+Output JSON must include: intent, files_to_change, risk_level(low/medium/high/critical), destructive(bool), requires_network(bool)
+Risk criteria: low=docs/tests, medium=tool scripts, high=checker core, critical=SKILL/checker_registry
 
-只输出 JSON。"""
+Output JSON only."""
 
     result = run_codex(prompt, mode="read-only", timeout=300)
 
@@ -533,31 +533,31 @@ def phase_plan(job: JobDef, context: str = "") -> PlanResult:
                 if key in data:
                     setattr(plan, key, data[key])
     else:
-        plan.risk_reason = f"Codex 调用失败: {result.get('error', 'unknown')}"
+        plan.risk_reason = f"Codex call failed: {result.get('error', 'unknown')}"
 
     return plan
 
 
 # ============================================================================
-# Execute 阶段
+# Execute Phase
 # ============================================================================
 
 def phase_execute(plan: PlanResult, job: JobDef, dry_run: bool = False) -> AgentResult:
-    """Execute 阶段：按计划执行。"""
+    """Execute phase: execute per plan."""
     if dry_run:
-        return AgentResult(status="skipped", notes="dry-run 模式")
+        return AgentResult(status="skipped", notes="dry-run mode")
 
-    prompt = f"""严格按以下已批准计划实现修改，不要扩大范围。
+    prompt = f"""Strictly implement changes according to the approved plan below. Do not expand scope.
 
-计划:
+Plan:
 {json.dumps(asdict(plan), indent=2, ensure_ascii=False)}
 
-规则:
-1. 只修改 files_to_change 中的文件
-2. 只实现 intent 的内容
-3. 运行 commands 中的命令
-4. 输出 JSON: status(success/partial/failed), files_changed, commands_run, deviations, errors, notes
-只输出 JSON。"""
+Rules:
+1. Only modify files in files_to_change
+2. Only implement the intent content
+3. Run commands in commands
+4. Output JSON: status(success/partial/failed), files_changed, commands_run, deviations, errors, notes
+Output JSON only."""
 
     result = run_codex(prompt, mode="workspace-write", timeout=600)
 
@@ -569,17 +569,17 @@ def phase_execute(plan: PlanResult, job: JobDef, dry_run: bool = False) -> Agent
                 if key in data:
                     setattr(agent, key, data[key])
     else:
-        agent.errors.append(f"Codex 调用失败: {result.get('error', 'unknown')}")
+        agent.errors.append(f"Codex call failed: {result.get('error', 'unknown')}")
 
     return agent
 
 
 # ============================================================================
-# Verify 阶段
+# Verify Phase
 # ============================================================================
 
 def phase_verify(job: JobDef, iteration: int = 0) -> dict:
-    """Verify 阶段：运行验证套件。"""
+    """Verify phase: run verification suite."""
     checks = []
     all_passed = True
 
@@ -612,7 +612,7 @@ def phase_verify(job: JobDef, iteration: int = 0) -> dict:
     if not passed:
         all_passed = False
 
-    # 4. 自定义验证命令
+    # 4. Custom verification commands
     for vc in job.verification_commands:
         cmd = vc.get("cmd", "")
         timeout = vc.get("timeout_seconds", 120)
@@ -632,7 +632,7 @@ def phase_verify(job: JobDef, iteration: int = 0) -> dict:
 
 
 # ============================================================================
-# 报告聚合 (v10.0.5)
+# Report Aggregation (v10.0.5)
 # ============================================================================
 
 def build_report(
@@ -640,7 +640,7 @@ def build_report(
     agents: list[AgentResult], verifications: list[dict],
     branch: str, started_at: str, status: str,
 ) -> SupervisorReport:
-    """聚合所有阶段输出为最终报告。"""
+    """Aggregate all phase outputs into final report."""
     now = datetime.now(timezone.utc).isoformat()
     started = datetime.fromisoformat(started_at)
     duration = (datetime.now(timezone.utc) - started).total_seconds()
@@ -648,13 +648,13 @@ def build_report(
     diff_stat = git_diff_stat()
     diff_summary = git_diff_numstat()
 
-    # 复现命令
+    # Reproduce commands
     repro = [
         {"cmd": f"python scripts/codex_supervisor.py run --job .codex/jobs/{job.job_id}.json",
-         "description": "复现托管执行"},
+         "description": "Reproduce managed execution"},
     ]
 
-    # 回滚命令
+    # Rollback command
     rollback = ""
     if branch:
         rollback = f"git checkout main && git branch -D {branch}"
@@ -678,7 +678,7 @@ def build_report(
 
 
 def save_report(report: SupervisorReport, run_dir: Path):
-    """保存报告（JSON + Markdown）。"""
+    """Save report (JSON + Markdown)."""
     run_dir.mkdir(parents=True, exist_ok=True)
 
     # JSON
@@ -688,20 +688,20 @@ def save_report(report: SupervisorReport, run_dir: Path):
     md_lines = [
         f"# Supervisor Report — {report.run_id}",
         "",
-        f"| 字段 | 值 |",
-        f"|------|-----|",
+        f"| Field | Value |",
+        f"|-------|-------|",
         f"| Job | {report.job_id} |",
-        f"| 状态 | **{report.status}** |",
-        f"| 迭代 | {report.iterations}/{report.max_iterations} |",
-        f"| 分支 | {report.branch} |",
-        f"| 耗时 | {report.duration_seconds:.1f}s |",
+        f"| Status | **{report.status}** |",
+        f"| Iterations | {report.iterations}/{report.max_iterations} |",
+        f"| Branch | {report.branch} |",
+        f"| Duration | {report.duration_seconds:.1f}s |",
         "",
-        "## 计划",
-        f"- 意图: {report.plan.get('intent', 'N/A')}",
-        f"- 风险: {report.plan.get('risk_level', 'N/A')}",
-        f"- 文件: {len(report.plan.get('files_to_change', []))} 个",
+        "## Plan",
+        f"- Intent: {report.plan.get('intent', 'N/A')}",
+        f"- Risk: {report.plan.get('risk_level', 'N/A')}",
+        f"- Files: {len(report.plan.get('files_to_change', []))}",
         "",
-        "## 门禁",
+        "## Gate",
     ]
     for i, gate in enumerate(report.gate_decisions):
         md_lines.append(f"- 轮 {i+1}: **{gate.get('decision', 'N/A')}** (score={gate.get('risk_score', 0)})")
@@ -712,29 +712,29 @@ def save_report(report: SupervisorReport, run_dir: Path):
 
     md_lines.extend(["", "## Diff", f"```", report.diff_stat, "```", ""])
 
-    md_lines.append("## 验证")
+    md_lines.append("## Verification")
     for vr in report.verification_results:
         md_lines.append(f"- 轮 {vr.get('iteration', '?')}: {'✅' if vr.get('all_passed') else '❌'}")
         for c in vr.get("checks", []):
             md_lines.append(f"  - {'✅' if c.get('passed') else '❌'} {c.get('name', '')}")
 
     if report.errors:
-        md_lines.extend(["", "## 错误"])
+        md_lines.extend(["", "## Errors"])
         for e in report.errors:
             md_lines.append(f"- {e}")
 
     if report.rollback_command:
-        md_lines.extend(["", "## 回滚", f"```bash", report.rollback_command, "```"])
+        md_lines.extend(["", "## Rollback", f"```bash", report.rollback_command, "```"])
 
     (run_dir / "supervisor_report.md").write_text("\n".join(md_lines), encoding="utf-8")
 
 
 # ============================================================================
-# 日志 (v10.0.2)
+# Logging (v10.0.2)
 # ============================================================================
 
 class RunLogger:
-    """JSONL 运行日志。"""
+    """JSONL run logger."""
     def __init__(self, run_dir: Path):
         self.run_dir = run_dir
         self.log_path = run_dir / "run.jsonl"
@@ -751,24 +751,24 @@ class RunLogger:
 
 
 # ============================================================================
-# 脏树检测 (v10.0.3)
+# Dirty Tree Detection (v10.0.3)
 # ============================================================================
 
 def check_worktree(job: JobDef, logger: RunLogger) -> tuple[bool, str]:
-    """检查工作区状态，返回 (ok, message)。"""
+    """Check worktree status, return (ok, message)."""
     dirty = git_status_short()
     if dirty and job.require_clean_worktree:
         logger.log("dirty_tree_detected", {"files": dirty[:500]})
-        return False, f"工作区有未提交修改:\n{dirty[:300]}\n\n请先 commit/stash 或在 job 中设置 require_clean_worktree=false"
+        return False, f"Worktree has uncommitted changes:\n{dirty[:300]}\n\nPlease commit/stash first or set require_clean_worktree=false in the job"
     return True, ""
 
 
 # ============================================================================
-# 主编排 (v10.0.2/v10.0.6)
+# Main Orchestration (v10.0.2/v10.0.6)
 # ============================================================================
 
 def run_pipeline(job: JobDef, dry_run: bool = False, json_output: bool = False) -> SupervisorReport:
-    """主编排：Plan → Gate → Execute → Verify (有界重试)。"""
+    """Main orchestration: Plan → Gate → Execute → Verify (bounded retry)."""
     run_id = uuid.uuid4().hex[:12]
     run_dir = RUNS_DIR / run_id
     logger = RunLogger(run_dir)
@@ -779,9 +779,9 @@ def run_pipeline(job: JobDef, dry_run: bool = False, json_output: bool = False) 
         if not json_output:
             print(f"[supervisor:{run_id[:8]}] {msg}", flush=True)
 
-    _log(f"开始: {job.intent[:60]}")
+    _log(f"Started: {job.intent[:60]}")
 
-    # 脏树检测
+    # Dirty tree detection
     ok, msg = check_worktree(job, logger)
     if not ok:
         report = SupervisorReport(
@@ -791,15 +791,15 @@ def run_pipeline(job: JobDef, dry_run: bool = False, json_output: bool = False) 
         save_report(report, run_dir)
         return report
 
-    # 隔离分支
+    # Isolation branch
     branch = f"codex-auto/{run_id}"
     if not dry_run and job.isolation_mode != "none":
         if job.isolation_mode == "branch":
             git_stash()
             git_create_branch(branch)
-            _log(f"创建分支: {branch}")
+            _log(f"Created branch: {branch}")
 
-    # 重试循环
+    # Retry loop
     gates: list[GateDecision] = []
     agents: list[AgentResult] = []
     verifications: list[dict] = []
@@ -815,17 +815,17 @@ def run_pipeline(job: JobDef, dry_run: bool = False, json_output: bool = False) 
             last = verifications[-1]
             failed = [c for c in last.get("checks", []) if not c.get("passed")]
             if failed:
-                prev_context = "上次验证失败:\n" + "\n".join(
+                prev_context = "Previous verification failed:\n" + "\n".join(
                     f"- {c['name']}: {c.get('output', '')[:200]}" for c in failed
                 )
         plan = phase_plan(job, prev_context)
-        _log(f"  风险={plan.risk_level}, 文件={len(plan.files_to_change)}")
+        _log(f"  Risk={plan.risk_level}, Files={len(plan.files_to_change)}")
 
         # Phase 2: Gate
         _log("Phase 2: Gate")
         gate = run_gate(plan, job)
         gates.append(gate)
-        _log(f"  决策={gate.decision}, score={gate.risk_score}")
+        _log(f"  Decision={gate.decision}, Score={gate.risk_score}")
 
         if gate.violations:
             for v in gate.violations:
@@ -833,22 +833,22 @@ def run_pipeline(job: JobDef, dry_run: bool = False, json_output: bool = False) 
 
         if gate.decision == "reject":
             status = "aborted"
-            _log("门禁拒绝，中止。")
+            _log("Gate rejected, aborting.")
             break
 
         if gate.decision == "needs_confirmation" and not dry_run:
-            _log("⚠️ 需要人工确认，非交互模式自动放行。")
+            _log("⚠️ Requires manual confirmation, auto-approved in non-interactive mode.")
 
         # Phase 3: Execute
         _log("Phase 3: Execute")
         agent = phase_execute(plan, job, dry_run=dry_run)
         agents.append(agent)
-        _log(f"  状态={agent.status}")
+        _log(f"  Status={agent.status}")
 
         if agent.status == "failed":
-            _log(f"  失败: {agent.errors}")
+            _log(f"  Failed: {agent.errors}")
             if iteration < job.max_iterations:
-                _log("  清理本轮修改，准备重试...")
+                _log("  Cleaning up changes, preparing to retry...")
                 subprocess.run(["git", "checkout", "."], cwd=ROOT, capture_output=True, timeout=15)
             continue
 
@@ -864,24 +864,24 @@ def run_pipeline(job: JobDef, dry_run: bool = False, json_output: bool = False) 
 
         verification = phase_verify(job, iteration)
         verifications.append(verification)
-        _log(f"  验证: {'通过' if verification['all_passed'] else '失败'}")
+        _log(f"  Verification: {'Passed' if verification['all_passed'] else 'Failed'}")
 
         for c in verification.get("checks", []):
             _log(f"    {'✅' if c['passed'] else '❌'} {c['name']}")
 
         if verification["all_passed"]:
             status = "success"
-            _log(f"\n✅ 成功! (迭代 {iteration} 次)")
+            _log(f"\n✅ Success! ({iteration} iteration(s))")
             break
 
         if iteration < job.max_iterations:
-            _log("验证失败，清理后重试...")
+            _log("Verification failed, cleaning up and retrying...")
             subprocess.run(["git", "checkout", "."], cwd=ROOT, capture_output=True, timeout=15)
     else:
         status = "failed"
-        _log(f"\n❌ 超过最大重试次数 ({job.max_iterations})")
+        _log(f"\n❌ Exceeded maximum retries ({job.max_iterations})")
 
-    # 聚合报告
+    # Aggregate report
     report = build_report(
         run_id, job, plan if 'plan' in dir() else PlanResult(),
         gates, agents, verifications, branch, started_at, status,
@@ -889,42 +889,42 @@ def run_pipeline(job: JobDef, dry_run: bool = False, json_output: bool = False) 
     report.log_path = str(logger.log_path)
     save_report(report, run_dir)
 
-    # 失败清理
+    # Failure cleanup
     if status in ("failed", "aborted") and not dry_run:
         git_checkout("main")
         git_delete_branch(branch)
-        report.rollback_command = f"已自动回滚: 删除分支 {branch}"
+        report.rollback_command = f"Auto-rolled back: deleted branch {branch}"
 
-    _log(f"报告: {run_dir}")
+    _log(f"Report: {run_dir}")
     return report
 
 
 # ============================================================================
-# 子命令 (v10.0.2)
+# Subcommands (v10.0.2)
 # ============================================================================
 
 def _load_job(path: str) -> JobDef:
-    """加载 job JSON 文件。"""
+    """Load job JSON file."""
     data = load_json(Path(path))
     known = {f.name for f in JobDef.__dataclass_fields__.values()}
     return JobDef(**{k: v for k, v in data.items() if k in known})
 
 
 def cmd_plan(args) -> int:
-    """plan 子命令：只生成计划。"""
+    """plan subcommand: generate plan only."""
     job = _load_job(args.job)
     plan = phase_plan(job, args.context or "")
 
     if args.output:
         save_json(asdict(plan), Path(args.output))
-        print(f"计划已保存: {args.output}")
+        print(f"Plan saved: {args.output}")
     else:
         print(json.dumps(asdict(plan), indent=2, ensure_ascii=False))
     return 0
 
 
 def cmd_gate(args) -> int:
-    """gate 子命令：校验计划。"""
+    """gate subcommand: validate plan against gate."""
     plan_data = load_json(Path(args.plan))
     known = {f.name for f in PlanResult.__dataclass_fields__.values()}
     plan = PlanResult(**{k: v for k, v in plan_data.items() if k in known})
@@ -937,7 +937,7 @@ def cmd_gate(args) -> int:
 
 
 def cmd_run(args) -> int:
-    """run 子命令：完整编排。"""
+    """run subcommand: full orchestration."""
     job = _load_job(args.job)
     if args.max_iterations:
         job.max_iterations = args.max_iterations
@@ -949,21 +949,21 @@ def cmd_run(args) -> int:
     else:
         print(f"\n{'='*50}")
         print(f"Run {report.run_id}: {report.status}")
-        print(f"迭代: {report.iterations}, 耗时: {report.duration_seconds:.1f}s")
+        print(f"Iterations: {report.iterations}, Duration: {report.duration_seconds:.1f}s")
         if report.branch:
-            print(f"分支: {report.branch}")
-        print(f"报告: {RUNS_DIR / report.run_id}")
+            print(f"Branch: {report.branch}")
+        print(f"Report: {RUNS_DIR / report.run_id}")
         print(f"{'='*50}")
 
     return 0 if report.status in ("success", "dry_run") else 1
 
 
 def cmd_verify(args) -> int:
-    """verify 子命令：重新验证。"""
+    """verify subcommand: re-run verification."""
     run_dir = RUNS_DIR / args.run_id
     report_path = run_dir / "supervisor_report.json"
     if not report_path.exists():
-        print(f"错误: 未找到 run {args.run_id}", file=sys.stderr)
+        print(f"Error: run {args.run_id} not found", file=sys.stderr)
         return 1
 
     report_data = load_json(report_path)
@@ -975,21 +975,21 @@ def cmd_verify(args) -> int:
 
 
 def cmd_status(args) -> int:
-    """status 子命令：查看 run 状态。"""
+    """status subcommand: view run status."""
     run_dir = RUNS_DIR / args.run_id
     report_path = run_dir / "supervisor_report.json"
     if not report_path.exists():
-        print(f"错误: 未找到 run {args.run_id}", file=sys.stderr)
+        print(f"Error: run {args.run_id} not found", file=sys.stderr)
         return 1
 
     report = load_json(report_path)
-    print(f"Run:    {report.get('run_id')}")
-    print(f"Job:    {report.get('job_id')}")
-    print(f"Status: {report.get('status')}")
-    print(f"开始:   {report.get('started_at')}")
-    print(f"结束:   {report.get('finished_at')}")
-    print(f"迭代:   {report.get('iterations')}/{report.get('max_iterations')}")
-    print(f"分支:   {report.get('branch')}")
+    print(f"Run:       {report.get('run_id')}")
+    print(f"Job:       {report.get('job_id')}")
+    print(f"Status:    {report.get('status')}")
+    print(f"Started:   {report.get('started_at')}")
+    print(f"Finished:  {report.get('finished_at')}")
+    print(f"Iterations:{report.get('iterations')}/{report.get('max_iterations')}")
+    print(f"Branch:    {report.get('branch')}")
     if report.get("diff_stat"):
         print(f"Diff:   {report['diff_stat'][:100]}")
     return 0

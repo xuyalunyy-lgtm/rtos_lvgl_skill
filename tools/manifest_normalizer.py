@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-Manifest Normalizer v19.0.1 — 统一 manifest 版本转换。
+Manifest Normalizer v19.0.1 — Unified manifest version conversion.
 
-把旧 preset 的 string task/queue 转成 manifest 1.2 对象。
-旧 schema 1.0/1.1 只兼容读取；V19 生成器一律输出 1.2。
+Converts old preset string task/queue to manifest 1.2 objects.
+Old schema 1.0/1.1 is read-only compatible; V19 generator always outputs 1.2.
 
-用法:
+Usage:
     python tools/manifest_normalizer.py --input old_manifest.json --output new_manifest.json
     python tools/manifest_normalizer.py --self-test
 """
@@ -17,7 +17,7 @@ import sys
 from pathlib import Path
 
 
-# ── 默认值 ──
+# ── Default values ──
 
 TASK_DEFAULTS = {
     "entry": "",
@@ -81,7 +81,7 @@ POOL_DEFAULTS = {
 
 
 def _normalize_task(task) -> dict:
-    """规范化单个 task。"""
+    """Normalize a single task."""
     if isinstance(task, str):
         return {**TASK_DEFAULTS, "name": task, "entry": f"{task}_func"}
     if isinstance(task, dict):
@@ -93,7 +93,7 @@ def _normalize_task(task) -> dict:
 
 
 def _normalize_queue(queue, tasks: list[dict] = None) -> dict:
-    """规范化单个 queue。"""
+    """Normalize a single queue."""
     task_map = {t["name"]: t for t in (tasks or [])}
 
     if isinstance(queue, str):
@@ -103,7 +103,7 @@ def _normalize_queue(queue, tasks: list[dict] = None) -> dict:
     else:
         result = {**QUEUE_DEFAULTS, "name": str(queue)}
 
-    # 自动填充 producer/consumer 从 task 的 produces/consumes
+    # Auto-fill producer/consumer from task's produces/consumes
     if not result.get("producer_tasks") and tasks:
         for t in tasks:
             if result["name"] in t.get("produces", []):
@@ -117,7 +117,7 @@ def _normalize_queue(queue, tasks: list[dict] = None) -> dict:
 
 
 def _normalize_lock(lock) -> dict:
-    """规范化单个 lock。"""
+    """Normalize a single lock."""
     if isinstance(lock, str):
         return {**LOCK_DEFAULTS, "name": lock}
     if isinstance(lock, dict):
@@ -126,7 +126,7 @@ def _normalize_lock(lock) -> dict:
 
 
 def _normalize_timer(timer) -> dict:
-    """规范化单个 timer。"""
+    """Normalize a single timer."""
     if isinstance(timer, str):
         return {**TIMER_DEFAULTS, "name": timer}
     if isinstance(timer, dict):
@@ -135,7 +135,7 @@ def _normalize_timer(timer) -> dict:
 
 
 def _normalize_pool(pool) -> dict:
-    """规范化单个 memory pool。"""
+    """Normalize a single memory pool."""
     if isinstance(pool, str):
         return {**POOL_DEFAULTS, "name": pool}
     if isinstance(pool, dict):
@@ -144,29 +144,29 @@ def _normalize_pool(pool) -> dict:
 
 
 def normalize_manifest(data: dict) -> dict:
-    """规范化 manifest 到 1.2 格式。"""
+    """Normalize manifest to 1.2 format."""
     version = data.get("schema_version", "1.0")
 
-    # 已经是 1.2 且字段完整，直接返回
+    # Already 1.2 with complete fields, return as-is
     if version == "1.2":
         return data
 
-    # 规范化 tasks
+    # Normalize tasks
     tasks = [_normalize_task(t) for t in data.get("tasks", [])]
 
-    # 规范化 queues（依赖 tasks 信息）
+    # Normalize queues (depends on tasks info)
     queues = [_normalize_queue(q, tasks) for q in data.get("queues", [])]
 
-    # 规范化 locks
+    # Normalize locks
     locks = [_normalize_lock(l) for l in data.get("locks", [])]
 
-    # 规范化 timers
+    # Normalize timers
     timers = [_normalize_timer(t) for t in data.get("timers", [])]
 
-    # 规范化 memory_pools
+    # Normalize memory_pools
     pools = [_normalize_pool(p) for p in data.get("memory_pools", [])]
 
-    # constraints 兼容
+    # Constraints compatibility
     constraints = data.get("constraints", {})
     if "evidence" not in constraints:
         constraints["evidence"] = []
@@ -255,8 +255,8 @@ def run_self_test() -> int:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Manifest Normalizer v19.0.1")
-    parser.add_argument("--input", help="输入 manifest JSON")
-    parser.add_argument("--output", help="输出规范化 manifest JSON")
+    parser.add_argument("--input", help="Input manifest JSON")
+    parser.add_argument("--output", help="Output normalized manifest JSON")
     parser.add_argument("--self-test", action="store_true")
     args = parser.parse_args()
 
@@ -272,7 +272,7 @@ def main() -> int:
 
     if args.output:
         Path(args.output).write_text(json.dumps(result, indent=2, ensure_ascii=False), encoding="utf-8")
-        print(f"已保存: {args.output}")
+        print(f"Saved: {args.output}")
     else:
         print(json.dumps(result, indent=2, ensure_ascii=False))
 

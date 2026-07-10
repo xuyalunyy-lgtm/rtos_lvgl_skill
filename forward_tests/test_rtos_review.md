@@ -1,22 +1,22 @@
-# 测试：RTOS 系统审查
+# Test: RTOS System Review
 
-## 输入
-- 项目：tools/fixtures/mini_esp32
-- 工具：run_review.py（集成 RTOS 审查能力）
-- 期望触发：约束检查 → 风险报告 → 建议输出
+## Input
+- Project: tools/fixtures/mini_esp32
+- Tool: run_review.py (with integrated RTOS review capabilities)
+- Expected trigger: constraint check -> risk report -> suggestion output
 
-## 验收条件
-- [ ] run_review.py --dir fixtures/mini_esp32 --platform esp32 输出约束检查结果
-- [ ] 输出包含 task/queue/mutex/timer 相关约束检查
-- [ ] 输出包含调度、IPC、内存、时间基准相关风险提示
-- [ ] 无 Python traceback
+## Acceptance Criteria
+- [ ] run_review.py --dir fixtures/mini_esp32 --platform esp32 outputs constraint check results
+- [ ] Output contains task/queue/mutex/timer related constraint checks
+- [ ] Output contains scheduling, IPC, memory, timebase related risk warnings
+- [ ] No Python traceback
 
-## 自动化命令
+## Automation Command
 ```bash
 python tools/run_review.py --dir tools/fixtures/mini_esp32 --platform esp32 --json
 ```
 
-## 备注
-原 RTOS 专用工具（rtos_model.py、task_graph_analyzer.py、scheduler_analyzer.py、
-ipc_contract_checker.py、memory_lifetime_analyzer.py、timebase_analyzer.py）
-已归档至 archive/tools/，相关审查能力已集成到 run_review.py 中。
+## Notes
+The original RTOS-specific tools (rtos_model.py, task_graph_analyzer.py, scheduler_analyzer.py,
+ipc_contract_checker.py, memory_lifetime_analyzer.py, timebase_analyzer.py)
+have been archived to archive/tools/, and the related review capabilities have been integrated into run_review.py.

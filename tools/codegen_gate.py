@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-Codegen Gate v17.0.3 — 约束驱动生成门禁。
+Codegen Gate v17.0.3 — Constraint-driven generation gate.
 
-检查 manifest 完整性、生成文件存在性、约束覆盖、禁止模式、run_review 结果。
-失败时 exit 1，输出阻塞原因和对应约束。
+Checks manifest completeness, generated file existence, constraint coverage, forbidden patterns, run_review results.
+Exits 1 on failure, outputs blocking reasons and corresponding constraints.
 
-用法:
+Usage:
     python tools/codegen_gate.py --dir <path> --manifest generation_manifest.json --platform esp32 --strict
     python tools/codegen_gate.py --self-test
 """
@@ -19,94 +19,94 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 
-# ── 禁止模式 ──
+# ── Forbidden patterns ──
 FORBIDDEN_PATTERNS = [
     {
         "id": "F1",
         "pattern": r"\bportMAX_DELAY\b",
         "constraint": "C31",
-        "message": "裸 portMAX_DELAY 禁止，除非 manifest 声明 allowed_infinite_waits",
+        "message": "Bare portMAX_DELAY forbidden unless manifest declares allowed_infinite_waits",
         "exceptions": ["allowed_infinite_waits"],
     },
     {
         "id": "F2",
         "pattern": r"(?:xQueueReceive|sem.*Take|vTaskDelay).*//.*ISR",
         "constraint": "C4",
-        "message": "ISR 中 blocking API",
+        "message": "Blocking API in ISR",
         "contexts": ["isr", "irq", "callback", "interrupt"],
     },
     {
         "id": "F3",
         "pattern": r"(?:pvPortMalloc|cJSON_Parse|malloc)\s*\(",
         "constraint": "C4",
-        "message": "ISR/hot path 中 malloc",
+        "message": "malloc in ISR/hot path",
         "contexts": ["isr", "irq", "callback", "interrupt"],
     },
     {
         "id": "F4",
         "pattern": r"(?:printf|ESP_LOG[IDIWEF])\s*\(",
         "constraint": "C4",
-        "message": "ISR 中 printf/重日志",
+        "message": "printf/heavy logging in ISR",
         "contexts": ["isr", "irq", "callback", "interrupt"],
     },
     {
         "id": "F5",
         "pattern": r"xQueueSend\s*\([^;]*&(?:\w+\.)?\w+\s*,",
         "constraint": "C2",
-        "message": "queue 传栈指针",
+        "message": "Queue passing stack pointer",
     },
     {
         "id": "F6",
         "pattern": r"\blv_\w+\s*\(",
         "constraint": "C1",
-        "message": "LVGL 跨线程调用",
+        "message": "LVGL cross-thread call",
         "contexts": ["network", "wifi", "wss", "audio", "sensor", "task_"],
     },
 ]
 
 
 def check_manifest(manifest_path: str) -> list[str]:
-    """检查 manifest 完整性。"""
+    """Check manifest completeness."""
     errors = []
     try:
         data = json.loads(Path(manifest_path).read_text(encoding="utf-8"))
     except Exception as e:
-        return [f"manifest 解析失败: {e}"]
+        return [f"Manifest parsing failed: {e}"]
 
     required = ["schema_version", "generator", "platform", "generated_files", "constraints"]
     for f in required:
         if f not in data:
-            errors.append(f"manifest 缺少必填字段: {f}")
+            errors.append(f"Manifest missing required field: {f}")
 
     if "constraints" in data:
         if "required" not in data["constraints"]:
-            errors.append("manifest.constraints 缺少 required")
+            errors.append("manifest.constraints missing required")
 
     if "tasks" in data:
         for t in data["tasks"]:
             if "name" not in t:
-                errors.append("task 缺少 name")
+                errors.append("task missing name")
             if "stack_bytes" not in t:
-                errors.append(f"task {t.get('name', '?')} 缺少 stack_bytes")
+                errors.append(f"task {t.get('name', '?')} missing stack_bytes")
 
-    # queue 完整性由 manifest_contract 校验，此处不重复检查
+    # Queue completeness is validated by manifest_contract, not duplicated here
 
     return errors
 
 
 def check_files_exist(manifest: dict, base_dir: str) -> list[str]:
-    """检查生成文件是否存在。"""
+    """Check whether generated files exist."""
     errors = []
     base = Path(base_dir)
     for f in manifest.get("generated_files", []):
         path = base / f.get("path", "")
         if not path.exists():
-            errors.append(f"生成文件不存在: {f.get('path')}")
+            errors.append(f"Generated file does not exist: {f.get('path')}")
     return errors
 
 
 def check_forbidden_patterns(base_dir: str, manifest: dict) -> list[str]:
-    """检查禁止模式。"""
+    """Check forbidden patterns."""
     errors = []
     base = Path(base_dir)
     allowed_waits = {aw.get("location") for aw in manifest.get("constraints", {}).get("allowed_infinite_waits", [])}
@@ -118,7 +118,7 @@ def check_forbidden_patterns(base_dir: str, manifest: dict) -> list[str]:
             continue
 
         for rule in FORBIDDEN_PATTERNS:
-            # F1 特殊处理：portMAX_DELAY
+            # F1 special handling: portMAX_DELAY
             if rule["id"] == "F1":
                 for m in re.finditer(rule["pattern"], content):
                     line_num = content[:m.start()].count("\n") + 1
@@ -127,22 +127,22 @@ def check_forbidden_patterns(base_dir: str, manifest: dict) -> list[str]:
                         errors.append(f"[{rule['constraint']}] {rule['message']} at {loc}")
                 continue
 
-            # 其他规则
+            # Other rules
             for m in re.finditer(rule["pattern"], content):
                 line_num = content[:m.start()].count("\n") + 1
-                # 检查是否在特定上下文中（函数签名级别，非注释级别）
+                # Check if in specific context (function signature level, not comment level)
                 if "contexts" in rule:
-                    # 找到当前函数的签名行
+                    # Find the current function signature line
                     func_sig_start = content.rfind("\n", 0, m.start())
-                    # 向上找函数签名（最多 20 行）
+                    # Search upward for function signature (up to 20 lines)
                     for _ in range(20):
                         prev_line_start = content.rfind("\n", 0, func_sig_start)
                         if prev_line_start < 0:
                             break
                         func_sig_start = prev_line_start
                     func_sig = content[func_sig_start:m.start()].lower()
-                    # 只检查函数签名中的关键词，不检查注释
-                    # 排除注释行
+                    # Only check keywords in function signature, not comments
+                    # Exclude comment lines
                     sig_lines = [l.strip() for l in func_sig.split("\n") if l.strip() and not l.strip().startswith("//") and not l.strip().startswith("/*")]
                     sig_text = " ".join(sig_lines)
                     if not any(ctx in sig_text for ctx in rule["contexts"]):
@@ -153,42 +153,42 @@ def check_forbidden_patterns(base_dir: str, manifest: dict) -> list[str]:
 
 
 def check_constraint_coverage(manifest: dict, base_dir: str) -> list[str]:
-    """检查约束覆盖。"""
+    """Check constraint coverage."""
     errors = []
     required = set(manifest.get("constraints", {}).get("required", []))
     covered = set(manifest.get("constraints", {}).get("covered", []))
     deferred = manifest.get("constraints", {}).get("deferred", [])
 
-    # 收集 deferred 的约束 ID
+    # Collect deferred constraint IDs
     deferred_ids = set()
     for d in deferred:
         did = d.get("id", "")
         if did:
             deferred_ids.add(did)
-        # 校验 deferred 必须有 reason 和 evidence
+        # Validate deferred must have reason and evidence
         if not d.get("reason"):
-            errors.append(f"deferred 约束 {did} 缺少 reason")
+            errors.append(f"Deferred constraint {did} missing reason")
         if not d.get("evidence"):
-            errors.append(f"deferred 约束 {did} 缺少 evidence")
+            errors.append(f"Deferred constraint {did} missing evidence")
 
-    # required 必须被 covered ∪ deferred.id 完整解释
+    # required must be fully explained by covered union deferred.id
     explained = covered | deferred_ids
     missing = required - explained
 
     if missing:
-        errors.append(f"约束未覆盖也未推迟: {', '.join(sorted(missing))}")
+        errors.append(f"Constraints not covered and not deferred: {', '.join(sorted(missing))}")
 
     return errors
 
 
 def run_gate(dir_path: str, manifest_path: str, platform: str = "", strict: bool = False) -> dict:
-    """运行 codegen gate。"""
+    """Run codegen gate."""
     all_errors = []
     all_warnings = []
     all_violations = []
     checks = {}
 
-    # 1. Manifest 完整性
+    # 1. Manifest completeness
     manifest_errors = check_manifest(manifest_path)
     checks["manifest"] = {"passed": len(manifest_errors) == 0, "errors": manifest_errors}
     all_errors.extend(manifest_errors)
@@ -198,7 +198,7 @@ def run_gate(dir_path: str, manifest_path: str, platform: str = "", strict: bool
 
     manifest = json.loads(Path(manifest_path).read_text(encoding="utf-8"))
 
-    # 2. Manifest contract 校验（V20）
+    # 2. Manifest contract validation (V20)
     try:
         from manifest_contract import validate as contract_validate
         contract_result = contract_validate(manifest, strict=strict)
@@ -213,25 +213,25 @@ def run_gate(dir_path: str, manifest_path: str, platform: str = "", strict: bool
         all_warnings.extend(contract_result["warnings"])
         all_violations.extend(contract_result["violations"])
     except ImportError:
-        pass  # manifest_contract 不可用时跳过
+        pass  # Skip when manifest_contract is unavailable
 
-    # 3. 文件存在性
+    # 3. File existence
     file_errors = check_files_exist(manifest, dir_path)
     checks["files_exist"] = {"passed": len(file_errors) == 0, "errors": file_errors}
     all_errors.extend(file_errors)
 
-    # 4. 禁止模式
+    # 4. Forbidden patterns
     pattern_errors = check_forbidden_patterns(dir_path, manifest)
     checks["forbidden_patterns"] = {"passed": len(pattern_errors) == 0, "errors": pattern_errors}
     all_errors.extend(pattern_errors)
 
-    # 5. 约束覆盖
+    # 5. Constraint coverage
     if strict:
         coverage_errors = check_constraint_coverage(manifest, dir_path)
         checks["constraint_coverage"] = {"passed": len(coverage_errors) == 0, "errors": coverage_errors}
         all_errors.extend(coverage_errors)
 
-    # 6. RTOS model 构造 + analyzer 报告（V21）
+    # 6. RTOS model construction + analyzer report (V21)
     rtos_model_summary = {}
     analyzer_reports = {}
     risk_summary = {"p0": 0, "p1": 0, "p2": 0, "total": 0}
@@ -245,7 +245,7 @@ def run_gate(dir_path: str, manifest_path: str, platform: str = "", strict: bool
     ]
 
     if strict:
-        # RTOS model 构造（必须成功）
+        # RTOS model construction (must succeed)
         try:
             from rtos_model import from_generation_manifest
             rtos_model = from_generation_manifest(manifest)
@@ -282,12 +282,12 @@ def run_gate(dir_path: str, manifest_path: str, platform: str = "", strict: bool
 
             # P0 analyzer risk → fail
             if risk_summary["p0"] > 0:
-                all_errors.append(f"RTOS analyzer 发现 {risk_summary['p0']} 个 P0 风险")
+                all_errors.append(f"RTOS analyzer found {risk_summary['p0']} P0 risks")
             # P1/P2 → warnings
             if risk_summary["p1"] > 0:
-                all_warnings.append(f"RTOS analyzer 发现 {risk_summary['p1']} 个 P1 风险")
+                all_warnings.append(f"RTOS analyzer found {risk_summary['p1']} P1 risks")
             if risk_summary["p2"] > 0:
-                all_warnings.append(f"RTOS analyzer 发现 {risk_summary['p2']} 个 P2 风险")
+                all_warnings.append(f"RTOS analyzer found {risk_summary['p2']} P2 risks")
 
     return _gate_result(
         len(all_errors) == 0, all_errors, all_warnings, all_violations,
@@ -303,7 +303,7 @@ def _gate_result(passed: bool, errors: list, warnings: list, violations: list,
                  checks: dict, platform: str, strict: bool, *,
                  rtos_model_summary: dict = None, analyzer_reports: dict = None,
                  risk_summary: dict = None, missing_analyzers: list = None) -> dict:
-    """构造统一 gate 输出。"""
+    """Construct unified gate output."""
     result = {
         "passed": passed,
         "severity": "P0" if errors else ("P1" if violations else "P2"),
@@ -337,7 +337,7 @@ def run_self_test() -> int:
 
     import tempfile
 
-    # 1. 合法 manifest
+    # 1. Valid manifest
     with tempfile.TemporaryDirectory() as tmp:
         tmp = Path(tmp)
         (tmp / "main.c").write_text('void app_main(void) { xQueueCreate(8, sizeof(int)); }\n', encoding="utf-8")
@@ -355,7 +355,7 @@ def run_self_test() -> int:
         print("[PASS] valid manifest → pass")
         passed += 1
 
-    # 2. 缺少必填字段
+    # 2. Missing required fields
     with tempfile.TemporaryDirectory() as tmp:
         tmp = Path(tmp)
         manifest = {"generator": "test"}
@@ -363,11 +363,11 @@ def run_self_test() -> int:
         manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
         r = run_gate(str(tmp), str(manifest_path))
         assert r["passed"] is False
-        assert any("缺少必填字段" in e for e in r["errors"])
+        assert any("missing required field" in e for e in r["errors"])
         print("[PASS] missing fields → fail")
         passed += 1
 
-    # 3. 文件不存在
+    # 3. File does not exist
     with tempfile.TemporaryDirectory() as tmp:
         tmp = Path(tmp)
         manifest = {
@@ -379,11 +379,11 @@ def run_self_test() -> int:
         manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
         r = run_gate(str(tmp), str(manifest_path))
         assert r["passed"] is False
-        assert any("不存在" in e for e in r["errors"])
+        assert any("does not exist" in e for e in r["errors"])
         print("[PASS] missing file → fail")
         passed += 1
 
-    # 4. 禁止模式：裸 portMAX_DELAY
+    # 4. Forbidden pattern: bare portMAX_DELAY
     with tempfile.TemporaryDirectory() as tmp:
         tmp = Path(tmp)
         (tmp / "bad.c").write_text('void f() { xQueueReceive(q, &v, portMAX_DELAY); }\n', encoding="utf-8")
@@ -400,7 +400,7 @@ def run_self_test() -> int:
         print("[PASS] forbidden portMAX_DELAY → fail")
         passed += 1
 
-    # 5. 约束未覆盖（strict）
+    # 5. Constraints not covered (strict)
     with tempfile.TemporaryDirectory() as tmp:
         tmp = Path(tmp)
         (tmp / "ok.c").write_text('void f() {}\n', encoding="utf-8")
@@ -413,11 +413,11 @@ def run_self_test() -> int:
         manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
         r = run_gate(str(tmp), str(manifest_path), strict=True)
         assert r["passed"] is False
-        assert any("未覆盖" in e for e in r["errors"])
+        assert any("not covered" in e for e in r["errors"])
         print("[PASS] uncovered constraint (strict) → fail")
         passed += 1
 
-    # 6. deferred 约束通过
+    # 6. Deferred constraints pass
     with tempfile.TemporaryDirectory() as tmp:
         tmp = Path(tmp)
         (tmp / "ok.c").write_text('void f() {}\n', encoding="utf-8")
@@ -437,7 +437,7 @@ def run_self_test() -> int:
         print("[PASS] deferred constraints → pass")
         passed += 1
 
-    # 7. deferred 缺 reason 失败
+    # 7. Deferred missing reason fails
     with tempfile.TemporaryDirectory() as tmp:
         tmp = Path(tmp)
         (tmp / "ok.c").write_text('void f() {}\n', encoding="utf-8")
@@ -458,7 +458,7 @@ def run_self_test() -> int:
         print("[PASS] deferred missing reason → fail")
         passed += 1
 
-    # 8. deferred 缺 evidence 失败
+    # 8. Deferred missing evidence fails
     with tempfile.TemporaryDirectory() as tmp:
         tmp = Path(tmp)
         (tmp / "ok.c").write_text('void f() {}\n', encoding="utf-8")
@@ -485,10 +485,10 @@ def run_self_test() -> int:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Codegen Gate v17.0.3")
-    parser.add_argument("--dir", help="生成目录")
-    parser.add_argument("--manifest", help="generation_manifest.json 路径")
-    parser.add_argument("--platform", default="", help="平台")
-    parser.add_argument("--strict", action="store_true", help="严格模式（检查约束覆盖）")
+    parser.add_argument("--dir", help="Generation directory")
+    parser.add_argument("--manifest", help="Path to generation_manifest.json")
+    parser.add_argument("--platform", default="", help="Platform")
+    parser.add_argument("--strict", action="store_true", help="Strict mode (check constraint coverage)")
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--self-test", action="store_true")
     args = parser.parse_args()

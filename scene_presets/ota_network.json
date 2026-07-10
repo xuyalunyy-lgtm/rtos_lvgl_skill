@@ -1,7 +1,7 @@
 {
-  "name": "OTA 网络设备",
+  "name": "OTA Network Device",
   "id": "ota-network",
-  "description": "需要远程升级的网络连接设备，如网关、路由器、工业控制器",
+  "description": "Network-connected devices requiring remote upgrade, such as gateways, routers, industrial controllers",
   "platforms": ["esp32", "stm32", "zephyr"],
   "required_constraints": [
     "C2", "C3", "C8", "C9", "C12", "C14",
@@ -18,22 +18,22 @@
     "network": true,
     "ota": true,
     "tasks": [
-      {"name": "ota_task", "entry": "ota_task_func", "stack_bytes": 4096, "priority": 2, "core_affinity": -1, "lifecycle": "on_demand", "exit_policy": "delete_on_complete", "watchdog": "feed", "consumes": ["ota_cmd_q"], "produces": [], "holds": [], "description": "OTA 升级"},
-      {"name": "network_task", "entry": "network_task_func", "stack_bytes": 8192, "priority": 4, "core_affinity": 0, "lifecycle": "long_running", "exit_policy": "stop_token", "watchdog": "feed", "consumes": [], "produces": ["ota_cmd_q", "net_event_q"], "holds": ["config_mutex"], "description": "WSS/TLS 网络"},
-      {"name": "monitor_task", "entry": "monitor_task_func", "stack_bytes": 2048, "priority": 1, "core_affinity": -1, "lifecycle": "periodic", "exit_policy": "stop_token", "watchdog": "feed", "period_ms": 10000, "deadline_ms": 10000, "wcet_ms": 100, "consumes": ["net_event_q"], "produces": [], "holds": [], "description": "监控/健康检查"}
+      {"name": "ota_task", "entry": "ota_task_func", "stack_bytes": 4096, "priority": 2, "core_affinity": -1, "lifecycle": "on_demand", "exit_policy": "delete_on_complete", "watchdog": "feed", "consumes": ["ota_cmd_q"], "produces": [], "holds": [], "description": "OTA Upgrade"},
+      {"name": "network_task", "entry": "network_task_func", "stack_bytes": 8192, "priority": 4, "core_affinity": 0, "lifecycle": "long_running", "exit_policy": "stop_token", "watchdog": "feed", "consumes": [], "produces": ["ota_cmd_q", "net_event_q"], "holds": ["config_mutex"], "description": "WSS/TLS Network"},
+      {"name": "monitor_task", "entry": "monitor_task_func", "stack_bytes": 2048, "priority": 1, "core_affinity": -1, "lifecycle": "periodic", "exit_policy": "stop_token", "watchdog": "feed", "period_ms": 10000, "deadline_ms": 10000, "wcet_ms": 100, "consumes": ["net_event_q"], "produces": [], "holds": [], "description": "Monitor/Health Check"}
     ],
     "queues": [
-      {"name": "ota_cmd_q", "depth": 2, "item_type": "ota_cmd_t", "item_size": 32, "producer_tasks": ["network_task"], "consumer_tasks": ["ota_task"], "send_timeout_ms": 1000, "recv_timeout_ms": 5000, "full_policy": "fail_immediately", "drop_counter": "s_ota_drop", "description": "OTA 命令队列"},
-      {"name": "net_event_q", "depth": 8, "item_type": "net_event_t", "item_size": 64, "producer_tasks": ["network_task"], "consumer_tasks": ["monitor_task"], "send_timeout_ms": 5000, "recv_timeout_ms": 10000, "full_policy": "drop_oldest", "drop_counter": "s_net_drop", "description": "网络事件队列"}
+      {"name": "ota_cmd_q", "depth": 2, "item_type": "ota_cmd_t", "item_size": 32, "producer_tasks": ["network_task"], "consumer_tasks": ["ota_task"], "send_timeout_ms": 1000, "recv_timeout_ms": 5000, "full_policy": "fail_immediately", "drop_counter": "s_ota_drop", "description": "OTA Command Queue"},
+      {"name": "net_event_q", "depth": 8, "item_type": "net_event_t", "item_size": 64, "producer_tasks": ["network_task"], "consumer_tasks": ["monitor_task"], "send_timeout_ms": 5000, "recv_timeout_ms": 10000, "full_policy": "drop_oldest", "drop_counter": "s_net_drop", "description": "Network Event Queue"}
     ],
     "locks": [
-      {"name": "config_mutex", "type": "mutex", "holder_tasks": ["network_task", "monitor_task"], "max_hold_ms": 10, "lock_order": 1, "priority_inheritance": true, "description": "配置读写保护"}
+      {"name": "config_mutex", "type": "mutex", "holder_tasks": ["network_task", "monitor_task"], "max_hold_ms": 10, "lock_order": 1, "priority_inheritance": true, "description": "Config Read/Write Protection"}
     ],
     "timers": [
-      {"name": "wdt_feed", "period_ms": 5000, "auto_reload": true, "callback_max_ms": 1, "notifies_tasks": [], "callback_policy": "deferred", "description": "看门狗"}
+      {"name": "wdt_feed", "period_ms": 5000, "auto_reload": true, "callback_max_ms": 1, "notifies_tasks": [], "callback_policy": "deferred", "description": "Watchdog"}
     ],
     "memory_pools": [
-      {"name": "net_buf_pool", "block_size": 1500, "num_blocks": 4, "owner_tasks": ["network_task"], "full_policy": "block", "runtime_expand_allowed": false, "description": "网络 packet 池"}
+      {"name": "net_buf_pool", "block_size": 1500, "num_blocks": 4, "owner_tasks": ["network_task"], "full_policy": "block", "runtime_expand_allowed": false, "description": "Network Packet Pool"}
     ]
   }
 }

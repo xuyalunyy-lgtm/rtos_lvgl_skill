@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-Queue payload 所有权静态审查（铁律 #2）。
+Queue payload ownership static review (Iron Rule #2).
 
-检测 xQueueSend 链路中的违规：
-  - 向 Queue 传递 cJSON* 或含 cJSON* 的字段
-  - payload 指向栈上 buffer（函数返回后悬空）
+Detects violations in xQueueSend call chains:
+  - Passing cJSON* or fields containing cJSON* to a Queue
+  - payload pointing to stack buffer (dangling after function return)
 """
 
 from __future__ import annotations
@@ -56,7 +56,7 @@ def find_function_at_line(lines: list[str], line_idx: int) -> str:
 
 
 def _func_region(lines: list[str], send_line_idx: int) -> tuple[int, int]:
-    """从 xQueueSend 行向上找函数起点，向下找粗略函数结尾。"""
+    """Find function start upward from xQueueSend line, and rough function end downward."""
     start = send_line_idx
     for i in range(send_line_idx, -1, -1):
         if FUNC_START.match(lines[i].strip()):
@@ -108,7 +108,7 @@ def analyze(content: str, filename: str = "<stdin>") -> CheckResult:
                 Violation(
                     line_no=idx + 1,
                     kind="cJSON_in_queue_send",
-                    detail="xQueueSend 调用行含 cJSON — 禁止向 Queue 传 cJSON*",
+                    detail="xQueueSend call line contains cJSON — passing cJSON* to Queue is forbidden",
                     line_text=stripped[:100],
                 )
             )
@@ -121,7 +121,7 @@ def analyze(content: str, filename: str = "<stdin>") -> CheckResult:
                     Violation(
                         line_no=assign_line,
                         kind="stack_payload",
-                        detail=f".payload/.data 指向栈变量 '{rhs}' — Presenter 收到悬空指针",
+                        detail=f".payload/.data points to stack variable '{rhs}' — Presenter receives dangling pointer",
                         line_text=lines[assign_line - 1].strip()[:100],
                     )
                 )
@@ -130,12 +130,12 @@ def analyze(content: str, filename: str = "<stdin>") -> CheckResult:
                     Violation(
                         line_no=assign_line,
                         kind="cjson_payload",
-                        detail=f"字段赋值为 cJSON* '{rhs}' — cJSON 不得进 Queue",
+                        detail=f"Field assigned with cJSON* '{rhs}' — cJSON must not enter Queue",
                         line_text=lines[assign_line - 1].strip()[:100],
                     )
                 )
 
-        # xQueueSend(q, &cjson_var, ...) — 队列元素为指针时直接传 cJSON*
+        # xQueueSend(q, &cjson_var, ...) — passing cJSON* directly when queue element is a pointer
         send_m = re.search(
             r"xQueue(?:Send|SendToBack|SendFromISR)\s*\(\s*[^,]+,\s*&(\w+)",
             line,
@@ -147,7 +147,7 @@ def analyze(content: str, filename: str = "<stdin>") -> CheckResult:
                     Violation(
                         line_no=idx + 1,
                         kind="cjson_queue_element",
-                        detail=f"xQueueSend 传递 cJSON* '&{arg}'",
+                        detail=f"xQueueSend passes cJSON* '&{arg}'",
                         line_text=stripped[:100],
                     )
                 )
@@ -156,7 +156,7 @@ def analyze(content: str, filename: str = "<stdin>") -> CheckResult:
                     Violation(
                         line_no=idx + 1,
                         kind="stack_queue_element",
-                        detail=f"xQueueSend 传递栈 buffer '&{arg}'",
+                        detail=f"xQueueSend passes stack buffer '&{arg}'",
                         line_text=stripped[:100],
                     )
                 )
@@ -165,12 +165,12 @@ def analyze(content: str, filename: str = "<stdin>") -> CheckResult:
                     Violation(
                         line_no=idx + 1,
                         kind="stack_ptr_queue_element",
-                        detail=f"xQueueSend 传递指向栈 '{ptr_from_stack[arg]}' 的指针 '&{arg}'",
+                        detail=f"xQueueSend passes pointer to stack '{ptr_from_stack[arg]}' as '&{arg}'",
                         line_text=stripped[:100],
                     )
                 )
 
-        # Parse 结果直接进 Queue（常见反模式）
+        # Parse result directly into Queue (common anti-pattern)
         if re.search(
             r"xQueue\w+.*\bcJSON_(?:Parse|Create)",
             region_text,
@@ -180,12 +180,12 @@ def analyze(content: str, filename: str = "<stdin>") -> CheckResult:
                 Violation(
                     line_no=idx + 1,
                     kind="parse_to_queue",
-                    detail=f"函数内 cJSON_Parse/Create 与 xQueueSend 同域 — 确认未传 root 指针",
+                    detail=f"cJSON_Parse/Create and xQueueSend in same scope — verify root pointer is not passed",
                     line_text=stripped[:100],
                 )
             )
 
-    # 去重（同 line + kind）
+    # Deduplicate (same line + kind)
     seen: set[tuple[int, str]] = set()
     unique: list[Violation] = []
     for v in result.violations:
@@ -219,4 +219,4 @@ def check_file(path: Path) -> list[dict]:
 
 
 if __name__ == "__main__":
-    raise SystemExit(run_checker(check_file, "C2 Queue payload 所有权审查", ("C2",)))
+    raise SystemExit(run_checker(check_file, "C2 Queue payload ownership review", ("C2",)))

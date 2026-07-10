@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-C14.4 日志脱敏启发式检查器。
+C14.4 Log desensitization heuristic checker.
 
-检查项:
-  C14.4 — 日志禁止打印密码/token/密钥明文
+Checks:
+  C14.4 — Logs must not print passwords/tokens/keys in plaintext
 
-用法:
+Usage:
     python tools/log_desensitize_checker.py <file.c> [file2.c ...]
     python tools/log_desensitize_checker.py --dir src/
 """
@@ -51,7 +51,7 @@ SENSITIVE_KEYWORDS = [
 
 
 def check_log_desensitize(path: Path, lines: list[str]) -> list[dict]:
-    """C14.4 — 日志中禁止打印敏感信息明文"""
+    """C14.4 — Logs must not print sensitive information in plaintext"""
     issues = []
 
     for i, line in enumerate(lines, 1):
@@ -82,7 +82,7 @@ def check_log_desensitize(path: Path, lines: list[str]) -> list[dict]:
                     if re.search(r'%[sdxf]', stripped):
                         issues.append(make_issue(
                             path, i, "C14.4", "P1",
-                            f"日志可能打印 {keyword} 明文（应脱敏）",
+                            f"Log may print {keyword} in plaintext (should be desensitized)",
                         ))
                         break
 
@@ -98,4 +98,4 @@ def check_file(path: Path) -> list[dict]:
 
 
 if __name__ == "__main__":
-    raise SystemExit(run_checker(check_file, "C14.4 日志脱敏检查器", ("C14.4",)))
+    raise SystemExit(run_checker(check_file, "C14.4 Log Desensitization Checker", ("C14.4",)))

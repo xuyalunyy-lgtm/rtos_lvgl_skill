@@ -1,13 +1,13 @@
 ﻿#!/usr/bin/env python3
 """
-Lite 版本同步检查脚本。
+Lite version sync check script.
 
-检查 freertos-skill-lite 是否漏掉关键 workflow、platform、prompt，
-或者版本号/CHANGELOG 没同步。
+Check whether freertos-skill-lite is missing critical workflows, platforms, prompts,
+or has unsynchronized version numbers / CHANGELOG.
 
-用法:
+Usage:
     python scripts/check_lite_sync.py
-    python scripts/check_lite_sync.py --fix  # 自动修复可修复的问题
+    python scripts/check_lite_sync.py --fix  # auto-fix fixable issues
 """
 
 from __future__ import annotations
@@ -369,7 +369,7 @@ def run_architecture_sync_check() -> bool:
             cwd=str(ROOT),
         )
     except OSError as e:
-        print(f"  架构一致性检查执行失败: {e}")
+        print(f"  Architecture sync check execution failed: {e}")
         return False
 
     if result.stderr:
@@ -381,7 +381,7 @@ def run_architecture_sync_check() -> bool:
     try:
         payload = json.loads(result.stdout or "{}")
     except json.JSONDecodeError:
-        print("  架构一致性检查输出无法解析为 JSON", file=sys.stderr)
+        print("  Architecture sync check output is not valid JSON", file=sys.stderr)
         return False
 
     return bool(payload.get("pass", False))
@@ -415,14 +415,14 @@ def main() -> int:
 
     if not all_issues:
         if args.fix:
-            print("=== 无自动修复项 ===")
+            print("=== No auto-fixable items ===")
             arch_ok = run_architecture_sync_check()
             print(f"[SUMMARY] lite_sync=PASS")
             print(f"[SUMMARY] architecture_check={('PASS' if arch_ok else 'FAIL')}")
             print(f"[SUMMARY] final={('PASS' if arch_ok else 'FAIL')}")
             return 0 if arch_ok else 1
 
-        print("Lite 同步检查通过")
+        print("Lite sync check passed")
         return 0
 
     print(f"[SUMMARY] lite_sync={len(all_issues)} issues (auto={auto_fixable}, manual={manual_only})")

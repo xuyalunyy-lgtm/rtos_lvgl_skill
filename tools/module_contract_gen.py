@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-模块契约生成器 — 生成 C29 模块契约头文件 + C30 任务拓扑表。
+Module contract generator — generates C29 module contract header + C30 task topology table.
 
-功能：
-  1. 输入模块名 + I/P/O 描述，生成模块契约头文件
-  2. 生成任务拓扑表模板
-  3. 生成生命周期对称骨架
+Features:
+  1. Input module name + I/P/O description, generate module contract header
+  2. Generate task topology table template
+  3. Generate lifecycle symmetry skeleton
 
-用法:
+Usage:
     python tools/module_contract_gen.py --name audio_player --input "PCM data" --output "playback state"
     python tools/module_contract_gen.py --name audio_player --input "PCM data" --output "playback state" --tasks 2
     python tools/module_contract_gen.py --self-test
@@ -29,20 +29,20 @@ if sys.platform == "win32":
 
 
 def generate_contract_header(name: str, input_desc: str, output_desc: str, num_tasks: int = 1) -> str:
-    """生成模块契约头文件"""
+    """Generate module contract header file"""
     upper_name = name.upper()
 
     header = f'''/**
  * @file {name}_contract.h
- * @brief {name} 模块契约（C29 + C30 自动生成）
+ * @brief {name} module contract (C29 + C30 auto-generated)
  *
- * 约束覆盖：
- *   C29.1 — 可调用上下文声明
- *   C29.2 — 阻塞语义声明
- *   C29.3 — 所有权声明
- *   C29.4 — 生命周期顺序声明
- *   C29.5 — 错误码语义声明
- *   C30.1 — 任务/队列拓扑表
+ * Constraint coverage:
+ *   C29.1 — Callable context declaration
+ *   C29.2 — Blocking semantics declaration
+ *   C29.3 — Ownership declaration
+ *   C29.4 — Lifecycle order declaration
+ *   C29.5 — Error code semantics declaration
+ *   C30.1 — Task/queue topology table
  */
 
 #ifndef {upper_name}_CONTRACT_H
@@ -56,20 +56,20 @@ extern "C" {{
 #endif
 
 /* ========================================================================== */
-/* 错误码 (C29.5)                                                            */
+/* Error codes (C29.5)                                                        */
 /* ========================================================================== */
 
 typedef enum {{
     {upper_name}_OK = 0,
-    {upper_name}_ERR_TIMEOUT,      /* 可恢复：超时 */
-    {upper_name}_ERR_RESOURCE,     /* 可恢复：资源不足 */
-    {upper_name}_ERR_CONFIG,       /* 不可恢复：配置错误 */
-    {upper_name}_ERR_IO,           /* 可恢复：IO 错误 */
-    {upper_name}_ERR_STATE,        /* 不可恢复：非法状态 */
+    {upper_name}_ERR_TIMEOUT,      /* Recoverable: timeout */
+    {upper_name}_ERR_RESOURCE,     /* Recoverable: insufficient resources */
+    {upper_name}_ERR_CONFIG,       /* Unrecoverable: configuration error */
+    {upper_name}_ERR_IO,           /* Recoverable: IO error */
+    {upper_name}_ERR_STATE,        /* Unrecoverable: invalid state */
 }} {name}_err_t;
 
 /* ========================================================================== */
-/* 模块状态 (C32.1 可观测性)                                                 */
+/* Module state (C32.1 observability)                                         */
 /* ========================================================================== */
 
 typedef enum {{
@@ -89,7 +89,7 @@ typedef struct {{
 }} {name}_status_t;
 
 /* ========================================================================== */
-/* 模块契约 (C29)                                                            */
+/* Module contract (C29)                                                      */
 /* ========================================================================== */
 
 /* module_boundary:
@@ -103,110 +103,110 @@ typedef struct {{
  */
 
 /**
- * @brief 初始化模块
+ * @brief Initialize module
  *
- * @par 可调用上下文 (C29.1): task only
- * @par 阻塞语义 (C29.2): 最大等待 100ms
- * @par 生命周期 (C29.4): 必须在 start 之前调用
+ * @par Callable context (C29.1): task only
+ * @par Blocking semantics (C29.2): max wait 100ms
+ * @par Lifecycle (C29.4): must be called before start
  *
- * @return {upper_name}_OK 成功
- * @return {upper_name}_ERR_RESOURCE 资源不足
- * @return {upper_name}_ERR_CONFIG 配置错误
+ * @return {upper_name}_OK success
+ * @return {upper_name}_ERR_RESOURCE insufficient resources
+ * @return {upper_name}_ERR_CONFIG configuration error
  */
 {name}_err_t {name}_init(void);
 
 /**
- * @brief 启动模块
+ * @brief Start module
  *
- * @par 可调用上下文 (C29.1): task only
- * @par 阻塞语义 (C29.2): 非阻塞
- * @par 生命周期 (C29.4): 必须在 init 之后、stop 之前调用
+ * @par Callable context (C29.1): task only
+ * @par Blocking semantics (C29.2): non-blocking
+ * @par Lifecycle (C29.4): must be called after init, before stop
  *
- * @return {upper_name}_OK 成功
- * @return {upper_name}_ERR_STATE 未初始化
+ * @return {upper_name}_OK success
+ * @return {upper_name}_ERR_STATE not initialized
  */
 {name}_err_t {name}_start(void);
 
 /**
- * @brief 停止模块
+ * @brief Stop module
  *
- * @par 可调用上下文 (C29.1): task only
- * @par 阻塞语义 (C29.2): 最大等待 500ms（等待任务退出）
- * @par 可重入 (C29.4): 可重入，多次调用安全
- * @par 生命周期 (C29.4): 可在 start 后任意时刻调用
+ * @par Callable context (C29.1): task only
+ * @par Blocking semantics (C29.2): max wait 500ms (waiting for task exit)
+ * @par Reentrant (C29.4): reentrant, safe for multiple calls
+ * @par Lifecycle (C29.4): can be called at any time after start
  *
- * @return {upper_name}_OK 成功
+ * @return {upper_name}_OK success
  */
 {name}_err_t {name}_stop(void);
 
 /**
- * @brief 反初始化模块
+ * @brief Deinitialize module
  *
- * @par 可调用上下文 (C29.1): task only
- * @par 阻塞语义 (C29.2): 非阻塞
- * @par 可重入 (C29.4): 可重入，多次调用安全
- * @par 生命周期 (C29.4): 必须在 stop 之后调用
+ * @par Callable context (C29.1): task only
+ * @par Blocking semantics (C29.2): non-blocking
+ * @par Reentrant (C29.4): reentrant, safe for multiple calls
+ * @par Lifecycle (C29.4): must be called after stop
  *
- * @return {upper_name}_OK 成功
+ * @return {upper_name}_OK success
  */
 {name}_err_t {name}_deinit(void);
 
 /**
- * @brief 获取模块状态
+ * @brief Get module status
  *
- * @par 可调用上下文 (C29.1): task / ISR / timer
- * @par 阻塞语义 (C29.2): 非阻塞
+ * @par Callable context (C29.1): task / ISR / timer
+ * @par Blocking semantics (C29.2): non-blocking
  *
- * @param[out] status 模块状态
- * @return {upper_name}_OK 成功
+ * @param[out] status module status
+ * @return {upper_name}_OK success
  */
 {name}_err_t {name}_get_status({name}_status_t *status);
 
 /* ========================================================================== */
-/* 输入/输出接口 (C29.3 所有权)                                              */
+/* Input/Output interfaces (C29.3 ownership)                                  */
 /* ========================================================================== */
 
 /**
- * @brief 输入 {input_desc}
+ * @brief Input {input_desc}
  *
- * @par 可调用上下文 (C29.1): task only
- * @par 阻塞语义 (C29.2): 最大等待 50ms
- * @par 所有权 (C29.3): 调用方拥有数据，模块内部拷贝
+ * @par Callable context (C29.1): task only
+ * @par Blocking semantics (C29.2): max wait 50ms
+ * @par Ownership (C29.3): caller owns data, module copies internally
  *
- * @param data 输入数据
- * @param len 数据长度
- * @return {upper_name}_OK 成功
- * @return {upper_name}_ERR_TIMEOUT 队列满
+ * @param data input data
+ * @param len data length
+ * @return {upper_name}_OK success
+ * @return {upper_name}_ERR_TIMEOUT queue full
  */
 {name}_err_t {name}_input(const void *data, size_t len);
 
 /**
- * @brief 输出 {output_desc}
+ * @brief Output {output_desc}
  *
- * @par 可调用上下文 (C29.1): task only
- * @par 阻塞语义 (C29.2): 非阻塞
- * @par 所有权 (C29.3): 模块拥有输出数据，调用方只读
+ * @par Callable context (C29.1): task only
+ * @par Blocking semantics (C29.2): non-blocking
+ * @par Ownership (C29.3): module owns output data, caller is read-only
  *
- * @param[out] data 输出数据指针
- * @param[out] len 数据长度
- * @return {upper_name}_OK 成功
- * @return {upper_name}_ERR_STATE 无数据
+ * @param[out] data output data pointer
+ * @param[out] len data length
+ * @return {upper_name}_OK success
+ * @return {upper_name}_ERR_STATE no data
  */
 {name}_err_t {name}_output(const void **data, size_t *len);
 
 /* ========================================================================== */
-/* 任务拓扑表 (C30)                                                          */
+/* Task topology table (C30)                                                  */
 /* ========================================================================== */
 
 /*
- * 任务拓扑表（C30.1）
+ * Task topology table (C30.1)
  *
- * | 任务名 | 优先级 | 栈大小 | 队列 | 生产者 | 消费者 | 超时 | 背压 |
- * |--------|--------|--------|------|--------|--------|------|------|
+ * | Task name | Priority | Stack size | Queue | Producer | Consumer | Timeout | Backpressure |
+ * |-----------|----------|------------|-------|----------|----------|---------|--------------|
  * | {name}_worker | 5 | 4096 | {name}_q (depth=8) | {name}_input | {name}_process | 50ms | drop-oldest |
  *
- * 队列元素类型: 内部 buffer 描述符（非裸指针）
- * 退出条件: stop flag + k_msgq_purge
+ * Queue element type: internal buffer descriptor (not raw pointer)
+ * Exit condition: stop flag + k_msgq_purge
  */
 
 #ifdef __cplusplus
@@ -219,12 +219,12 @@ typedef struct {{
 
 
 def generate_state_machine(name: str) -> str:
-    """生成状态机骨架"""
+    """Generate state machine skeleton"""
     upper_name = name.upper()
 
     code = f'''/**
  * @file {name}_fsm.c
- * @brief {name} 状态机骨架（C13 自动生成）
+ * @brief {name} state machine skeleton (C13 auto-generated)
  */
 
 #include "{name}_contract.h"
@@ -247,7 +247,7 @@ static uint32_t s_last_error_line = 0;
         return {upper_name}_ERR_STATE;
     }}
 
-    /* TODO: 初始化资源 */
+    /* TODO: Initialize resources */
 
     s_state = {upper_name}_STATE_IDLE;
     LOG_INF("Module initialized");
@@ -262,7 +262,7 @@ static uint32_t s_last_error_line = 0;
         return {upper_name}_ERR_STATE;
     }}
 
-    /* TODO: 启动任务/定时器 */
+    /* TODO: Start tasks/timers */
 
     s_state = {upper_name}_STATE_RUNNING;
     LOG_INF("Module started");
@@ -273,13 +273,13 @@ static uint32_t s_last_error_line = 0;
 {{
     if (s_state != {upper_name}_STATE_RUNNING) {{
         LOG_WRN("Not running, state=%d", s_state);
-        return {upper_name}_OK; /* 可重入 */
+        return {upper_name}_OK; /* Reentrant */
     }}
 
     s_state = {upper_name}_STATE_STOPPING;
     LOG_INF("Module stopping...");
 
-    /* TODO: 通知任务退出 + 等待 */
+    /* TODO: Notify task exit + wait */
 
     s_state = {upper_name}_STATE_IDLE;
     LOG_INF("Module stopped");
@@ -289,14 +289,14 @@ static uint32_t s_last_error_line = 0;
 {name}_err_t {name}_deinit(void)
 {{
     if (s_state == {upper_name}_STATE_UNINIT) {{
-        return {upper_name}_OK; /* 可重入 */
+        return {upper_name}_OK; /* Reentrant */
     }}
 
     if (s_state == {upper_name}_STATE_RUNNING) {{
         {name}_stop();
     }}
 
-    /* TODO: 释放资源 */
+    /* TODO: Release resources */
 
     s_state = {upper_name}_STATE_UNINIT;
     LOG_INF("Module deinitialized");
@@ -317,7 +317,7 @@ static uint32_t s_last_error_line = 0;
 
 
 def run_self_test() -> int:
-    """自测"""
+    """Self-test"""
     passed = 0
     failed = 0
 
@@ -362,16 +362,16 @@ def run_self_test() -> int:
 
 
 def generate_modules_init_c(modules: list[dict]) -> str:
-    """生成 modules_init.c — 多模块初始化顺序（按拓扑排序）。"""
+    """Generate modules_init.c — multi-module initialization order (topologically sorted)."""
     lines = [
         '/**',
         ' * @file modules_init.c',
-        ' * @brief 多模块初始化入口（自动生成）',
+        ' * @brief Multi-module initialization entry (auto-generated)',
         ' *',
-        ' * 初始化顺序按模块依赖拓扑排序：',
-        ' *   1. 基础设施（通信、存储）',
-        ' *   2. 驱动层（传感器、显示、音频）',
-        ' *   3. 业务层（UI、ASR、网络）',
+        ' * Initialization order is topologically sorted by module dependencies:',
+        ' *   1. Infrastructure (communication, storage)',
+        ' *   2. Driver layer (sensors, display, audio)',
+        ' *   3. Business layer (UI, ASR, network)',
         ' */',
         '',
         '#include <stdio.h>',
@@ -381,7 +381,7 @@ def generate_modules_init_c(modules: list[dict]) -> str:
         '',
     ]
 
-    # include 所有模块契约头文件
+    # Include all module contract header files
     for mod in modules:
         name = mod if isinstance(mod, str) else mod.get("name", "unknown")
         lines.append(f'#include "{name}_contract.h"')
@@ -389,7 +389,7 @@ def generate_modules_init_c(modules: list[dict]) -> str:
     lines.append('static const char *TAG = "modules_init";')
     lines.append('')
 
-    # 初始化函数
+    # Initialization function
     lines.append('esp_err_t modules_init_all(void)')
     lines.append('{')
     lines.append('    esp_err_t err;')
@@ -411,7 +411,7 @@ def generate_modules_init_c(modules: list[dict]) -> str:
     lines.append('}')
     lines.append('')
 
-    # 启动函数
+    # Start function
     lines.append('esp_err_t modules_start_all(void)')
     lines.append('{')
     lines.append('    esp_err_t err;')
@@ -429,7 +429,7 @@ def generate_modules_init_c(modules: list[dict]) -> str:
     lines.append('}')
     lines.append('')
 
-    # 停止函数（反序）
+    # Stop function (reverse order)
     lines.append('void modules_stop_all(void)')
     lines.append('{')
     for mod in reversed(modules):
@@ -438,7 +438,7 @@ def generate_modules_init_c(modules: list[dict]) -> str:
     lines.append('}')
     lines.append('')
 
-    # 反初始化函数（反序）
+    # Deinitialization function (reverse order)
     lines.append('void modules_deinit_all(void)')
     lines.append('{')
     for mod in reversed(modules):
@@ -450,35 +450,35 @@ def generate_modules_init_c(modules: list[dict]) -> str:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="模块契约生成器 v9.0.2")
-    parser.add_argument("--name", help="模块名（单模块模式）")
-    parser.add_argument("--input", help="输入描述")
-    parser.add_argument("--output", help="输出描述")
-    parser.add_argument("--tasks", type=int, default=1, help="任务数")
+    parser = argparse.ArgumentParser(description="Module contract generator v9.0.2")
+    parser.add_argument("--name", help="Module name (single module mode)")
+    parser.add_argument("--input", help="Input description")
+    parser.add_argument("--output", help="Output description")
+    parser.add_argument("--tasks", type=int, default=1, help="Number of tasks")
     parser.add_argument("--modules", nargs="+",
-                        help="多模块模式：模块名列表（如 audio_player display_mgr network_svc）")
-    parser.add_argument("--preset", help="从 scene_presets/ 读取模块定义")
-    parser.add_argument("--outdir", "-o", help="输出目录")
-    parser.add_argument("--evidence", metavar="FILE", help="输出交付证据包到指定文件")
-    parser.add_argument("--self-test", action="store_true", help="运行自测")
+                        help="Multi-module mode: module name list (e.g. audio_player display_mgr network_svc)")
+    parser.add_argument("--preset", help="Read module definitions from scene_presets/")
+    parser.add_argument("--outdir", "-o", help="Output directory")
+    parser.add_argument("--evidence", metavar="FILE", help="Output delivery evidence package to specified file")
+    parser.add_argument("--self-test", action="store_true", help="Run self-test")
     args = parser.parse_args()
 
     if args.self_test:
         return run_self_test()
 
-    # ── Preset 模式 ──
+    # ── Preset mode ──
     if args.preset:
         presets_dir = Path(__file__).resolve().parent.parent / "scene_presets"
         preset_path = presets_dir / f"{args.preset}.json"
         if not preset_path.exists():
-            print(f"错误: preset '{args.preset}' 不存在", file=sys.stderr)
+            print(f"Error: preset '{args.preset}' does not exist", file=sys.stderr)
             return 1
         preset = json.loads(preset_path.read_text(encoding="utf-8"))
         tasks = preset.get("generator_params", {}).get("tasks", [])
         if tasks:
             args.modules = tasks
 
-    # ── 多模块模式 ──
+    # ── Multi-module mode ──
     if args.modules:
         outdir = Path(args.outdir) if args.outdir else Path(".")
         outdir.mkdir(parents=True, exist_ok=True)
@@ -488,36 +488,36 @@ def main() -> int:
             mod = {"name": mod_name, "input": "data", "output": "result"}
             module_list.append(mod)
 
-            # 生成每个模块的契约头文件
+            # Generate contract header for each module
             header = generate_contract_header(mod_name, mod["input"], mod["output"], 1)
             header_path = outdir / f"{mod_name}_contract.h"
             header_path.write_text(header, encoding="utf-8")
             print(f"[OK] Generated {header_path}")
 
-            # 生成状态机
+            # Generate state machine
             code = generate_state_machine(mod_name)
             code_path = outdir / f"{mod_name}_fsm.c"
             code_path.write_text(code, encoding="utf-8")
             print(f"[OK] Generated {code_path}")
 
-        # 生成 modules_init.c
+        # Generate modules_init.c
         init_code = generate_modules_init_c(module_list)
         init_path = outdir / "modules_init.c"
         init_path.write_text(init_code, encoding="utf-8")
         print(f"[OK] Generated {init_path}")
 
-        # 证据包
+        # Evidence package
         if args.evidence:
             try:
                 from evidence_schema import generated_file, make_evidence, save_evidence
             except ImportError:
-                print("[warn] evidence_schema 模块不可用（已归档），跳过证据包输出", file=sys.stderr)
+                print("[warn] evidence_schema module not available (archived), skipping evidence package output", file=sys.stderr)
                 return 0
             gen_files = []
             for mod in module_list:
-                gen_files.append(generated_file(str(outdir / f"{mod['name']}_contract.h"), "h", f"{mod['name']} 契约头文件"))
-                gen_files.append(generated_file(str(outdir / f"{mod['name']}_fsm.c"), "c", f"{mod['name']} 状态机"))
-            gen_files.append(generated_file(str(init_path), "c", "多模块初始化入口"))
+                gen_files.append(generated_file(str(outdir / f"{mod['name']}_contract.h"), "h", f"{mod['name']} contract header"))
+                gen_files.append(generated_file(str(outdir / f"{mod['name']}_fsm.c"), "c", f"{mod['name']} state machine"))
+            gen_files.append(generated_file(str(init_path), "c", "Multi-module initialization entry"))
 
             ev = make_evidence(
                 source_tool="module_contract_gen",
@@ -525,11 +525,11 @@ def main() -> int:
                 metadata={"tool_version": "9.0.2", "modules": args.modules},
             )
             save_evidence(ev, args.evidence)
-            print(f"[evidence] 已保存交付证据包: {args.evidence}")
+            print(f"[evidence] Delivery evidence package saved: {args.evidence}")
 
         return 0
 
-    # ── 单模块模式 ──
+    # ── Single module mode ──
     if not args.name or not args.input or not args.output:
         parser.print_help()
         return 1

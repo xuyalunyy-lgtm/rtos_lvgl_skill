@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-C23 显示驱动安全启发式检查器。
+C23 display driver safety heuristic checker.
 
-检查项:
-  C23.5 — 帧缓冲分配必须检查返回值
-  C23.6 — lv_disp_drv_t 必须设置 hor_res/ver_res
+Checks:
+  C23.5 — framebuffer allocation must check return value
+  C23.6 — lv_disp_drv_t must set hor_res/ver_res
 
-用法:
+Usage:
     python tools/display_driver_checker.py <file.c> [file2.c ...]
     python tools/display_driver_checker.py --dir src/
 """
@@ -20,7 +20,7 @@ from checker_io import make_issue, read_file, run_checker
 
 
 def check_framebuffer_alloc(path: Path, lines: list[str]) -> list[dict]:
-    """C23.5 — 帧缓冲分配必须检查返回值"""
+    """C23.5 — framebuffer allocation must check return value"""
     issues = []
     fb_alloc_apis = [
         "heap_caps_malloc",
@@ -64,14 +64,14 @@ def check_framebuffer_alloc(path: Path, lines: list[str]) -> list[dict]:
                             break
                     if not checked:
                         issues.append(make_issue(path, i, "C23.5", "P0",
-                            f"帧缓冲 {api} 分配未检查返回值（可能为 NULL）"))
+                            f"framebuffer {api} allocation without return value check (may be NULL)"))
                 break
 
     return issues
 
 
 def check_disp_drv_fields(path: Path, lines: list[str]) -> list[dict]:
-    """C23.6 — lv_disp_drv_t 必须设置 hor_res/ver_res"""
+    """C23.6 — lv_disp_drv_t must set hor_res/ver_res"""
     issues = []
     in_disp_drv_init = False
     has_hor_res = False
@@ -108,16 +108,16 @@ def check_disp_drv_fields(path: Path, lines: list[str]) -> list[dict]:
             if "lv_disp_drv_register" in stripped:
                 if not has_hor_res:
                     issues.append(make_issue(path, init_start_line, "C23.6", "P1",
-                        "lv_disp_drv_t 未设置 hor_res（渲染区域错误）"))
+                        "lv_disp_drv_t hor_res not set (render region error)"))
                 if not has_ver_res:
                     issues.append(make_issue(path, init_start_line, "C23.6", "P1",
-                        "lv_disp_drv_t 未设置 ver_res（渲染区域错误）"))
+                        "lv_disp_drv_t ver_res not set (render region error)"))
                 if not has_flush_cb:
                     issues.append(make_issue(path, init_start_line, "C23.6", "P0",
-                        "lv_disp_drv_t 未设置 flush_cb（无法刷新显示）"))
+                        "lv_disp_drv_t flush_cb not set (cannot flush display)"))
                 if not has_draw_buf:
                     issues.append(make_issue(path, init_start_line, "C23.6", "P0",
-                        "lv_disp_drv_t 未设置 draw_buf（无绘制缓冲）"))
+                        "lv_disp_drv_t draw_buf not set (no draw buffer)"))
                 in_disp_drv_init = False
 
     return issues
@@ -136,4 +136,4 @@ def check_file(path: Path) -> list[dict]:
 
 
 if __name__ == "__main__":
-    raise SystemExit(run_checker(check_file, "C23 显示驱动安全检查器", ("C23",)))
+    raise SystemExit(run_checker(check_file, "C23 display driver safety checker", ("C23",)))

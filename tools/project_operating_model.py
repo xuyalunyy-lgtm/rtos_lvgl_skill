@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-Project Operating Model v16.0.2 — 统一项目事实源。
+Project Operating Model v16.0.2 — Unified project fact source.
 
-把 RTOS tasks、IPC、frameworks、platform profile、constraints、checker coverage
-合并为一个项目操作模型。
+Merge RTOS tasks, IPC, frameworks, platform profile, constraints, and checker coverage
+into a single project operating model.
 
-用法:
+Usage:
     python tools/project_operating_model.py --dir tools/fixtures/mini_esp32 --platform esp32
     python tools/project_operating_model.py --dir tools/fixtures/mini_esp32 --json
     python tools/project_operating_model.py --self-test
@@ -21,17 +21,17 @@ ROOT = Path(__file__).resolve().parent.parent
 
 
 def build_operating_model(dir_path: str, platform: str = "") -> dict:
-    """构建项目操作模型。"""
+    """Build project operating model."""
     from rtos_model import scan_source_dir
     from framework_profile import detect_frameworks, load_all_packs
 
-    # 1. RTOS 系统模型
+    # 1. RTOS system model
     rtos = scan_source_dir(dir_path)
 
-    # 2. Framework 检测
+    # 2. Framework detection
     frameworks = detect_frameworks(dir_path, platform)
 
-    # 3. 加载 platform profile
+    # 3. Load platform profile
     platform_profile = {}
     profile_path = ROOT / "product_profiles" / f"{platform}.json"
     if profile_path.exists():
@@ -62,7 +62,7 @@ def build_operating_model(dir_path: str, platform: str = "") -> dict:
         pass
     core_covered = sorted(set(core_covered))
 
-    # 6. 统计
+    # 6. Statistics
     return {
         "project": Path(dir_path).name,
         "platform": platform,
@@ -95,7 +95,7 @@ def run_self_test() -> int:
     passed = 0
     failed = 0
 
-    # 1. mini_esp32 操作模型
+    # 1. mini_esp32 operating model
     mini = ROOT / "tools" / "fixtures" / "mini_esp32"
     if mini.is_dir():
         model = build_operating_model(str(mini), "esp32")
@@ -105,7 +105,7 @@ def run_self_test() -> int:
         print(f"[PASS] mini_esp32: {model['rtos_model']['task_count']} tasks, {model['framework_count']} frameworks, {model['constraint_coverage']['core_covered_count']} core constraints")
         passed += 1
 
-    # 2. mini_zephyr 操作模型
+    # 2. mini_zephyr operating model
     mini_z = ROOT / "tools" / "fixtures" / "mini_zephyr"
     if mini_z.is_dir():
         model = build_operating_model(str(mini_z), "zephyr")
@@ -113,7 +113,7 @@ def run_self_test() -> int:
         print(f"[PASS] mini_zephyr: {model['rtos_model']['task_count']} tasks, {model['framework_count']} frameworks")
         passed += 1
 
-    # 3. JSON 序列化
+    # 3. JSON serialization
     if mini.is_dir():
         j = json.dumps(model, indent=2)
         data = json.loads(j)
@@ -128,9 +128,9 @@ def run_self_test() -> int:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Project Operating Model v16.0.2")
-    parser.add_argument("--dir", help="项目目录")
-    parser.add_argument("--platform", default="", help="平台")
-    parser.add_argument("--output", "-o", help="输出文件")
+    parser.add_argument("--dir", help="Project directory")
+    parser.add_argument("--platform", default="", help="Platform")
+    parser.add_argument("--output", "-o", help="Output file")
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--self-test", action="store_true")
     args = parser.parse_args()
@@ -146,7 +146,7 @@ def main() -> int:
 
     if args.output:
         Path(args.output).write_text(json.dumps(model, indent=2, ensure_ascii=False), encoding="utf-8")
-        print(f"模型已保存: {args.output}")
+        print(f"Model saved: {args.output}")
     elif args.json:
         print(json.dumps(model, indent=2, ensure_ascii=False))
     else:

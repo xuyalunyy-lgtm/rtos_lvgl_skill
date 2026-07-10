@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-C14 日志规范启发式检查器。
+C14 Logging specification heuristic checker.
 
-检查项:
-  C14.1 — 裸 printf/puts 而非 LOG_* 宏
-  C14.3 — ISR/HAL Callback 中的日志调用
+Checks:
+  C14.1 — Bare printf/puts instead of LOG_* macros
+  C14.3 — Log calls inside ISR/HAL Callback
 
-用法:
+Usage:
     python tools/logging_checker.py <file.c> [file2.c ...]
     python tools/logging_checker.py --dir src/
 """
@@ -54,12 +54,12 @@ def check_file(path: Path) -> list[dict]:
         # Check for bare printf
         if PRINTF_PATTERN.search(line) and not LOG_PATTERN.search(line):
             severity = "P0" if in_isr else "P1"
-            context = "ISR 中" if in_isr else ""
+            context = " in ISR" if in_isr else ""
             cid = "C14.3" if in_isr else "C14.1"
-            issues.append(make_issue(path, i, cid, severity, f"裸 printf/puts{context}，应改用 LOG_* 宏"))
+            issues.append(make_issue(path, i, cid, severity, f"Bare printf/puts{context}, should use LOG_* macros"))
 
     return issues
 
 
 if __name__ == "__main__":
-    raise SystemExit(run_checker(check_file, "C14 日志规范检查器", ("C14",)))
+    raise SystemExit(run_checker(check_file, "C14 Logging Specification Checker", ("C14",)))

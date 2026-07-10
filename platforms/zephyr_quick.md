@@ -1,8 +1,8 @@
 # Zephyr Quick Reference
 
-> 轻量 Zephyr 平台速查。完整版见 `zephyr.md`。
+> Lightweight Zephyr platform quick reference. Full version see `zephyr.md`.
 
-## 关键差异
+## Key Differences
 
 - **静态定义**：所有原语用宏定义（`K_THREAD_DEFINE`, `K_MSGQ_DEFINE`, `K_SEM_DEFINE`）
 - **Device Tree**：硬件描述在 `.dts`/`.overlay`，用 `DEVICE_DT_GET()` 获取设备

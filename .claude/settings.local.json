@@ -79,7 +79,13 @@
       "Bash(python tools/check_links.py)",
       "Bash(python scripts/commit_audit.py --max-log 12 --strict-release)",
       "Bash(find 'C:\\\\Users\\\\xuyl/.claude/projects' -name *.json -type f)",
-      "Bash(cp *)"
+      "Bash(cp *)",
+      "mcp__freertos-embedded-architect__run_gate",
+      "mcp__freertos-embedded-architect__list_capabilities",
+      "Bash(grep -v ':0$')"
     ]
-  }
+  },
+  "enabledMcpjsonServers": [
+    "freertos-embedded-architect"
+  ]
 }

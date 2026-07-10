@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-RTOS Scanner — 轻量项目事实扫描器。
+RTOS Scanner — lightweight project fact scanner.
 
-从源码中扫描 RTOS 原语（task/queue/mutex/semaphore/timer/ISR/DMA/cache/OTA），
-输出拓扑摘要。默认只报告，不阻断 gate。
+Scans RTOS primitives (task/queue/mutex/semaphore/timer/ISR/DMA/cache/OTA) from source code,
+outputs topology summary. Reports only by default, does not block gate.
 
-用法:
+Usage:
     python tools/rtos_scanner.py --dir src
     python tools/rtos_scanner.py --dir src --json
     python tools/rtos_scanner.py --self-test
@@ -30,7 +30,7 @@ except ImportError:
 
 @dataclass
 class RtosSummary:
-    """RTOS 拓扑摘要。"""
+    """RTOS topology summary."""
     platform: str = "esp32"
     tasks: list = field(default_factory=list)
     queues: list = field(default_factory=list)
@@ -44,19 +44,19 @@ class RtosSummary:
 
 
 def collect_c_files(dir_path: Path) -> list[Path]:
-    """收集 C/C++ 源文件。"""
+    """Collect C/C++ source files."""
     return sorted(dir_path.rglob("*.c")) + sorted(dir_path.rglob("*.h"))
 
 
 def strip_comments(content: str) -> str:
-    """移除 C/C++ 注释。"""
+    """Remove C/C++ comments."""
     content = re.sub(r"//.*?$", "", content, flags=re.MULTILINE)
     content = re.sub(r"/\*.*?\*/", "", content, flags=re.DOTALL)
     return content
 
 
 def scan_file(file_path: Path, lookup=None) -> dict:
-    """扫描单个文件，返回发现的 RTOS 原语。"""
+    """Scan a single file, return discovered RTOS primitives."""
     try:
         content = file_path.read_text(encoding="utf-8", errors="ignore")
     except Exception:
@@ -170,7 +170,7 @@ def scan_file(file_path: Path, lookup=None) -> dict:
 
 
 def scan_directory(dir_path: Path, platform: str = "esp32") -> RtosSummary:
-    """扫描目录，生成 RTOS 拓扑摘要。"""
+    """Scan directory, generate RTOS topology summary."""
     summary = RtosSummary(platform=platform)
     c_files = collect_c_files(dir_path)
 
@@ -198,7 +198,7 @@ def scan_directory(dir_path: Path, platform: str = "esp32") -> RtosSummary:
 
 
 def format_summary(summary: RtosSummary) -> str:
-    """格式化摘要为可读文本。"""
+    """Format summary as readable text."""
     lines = [f"RTOS Topology Summary (platform: {summary.platform})"]
     lines.append("=" * 50)
 
@@ -255,7 +255,7 @@ def format_summary(summary: RtosSummary) -> str:
 
 
 def run_self_test() -> int:
-    """运行自测。"""
+    """Run self-test."""
     passed = 0
     failed = 0
 

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-可复现验证包 v9.0.6 — 打包日志、配置、命令、checker 结果，方便问题复盘和交接。
+Reproducible verification bundle v9.0.6 — Package logs, configs, commands, checker results for issue review and handoff.
 
-用法:
+Usage:
     python tools/repro_bundle.py --workflow debug_crash --dir ./src --output bundle.json
     python tools/repro_bundle.py --workflow project_review --dir ./src --platform esp32
     python tools/repro_bundle.py --self-test
@@ -30,12 +30,12 @@ SKILL_ROOT = TOOLS_DIR.parent
 
 
 # ============================================================================
-# 数据结构
+# Data structures
 # ============================================================================
 
 @dataclass
 class ReproBundle:
-    """可复现验证包。"""
+    """Reproducible verification bundle."""
     version: str = "9.0.6"
     timestamp: str = ""
     workflow: str = ""              # debug_crash / bring_up / memory / project_review
@@ -59,11 +59,11 @@ class ReproBundle:
 
 
 # ============================================================================
-# 收集器
+# Collectors
 # ============================================================================
 
 def _collect_environment() -> dict:
-    """收集运行环境信息。"""
+    """Collect runtime environment information."""
     return {
         "os": platform.system(),
         "os_version": platform.version(),
@@ -74,7 +74,7 @@ def _collect_environment() -> dict:
 
 
 def _collect_platform_profile(platform_name: str) -> dict:
-    """加载平台 profile。"""
+    """Load platform profile."""
     profile_path = SKILL_ROOT / "product_profiles" / f"{platform_name}.json"
     if profile_path.exists():
         return json.loads(profile_path.read_text(encoding="utf-8"))
@@ -82,7 +82,7 @@ def _collect_platform_profile(platform_name: str) -> dict:
 
 
 def _collect_config_snapshot(dir_path: str) -> dict:
-    """收集构建配置快照。"""
+    """Collect build configuration snapshot."""
     config = {}
     root = Path(dir_path)
 
@@ -107,7 +107,7 @@ def _collect_config_snapshot(dir_path: str) -> dict:
 
 
 def _run_command(cmd: str, description: str = "") -> dict:
-    """运行命令并捕获输出。"""
+    """Run a command and capture output."""
     try:
         proc = subprocess.run(
             cmd, shell=True, capture_output=True,
@@ -173,7 +173,7 @@ def _collect_git_snapshot(dir_path: str) -> dict:
 
 
 def _run_checkers(dir_path: str, platform_name: str = "freertos") -> list[dict]:
-    """运行默认 checker suite 并收集结果。"""
+    """Run default checker suite and collect results."""
     results = []
     cmd = f'{sys.executable} "{TOOLS_DIR / "run_review.py"}" --dir "{dir_path}" --platform {platform_name} --json'
     try:
@@ -204,11 +204,11 @@ def _run_checkers(dir_path: str, platform_name: str = "freertos") -> list[dict]:
 
 
 def _collect_logs(dir_path: str, extra_paths: list[str] | None = None) -> list[dict]:
-    """收集日志文件。"""
+    """Collect log files."""
     logs = []
     root = Path(dir_path)
 
-    # 查找常见日志文件
+    # Find common log files
     for pattern in ["*.log", "build_log*", "crash_log*", "coredump*"]:
         for p in sorted(root.rglob(pattern))[:10]:
             try:
@@ -232,7 +232,7 @@ def _collect_logs(dir_path: str, extra_paths: list[str] | None = None) -> list[d
 
 
 def _parse_addr2line(output: str) -> list[dict]:
-    """解析 addr2line 输出。"""
+    """Parse addr2line output."""
     results = []
     for line in output.splitlines():
         line = line.strip()
@@ -253,24 +253,24 @@ def _parse_addr2line(output: str) -> list[dict]:
 
 
 # ============================================================================
-# 工作流收集器
+# Workflow collectors
 # ============================================================================
 
 WORKFLOW_CONFIGS = {
     "debug_crash": {
-        "description": "Crash 调试复现包",
+        "description": "Crash debug reproduction bundle",
         "collect": ["env", "platform", "logs", "config", "checker"],
     },
     "bring_up": {
-        "description": "板级 bring-up 复现包",
+        "description": "Board bring-up reproduction bundle",
         "collect": ["env", "platform", "config", "checker"],
     },
     "memory": {
-        "description": "内存分析复现包",
+        "description": "Memory analysis reproduction bundle",
         "collect": ["env", "platform", "config", "checker"],
     },
     "project_review": {
-        "description": "项目审查复现包",
+        "description": "Project review reproduction bundle",
         "collect": ["env", "platform", "config", "checker"],
     },
 }
@@ -286,7 +286,7 @@ def collect_bundle(
     addr2line_output: str = "",
     extra_commands: list[str] | None = None,
 ) -> ReproBundle:
-    """收集复现包。"""
+    """Collect reproduction bundle."""
     bundle = ReproBundle(
         timestamp=datetime.now(timezone.utc).isoformat(),
         workflow=workflow,
@@ -295,25 +295,25 @@ def collect_bundle(
 
     config = WORKFLOW_CONFIGS.get(workflow, WORKFLOW_CONFIGS["project_review"])
 
-    # 环境
+    # Environment
     if "env" in config["collect"]:
         bundle.environment = _collect_environment()
 
-    # 平台 profile
+    # Platform profile
     if "platform" in config["collect"]:
         bundle.platform_profile = _collect_platform_profile(platform_name)
 
-    # 日志
+    # Logs
     if "logs" in config["collect"]:
         bundle.logs = _collect_logs(dir_path, log_paths)
         if log_content:
             bundle.logs.append({"source": "manual_input", "content": log_content[:8192]})
 
-    # 配置快照
+    # Config snapshot
     if "config" in config["collect"]:
         bundle.config_snapshot = _collect_config_snapshot(dir_path)
 
-    # Checker 结果
+    # Checker results
     if "checker" in config["collect"]:
         bundle.checker_json = _run_checkers(dir_path, platform_name)
 
@@ -323,7 +323,7 @@ def collect_bundle(
     if addr2line_output:
         bundle.addr2line = _parse_addr2line(addr2line_output)
 
-    # 额外命令
+    # Extra commands
     if extra_commands:
         for cmd in extra_commands:
             bundle.commands.append(_run_command(cmd))
@@ -332,11 +332,11 @@ def collect_bundle(
 
 
 # ============================================================================
-# 持久化
+# Persistence
 # ============================================================================
 
 def save_bundle(bundle: ReproBundle, path: str | Path) -> Path:
-    """保存复现包。"""
+    """Save reproduction bundle."""
     p = Path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(bundle.to_json(), encoding="utf-8")
@@ -407,15 +407,15 @@ def render_repro_markdown(bundle: ReproBundle) -> str:
     return "\n".join(lines)
 
 def save_bundle_dir(bundle: ReproBundle, dir_path: str | Path) -> Path:
-    """保存复现包为目录形式。"""
+    """Save reproduction bundle as directory."""
     d = Path(dir_path)
     d.mkdir(parents=True, exist_ok=True)
 
-    # 主 JSON
+    # Main JSON
     (d / "repro_bundle.json").write_text(bundle.to_json(), encoding="utf-8")
     (d / "REPRO.md").write_text(render_repro_markdown(bundle), encoding="utf-8")
 
-    # 日志文件
+    # Log files
     if bundle.logs:
         logs_dir = d / "logs"
         logs_dir.mkdir(exist_ok=True)
@@ -423,7 +423,7 @@ def save_bundle_dir(bundle: ReproBundle, dir_path: str | Path) -> Path:
             source = log.get("source", "unknown").replace("/", "_").replace("\\", "_")
             (logs_dir / f"{source}.txt").write_text(log.get("content", ""), encoding="utf-8")
 
-    # 配置文件
+    # Config files
     if bundle.config_snapshot:
         config_dir = d / "config"
         config_dir.mkdir(exist_ok=True)
@@ -443,7 +443,7 @@ def save_bundle_dir(bundle: ReproBundle, dir_path: str | Path) -> Path:
 
 
 # ============================================================================
-# 自测
+# Self-test
 # ============================================================================
 
 def run_self_test() -> int:
@@ -525,19 +525,19 @@ def run_self_test() -> int:
 # ============================================================================
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="可复现验证包 v9.0.6")
+    parser = argparse.ArgumentParser(description="Reproducible verification bundle v9.0.6")
     parser.add_argument("--workflow", choices=list(WORKFLOW_CONFIGS.keys()),
-                        default="project_review", help="工作流类型")
-    parser.add_argument("--dir", "-d", help="项目目录")
-    parser.add_argument("--platform", "-p", default="freertos", help="平台")
-    parser.add_argument("--output", "-o", help="输出文件路径（JSON）")
-    parser.add_argument("--output-dir", help="输出目录路径")
-    parser.add_argument("--log", help="手动提供的日志内容")
+                        default="project_review", help="Workflow type")
+    parser.add_argument("--dir", "-d", help="Project directory")
+    parser.add_argument("--platform", "-p", default="freertos", help="Platform")
+    parser.add_argument("--output", "-o", help="Output file path (JSON)")
+    parser.add_argument("--output-dir", help="Output directory path")
+    parser.add_argument("--log", help="Manually provided log content")
     parser.add_argument("--log-file", action="append", default=[], help="extra log file")
     parser.add_argument("--log-dir", action="append", default=[], help="extra log directory")
     parser.add_argument("--addr2line", help="addr2line 输出")
-    parser.add_argument("--evidence", metavar="FILE", help="输出交付证据包到指定文件")
-    parser.add_argument("--self-test", action="store_true", help="运行自测")
+    parser.add_argument("--evidence", metavar="FILE", help="Output delivery evidence to specified file")
+    parser.add_argument("--self-test", action="store_true", help="Run self-test")
     args = parser.parse_args()
 
     if args.self_test:
@@ -548,7 +548,7 @@ def main() -> int:
         return 1
 
     if not Path(args.dir).is_dir():
-        print(f"错误: 目录不存在: {args.dir}", file=sys.stderr)
+        print(f"Error: directory not found: {args.dir}", file=sys.stderr)
         return 1
 
     bundle = collect_bundle(
@@ -560,22 +560,22 @@ def main() -> int:
         addr2line_output=args.addr2line or "",
     )
 
-    # 输出
+    # Output
     if args.output:
         save_bundle(bundle, args.output)
-        print(f"[OK] 复现包已保存: {args.output}")
+        print(f"[OK] Reproduction bundle saved: {args.output}")
     elif args.output_dir:
         save_bundle_dir(bundle, args.output_dir)
-        print(f"[OK] 复现包目录已保存: {args.output_dir}")
+        print(f"[OK] Reproduction bundle directory saved: {args.output_dir}")
     else:
         print(bundle.to_json())
 
-    # 证据包
+    # Evidence
     if args.evidence:
         try:
             from evidence_schema import make_evidence, repro_command, save_evidence
         except ImportError:
-            print("[warn] evidence_schema 模块不可用（已归档），跳过证据包输出", file=sys.stderr)
+            print("[warn] evidence_schema module not available (archived), skipping evidence output", file=sys.stderr)
             return 0
 
         ev = make_evidence(
@@ -584,13 +584,13 @@ def main() -> int:
             reproduce_commands=[
                 repro_command(
                     f"python tools/repro_bundle.py --workflow {args.workflow} --dir {args.dir} --platform {args.platform}",
-                    "复现验证包",
+                    "Reproduce verification bundle",
                 ),
             ],
             assumptions=[
-                f"工作流: {args.workflow}",
-                f"平台: {args.platform}",
-                f"Checker 结果: {len(bundle.checker_json)} 个",
+                f"Workflow: {args.workflow}",
+                f"Platform: {args.platform}",
+                f"Checker results: {len(bundle.checker_json)}",
             ],
             metadata={
                 "tool_version": "9.0.6",
@@ -600,7 +600,7 @@ def main() -> int:
             },
         )
         save_evidence(ev, args.evidence)
-        print(f"[evidence] 已保存交付证据包: {args.evidence}")
+        print(f"[evidence] Delivery evidence saved: {args.evidence}")
 
     return 0
 

@@ -1,19 +1,19 @@
-# 测试：代码审查
+# Test: Code Review
 
-## 输入
-- 目录：examples/
-- 平台：esp32
-- 期望触发：run_review.py
+## Input
+- Directory: examples/
+- Platform: esp32
+- Expected trigger: run_review.py
 
-## 验收条件
-- [ ] run_review.py 正常退出（exit code 0 或 1）
-- [ ] JSON 输出包含 `checkers` 数组
-- [ ] JSON 输出包含 `total_issues` 字段
-- [ ] --evidence 输出包含 `source_tool: "run_review"`
-- [ ] --evidence 输出包含 `issues` 数组
-- [ ] 无 Python traceback
+## Acceptance Criteria
+- [ ] run_review.py exits normally (exit code 0 or 1)
+- [ ] JSON output contains `checkers` array
+- [ ] JSON output contains `total_issues` field
+- [ ] --evidence output contains `source_tool: "run_review"`
+- [ ] --evidence output contains `issues` array
+- [ ] No Python traceback
 
-## 自动化命令
+## Automation Command
 ```bash
 python tools/run_review.py --dir examples --json --evidence forward_tests/out_review.json
 ```

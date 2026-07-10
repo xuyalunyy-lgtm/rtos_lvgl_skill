@@ -1,7 +1,7 @@
 {
-  "name": "纯控制器",
+  "name": "Pure Controller",
   "id": "pure-controller",
-  "description": "无显示/无网络的纯逻辑控制器，如电机驱动、PLC、继电器控制",
+  "description": "Pure logic controller without display/network, such as motor drives, PLC, relay control",
   "platforms": ["stm32", "esp32", "zephyr"],
   "required_constraints": [
     "C4", "C8", "C12", "C14", "C15", "C16",
@@ -17,16 +17,16 @@
     "audio": false,
     "network": false,
     "tasks": [
-      {"name": "control_task", "entry": "control_task_func", "stack_bytes": 2048, "priority": 6, "core_affinity": -1, "lifecycle": "periodic", "exit_policy": "stop_token", "watchdog": "feed", "period_ms": 10, "deadline_ms": 10, "wcet_ms": 5, "consumes": ["cmd_q"], "produces": ["status_q"], "holds": [], "description": "控制逻辑"},
-      {"name": "monitor_task", "entry": "monitor_task_func", "stack_bytes": 2048, "priority": 2, "core_affinity": -1, "lifecycle": "periodic", "exit_policy": "stop_token", "watchdog": "feed", "period_ms": 1000, "deadline_ms": 1000, "wcet_ms": 50, "consumes": ["status_q"], "produces": [], "holds": [], "description": "状态监控"}
+      {"name": "control_task", "entry": "control_task_func", "stack_bytes": 2048, "priority": 6, "core_affinity": -1, "lifecycle": "periodic", "exit_policy": "stop_token", "watchdog": "feed", "period_ms": 10, "deadline_ms": 10, "wcet_ms": 5, "consumes": ["cmd_q"], "produces": ["status_q"], "holds": [], "description": "Control Logic"},
+      {"name": "monitor_task", "entry": "monitor_task_func", "stack_bytes": 2048, "priority": 2, "core_affinity": -1, "lifecycle": "periodic", "exit_policy": "stop_token", "watchdog": "feed", "period_ms": 1000, "deadline_ms": 1000, "wcet_ms": 50, "consumes": ["status_q"], "produces": [], "holds": [], "description": "Status Monitor"}
     ],
     "queues": [
-      {"name": "cmd_q", "depth": 4, "item_type": "cmd_t", "item_size": 16, "producer_tasks": ["external"], "consumer_tasks": ["control_task"], "send_timeout_ms": 50, "recv_timeout_ms": 100, "full_policy": "drop_oldest", "drop_counter": "s_cmd_drop", "description": "控制命令队列"},
-      {"name": "status_q", "depth": 4, "item_type": "status_t", "item_size": 16, "producer_tasks": ["control_task"], "consumer_tasks": ["monitor_task"], "send_timeout_ms": 50, "recv_timeout_ms": 500, "full_policy": "drop_oldest", "drop_counter": "s_status_drop", "description": "状态队列"}
+      {"name": "cmd_q", "depth": 4, "item_type": "cmd_t", "item_size": 16, "producer_tasks": ["external"], "consumer_tasks": ["control_task"], "send_timeout_ms": 50, "recv_timeout_ms": 100, "full_policy": "drop_oldest", "drop_counter": "s_cmd_drop", "description": "Control Command Queue"},
+      {"name": "status_q", "depth": 4, "item_type": "status_t", "item_size": 16, "producer_tasks": ["control_task"], "consumer_tasks": ["monitor_task"], "send_timeout_ms": 50, "recv_timeout_ms": 500, "full_policy": "drop_oldest", "drop_counter": "s_status_drop", "description": "Status Queue"}
     ],
     "locks": [],
     "timers": [
-      {"name": "control_timer", "period_ms": 10, "auto_reload": true, "callback_max_ms": 2, "notifies_tasks": ["control_task"], "callback_policy": "notify_only", "description": "控制周期定时器"}
+      {"name": "control_timer", "period_ms": 10, "auto_reload": true, "callback_max_ms": 2, "notifies_tasks": ["control_task"], "callback_policy": "notify_only", "description": "Control Period Timer"}
     ],
     "memory_pools": []
   }

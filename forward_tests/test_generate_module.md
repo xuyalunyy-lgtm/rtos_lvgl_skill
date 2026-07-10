@@ -1,20 +1,20 @@
-# 测试：生成模块
+# Test: Generate Module
 
-## 输入
-- 模块列表：audio_player, display_mgr
-- 期望触发：module_contract_gen.py --modules
+## Input
+- Module list: audio_player, display_mgr
+- Expected trigger: module_contract_gen.py --modules
 
-## 验收条件
-- [ ] module_contract_gen.py 正常退出
-- [ ] 生成 audio_player_contract.h
-- [ ] 生成 audio_player_fsm.c
-- [ ] 生成 display_mgr_contract.h
-- [ ] 生成 display_mgr_fsm.c
-- [ ] 生成 modules_init.c
-- [ ] modules_init.c 包含 audio_player_init 和 display_mgr_init
-- [ ] 无 Python traceback
+## Acceptance Criteria
+- [ ] module_contract_gen.py exits normally
+- [ ] Generates audio_player_contract.h
+- [ ] Generates audio_player_fsm.c
+- [ ] Generates display_mgr_contract.h
+- [ ] Generates display_mgr_fsm.c
+- [ ] Generates modules_init.c
+- [ ] modules_init.c contains audio_player_init and display_mgr_init
+- [ ] No Python traceback
 
-## 自动化命令
+## Automation Command
 ```bash
 python tools/module_contract_gen.py --modules audio_player display_mgr --outdir forward_tests/out_modules
 ```

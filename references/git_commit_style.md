@@ -1,100 +1,100 @@
-# Git 提交说明规范（多仓工作区）
+# Git Commit Message Specification (Multi-repo Workspace)
 
-Agent **在用户明确要求 commit / 提交** 时读取本文件。提交前须 `git log -8 --oneline` 对齐目标仓库既有风格。
+Agent reads this file **when the user explicitly requests a commit**. Before committing, run `git log -8 --oneline` to align with the target repository's existing style.
 
 ---
 
-## 通用原则
+## General Principles
 
-| 规则 | 说明 |
+| Rule | Description |
 |------|------|
-| **语言** | 标题与正文用**中文**（专有名词、Kconfig/API 名可保留英文） |
-| **格式** | [Conventional Commits](https://www.conventionalcommits.org/)：`type(scope): 简述` |
-| **一行标题** | 标题 ≤ 72 字；祈使语气，不加句号 |
-| **正文** | 多文件/跨模块变更时加 2–4 条 `-` 要点（说明 why，非逐文件罗列） |
-| **提交前** | `git status` + `git diff`；**禁止**提交 secret、`.env`、`*.secrets`、调试日志 |
-| **amend** | 仅当 HEAD 未 push 且为用户要求改 message 或 hook 自动改文件 |
-| **push** | 用户未明确要求时**不 push** |
+| **Language** | Use **English** for titles and body text (proper nouns, Kconfig/API names may remain in English) |
+| **Format** | [Conventional Commits](https://www.conventionalcommits.org/): `type(scope): brief description` |
+| **One-line title** | Title ≤ 72 characters; imperative mood, no period at the end |
+| **Body** | Add 2–4 `-` bullet points for multi-file/cross-module changes (explain why, not a per-file list) |
+| **Before committing** | `git status` + `git diff`; **do not** commit secrets, `.env`, `*.secrets`, or debug logs |
+| **amend** | Only when HEAD is not pushed and the user requests message change or hook auto-modifies files |
+| **push** | **Do not push** unless the user explicitly requests it |
 
-### type 取值
+### type Values
 
-| type | 用途 |
+| type | Purpose |
 |------|------|
-| `feat` | 新功能、新模块、新 CI |
-| `fix` | Bug 修复、崩溃、回归 |
-| `chore` | 工具链、脚本、无行为变化的杂项 |
-| `docs` | 仅文档 |
-| `refactor` | 重构，不改外部行为 |
-| `test` | 测试、fixture |
-| `ci` | CI/CD 专用 |
+| `feat` | New feature, new module, new CI |
+| `fix` | Bug fix, crash, regression |
+| `chore` | Toolchain, scripts, miscellaneous with no behavior change |
+| `docs` | Documentation only |
+| `refactor` | Refactoring, no external behavior change |
+| `test` | Tests, fixtures |
+| `ci` | CI/CD specific |
 
-### scope 取值（通用）
+### scope Values (General)
 
-用**模块目录或子系统名**，小写，与**目标仓库** `git log` 历史一致。常见示例：
+Use **module directory or subsystem name**, lowercase, consistent with the **target repository's** `git log` history. Common examples:
 
-| scope 类型 | 示例 |
+| scope Type | Example |
 |------------|------|
-| 音频 | `audio`、`capture`、`prompt` |
-| 网络 | `network`、`wss`、`mqtt` |
-| UI | `ui`、`lvgl`、`board` |
-| 工程 | `build`、`ci`、`config` |
-| SDK 组件 | SDK 仓内组件目录名 |
+| Audio | `audio`, `capture`, `prompt` |
+| Network | `network`, `wss`, `mqtt` |
+| UI | `ui`, `lvgl`, `board` |
+| Engineering | `build`, `ci`, `config` |
+| SDK Components | Component directory name within SDK repo |
 
 ```bash
 git commit -m "$(cat <<'EOF'
-fix(audio): prompt 结束后 detach 播放路径，修复第二轮 ASR 空识别
+fix(audio): detach playback path after prompt ends, fix second-round ASR empty recognition
 
-- stop 与 FINISHED 双路径 detach
-- 开 uplink 前增加 AEC settle
+- Dual-path detach for stop and FINISHED
+- Add AEC settle before enabling uplink
 EOF
 )"
 ```
 
 ---
 
-## skill 仓（FreeRTOS Embedded Architect Skill）
+## skill Repo (FreeRTOS Embedded Architect Skill)
 
-**模式：** `feat: Skill vX.Y.Z — 中文简述`（版本发布 / 较大迭代）
+**Pattern:** `feat: Skill vX.Y.Z — brief description` (version release / major iteration)
 
-| 字段 | 说明 |
+| Field | Description |
 |------|------|
-| 版本 | 与 `SKILL.md` frontmatter `metadata.version` 一致 |
-| 分隔 | 中文破折号 `—` |
-| patch | 文案/小修可用 `docs:` / `fix:` + 简短中文 |
+| Version | Consistent with `SKILL.md` frontmatter `metadata.version` |
+| Separator | Em dash `—` |
+| patch | Text/minor fixes may use `docs:` / `fix:` + short description |
 
 ```bash
 git commit -m "$(cat <<'EOF'
-feat: Skill v2.19.0 — 通用化 C10 语音约束与平台分层
+feat: Skill v2.19.0 — generalize C10 voice constraints and platform layering
 EOF
 )"
 ```
 
-**skill 维护提交后：** 若改完整版且版本 bump → 运行 `python scripts/sync_lite.py`。
+**After skill maintenance commit:** If the full version is modified and version is bumped → run `python scripts/sync_lite.py`.
 
 ---
 
-## 提交前状态保护（多仓/嵌套仓库）
+## Pre-commit Status Protection (Multi-repo/Nested Repos)
 
-| 规则 | 说明 |
+| Rule | Description |
 |------|------|
-| **只提交相关文件** | `git add` 仅当前任务修改的文件，禁止 `git add .` 或 `git add -A` |
-| **列出未提交的脏文件** | 提交前 `git status` 输出未暂存文件，说明为何不提交 |
-| **构建生成文件不纳入** | `build/`、`*.o`、`*.bin`、`gen_files_list.txt` 等禁止提交 |
-| **嵌套仓库分别检查** | 若有 submodule 或嵌套 git 仓库（如 `projects/app/`），每个仓库单独 `git status` |
-| **分离关注点** | 不同功能的改动分开提交，一个 commit 只做一件事 |
+| **Only commit related files** | `git add` only files modified for the current task; `git add .` or `git add -A` are forbidden |
+| **List uncommitted dirty files** | Before committing, `git status` to show unstaged files, explain why they are not committed |
+| **Exclude build-generated files** | `build/`, `*.o`, `*.bin`, `gen_files_list.txt`, etc. are forbidden to commit |
+| **Check nested repos separately** | If there are submodules or nested git repos (e.g., `projects/app/`), run `git status` for each repo separately |
+| **Separate concerns** | Split changes for different features into separate commits; one commit does one thing only |
 
 ```bash
-# 提交前检查示例
-git status                    # 查看所有改动
-git diff --cached             # 查看已暂存内容
-git diff                      # 查看未暂存内容
+# Pre-commit check example
+git status                    # View all changes
+git diff --cached             # View staged content
+git diff                      # View unstaged content
 
-# 嵌套仓库检查
+# Nested repo check
 cd projects/app && git status
 cd ../../skill && git status
 ```
 
-**禁止**一次提交包含不相关改动（如同时改 audio + ui + config）。
+**Do not** commit unrelated changes in one commit (e.g., modifying audio + ui + config simultaneously).
 
 ---
 

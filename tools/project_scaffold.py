@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """
-一键项目脚手架生成器 v9.0.2 — 按 platform profile 和 scene preset 生成完整 MVP 项目。
+One-click project scaffold generator v9.0.2 — Generate a complete MVP project based on platform profile and scene preset.
 
-v2 增强：
-  1. --preset：从 scene_presets/ 读取场景定义，自动设置 features/约束/tasks
-  2. --platform-profile：从 product_profiles/ 读取平台定义
-  3. 生成 task_topology.h、constraint_manifest.json、Kconfig
-  4. main.c 带约束注释、模块生命周期、任务拓扑
+v2 enhancements:
+  1. --preset: Read scene definitions from scene_presets/, auto-set features/constraints/tasks
+  2. --platform-profile: Read platform definitions from product_profiles/
+  3. Generate task_topology.h, constraint_manifest.json, Kconfig
+  4. main.c with constraint annotations, module lifecycle, task topology
 
-用法:
+Usage:
     python tools/project_scaffold.py --name my_device --platform esp32
     python tools/project_scaffold.py --name my_device --preset voice-screen
     python tools/project_scaffold.py --name my_device --preset audio-video --platform jl
@@ -30,7 +30,7 @@ if sys.platform == "win32":
         sys.stdout.reconfigure(encoding="utf-8")
 
 
-# ── 向后兼容：旧版 PLATFORM_TEMPLATES ──
+# ── Backward compatibility: legacy PLATFORM_TEMPLATES ──
 PLATFORM_TEMPLATES = {
     "esp32": {
         "cmake": "cmake_minimum_required(VERSION 3.16)\ninclude($ENV{{IDF_PATH}}/tools/cmake/project.cmake)\nproject({name})",
@@ -65,23 +65,23 @@ PLATFORM_TEMPLATES = {
 }
 
 
-# ── Preset / Platform 加载 ──
+# ── Preset / Platform loading ──
 
 def _normalize_preset_id(preset_id: str) -> str:
-    """规范化 preset ID：支持 - 和 _ 互转。"""
-    # 先尝试原样匹配
+    """Normalize preset ID: support - and _ interchangeability."""
+    # Try exact match first
     presets_dir = Path(__file__).resolve().parent.parent / "scene_presets"
     if (presets_dir / f"{preset_id}.json").exists():
         return preset_id
-    # 尝试 - 转 _
+    # Try converting - to _
     alt = preset_id.replace("-", "_")
     if (presets_dir / f"{alt}.json").exists():
         return alt
-    # 尝试 _ 转 -
+    # Try converting _ to -
     alt = preset_id.replace("_", "-")
     if (presets_dir / f"{alt}.json").exists():
         return alt
-    # 扫描 JSON id 字段
+    # Scan JSON id field
     for f in presets_dir.glob("*.json"):
         try:
             data = json.loads(f.read_text(encoding="utf-8"))
@@ -93,7 +93,7 @@ def _normalize_preset_id(preset_id: str) -> str:
 
 
 def _load_preset(preset_id: str) -> dict | None:
-    """加载场景 preset，不存在返回 None。"""
+    """Load scene preset, return None if not found."""
     presets_dir = Path(__file__).resolve().parent.parent / "scene_presets"
     normalized = _normalize_preset_id(preset_id)
     path = presets_dir / f"{normalized}.json"
@@ -103,7 +103,7 @@ def _load_preset(preset_id: str) -> dict | None:
 
 
 def _load_platform_adapter(platform: str):
-    """加载平台适配器，失败返回 None。"""
+    """Load platform adapter, return None on failure."""
     try:
         from platform_adapter import PlatformAdapter
         return PlatformAdapter(platform)
@@ -111,7 +111,7 @@ def _load_platform_adapter(platform: str):
         return None
 
 
-# ── 代码生成 ──
+# ── Code generation ──
 
 def generate_main_c(
     name: str,
@@ -123,29 +123,29 @@ def generate_main_c(
     preset: dict | None = None,
     adapter=None,
 ) -> str:
-    """生成 main.c（v2：支持 preset 和 adapter）。"""
-    # 从 preset 覆盖 features
+    """Generate main.c (v2: supports preset and adapter)."""
+    # Override features from preset
     if preset:
         gen_params = preset.get("generator_params", {})
         has_display = has_display or gen_params.get("display", False)
         has_audio = has_audio or gen_params.get("audio", False)
         has_network = has_network or gen_params.get("network", False) or gen_params.get("voice_asr", False)
 
-    # 确定约束列表
+    # Determine constraint list
     constraints = ["C8", "C12", "C14", "C29", "C33"]
     if preset:
         constraints = preset.get("required_constraints", constraints)
     elif adapter:
-        constraints = adapter.required_constraints[:10]  # 取前 10 个
+        constraints = adapter.required_constraints[:10]  # Take first 10
 
-    # 从 preset/adapter 获取任务列表
+    # Get task list from preset/adapter
     tasks = []
     if preset:
         tasks = preset.get("generator_params", {}).get("tasks", [])
     elif adapter:
         tasks = [t["name"] for t in adapter.get_default_tasks()]
 
-    # 从 preset/adapter 获取队列列表
+    # Get queue list from preset/adapter
     queues = []
     if preset:
         queues = preset.get("generator_params", {}).get("queues", [])
@@ -179,7 +179,7 @@ def generate_main_c(
     lines.append(f' * @brief {name} main entry')
     lines.append(' *')
 
-    # 约束注释
+    # Constraint annotations
     constraint_str = ", ".join(constraints[:8])
     if len(constraints) > 8:
         constraint_str += f", ... (+{len(constraints)-8} more)"
@@ -192,25 +192,25 @@ def generate_main_c(
     lines.extend(includes)
     lines.append('')
 
-    # 日志 TAG
+    # Log TAG
     lines.append(f'static const char *TAG = "{name}";')
     lines.append('')
 
-    # 队列声明
+    # Queue declarations
     if queues:
-        lines.append('/* ── 队列（C8.1: 先于回调创建）── */')
+        lines.append('/* ── Queues (C8.1: created before callbacks) ── */')
         for q in queues:
             lines.append(f'static QueueHandle_t s_{q} = NULL;')
         lines.append('')
 
-    # 任务句柄声明
+    # Task handle declarations
     if tasks:
-        lines.append('/* ── 任务句柄（C33: 生命周期对称）── */')
+        lines.append('/* ── Task handles (C33: symmetric lifecycle) ── */')
         for t in tasks:
             lines.append(f'static TaskHandle_t s_{t}_handle = NULL;')
         lines.append('')
 
-    # 初始化函数
+    # Init function
     lines.append('/* C8.1: Queue before callback */')
     lines.append('static esp_err_t init_communication(void)')
     lines.append('{')
@@ -235,7 +235,7 @@ def generate_main_c(
     if has_display:
         lines.append('static esp_err_t init_display(void)')
         lines.append('{')
-        lines.append('    /* TODO: init LCD + LVGL (C1: LVGL 仅在 UI 任务调用) */')
+        lines.append('    /* TODO: init LCD + LVGL (C1: LVGL only called from UI task) */')
         lines.append('    ESP_LOGI(TAG, "Display initialized");')
         lines.append('    return ESP_OK;')
         lines.append('}')
@@ -253,7 +253,7 @@ def generate_main_c(
     if has_network:
         lines.append('static esp_err_t init_network(void)')
         lines.append('{')
-        lines.append('    /* TODO: init WiFi + WSS (C20: 网络韧性) */')
+        lines.append('    /* TODO: init WiFi + WSS (C20: network resilience) */')
         lines.append('    ESP_LOGI(TAG, "Network initialized");')
         lines.append('    return ESP_OK;')
         lines.append('}')
@@ -265,7 +265,7 @@ def generate_main_c(
     lines.append(f'    ESP_LOGI(TAG, "{name} starting...");')
     lines.append('')
 
-    # 初始化序列（按 C8 boot sequence 顺序）
+    # Initialization sequence (following C8 boot sequence order)
     init_calls = [("Communication", "init_communication")]
     if has_display:
         init_calls.append(("Display", "init_display"))
@@ -289,14 +289,14 @@ def generate_main_c(
 
 
 def generate_task_topology_h(name: str, tasks: list[dict], queues: list[dict]) -> str:
-    """生成 task_topology.h（C30 格式）。"""
+    """Generate task_topology.h (C30 format)."""
     upper = name.upper()
     lines = [
         '/**',
         f' * @file task_topology.h',
-        f' * @brief {name} 任务拓扑表（C30）',
+        f' * @brief {name} task topology table (C30)',
         ' *',
-        ' * 自动生成 — 描述任务/队列/信号量的拓扑关系。',
+        ' * Auto-generated — describes the topology of tasks/queues/semaphores.',
         ' */',
         '',
         f'#ifndef {upper}_TASK_TOPOLOGY_H',
@@ -306,8 +306,8 @@ def generate_task_topology_h(name: str, tasks: list[dict], queues: list[dict]) -
         'extern "C" {',
         '#endif',
         '',
-        '/* ── 任务拓扑表 ── */',
-        '/*  任务名           | 栈(B) | 优先级 | Core | 描述 */',
+        '/* ── Task topology table ── */',
+        '/*  Task name         | Stack(B) | Priority | Core | Description */',
     ]
 
     if tasks:
@@ -320,11 +320,11 @@ def generate_task_topology_h(name: str, tasks: list[dict], queues: list[dict]) -
             core_str = f"Core {core}" if core >= 0 else "Any"
             lines.append(f'/*  {name_str:20s} | {stack:5d} | {prio:6d} | {core_str:4s} | {desc} */')
     else:
-        lines.append('/*  (无任务定义 — 请根据项目需求添加) */')
+        lines.append('/*  (no task definitions — add as needed) */')
 
     lines.append('')
-    lines.append('/* ── 队列拓扑表 ── */')
-    lines.append('/*  队列名           | item_size | depth | 描述 */')
+    lines.append('/* ── Queue topology table ── */')
+    lines.append('/*  Queue name        | item_size | depth | Description */')
 
     if queues:
         for q in queues:
@@ -334,7 +334,7 @@ def generate_task_topology_h(name: str, tasks: list[dict], queues: list[dict]) -
             desc = "" if isinstance(q, str) else q.get("description", "")
             lines.append(f'/*  {qname:20s} | {isize:9d} | {depth:5d} | {desc} */')
     else:
-        lines.append('/*  (无队列定义 — 请根据项目需求添加) */')
+        lines.append('/*  (no queue definitions — add as needed) */')
 
     lines.extend([
         '',
@@ -349,7 +349,7 @@ def generate_task_topology_h(name: str, tasks: list[dict], queues: list[dict]) -
 
 
 def generate_constraint_manifest(name: str, platform: str, preset: dict | None, adapter) -> str:
-    """生成 constraint_manifest.json。"""
+    """Generate constraint_manifest.json."""
     manifest = {
         "project": name,
         "platform": platform,
@@ -372,11 +372,11 @@ def generate_constraint_manifest(name: str, platform: str, preset: dict | None, 
 
 
 def generate_app_mvp_h(name: str) -> str:
-    """生成 app_mvp.h"""
+    """Generate app_mvp.h."""
     upper = name.upper()
     return f'''/**
  * @file app_mvp.h
- * @brief {name} MVP 事件类型定义
+ * @brief {name} MVP event type definitions
  */
 
 #ifndef {upper}_APP_MVP_H
@@ -388,7 +388,7 @@ def generate_app_mvp_h(name: str) -> str:
 extern "C" {{
 #endif
 
-/* 事件类型 */
+/* Event types */
 typedef enum {{
     EVT_NONE = 0,
     EVT_HEARTBEAT,
@@ -398,11 +398,11 @@ typedef enum {{
     EVT_MAX,
 }} event_type_t;
 
-/* 事件结构体 */
+/* Event structure */
 typedef struct {{
     uint32_t type;
     uint32_t timestamp;
-    void *payload;  /* C29.3: 所有权声明 — 生产者 alloc，消费者 free */
+    void *payload;  /* C29.3: ownership declaration — producer alloc, consumer free */
 }} app_event_t;
 
 #ifdef __cplusplus
@@ -414,57 +414,57 @@ typedef struct {{
 
 
 def generate_cmakeLists(name: str, platform: str) -> str:
-    """生成 CMakeLists.txt"""
+    """Generate CMakeLists.txt."""
     template = PLATFORM_TEMPLATES.get(platform, PLATFORM_TEMPLATES["esp32"])
     return template["cmake"].format(name=name)
 
 
 def generate_main_cmake(platform: str) -> str:
-    """生成 main/CMakeLists.txt"""
+    """Generate main/CMakeLists.txt."""
     template = PLATFORM_TEMPLATES.get(platform, PLATFORM_TEMPLATES["esp32"])
     return template["main_cmake"]
 
 
 def generate_config(name: str, platform: str) -> str:
-    """生成配置文件"""
+    """Generate configuration file."""
     template = PLATFORM_TEMPLATES.get(platform, PLATFORM_TEMPLATES["esp32"])
     return template["config"]
 
 
 def generate_readme(name: str, platform: str, has_display: bool, has_audio: bool, has_network: bool,
                     *, preset: dict | None = None) -> str:
-    """生成 README.md"""
+    """Generate README.md."""
     features = []
     if has_display:
-        features.append("LVGL 显示")
+        features.append("LVGL Display")
     if has_audio:
-        features.append("I2S 音频")
+        features.append("I2S Audio")
     if has_network:
-        features.append("WiFi/WSS 网络")
+        features.append("WiFi/WSS Network")
 
-    feature_str = ", ".join(features) if features else "基础功能"
+    feature_str = ", ".join(features) if features else "Basic functionality"
     preset_str = f"\nPreset: {preset['name']}" if preset else ""
 
     return f'''# {name}
 
-{feature_str} MVP 项目。{preset_str}
+{feature_str} MVP project.{preset_str}
 
-## 构建
+## Build
 
 ```bash
-# {platform} 构建命令
-# TODO: 根据平台填写
+# {platform} build command
+# TODO: fill in based on platform
 ```
 
-## 约束覆盖
+## Constraint Coverage
 
-- C8: 启动顺序（Queue 先于回调）
-- C12: 错误处理（返回值检查）
-- C14: 日志规范（LOG_* + TAG）
-- C29: 模块契约
-- C33: 生命周期对称
+- C8: Boot sequence (Queue before callbacks)
+- C12: Error handling (return value check)
+- C14: Logging conventions (LOG_* + TAG)
+- C29: Module contract
+- C33: Symmetric lifecycle
 
-## 目录结构
+## Directory Structure
 
 ```
 {name}/
@@ -480,10 +480,10 @@ def generate_readme(name: str, platform: str, has_display: bool, has_audio: bool
 '''
 
 
-# ── 自测 ──
+# ── Self-test ──
 
 def run_self_test() -> int:
-    """自测"""
+    """Run self-test."""
     passed = 0
     failed = 0
 
@@ -576,17 +576,17 @@ def run_self_test() -> int:
 # ── CLI ──
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="一键项目脚手架生成器 v9.0.2")
-    parser.add_argument("--name", help="项目名")
-    parser.add_argument("--platform", choices=list(PLATFORM_TEMPLATES.keys()), default="esp32", help="目标平台")
-    parser.add_argument("--preset", help="场景 preset ID（如 voice-screen, audio-video）")
-    parser.add_argument("--display", action="store_true", help="启用 LVGL 显示")
-    parser.add_argument("--audio", action="store_true", help="启用 I2S 音频")
-    parser.add_argument("--network", action="store_true", help="启用 WiFi/WSS 网络")
-    parser.add_argument("--outdir", "-o", default=".", help="输出目录")
-    parser.add_argument("--evidence", metavar="FILE", help="输出交付证据包到指定文件")
-    parser.add_argument("--self-test", action="store_true", help="运行自测")
-    parser.add_argument("--list-presets", action="store_true", help="列出所有可用 preset")
+    parser = argparse.ArgumentParser(description="One-click project scaffold generator v9.0.2")
+    parser.add_argument("--name", help="Project name")
+    parser.add_argument("--platform", choices=list(PLATFORM_TEMPLATES.keys()), default="esp32", help="Target platform")
+    parser.add_argument("--preset", help="Scene preset ID (e.g. voice-screen, audio-video)")
+    parser.add_argument("--display", action="store_true", help="Enable LVGL display")
+    parser.add_argument("--audio", action="store_true", help="Enable I2S audio")
+    parser.add_argument("--network", action="store_true", help="Enable WiFi/WSS network")
+    parser.add_argument("--outdir", "-o", default=".", help="Output directory")
+    parser.add_argument("--evidence", metavar="FILE", help="Output delivery evidence to specified file")
+    parser.add_argument("--self-test", action="store_true", help="Run self-test")
+    parser.add_argument("--list-presets", action="store_true", help="List all available presets")
     args = parser.parse_args()
 
     if args.self_test:
@@ -604,29 +604,29 @@ def main() -> int:
                     name = data.get("name", p.stem)
                     print(f"{p.stem:20s} {pid:20s} {name}")
                 except Exception:
-                    print(f"{p.stem:20s} {'(解析失败)':20s}")
+                    print(f"{p.stem:20s} {'(parse failed)':20s}")
         else:
-            print("scene_presets/ 目录不存在（将在 v9.0.4 创建）")
+            print("scene_presets/ directory does not exist (will be created in v9.0.4)")
         return 0
 
     if not args.name:
         parser.print_help()
         return 1
 
-    # ── 加载 preset 和 adapter ──
+    # ── Load preset and adapter ──
     preset = _load_preset(args.preset) if args.preset else None
     if args.preset and not preset:
-        print(f"警告: preset '{args.preset}' 不存在，使用默认配置", file=sys.stderr)
+        print(f"Warning: preset '{args.preset}' not found, using default config", file=sys.stderr)
 
-    # preset 可以指定 platform
+    # preset can specify platform
     if preset and preset.get("platforms"):
         if args.platform not in preset["platforms"]:
-            # 自动选择 preset 的第一个平台
+            # Auto-select first platform from preset
             args.platform = preset["platforms"][0]
 
     adapter = _load_platform_adapter(args.platform)
 
-    # preset 覆盖 features
+    # Preset overrides features
     if preset:
         gen_params = preset.get("generator_params", {})
         args.display = args.display or gen_params.get("display", False)
@@ -638,7 +638,7 @@ def main() -> int:
     main_dir = outdir / "main"
     main_dir.mkdir(exist_ok=True)
 
-    # ── 生成文件 ──
+    # ── Generate files ──
     generated = []
 
     # CMakeLists.txt
@@ -667,7 +667,7 @@ def main() -> int:
     )
     generated.append("main/app_mvp.h")
 
-    # main/task_topology.h（v2 新增）
+    # main/task_topology.h (v2 addition)
     tasks = []
     queues = []
     if preset:
@@ -683,19 +683,19 @@ def main() -> int:
         )
         generated.append("main/task_topology.h")
 
-    # constraint_manifest.json（v2 新增）
+    # constraint_manifest.json (v2 addition)
     manifest_str = generate_constraint_manifest(args.name, args.platform, preset, adapter)
     (outdir / "constraint_manifest.json").write_text(manifest_str, encoding="utf-8")
     generated.append("constraint_manifest.json")
 
-    # README.md（先于 manifest 生成）
+    # README.md (generated before manifest)
     (outdir / "README.md").write_text(
         generate_readme(args.name, args.platform, args.display, args.audio, args.network, preset=preset),
         encoding="utf-8"
     )
     generated.append("README.md")
 
-    # 配置文件
+    # Config file
     config = None
     if adapter:
         config = adapter.get_config_template(args.name)
@@ -710,14 +710,14 @@ def main() -> int:
         (outdir / config_name).write_text(config, encoding="utf-8")
         generated.append(config_name)
 
-    # Kconfig（ESP32 only）
+    # Kconfig (ESP32 only)
     if adapter:
         kconfig = adapter.get_kconfig_template(args.name)
         if kconfig:
             (outdir / "Kconfig.projbuild").write_text(kconfig, encoding="utf-8")
             generated.append("Kconfig.projbuild")
 
-    # generation_manifest.json（最后生成，包含完整 generated_files）
+    # generation_manifest.json (generated last, contains complete generated_files)
     from manifest_normalizer import normalize_manifest
 
     directly_covered = ["C8", "C12", "C14", "C29", "C33"]
@@ -727,8 +727,8 @@ def main() -> int:
         if cid not in directly_covered:
             deferred.append({
                 "id": cid,
-                "reason": "scaffold 仅生成骨架，此约束需在具体模块实现时覆盖",
-                "evidence": f"task_topology.h + constraint_manifest.json 声明了 {cid} 适用场景",
+                "reason": "scaffold only generates skeleton, this constraint needs to be covered during specific module implementation",
+                "evidence": f"task_topology.h + constraint_manifest.json declared applicable scenarios for {cid}",
             })
 
     preset_locks = preset.get("generator_params", {}).get("locks", []) if preset else []
@@ -769,7 +769,7 @@ def main() -> int:
     )
     generated.append("generation_manifest.json")
 
-    # constraint_manifest.json 从 generation_manifest 派生
+    # constraint_manifest.json derived from generation_manifest
     constraint_manifest = {
         "project": args.name,
         "platform": args.platform,
@@ -780,7 +780,7 @@ def main() -> int:
         json.dumps(constraint_manifest, indent=2, ensure_ascii=False), encoding="utf-8"
     )
 
-    # ── 输出 ──
+    # ── Output ──
     print(f"[OK] Project scaffold generated: {outdir}")
     print(f"  Platform: {args.platform}")
     if preset:
@@ -790,12 +790,12 @@ def main() -> int:
     for f in generated:
         print(f"    {f}")
 
-    # ── 交付证据包输出 ──
+    # ── Delivery evidence output ──
     if args.evidence:
         try:
             from evidence_schema import generated_file, make_evidence, save_evidence
         except ImportError:
-            print("[warn] evidence_schema 模块不可用（已归档），跳过证据包输出", file=sys.stderr)
+            print("[warn] evidence_schema module not available (archived), skipping evidence output", file=sys.stderr)
             return 0
 
         ev_files = [
@@ -811,7 +811,7 @@ def main() -> int:
             reproduce_commands=[{
                 "command": f"python tools/project_scaffold.py --name {args.name} --platform {args.platform}" +
                            (f" --preset {args.preset}" if args.preset else ""),
-                "description": "复现项目生成",
+                "description": "Reproduce project generation",
             }],
             metadata={
                 "tool_version": "9.0.2",
@@ -823,7 +823,7 @@ def main() -> int:
             },
         )
         save_evidence(ev, args.evidence)
-        print(f"[evidence] 已保存交付证据包: {args.evidence}")
+        print(f"[evidence] Delivery evidence saved: {args.evidence}")
 
     return 0
 

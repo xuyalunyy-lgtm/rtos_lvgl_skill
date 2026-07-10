@@ -1,39 +1,39 @@
-# 铁律约束分片：故障恢复与工程韧性（Recover）
+# Iron Rule Constraint Shard: Fault Recovery and Engineering Resilience (Recover)
 
-本文件包含背压与降级策略、故障隔离与自动恢复、配置矩阵约束、一键复现闭环、回归样本优先等约束。
+This file contains constraints for backpressure and degradation strategies, fault isolation and automatic recovery, configuration matrix constraints, one-click reproduction closed-loop, and regression sample prioritization.
 
-> 对应约束 ID：C37–C41
-> 其他分片：[constraint_review.md](constraint_review.md) | [constraint_memory.md](constraint_memory.md) | [constraint_rtos.md](constraint_rtos.md) | [constraint_platform.md](constraint_platform.md) | [constraint_media.md](constraint_media.md) | [constraint_ota.md](constraint_ota.md)
-
----
-
-## 严重度定义
-
-| 级别 | 含义 | 处理 |
-|------|------|------|
-| P0 | 必崩 / 必泄漏 / 必死锁 | 阻塞合并，须附修复 diff 或范例引用 |
-| P1 | 高概率量产问题 | 本迭代必须修复或登记风险 |
-| P2 | 可维护性 / 可测试性 | 建议修复，可排期 |
+> Corresponding Constraint IDs: C37–C41
+> Other Shards: [constraint_review.md](constraint_review.md) | [constraint_memory.md](constraint_memory.md) | [constraint_rtos.md](constraint_rtos.md) | [constraint_platform.md](constraint_platform.md) | [constraint_media.md](constraint_media.md) | [constraint_ota.md](constraint_ota.md)
 
 ---
 
-## C37 — 背压与降级策略
+## Severity Definition
 
-| ID | 约束 | 严重度 | 验证 | 正例 | 反例 |
-|----|------|--------|------|------|------|
-| C37.1 | 高频 producer、网络、音视频、日志、UI 队列必须声明背压策略 | P0 | 人工 | `drop-oldest + count` | 满队列无限等 |
-| C37.2 | 满队列禁止无限等待，必须选择 drop/coalesce/overwrite/backpressure | P0 | `blocking_wait_checker.py` + `efficiency_budget_checker.py` + 人工 | `xQueueOverwrite` [QUEUE_OVERWRITE] 状态类事件 | `portMAX_DELAY` [TIMEOUT_FOREVER] 等消费 |
-| C37.3 | 降采样、降帧率、降码率、暂停非关键任务必须有触发条件 | P1 | 人工 | queue high-water > 80% 降帧 | 卡顿时临时改 delay |
-| C37.4 | retry 必须 bounded，并带 backoff 或 circuit breaker | P1 | `efficiency_budget_checker.py` + 人工 | `retry<=5, backoff<=60s` | while retry forever |
-| C37.5 | 背压、降级、恢复必须有低频 telemetry | P2 | 人工 | `degrade_enter_count` | 降级后现场不可见 |
+| Level | Meaning | Handling |
+|-------|---------|----------|
+| P0 | Must crash / Must leak / Must deadlock | Block merge, MUST attach fix diff or example reference |
+| P1 | High-probability mass production issue | MUST fix or register risk in this iteration |
+| P2 | Maintainability / Testability | Recommended fix, can be scheduled |
 
-**症状表**：
+---
 
-| 症状 | 可能约束 |
-|------|----------|
-| 队列满后系统假死 | C37.1/C37.2 背压策略缺失 |
-| 网络差时 CPU 被 retry 打满 | C37.4 retry 无上限 |
-| 降级发生但没人知道 | C37.5 缺 telemetry |
+## C37 — Backpressure and Degradation Strategies
+
+| ID | Constraint | Severity | Validation | Good Example | Bad Example |
+|----|-----------|----------|------------|--------------|-------------|
+| C37.1 | High-frequency producer, network, audio/video, logging, UI queues MUST declare backpressure strategy | P0 | Manual | `drop-oldest + count` | Infinite wait on full queue |
+| C37.2 | Full queue MUST NOT wait infinitely, MUST choose drop/coalesce/overwrite/backpressure | P0 | `blocking_wait_checker.py` + `efficiency_budget_checker.py` + Manual | `xQueueOverwrite` [QUEUE_OVERWRITE] for state-type events | `portMAX_DELAY` [TIMEOUT_FOREVER] waiting for consumption |
+| C37.3 | Downsampling, frame rate reduction, bitrate reduction, pausing non-critical tasks MUST have trigger conditions | P1 | Manual | queue high-water > 80% reduce frame rate | Temporarily change delay when stuttering |
+| C37.4 | retry MUST be bounded, with backoff or circuit breaker | P1 | `efficiency_budget_checker.py` + Manual | `retry<=5, backoff<=60s` | while retry forever |
+| C37.5 | Backpressure, degradation, recovery MUST have low-frequency telemetry | P2 | Manual | `degrade_enter_count` | Degradation invisible on-site |
+
+**Symptom Table**:
+
+| Symptom | Possible Constraints |
+|---------|---------------------|
+| System freeze after queue full | C37.1/C37.2 backpressure strategy missing |
+| CPU saturated by retries under poor network | C37.4 retry unbounded |
+| Degradation occurs but nobody knows | C37.5 missing telemetry |
 
 ---
 

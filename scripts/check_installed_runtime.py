@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-Installed Runtime 审计 — 完整 payload drift 检查。
+Installed Runtime audit — full payload drift check.
 
-比较 repo payload 与安装目录：missing、extra、hash mismatch、forbidden path。
+Compare repo payload against install directory: missing, extra, hash mismatch, forbidden path.
 
-用法:
+Usage:
     python scripts/check_installed_runtime.py --strict
     python scripts/check_installed_runtime.py --self-test
 """
@@ -31,7 +31,7 @@ DEFAULT_INSTALL_DIR = Path(os.environ.get("USERPROFILE", "")) / ".codex" / "skil
 
 
 def check_installed(install_dir: Path, src_dir: Path, strict: bool = False) -> dict:
-    """检查安装目录与仓库 payload 一致性。"""
+    """Check install directory against repo payload consistency."""
     result = {
         "install_dir": str(install_dir),
         "install_exists": install_dir.exists(),
@@ -46,7 +46,7 @@ def check_installed(install_dir: Path, src_dir: Path, strict: bool = False) -> d
     }
 
     if not install_dir.exists():
-        msg = f"安装目录不存在: {install_dir}"
+        msg = f"Install directory does not exist: {install_dir}"
         if strict:
             result["passed"] = False
             result["issues"].append(msg)
@@ -54,7 +54,7 @@ def check_installed(install_dir: Path, src_dir: Path, strict: bool = False) -> d
             result["issues"].append(f"[warning] {msg}")
         return result
 
-    # 收集两侧 payload
+    # Collect payload from both sides
     src_payload = collect_payload(src_dir)
     result["src_file_count"] = len(src_payload)
 
@@ -64,31 +64,31 @@ def check_installed(install_dir: Path, src_dir: Path, strict: bool = False) -> d
         if f.is_file():
             rel = str(f.relative_to(install_dir)).replace("\\", "/")
             if rel == "release_manifest.json":
-                continue  # manifest 不参与 payload 比较
+                continue  # manifest is excluded from payload comparison
             installed_files.add(rel)
             installed_hashes[rel] = file_hash(f)
 
     result["file_count"] = len(installed_files)
 
-    # 检查禁止文件
+    # Check forbidden files
     for f in installed_files:
         if is_forbidden(f):
             result["forbidden_found"].append(f)
 
     if result["forbidden_found"]:
         result["passed"] = False
-        result["issues"].append(f"发现禁止文件: {sorted(result['forbidden_found'])[:5]}")
+        result["issues"].append(f"Forbidden files found: {sorted(result['forbidden_found'])[:5]}")
 
-    # 检查必需文件
+    # Check required files
     for rf in REQUIRED_FILES:
         if rf not in installed_files:
             result["missing"].append(rf)
 
     if result["missing"]:
         result["passed"] = False
-        result["issues"].append(f"缺少必需文件: {result['missing'][:5]}")
+        result["issues"].append(f"Missing required files: {result['missing'][:5]}")
 
-    # 完整 payload 比较：missing + extra + hash mismatch
+    # Full payload comparison: missing + extra + hash mismatch
     src_files = set(src_payload.keys())
 
     missing = src_files - installed_files
@@ -102,12 +102,12 @@ def check_installed(install_dir: Path, src_dir: Path, strict: bool = False) -> d
 
     if missing:
         result["passed"] = False
-        result["issues"].append(f"缺少文件: {len(missing)} 个")
+        result["issues"].append(f"Missing files: {len(missing)}")
     if extra:
         result["passed"] = False
-        result["issues"].append(f"多余文件: {len(extra)} 个")
+        result["issues"].append(f"Extra files: {len(extra)}")
 
-    # Hash 比较（全部文件，不只 REQUIRED_FILES）
+    # Hash comparison (all files, not just REQUIRED_FILES)
     for rel in sorted(src_files & installed_files):
         src_hash = src_payload[rel]
         dst_hash = installed_hashes.get(rel, "")
@@ -116,9 +116,9 @@ def check_installed(install_dir: Path, src_dir: Path, strict: bool = False) -> d
 
     if result["hash_mismatches"]:
         result["passed"] = False
-        result["issues"].append(f"hash 不一致: {len(result['hash_mismatches'])} 个")
+        result["issues"].append(f"Hash mismatches: {len(result['hash_mismatches'])}")
 
-    # Manifest 比较
+    # Manifest comparison
     manifest_path = install_dir / "release_manifest.json"
     if manifest_path.exists():
         try:
@@ -126,7 +126,7 @@ def check_installed(install_dir: Path, src_dir: Path, strict: bool = False) -> d
             src_manifest_payload_hash = payload_hash(src_payload)
             if installed_manifest.get("payload_hash") != src_manifest_payload_hash:
                 result["passed"] = False
-                result["issues"].append("manifest payload_hash 不一致")
+                result["issues"].append("manifest payload_hash mismatch")
         except Exception:
             pass
 
@@ -137,7 +137,7 @@ def run_self_test() -> int:
     passed = 0
     failed = 0
 
-    # 1. 干净安装 → PASS
+    # 1. Clean install → PASS
     with tempfile.TemporaryDirectory() as tmp:
         from install_release_skill import install
         dst = Path(tmp) / "clean"
@@ -150,12 +150,12 @@ def run_self_test() -> int:
             print(f"[FAIL] clean install → {r['issues']}")
             failed += 1
 
-    # 2. 缺文件 → FAIL
+    # 2. Missing file → FAIL
     with tempfile.TemporaryDirectory() as tmp:
         from install_release_skill import install
         dst = Path(tmp) / "missing"
         install(ROOT, dst, clean=True)
-        # 删除一个文件
+        # Delete one file
         (dst / "SKILL.md").unlink(missing_ok=True)
         r = check_installed(dst, ROOT, strict=True)
         if not r["passed"] and r["missing"]:
@@ -165,7 +165,7 @@ def run_self_test() -> int:
             print(f"[FAIL] missing file not detected")
             failed += 1
 
-    # 3. 多旧文件 → FAIL
+    # 3. Extra stale files → FAIL
     with tempfile.TemporaryDirectory() as tmp:
         from install_release_skill import install
         dst = Path(tmp) / "extra"
@@ -181,12 +181,12 @@ def run_self_test() -> int:
             print(f"[FAIL] extra/forbidden not detected")
             failed += 1
 
-    # 4. hash 改动 → FAIL
+    # 4. Hash change → FAIL
     with tempfile.TemporaryDirectory() as tmp:
         from install_release_skill import install
         dst = Path(tmp) / "hash"
         install(ROOT, dst, clean=True)
-        # 修改一个文件
+        # Modify one file
         skill_md = dst / "SKILL.md"
         if skill_md.exists():
             skill_md.write_text("MODIFIED", encoding="utf-8")
@@ -198,7 +198,7 @@ def run_self_test() -> int:
             print(f"[FAIL] hash mismatch not detected")
             failed += 1
 
-    # 5. 不存在目录（strict）→ FAIL
+    # 5. Non-existent directory (strict) → FAIL
     r = check_installed(Path("/nonexistent"), ROOT, strict=True)
     if not r["passed"]:
         print("[PASS] missing dir (strict) → FAIL")
@@ -207,7 +207,7 @@ def run_self_test() -> int:
         print("[FAIL] missing dir should fail")
         failed += 1
 
-    # 6. 不存在目录（non-strict）→ warning
+    # 6. Non-existent directory (non-strict) → warning
     r = check_installed(Path("/nonexistent"), ROOT, strict=False)
     if r["passed"]:
         print("[PASS] missing dir (non-strict) → warning")
@@ -221,7 +221,7 @@ def run_self_test() -> int:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Installed Runtime 审计")
+    parser = argparse.ArgumentParser(description="Installed Runtime audit")
     parser.add_argument("--install-dir", default=str(DEFAULT_INSTALL_DIR))
     parser.add_argument("--src", default=str(ROOT))
     parser.add_argument("--strict", action="store_true")

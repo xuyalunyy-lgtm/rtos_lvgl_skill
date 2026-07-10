@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """
-C26 音视频编解码 / 媒体格式一致性启发式检查器。
+C26 Audio/Video codec / media format consistency heuristic checker.
 
-检查项:
-  C26.1 — audio sample rate / channels / bit depth 端到端一致
-  C26.2 — frame_ms 与 frame_samples 公式一致
-  C26.3 — video pixel format 与 stride 一致
-  C26.4 — convert/resample/encode/decode 热路径禁 malloc/free/printf/LOG_*
-  C26.5 — codec handle 禁止每帧 create/open/init
-  C26.6 — codec/format 文件建议保留 mismatch/error/size 遥测
+Checks:
+  C26.1 — audio sample rate / channels / bit depth end-to-end consistency
+  C26.2 — frame_ms and frame_samples formula consistency
+  C26.3 — video pixel format and stride consistency
+  C26.4 — convert/resample/encode/decode hot path must not use malloc/free/printf/LOG_*
+  C26.5 — codec handle must not be created/opened/initialized per frame
+  C26.6 — codec/format files should retain mismatch/error/size telemetry
 
-用法:
+Usage:
     python tools/media_format_checker.py <file.c> [file2.c ...]
     python tools/media_format_checker.py --dir src/
 """
@@ -86,7 +86,7 @@ def check_audio_format(path: Path, defines: dict[str, int], code: str) -> list[d
                 1,
                 "C26.1",
                 "P0",
-                f"音频 {label} 存在多套配置且未找到显式转换器: {joined}",
+                f"Audio {label} has multiple configurations and no explicit converter found: {joined}",
             ))
     return issues
 
@@ -115,7 +115,7 @@ def check_frame_size(path: Path, defines: dict[str, int]) -> list[dict[str, str]
             1,
             "C26.2",
             "P0",
-            f"{samples_name}={samples} 与 {rate}Hz/{ms}ms/{channel_count}ch 推导值 {expected} 不一致",
+            f"{samples_name}={samples} inconsistent with derived value {expected} from {rate}Hz/{ms}ms/{channel_count}ch",
         ))
     if "OPUS_FRAME_MS" in defines and defines["OPUS_FRAME_MS"] not in {5, 10, 20, 40, 60}:
         issues.append(make_issue(
@@ -123,7 +123,7 @@ def check_frame_size(path: Path, defines: dict[str, int]) -> list[dict[str, str]
             1,
             "C26.2",
             "P0",
-            f"OPUS_FRAME_MS={defines['OPUS_FRAME_MS']} 不在 5/10/20/40/60ms 常用合法集合",
+            f"OPUS_FRAME_MS={defines['OPUS_FRAME_MS']} not in common valid set {5, 10, 20, 40, 60}ms",
         ))
     return issues
 
@@ -160,7 +160,7 @@ def check_video_stride(path: Path, defines: dict[str, int], code: str) -> list[d
             1,
             "C26.3",
             "P1",
-            f"视频 stride={stride} 小于 width*bpp={width * bpp}，像素格式/stride 不一致",
+            f"Video stride={stride} is less than width*bpp={width * bpp}, pixel format/stride inconsistent",
         )]
     return []
 
@@ -176,7 +176,7 @@ def check_hot_path(path: Path, functions) -> list[dict[str, str]]:
                 func.line + func.body[:match.start()].count("\n"),
                 "C26.4",
                 "P1",
-                f"{func.name} 热路径中出现 {match.group(0).rstrip('(')}",
+                f"{func.name} hot path contains {match.group(0).rstrip('(')}",
             ))
         for match in CODEC_CREATE_RE.finditer(func.body):
             issues.append(make_issue(
@@ -184,14 +184,14 @@ def check_hot_path(path: Path, functions) -> list[dict[str, str]]:
                 func.line + func.body[:match.start()].count("\n"),
                 "C26.5",
                 "P0",
-                f"{func.name} 每帧路径中创建/初始化 codec: {match.group(0).rstrip('(')}",
+                f"{func.name} creates/initializes codec in per-frame path: {match.group(0).rstrip('(')}",
             ))
     return issues
 
 
 def check_telemetry(path: Path, code: str) -> list[dict[str, str]]:
     if re.search(r"(codec|opus|aac|jpeg|h264|format)", code, re.IGNORECASE) and not TELEMETRY_RE.search(code):
-        return [make_issue(path, 1, "C26.6", "P2", "媒体格式/codec 文件缺少 mismatch/error/last_frame_size 等遥测")]
+        return [make_issue(path, 1, "C26.6", "P2", "Media format/codec file missing mismatch/error/last_frame_size telemetry")]
     return []
 
 
@@ -217,4 +217,4 @@ def check_file(path: Path) -> list[dict[str, str]]:
 
 
 if __name__ == "__main__":
-    raise SystemExit(run_checker(check_file, "C26 音视频编解码 / 媒体格式一致性检查器", ("C26",), {".c", ".cpp", ".h"}))
+    raise SystemExit(run_checker(check_file, "C26 Audio/Video Codec / Media Format Consistency Checker", ("C26",), {".c", ".cpp", ".h"}))

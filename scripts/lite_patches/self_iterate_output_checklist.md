@@ -1,4 +1,4 @@
-## 验证
+## Verification
 - [ ] lite_manual_checklist
-- [ ] sync_lite 已在完整版仓库完成
+- [ ] sync_lite completed in full-version repository
 - [ ] CHANGELOG + iteration_log

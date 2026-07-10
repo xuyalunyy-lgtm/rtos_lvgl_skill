@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-C11 编码规范启发式检查器。
+C11 Coding style heuristic checker.
 
-检查项:
-  C11.1 — 文件名禁止中文/空格
-  C11.5 — 单函数 <=80 行
+Checks:
+  C11.1 — Filename must not contain Chinese characters or spaces
+  C11.5 — Single function <= 80 lines
 
-用法:
+Usage:
     python tools/coding_style_checker.py <file.c> [file2.c ...]
     python tools/coding_style_checker.py --dir src/
 """
@@ -65,4 +65,4 @@ def check_file(path: Path) -> list[dict]:
 
 
 if __name__ == "__main__":
-    raise SystemExit(run_checker(check_file, "C11 编码规范检查器", ("C11",), {".c", ".h"}))
+    raise SystemExit(run_checker(check_file, "C11 Coding style checker", ("C11",), {".c", ".h"}))

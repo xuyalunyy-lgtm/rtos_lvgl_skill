@@ -1,17 +1,17 @@
-# 日志管理系统约束（C14）
+# Logging Management Constraints (C14)
 
-用于 L2/L3 审查日志架构、量产 profile、现场可观测性和 crash 复盘能力。基础写法见 [logging_debug.txt](../prompts/logging_debug.txt)，细粒度 ID 见 [constraint_detail.md](constraint_detail.md)。
+Used for L2/L3 review of logging architecture, production profiles, field observability, and crash post-mortem capability. For basic writing conventions, see [logging_debug.txt](../prompts/logging_debug.txt); for fine-grained IDs, see [constraint_detail.md](constraint_detail.md).
 
 ---
 
-## 目标
+## Objectives
 
-日志系统必须同时满足：
+The logging system must simultaneously satisfy:
 
-- **可诊断**：现场能按 event_id、模块、状态、错误码、seq/generation 串起链路。
-- **可控开销**：热路径不刷屏，UART/flash/网络上传不拖垮实时任务。
-- **可发布**：量产 profile 默认收敛到 WARN/ERROR，无敏感字段和 verbose 日志。
-- **可复盘**：crash 后能 dump 最近关键日志，而不是只看到最后一行 panic。
+- **Diagnosable**: In the field, traces can be linked by event_id, module, state, error code, and seq/generation.
+- **Controllable Overhead**: Hot paths must not flood output; UART/flash/network uploads must not drag down real-time tasks.
+- **Releasable**: Production profiles default to WARN/ERROR, with no sensitive fields or verbose logs.
+- **Post-mortem Capable**: After a crash, the most recent critical logs can be dumped, not just the last panic line.
 
 ---
 

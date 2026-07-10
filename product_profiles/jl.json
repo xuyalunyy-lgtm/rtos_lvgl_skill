@@ -1,7 +1,7 @@
 {
   "name": "JL 杰理 / AC79 / WL82",
   "platform": "jl",
-  "description": "杰理科技 AC79/WL82/AC791N 系列，WiFi+BLE 双核 RISC-V，audio_server 架构",
+  "description": "JieLi Tech AC79/WL82/AC791N series, WiFi+BLE dual-core RISC-V, audio_server architecture",
   "required_constraints": ["C1", "C2", "C3", "C4", "C6", "C7", "C8", "C9", "C10", "C11", "C12", "C14", "C15", "C22", "C23", "C25", "C26", "C27", "C28", "C29", "C30", "C31", "C32", "C33", "C34", "C35", "C36", "C37", "C38", "C39", "C40", "C41", "C42", "C43", "C44", "C45"],
   "optional_constraints": ["C5", "C13", "C16", "C17"],
   "excluded_constraints": [],
@@ -21,46 +21,46 @@
   },
   "task_priority_style": "higher_is_higher",
   "common_pitfalls": [
-    "audio_server enc/dec 事件需先解码再播放，AUDIO_SERVER_EVENT_END 后再开麦",
-    "thread_fork / thread_kill 线程管理 API（非标准 FreeRTOS），注意栈单位",
-    "栈单位需查 thread_fork 文档（部分 API 为 bytes，部分为 words）",
-    "SDK 模块裁剪须先扫描模块地图（C6.2），标注 SDK tag/版本",
-    "AC79 带屏产品需关注 LCD DMA 与音频 DMA 竞争（同一总线带宽）",
-    "WL82 单核版无跨核问题，但资源更紧张（Flash/RAM 小于 AC79）",
-    "JL SDK 的 cJSON 为定制版，cJSON_Parse 行为可能与上游不同",
-    "audio_server 的播放和采集共用同一实例时，需严格串行化",
-    "SDK 的 WiFi 驱动内部有 mutex，不可在 ISR 中调用任何 WiFi API",
-    "LVGL 刷新任务建议与音频任务同核（避免跨核 Queue 延迟）",
-    "Camera/LCD/音频 DMA buffer 需核对 SDK 内存域、cache 维护与零拷贝 release 时序"
+    "audio_server enc/dec events must decode before playback, open mic after AUDIO_SERVER_EVENT_END",
+    "thread_fork / thread_kill thread management API (non-standard FreeRTOS), note stack units",
+    "Stack units need to check thread_fork docs (some APIs use bytes, some use words)",
+    "SDK module trimming must first scan module map (C6.2), annotate SDK tag/version",
+    "AC79 screen products must watch LCD DMA vs audio DMA contention (same bus bandwidth)",
+    "WL82 single-core has no cross-core issues, but more constrained resources (Flash/RAM less than AC79)",
+    "JL SDK cJSON is a custom version, cJSON_Parse behavior may differ from upstream",
+    "When audio_server playback and capture share the same instance, strict serialization is required",
+    "SDK WiFi driver has internal mutex, no WiFi API calls allowed in ISR",
+    "LVGL refresh task recommended on same core as audio task (avoid cross-core queue delay)",
+    "Camera/LCD/audio DMA buffers must verify SDK memory domain, cache maintenance, and zero-copy release timing"
   ],
   "stack_recommendations": {
     "wss_tls": {"min_bytes": 4096, "recommended_bytes": 6144, "note": "JL 平台 TLS 握手适中"},
-    "lvgl": {"min_bytes": 4096, "recommended_bytes": 8192, "note": "带屏产品大屏 UI 需 8192"},
+    "lvgl": {"min_bytes": 4096, "recommended_bytes": 8192, "note": "Screen products with large UI require 8192"},
     "audio": {"min_bytes": 2048, "recommended_bytes": 4096, "note": "audio_server + AEC"},
     "av_sync": {"min_bytes": 3072, "recommended_bytes": 6144, "note": "audio_server clock master + LCD preview"},
     "media_codec": {"min_bytes": 4096, "recommended_bytes": 6144, "note": "audio_server encode/decode + format contract"},
     "av_clock_jitter": {"min_bytes": 3072, "recommended_bytes": 6144, "note": "audio_server jitter buffer + drift correction"},
     "media_dma_buffer": {"min_bytes": 2048, "recommended_bytes": 4096, "note": "audio/video DMA frame pool + owner generation"},
-    "presenter": {"min_bytes": 2048, "recommended_bytes": 3072, "note": "事件分发简单"},
-    "main": {"min_bytes": 2048, "recommended_bytes": 3072, "note": "main 任务需初始化 audio_server"}
+    "presenter": {"min_bytes": 2048, "recommended_bytes": 3072, "note": "Simple event dispatch"},
+    "main": {"min_bytes": 2048, "recommended_bytes": 3072, "note": "main task needs to initialize audio_server"}
   },
   "strictness": "strict",
   "key_sdk_config": {
-    "THREAD_FORK_STACK_SIZE": "按需，建议 4096+",
-    "AUDIO_SERVER_ENC_BUF_SIZE": "按音频格式调整",
+    "THREAD_FORK_STACK_SIZE": "As needed, recommend 4096+",
+    "AUDIO_SERVER_ENC_BUF_SIZE": "Adjust according to audio format",
     "WIFI_TASK_STACK_SIZE": "≥2048",
-    "MALLOC_MEM_SIZE": "按产品 Flash 大小调整",
-    "LV_USE_DRAW_SW": "y（软件渲染）"
+    "MALLOC_MEM_SIZE": "Adjust according to product Flash size",
+    "LV_USE_DRAW_SW": "y (software rendering)"
   },
   "build_commands": {
-    "build": "make ac791n_demo_wifi（具体目标视 SDK 版本）",
+    "build": "make ac791n_demo_wifi（Specific target depends on SDK version）",
     "flash": "JLink 或 JL USB 工具",
-    "crash_decode": "查看 SDK crash dump 中的 PC/LR 寄存器值"
+    "crash_decode": "Check PC/LR register values in SDK crash dump"
   },
   "pinmux_notes": {
-    "PA0_PA1": "UART0 调试串口（默认）",
-    "PB0_PB1": "I2S0（音频）",
-    "PC0_PC3": "SPI0（LCD / Flash）",
-    "PD0_PD7": "SDIO（SD 卡 / WiFi）"
+    "PA0_PA1": "UART0 debug serial port (default)",
+    "PB0_PB1": "I2S0 (audio)",
+    "PC0_PC3": "SPI0 (LCD / Flash)",
+    "PD0_PD7": "SDIO (SD card / WiFi)"
   }
 }

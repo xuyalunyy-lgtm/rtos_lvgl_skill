@@ -1,7 +1,7 @@
 {
   "platform": "zephyr",
   "name": "Zephyr RTOS",
-  "description": "Zephyr RTOS 平台，支持多种架构和开发板",
+  "description": "Zephyr RTOS platform, supports multiple architectures and development boards",
   "required_constraints": [
     "C1", "C2", "C3", "C4", "C7", "C8", "C9",
     "C11", "C12", "C13", "C14", "C15", "C16",
@@ -35,13 +35,13 @@
     "network": 4096
   },
   "common_pitfalls": [
-    "Zephyr 优先级数字越小越高（与 STM32 FreeRTOS 相同）",
-    "栈由 K_THREAD_STACK_DEFINE 分配，不是 xTaskCreate 参数",
-    "设备必须 device_is_ready() 检查后才能使用",
-    "DTS overlay 配置外设，不是手动寄存器操作",
-    "k_sem_take 返回 0 表示成功（不是 pdTRUE）",
-    "CONFIG_HEAP_MEM_POOL_SIZE 需要足够大才能用 k_malloc",
-    "Zephyr 自动管理 PM，不需要手动 WFI"
+    "Zephyr priority: lower number = higher priority (same as STM32 FreeRTOS)",
+    "Stack allocated by K_THREAD_STACK_DEFINE, not xTaskCreate parameter",
+    "Devices must pass device_is_ready() check before use",
+    "Peripherals configured via DTS overlay, not manual register operations",
+    "k_sem_take returns 0 for success (not pdTRUE)",
+    "CONFIG_HEAP_MEM_POOL_SIZE must be large enough to use k_malloc",
+    "Zephyr manages PM automatically, no manual WFI needed"
   ],
   "crash_decode": {
     "tool": "arm-none-eabi-addr2line",

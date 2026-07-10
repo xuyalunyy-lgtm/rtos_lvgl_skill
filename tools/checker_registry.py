@@ -288,7 +288,7 @@ VALIDATE_EXAMPLE_CASES: tuple[CheckerCase, ...] = (
     CheckerCase("sensor_integration_checker.py", "tools/fixtures/good_sensor_integration.c", 0, "C45 good"),
     CheckerCase("sensor_integration_checker.py", "tools/fixtures/bad_sensor_integration.c", 1, "C45 bad"),
     CheckerCase("function_length_checker.py", "examples/good_presenter_consumer.c", 0, "C11.5 good"),
-    # TODO: return_check_checker 对 good_presenter_consumer.c 测试模式 xQueueSend 过于严格，待优化后启用。
+    # TODO: return_check_checker is too strict on good_presenter_consumer.c for xQueueSend test patterns; enable after optimization.
     CheckerCase("return_check_checker.py", "examples/bad_unchecked_return.c", 1, "C12 bad"),
     CheckerCase("logging_checker.py", "examples/good_presenter_consumer.c", 0, "C14 good"),
     CheckerCase("logging_checker.py", "examples/bad_isr_printf.c", 1, "C14 bad"),

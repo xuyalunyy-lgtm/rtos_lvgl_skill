@@ -1,8 +1,8 @@
 # ESP32 Quick Reference
 
-> 轻量 ESP32 平台速查。完整版见 `esp32.md`。
+> Lightweight ESP32 Platform Quick Reference. See `esp32.md` for the full version.
 
-## 关键差异
+## Key Differences
 
 - **双核**：Core 0 (WiFi/BT) + Core 1 (用户任务)，用 `xTaskCreatePinnedToCore` 绑核
 - **PSRAM**：`heap_caps_malloc(sz, MALLOC_CAP_SPIRAM)` 优先外部 RAM

@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-C39 配置矩阵启发式检查器。
+C39 Config matrix heuristic checker.
 
-检查项:
-  C39.3 — #ifdef 必须归类 platform/board/feature/debug，禁止无名散落
+Checks:
+  C39.3 — #ifdef must be classified as platform/board/feature/debug, unnamed scattering forbidden
 
-用法:
+Usage:
     python tools/config_matrix_checker.py <file.c> [file2.c ...]
     python tools/config_matrix_checker.py --dir src/
 """
@@ -47,4 +47,4 @@ def check_file(path: Path) -> list[dict]:
 
 
 if __name__ == "__main__":
-    raise SystemExit(run_checker(check_file, "C39 配置矩阵检查器", ("C39",), {".c", ".h"}))
+    raise SystemExit(run_checker(check_file, "C39 Config matrix checker", ("C39",), {".c", ".h"}))

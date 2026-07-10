@@ -1,7 +1,7 @@
 {
-  "name": "低功耗传感器",
+  "name": "Low Power Sensor",
   "id": "low-power-sensor",
-  "description": "电池供电的传感器节点，如温湿度、烟感、门窗传感器",
+  "description": "Battery-powered sensor nodes, such as temperature/humidity, smoke, door/window sensors",
   "platforms": ["esp32", "stm32", "zephyr"],
   "required_constraints": [
     "C4", "C8", "C9", "C12", "C14", "C16",
@@ -17,15 +17,15 @@
     "audio": false,
     "network": true,
     "tasks": [
-      {"name": "sensor_task", "entry": "sensor_task_func", "stack_bytes": 2048, "priority": 5, "core_affinity": -1, "lifecycle": "periodic", "exit_policy": "stop_token", "watchdog": "feed", "period_ms": 1000, "deadline_ms": 1000, "wcet_ms": 100, "consumes": [], "produces": ["sensor_data_q"], "holds": [], "description": "传感器采集"},
-      {"name": "network_task", "entry": "network_task_func", "stack_bytes": 4096, "priority": 4, "core_affinity": -1, "lifecycle": "long_running", "exit_policy": "stop_token", "watchdog": "feed", "consumes": ["sensor_data_q"], "produces": [], "holds": [], "description": "WiFi 数据上报"}
+      {"name": "sensor_task", "entry": "sensor_task_func", "stack_bytes": 2048, "priority": 5, "core_affinity": -1, "lifecycle": "periodic", "exit_policy": "stop_token", "watchdog": "feed", "period_ms": 1000, "deadline_ms": 1000, "wcet_ms": 100, "consumes": [], "produces": ["sensor_data_q"], "holds": [], "description": "Sensor Acquisition"},
+      {"name": "network_task", "entry": "network_task_func", "stack_bytes": 4096, "priority": 4, "core_affinity": -1, "lifecycle": "long_running", "exit_policy": "stop_token", "watchdog": "feed", "consumes": ["sensor_data_q"], "produces": [], "holds": [], "description": "WiFi Data Reporting"}
     ],
     "queues": [
-      {"name": "sensor_data_q", "depth": 4, "item_type": "sensor_data_t", "item_size": 32, "producer_tasks": ["sensor_task"], "consumer_tasks": ["network_task"], "send_timeout_ms": 100, "recv_timeout_ms": 2000, "full_policy": "drop_oldest", "drop_counter": "s_sensor_drop", "description": "传感器数据队列"}
+      {"name": "sensor_data_q", "depth": 4, "item_type": "sensor_data_t", "item_size": 32, "producer_tasks": ["sensor_task"], "consumer_tasks": ["network_task"], "send_timeout_ms": 100, "recv_timeout_ms": 2000, "full_policy": "drop_oldest", "drop_counter": "s_sensor_drop", "description": "Sensor Data Queue"}
     ],
     "locks": [],
     "timers": [
-      {"name": "wdt_feed", "period_ms": 5000, "auto_reload": true, "callback_max_ms": 1, "notifies_tasks": [], "callback_policy": "deferred", "description": "看门狗 feed"}
+      {"name": "wdt_feed", "period_ms": 5000, "auto_reload": true, "callback_max_ms": 1, "notifies_tasks": [], "callback_policy": "deferred", "description": "Watchdog Feed"}
     ],
     "memory_pools": []
   }

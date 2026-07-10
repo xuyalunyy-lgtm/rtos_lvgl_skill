@@ -1,13 +1,13 @@
-## Step 3 — 代码生成与落地（Lite）
+## Step 3 — Code Generation and Implementation (Lite)
 
-**默认：** [core_rules.md](../references/core_rules.md) **自主实施模式** — 按 scene prompt 手写骨架，直接写入用户工程。
+**Default:** [core_rules.md](../references/core_rules.md) **Autonomous Implementation Mode** — Hand-write skeleton according to scene prompt, write directly into user project.
 
-**Lite 限制：** 无 `examples/`、`tools/`、`mvp_codegen`、`run_review`；按 [lite_manual_checklist.md](../references/lite_manual_checklist.md) 完成人工审查。
+**Lite Limitations:** No `examples/`, `tools/`, `mvp_codegen`, `run_review`; follow [lite_manual_checklist.md](../references/lite_manual_checklist.md) to complete manual review.
 
-## Step 4 — 编译闭环（必做）
+## Step 4 — Compilation Closed Loop (Required)
 
-按 `platforms/xxx.md` 执行编译；失败则修错重编，直至 **0 error**。
+Execute compilation per `platforms/xxx.md`; fix errors and recompile on failure until **0 error**.
 
-## Step 5 — 人工校验（Lite）
+## Step 5 — Manual Verification (Lite)
 
-执行 [lite_manual_checklist.md](../references/lite_manual_checklist.md)，并按已加载 prompt 手工核对 C1/C2/C3/C4 等约束。
+Execute [lite_manual_checklist.md](../references/lite_manual_checklist.md), and manually verify C1/C2/C3/C4 constraints against loaded prompts.

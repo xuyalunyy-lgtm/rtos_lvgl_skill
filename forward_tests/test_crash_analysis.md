@@ -1,20 +1,20 @@
-# 测试：Crash 分析
+# Test: Crash Analysis
 
-## 输入
-- 目录：examples/
-- 平台：esp32
-- 工作流：debug_crash
-- 期望触发：repro_bundle.py
+## Input
+- Directory: examples/
+- Platform: esp32
+- Workflow: debug_crash
+- Expected trigger: repro_bundle.py
 
-## 验收条件
-- [ ] repro_bundle.py 正常退出
-- [ ] 输出 JSON 包含 `workflow: "debug_crash"`
-- [ ] 输出包含 `environment` 字段
-- [ ] 输出包含 `platform_profile` 字段
-- [ ] 输出包含 `checker_json` 数组
-- [ ] 无 Python traceback
+## Acceptance Criteria
+- [ ] repro_bundle.py exits normally
+- [ ] Output JSON contains `workflow: "debug_crash"`
+- [ ] Output contains `environment` field
+- [ ] Output contains `platform_profile` field
+- [ ] Output contains `checker_json` array
+- [ ] No Python traceback
 
-## 自动化命令
+## Automation Command
 ```bash
 python tools/repro_bundle.py --workflow debug_crash --dir examples --platform esp32 --output forward_tests/out_crash.json
 ```

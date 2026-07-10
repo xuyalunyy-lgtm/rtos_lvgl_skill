@@ -1,7 +1,7 @@
 {
   "name": "STM32 / CubeMX HAL",
   "platform": "stm32",
-  "description": "意法半导体 STM32 系列（F4/F7/H7），Cortex-M 单核，FreeRTOS 原生",
+  "description": "STMicroelectronics STM32 series (F4/F7/H7), Cortex-M single-core, native FreeRTOS",
   "required_constraints": ["C2", "C3", "C4", "C7", "C8", "C9", "C11", "C12", "C14", "C15", "C22", "C23", "C29", "C30", "C31", "C32", "C33", "C34", "C35", "C36", "C37", "C38", "C39", "C40", "C41", "C42", "C43", "C44", "C45"],
   "optional_constraints": ["C1", "C5", "C6", "C10", "C13", "C16", "C17", "C25", "C26", "C27", "C28"],
   "excluded_constraints": [],
@@ -21,47 +21,47 @@
   },
   "task_priority_style": "lower_is_higher",
   "common_pitfalls": [
-    "原生 FreeRTOS 数字越小优先级越高（与 ESP32/JL/BK 相反），configMAX_PRIORITIES 默认 56",
-    "HAL 回调（HAL_I2S_RxCpltCallback 等）在 ISR 上下文，仅 FromISR API",
-    "D-Cache 一致性：DMA 缓冲须在 SRAM 且 4 字节对齐；F7/H7 需 SCB_CleanDCache/InvalidateDCache",
-    "栈单位为 words（4 bytes/word），xTaskCreate 参数 × 4 = bytes",
-    "H7 双核（Cortex-M7+M4）各自独立 FreeRTOS 实例，跨核通信须 HSEM（硬件信号量）",
-    "F4 无硬件 AES/SHA，WSS TLS 纯软件加解密，握手慢且栈占用高",
-    "STM32CubeMX 生成的代码中 osThreadNew 为 CMSIS-RTOS2 封装，底层仍是 xTaskCreate",
-    "SysTick 优先级默认最低（0xF），HAL_Delay 依赖 SysTick 中断",
-    "STM32H7 的 AXI SRAM / SRAM1-4 地址域不同，DMA 缓冲放错域会 HardFault",
-    "F7/H7 D-Cache 打开时 camera/LCD/I2S DMA buffer 必须 clean/invalidate 且 cache-line 对齐",
-    "使用 LWIP + FreeRTOS 时 sys_now() 需对接 HAL_GetTick"
+    "Native FreeRTOS: lower number = higher priority (opposite of ESP32/JL/BK), configMAX_PRIORITIES defaults to 56",
+    "HAL callbacks (HAL_I2S_RxCpltCallback etc.) run in ISR context, only FromISR API allowed",
+    "D-Cache coherency: DMA buffers must be in SRAM and 4-byte aligned; F7/H7 require SCB_CleanDCache/InvalidateDCache",
+    "Stack units are words (4 bytes/word), xTaskCreate parameter x 4 = bytes",
+    "H7 dual-core (Cortex-M7+M4) each have independent FreeRTOS instances, cross-core communication requires HSEM (hardware semaphore)",
+    "F4 has no hardware AES/SHA, WSS TLS uses software encryption/decryption, slow handshake with high stack usage",
+    "In STM32CubeMX generated code, osThreadNew is a CMSIS-RTOS2 wrapper, underlying implementation is still xTaskCreate",
+    "SysTick priority defaults to lowest (0xF), HAL_Delay depends on SysTick interrupt",
+    "STM32H7 AXI SRAM / SRAM1-4 have different address domains, placing DMA buffer in wrong domain causes HardFault",
+    "When F7/H7 D-Cache is enabled, camera/LCD/I2S DMA buffers must be clean/invalidate and cache-line aligned",
+    "When using LWIP + FreeRTOS, sys_now() needs to interface with HAL_GetTick"
   ],
   "stack_recommendations": {
-    "wss_tls": {"min_bytes": 4096, "recommended_bytes": 8192, "note": "F4 纯软件 TLS 握手峰值高，H7 有硬件加速可缩至 4096"},
-    "lvgl": {"min_bytes": 4096, "recommended_bytes": 8192, "note": "RGB LCD 大屏需更多栈做 DMA 刷新"},
+    "wss_tls": {"min_bytes": 4096, "recommended_bytes": 8192, "note": "F4 pure software TLS handshake peak is high, H7 has hardware acceleration can reduce to 4096"},
+    "lvgl": {"min_bytes": 4096, "recommended_bytes": 8192, "note": "RGB LCD large screen needs more stack for DMA refresh"},
     "audio": {"min_bytes": 2048, "recommended_bytes": 4096, "note": "I2S DMA Ping-Pong"},
     "media_dma_buffer": {"min_bytes": 2048, "recommended_bytes": 4096, "note": "D-Cache clean/invalidate + DMA SRAM frame pool"},
-    "presenter": {"min_bytes": 2048, "recommended_bytes": 3072, "note": "STM32 上 Presenter 通常简单"},
-    "main": {"min_bytes": 1024, "recommended_bytes": 2048, "note": "main 任务仅启动子任务"}
+    "presenter": {"min_bytes": 2048, "recommended_bytes": 3072, "note": "Presenter on STM32 is usually simple"},
+    "main": {"min_bytes": 1024, "recommended_bytes": 2048, "note": "main task only launches subtasks"}
   },
   "strictness": "strict",
   "key_sdk_config": {
-    "configMAX_PRIORITIES": "56（默认值，优先级 0-55）",
-    "configTICK_RATE_HZ": "1000（tick=1ms）",
-    "configCHECK_FOR_STACK_OVERFLOW": "2（用 canary 检测）",
-    "configUSE_MUTEXES": "1（互斥锁支持）",
-    "configUSE_COUNTING_SEMAPHORES": "1（计数信号量）",
-    "configTOTAL_HEAP_SIZE": "按实际分配，F4 约 128KB，H7 约 512KB",
-    "configMINIMAL_STACK_SIZE": "128 words（512 bytes）"
+    "configMAX_PRIORITIES": "56 (default, priority 0-55)",
+    "configTICK_RATE_HZ": "1000 (tick=1ms)",
+    "configCHECK_FOR_STACK_OVERFLOW": "2 (canary detection)",
+    "configUSE_MUTEXES": "1 (mutex support)",
+    "configUSE_COUNTING_SEMAPHORES": "1 (counting semaphore)",
+    "configTOTAL_HEAP_SIZE": "Allocate as needed, F4 ~128KB, H7 ~512KB",
+    "configMINIMAL_STACK_SIZE": "128 words (512 bytes)"
   },
   "build_commands": {
-    "build": "make -j8 或 cmake --build build",
+    "build": "make -j8 or cmake --build build",
     "flash": "STM32CubeProgrammer / OpenOCD / J-Link",
     "crash_decode": "arm-none-eabi-addr2line -pfiaC -e build/<project>.elf <address>",
     "size": "arm-none-eabi-size build/<project>.elf",
     "debug": "openocd -f interface/stlink.cfg -f target/stm32f4x.cfg"
   },
   "pinmux_notes": {
-    "PA13_PA14": "SWD 调试接口（SWDIO/SWCLK），量产前可释放为 GPIO",
-    "BOOT0": "启动模式选择，上电时决定从 Flash/System memory/SRAM 启动",
-    "NRST": "复位引脚，外部电路须有 RC 复位电路",
-    "VBAT": "备份域供电，RTC/LSE 由 VBAT 供电"
+    "PA13_PA14": "SWD debug interface (SWDIO/SWCLK), can be released as GPIO before mass production",
+    "BOOT0": "Boot mode selection, determines boot from Flash/System memory/SRAM at power-on",
+    "NRST": "Reset pin, external circuit must have RC reset circuit",
+    "VBAT": "Backup domain power supply, RTC/LSE powered by VBAT"
   }
 }

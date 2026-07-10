@@ -1,1 +1,1 @@
-Lite 用法：按上表人工识别平台能力；需要自动 profile 时回到完整版源码仓运行工具。
+Lite usage: manually identify platform capabilities per the table above; switch to the full-version source repository to run tools when automatic profiling is needed.

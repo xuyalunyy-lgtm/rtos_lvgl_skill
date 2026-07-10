@@ -1,32 +1,32 @@
-# 铁律约束分片：密钥安全与 OTA 升级（OTA）
+# Iron Rule Constraint Shard: Key Security and OTA Updates (OTA)
 
-本文件包含密钥/凭证/仓库卫生、OTA/固件升级安全、外设关闭安全等约束。
+This file contains constraints for key/credential/repo hygiene, OTA/firmware upgrade safety, and peripheral shutdown safety.
 
-> 对应约束 ID：C9, C22, C24
-> 其他分片：[constraint_review.md](constraint_review.md) | [constraint_memory.md](constraint_memory.md) | [constraint_rtos.md](constraint_rtos.md) | [constraint_platform.md](constraint_platform.md) | [constraint_media.md](constraint_media.md) | [constraint_recover.md](constraint_recover.md)
-
----
-
-## 严重度定义
-
-| 级别 | 含义 | 处理 |
-|------|------|------|
-| P0 | 必崩 / 必泄漏 / 必死锁 | 阻塞合并，须附修复 diff 或范例引用 |
-| P1 | 高概率量产问题 | 本迭代必须修复或登记风险 |
-| P2 | 可维护性 / 可测试性 | 建议修复，可排期 |
+> Corresponding constraint IDs: C9, C22, C24
+> Other shards:[constraint_review.md](constraint_review.md) | [constraint_memory.md](constraint_memory.md) | [constraint_rtos.md](constraint_rtos.md) | [constraint_platform.md](constraint_platform.md) | [constraint_media.md](constraint_media.md) | [constraint_recover.md](constraint_recover.md)
 
 ---
 
-## C9 — 密钥 / 凭证 / 仓库卫生
+## Severity Definitions
 
-| ID | 约束 | 严重度 | 验证 | 正例 | 反例 |
-|----|------|--------|------|------|------|
-| C9.1 | `CONFIG_*SECRET*` / `*PASSWORD*` / `*TOKEN*` / `*API_KEY*` **禁止**非空值写入入库 config | P0 | `secret_scan_checker.py` | `config.secrets` + `config.secrets.example` | 明文 sdkconfig |
-| C9.2 | Git remote URL **禁止**内嵌 `user:pass@` / token | P0 | `secret_scan_checker.py --git-remotes` | SSH remote | HTTPS + token |
-| C9.3 | 运行时日志**禁止**打印 WiFi 密码、RTC token、完整鉴权头 | P1 | 人工 + grep | 脱敏日志 | 明文 LOGI |
-| C9.4 | 密钥文件须 `.gitignore`（`config.secrets`、`config.local`、`.env`） | P1 | 人工 | 项目 `.gitignore` | — |
-| C9.5 | 构建须支持 `config.secrets` 本地覆盖（`CONFIG_SUBSTITUTE_FILE` 或等价） | P2 | 流程 | `merge_config_secrets.sh` | 仅 menuconfig 手填 |
-| C9.6 | L2 工程审查须扫描 `projects/**/config` 与 `--git-remotes` | P2 | `run_review.py --scan-secrets` | — | — |
+| Level | Meaning | Handling |
+|-------|---------|----------|
+| P0 | Guaranteed crash / leak / deadlock | Blocks merge; MUST attach fix diff or example reference |
+| P1 | High-probability production issue | MUST fix this iteration or register risk |
+| P2 | Maintainability / testability | Recommended fix, can be scheduled |
+
+---
+
+## C9 — Key / Credential / Repo Hygiene
+
+| ID | Constraint | Severity | Validation | Good Example | Bad Example |
+|----|-----------|----------|------------|--------------|-------------|
+| C9.1 | `CONFIG_*SECRET*` / `*PASSWORD*` / `*TOKEN*` / `*API_KEY*` **MUST NOT** write non-empty values to committed config | P0 | `secret_scan_checker.py` | `config.secrets` + `config.secrets.example` | Plaintext sdkconfig |
+| C9.2 | Git remote URL **MUST NOT** embed `user:pass@` / token | P0 | `secret_scan_checker.py --git-remotes` | SSH remote | HTTPS + token |
+| C9.3 | Runtime logs **MUST NOT** print WiFi passwords, RTC tokens, or full auth headers | P1 | Manual + grep | Sanitized logs | Plaintext LOGI |
+| C9.4 | Key files MUST be `.gitignore`d (`config.secrets`, `config.local`, `.env`) | P1 | Manual | Project `.gitignore` | — |
+| C9.5 | Build MUST support `config.secrets` local override (`CONFIG_SUBSTITUTE_FILE` or equivalent) | P2 | Process | `merge_config_secrets.sh` | Manual menuconfig only |
+| C9.6 | L2 engineering review MUST scan `projects/**/config` and `--git-remotes` | P2 | `run_review.py --scan-secrets` | — | — |
 
 ---
 

@@ -1982,7 +1982,7 @@ def generate_font_glyph(args: dict[str, Any]) -> dict[str, Any]:
     text = "".join(texts)
     glyphs = unique_glyph_text(text)
     if not glyphs:
-        glyphs = unique_glyph_text(str(args.get("fallback_text", "加载中...0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz")))
+        glyphs = unique_glyph_text(str(args.get("fallback_text", "Loading...0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz")))
     size = int(args.get("size", 16))
     bpp = int(args.get("bpp", 4))
     font_name = safe_symbol(str(args.get("font_name", f"ui_font_design_{size}")))

@@ -22,7 +22,7 @@ from pathlib import Path
 from checker_io import make_issue, read_file, run_checker, strip_comments, extract_functions, line_at, nearby
 from sdk_lookup import SdkLookup
 
-# 全平台 SDK 查询
+# All-platform SDK lookup
 _ALL_PLATFORMS = ["esp32", "stm32", "jl", "bk", "zephyr"]
 _lookup = SdkLookup(_ALL_PLATFORMS)
 

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://freertos-skill.dev/schemas/delivery_evidence.json",
   "title": "FreeRTOS Skill Delivery Evidence",
-  "description": "统一交付证据包格式，用于串联审查、修复、验证闭环。",
+  "description": "Unified delivery evidence format for chaining review, fix, and verification loops.",
   "type": "object",
   "required": [
     "version",
@@ -12,16 +12,16 @@
   "properties": {
     "version": {
       "type": "string",
-      "description": "证据格式版本"
+      "description": "Evidence format version"
     },
     "timestamp": {
       "type": "string",
       "format": "date-time",
-      "description": "ISO 8601 时间戳"
+      "description": "ISO 8601 timestamp"
     },
     "source_tool": {
       "type": "string",
-      "description": "产出此 evidence 的工具名"
+      "description": "Name of the tool that produced this evidence"
     },
     "project_profile": {
       "type": "object",

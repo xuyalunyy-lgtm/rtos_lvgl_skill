@@ -1,25 +1,25 @@
-# 嵌入式固件 — Claude Code 索引（<500 token，勿膨胀）
+# Embedded Firmware — Claude Code Index (<500 tokens, do not inflate)
 
 ## Skill
-FreeRTOS/LVGL/IoT 架构与审查：invoke **`/freertos-embedded-architect`** 或说明芯片平台。
-Skill 路径：`~/.claude/skills/freertos-embedded-architect/`（安装见 skill 仓库 `scripts/install_claude_code.*`）。
+FreeRTOS/LVGL/IoT architecture and review: invoke **`/freertos-embedded-architect`** or specify the chip platform.
+Skill path: `~/.claude/skills/freertos-embedded-architect/` (see skill repository `scripts/install_claude_code.*` for installation).
 
-## 本平台（必填 — 改下面占位）
-- **芯片/SDK：** <!-- JL AC79 / BK7258 Armino / ESP32 / STM32 -->
-- **编译：** <!-- make bk7258 / idf.py build / make ac791n_xxx -->
-- **源码根：** <!-- src/ 或 projects/xxx/ap/ -->
+## This Platform (required — change placeholders below)
+- **Chip/SDK:** <!-- JL AC79 / BK7258 Armino / ESP32 / STM32 -->
+- **Build:** <!-- make bk7258 / idf.py build / make ac791n_xxx -->
+- **Source root:** <!-- src/ or projects/xxx/ap/ -->
 
-## Token 规则（每次会话）
-1. **禁止** Read/Glob 整个 skill；只读当前 workflow 列出的文件
-2. L2 用 `references/constraint_index.md`，非 `constraint_detail.md` 全文
-3. **1** 个 `platforms/*.md` + **最多 3** 个 `prompts/*.txt`
-4. 范例用 Grep/Read **单文件**；审查用 `python <skill>/tools/run_review.py --dir <src> --platform <x>`
+## Token Rules (every session)
+1. **Forbidden** to Read/Glob the entire skill; only read files listed in the current workflow
+2. L2 uses `references/constraint_index.md`, not the full `constraint_detail.md`
+3. **1** `platforms/*.md` + **at most 3** `prompts/*.txt`
+4. Examples use Grep/Read **single file**; review uses `python <skill>/tools/run_review.py --dir <src> --platform <x>`
 
-## L3 自主实施
-实现/修 Bug：**全权改代码**，无需逐步确认，直至功能完成且 **编译 0 error**。铁律 C1–C8 仍遵守。
+## L3 Autonomous Implementation
+Implementation/Bug fix: **full authority to modify code**, no step-by-step confirmation needed, until functionality is complete and **build has 0 errors**. Iron rules C1-C8 still apply.
 
-## LVGL UI 生成
-**必须**使用 MCP 工具链（`get_lvgl_theme_skill` → `convert_image` → `generate_spec` → `generate_code` → `validate`）。禁止绕过 MCP 直接手写 LVGL 页面代码。详见 skill `workflows/l3_lvgl_page.md`。
+## LVGL UI Generation
+**Must** use the MCP toolchain (`get_lvgl_theme_skill` -> `convert_image` -> `generate_spec` -> `generate_code` -> `validate`). Bypassing MCP to hand-write LVGL page code is forbidden. See skill `workflows/l3_lvgl_page.md` for details.
 
-## 忽略大目录
-见同目录 `.claudeignore`（SDK/build 勿进 context）。
+## Ignore Large Directories
+See `.claudeignore` in the same directory (SDK/build should not enter context).

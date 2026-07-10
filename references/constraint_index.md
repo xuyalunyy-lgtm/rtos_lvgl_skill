@@ -1,78 +1,78 @@
-# 约束 ID 速查（L2+ · 省 token 版）
+# Constraint ID Quick Reference (L2+ · Token-saving)
 
-完整矩阵（正例/反例/checker）→ [constraint_detail.md](constraint_detail.md)。违规报告仍引用 `C#.#`。
+Full matrix (positive/negative/checker) → [constraint_detail.md](constraint_detail.md). Violation reports still reference `C#.#`.
 
 ## C1 LVGL
-| ID | P | 一句话 |
-|----|---|--------|
-| C1.1 | 0 | 非 View 禁止 `lv_obj_*` / `lv_label_*` |
-| C1.2 | 0 | UI 仅 LVGL 任务或 `lv_async_call` |
-| C1.3 | 0 | `lv_async_call` user_data 回调内 free |
-| C1.4 | 1 | mutex 须超时，禁 `portMAX_DELAY` |
-| C1.5 | 0 | 持 LVGL 锁禁阻塞 Queue/网络 |
-| C1.6 | 1 | 双锁顺序：先网络后 LVGL |
-| C1.7 | 2 | 高频 UI 须节流 |
+| ID | P | One-line |
+|----|---|----------|
+| C1.1 | 0 | Non-View MUST NOT call `lv_obj_*` / `lv_label_*` |
+| C1.2 | 0 | UI only from LVGL task or `lv_async_call` |
+| C1.3 | 0 | `lv_async_call` user_data free inside callback |
+| C1.4 | 1 | mutex MUST have timeout, `portMAX_DELAY` forbidden |
+| C1.5 | 0 | Holding LVGL lock MUST NOT block Queue/network |
+| C1.6 | 1 | Dual-lock order: network first, then LVGL |
+| C1.7 | 2 | High-frequency UI MUST be throttled |
 
 ## C2 Queue
-| ID | P | 一句话 |
-|----|---|--------|
-| C2.1 | 0 | 禁 `cJSON*` 进 Queue |
-| C2.2 | 0 | 禁栈指针进 Queue |
-| C2.3 | 0 | heap payload：Model alloc → Presenter free |
-| C2.4 | 0 | Queue 满时 Model 仍须 free payload |
-| C2.5 | 1 | Send 成功后 Model 禁再碰 payload |
-| C2.6 | 2 | 标注谁 alloc / 谁 free |
-| C2.7 | 1 | Queue 深度与背压策略须文档化 |
-| C2.8 | 0 | 禁 `lv_obj_t*` 进 Queue |
+| ID | P | One-line |
+|----|---|----------|
+| C2.1 | 0 | `cJSON*` MUST NOT enter Queue |
+| C2.2 | 0 | Stack pointer MUST NOT enter Queue |
+| C2.3 | 0 | Heap payload: Model alloc → Presenter free |
+| C2.4 | 0 | When Queue full, Model MUST still free payload |
+| C2.5 | 1 | After Send succeeds, Model MUST NOT touch payload |
+| C2.6 | 2 | Annotate who alloc / who free |
+| C2.7 | 1 | Queue depth and backpressure strategy MUST be documented |
+| C2.8 | 0 | `lv_obj_t*` MUST NOT enter Queue |
 
 ## C3 cJSON
-| ID | P | 一句话 |
-|----|---|--------|
-| C3.1 | 0 | 每 Parse 同函数内 Delete |
-| C3.2 | 0 | 多出口 `goto cleanup` |
-| C3.3 | 0 | 进 Queue 前 Delete，只传 plain buffer |
-| C3.4 | 1 | 循环内 Parse 每次 Delete |
-| C3.5 | 1 | malloc 失败路径不泄漏 root |
-| C3.6 | 2 | L2+ 跑 cjson_leak_checker |
+| ID | P | One-line |
+|----|---|----------|
+| C3.1 | 0 | Each Parse MUST have Delete in same function |
+| C3.2 | 0 | Multiple exits use `goto cleanup` |
+| C3.3 | 0 | Delete before entering Queue, only pass plain buffer |
+| C3.4 | 1 | Parse in loop MUST Delete each iteration |
+| C3.5 | 1 | malloc failure path MUST NOT leak root |
+| C3.6 | 2 | L2+ MUST run cjson_leak_checker |
 
 ## C4 ISR/DMA
-| ID | P | 一句话 |
-|----|---|--------|
-| C4.1 | 0 | ISR 仅 `*FromISR` API |
-| C4.2 | 0 | ISR 末尾 `portYIELD_FROM_ISR` |
-| C4.3 | 0 | ISR 禁 delay/malloc/cJSON/printf |
-| C4.4 | 1 | I2S Ping-Pong + 4 字节对齐 |
-| C4.5 | 1 | 音频优先级高于 LVGL/WSS |
-| C4.6 | 0 | 音频结果经 Queue，禁直改 UI |
-| C4.7 | 0 | ISR 禁 mutex |
-| C4.8 | 1 | Cache SoC：DMA 后 invalidate/clean |
+| ID | P | One-line |
+|----|---|----------|
+| C4.1 | 0 | ISR MUST only use `*FromISR` API |
+| C4.2 | 0 | ISR MUST end with `portYIELD_FROM_ISR` |
+| C4.3 | 0 | ISR MUST NOT use delay/malloc/cJSON/printf |
+| C4.4 | 1 | I2S Ping-Pong + 4-byte alignment |
+| C4.5 | 1 | Audio priority MUST be higher than LVGL/WSS |
+| C4.6 | 0 | Audio results via Queue, MUST NOT directly modify UI |
+| C4.7 | 0 | ISR MUST NOT use mutex |
+| C4.8 | 1 | Cache SoC: invalidate/clean after DMA |
 
 ## C5–C8
-| ID | P | 一句话 |
-|----|---|--------|
-| C5.1 | 1 | 每大模块 `APP_TEST_MODE_*` |
-| C6.1 | 0 | 先问卷再 SDK 裁剪 |
-| C6.5 | 1 | main/CMakeLists 与 Kconfig/init 链一致，未 init 不得编入 |
-| C7.1 | 0 | 缩池/栈前须有基线 |
-| C7.5 | 0 | WSS 栈 ≥4096 bytes |
-| C7.9 | 1 | 重连指数退避 |
-| C7.10 | 1 | 普通堆申请优先外部 RAM，失败再回退 internal |
-| C7.11 | 1 | 跨模块内存走统一 allocator/free 封装 |
-| C7.12 | 1 | 遥测含 per-heap free/min/largest/fail |
-| C7.13 | 1 | 高频固定尺寸对象用启动期预分配固定块池 |
-| C8.1 | 0 | Queue/Presenter 先于网络回调 |
-| C8.3 | 1 | Presenter 禁 `portMAX_DELAY` 等 Queue |
-| C8.6 | 0 | init 禁同步 TLS/大 Parse |
+| ID | P | One-line |
+|----|---|----------|
+| C5.1 | 1 | Each major module MUST have `APP_TEST_MODE_*` |
+| C6.1 | 0 | Questionnaire first, then SDK trimming |
+| C6.5 | 1 | main/CMakeLists MUST match Kconfig/init chain; uninitialized MUST NOT be compiled |
+| C7.1 | 0 | MUST have baseline before reducing pool/stack |
+| C7.5 | 0 | WSS stack ≥4096 bytes |
+| C7.9 | 1 | Reconnection MUST use exponential backoff |
+| C7.10 | 1 | Normal heap allocation prefers external RAM, falls back to internal on failure |
+| C7.11 | 1 | Cross-module memory MUST use unified allocator/free wrapper |
+| C7.12 | 1 | Telemetry MUST include per-heap free/min/largest/fail |
+| C7.13 | 1 | High-frequency fixed-size objects MUST use startup pre-allocated fixed-block pool |
+| C8.1 | 0 | Queue/Presenter MUST initialize before network callback |
+| C8.3 | 1 | Presenter MUST NOT use `portMAX_DELAY` waiting for Queue |
+| C8.6 | 0 | init MUST NOT use synchronous TLS/large Parse |
 
-## C9 密钥/凭证
-| ID | P | 一句话 |
-|----|---|--------|
-| C9.1 | 0 | 入库 config 禁非空 SECRET/TOKEN/PASSWORD |
-| C9.2 | 0 | Git remote 禁内嵌凭证 |
-| C9.3 | 1 | 日志禁打印密码/token |
-| C9.4 | 1 | secrets 文件须 gitignore |
-| C9.5 | 2 | 构建支持 config.secrets 覆盖 |
-| C9.6 | 2 | L2 工程审查须跑 secret_scan |
+## C9 Secrets/Credentials
+| ID | P | One-line |
+|----|---|----------|
+| C9.1 | 0 | Committed config MUST NOT contain non-empty SECRET/TOKEN/PASSWORD |
+| C9.2 | 0 | Git remote MUST NOT embed credentials |
+| C9.3 | 1 | Logs MUST NOT print passwords/tokens |
+| C9.4 | 1 | secrets file MUST be gitignored |
+| C9.5 | 2 | Build MUST support config.secrets override |
+| C9.6 | 2 | L2 project review MUST run secret_scan |
 
 ## C10 语音/ASR/Uplink
 | ID | P | 一句话 |

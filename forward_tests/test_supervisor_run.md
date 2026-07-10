@@ -1,23 +1,23 @@
-# 测试：Codex Supervisor 托管执行
+# Test: Codex Supervisor Managed Execution
 
-## 输入
-- Job 文件：.codex/jobs/example-fix-checker.json
-- 期望触发：codex_supervisor.py run --dry-run
+## Input
+- Job file: .codex/jobs/example-fix-checker.json
+- Expected trigger: codex_supervisor.py run --dry-run
 
-## 验收条件
-- [ ] codex_supervisor.py --self-test 12 项全绿
-- [ ] queue 子命令列出 jobs
-- [ ] gate 子命令对低风险计划返回 approve
-- [ ] gate 子命令对保护路径返回 reject
-- [ ] gate 子命令对危险命令返回 reject
-- [ ] gate 子命令对 high 风险返回 needs_confirmation
-- [ ] run --dry-run 正常退出（可能因脏树 abort，属预期行为）
-- [ ] run 生成 supervisor_report.json
-- [ ] run 生成 supervisor_report.md
-- [ ] run 生成 JSONL 日志
-- [ ] 无 Python traceback
+## Acceptance Criteria
+- [ ] codex_supervisor.py --self-test all 12 items pass
+- [ ] queue subcommand lists jobs
+- [ ] gate subcommand returns approve for low-risk plans
+- [ ] gate subcommand returns reject for protected paths
+- [ ] gate subcommand returns reject for dangerous commands
+- [ ] gate subcommand returns needs_confirmation for high risk
+- [ ] run --dry-run exits normally (may abort due to dirty tree, which is expected behavior)
+- [ ] run generates supervisor_report.json
+- [ ] run generates supervisor_report.md
+- [ ] run generates JSONL log
+- [ ] No Python traceback
 
-## 自动化命令
+## Automation Command
 ```bash
 python scripts/codex_supervisor.py --self-test
 python scripts/codex_supervisor.py queue

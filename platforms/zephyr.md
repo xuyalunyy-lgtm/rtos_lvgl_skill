@@ -1,57 +1,57 @@
-# Zephyr RTOS 平台专档
+# Zephyr RTOS Platform Guide
 
-> Zephyr RTOS 差异化特性、开发规范与 FreeRTOS 迁移指南。
+> Zephyr RTOS differentiated features, development guidelines, and FreeRTOS migration guide.
 
 ---
 
-## 目录
+## Table of Contents
 
-- [关键差异](#关键差异)
-- [线程模型](#线程模型)
-- [设备驱动框架](#设备驱动框架)
+- [Key Differences](#key-differences)
+- [Thread Model](#thread-model)
+- [Device Driver Framework](#device-driver-framework)
 - [Device Tree (DTS)](#device-tree-dts)
-- [Kconfig 配置](#kconfig-配置)
-- [内存管理](#内存管理)
-- [网络/WiFi](#网络wifi)
-- [LVGL 集成](#lvgl-集成)
-- [音频/I2S](#audioi2s)
-- [看门狗](#看门狗)
-- [低功耗](#低功耗)
-- [Crash 诊断](#crash-诊断)
-- [SDK 裁剪](#sdk-裁剪)
-- [FreeRTOS → Zephyr 迁移](#freertos--zephyr-迁移)
-- [快速参考](#快速参考)
+- [Kconfig Configuration](#kconfig-configuration)
+- [Memory Management](#memory-management)
+- [Network/WiFi](#networkwifi)
+- [LVGL Integration](#lvgl-integration)
+- [Audio/I2S](#audioi2s)
+- [Watchdog](#watchdog)
+- [Low Power](#low-power)
+- [Crash Diagnostics](#crash-diagnostics)
+- [SDK Trimming](#sdk-trimming)
+- [FreeRTOS → Zephyr Migration](#freertos--zephyr-migration)
+- [Quick Reference](#quick-reference)
 
 ---
 
-## 关键差异
+## Key Differences
 
-| 维度 | FreeRTOS | Zephyr |
+| Dimension | FreeRTOS | Zephyr |
 |------|----------|--------|
-| 线程 API | `xTaskCreate` / `vTaskDelete` | `k_thread_create` / `k_thread_abort` |
-| 同步原语 | `xSemaphoreTake` / `xQueueReceive` | `k_sem_take` / `k_msgq_get` |
-| 定时器 | `xTimerCreate` / `xTimerStart` | `k_timer_start` / `k_timer_stop` |
-| 内存分配 | `pvPortMalloc` / `vPortFree` | `k_malloc` / `k_free` 或 heap 池 |
-| 设备模型 | 手动初始化 | Device Tree + `device_is_ready()` |
-| 配置系统 | Kconfig (ESP-IDF 风格) | Kconfig (原生) + DTS overlay |
-| 构建系统 | CMake + idf.py / make | CMake + west |
-| 多核 | 手动绑核 | IPC 服务 + AMP 支持 |
+| Thread API | `xTaskCreate` / `vTaskDelete` | `k_thread_create` / `k_thread_abort` |
+| Synchronization primitives | `xSemaphoreTake` / `xQueueReceive` | `k_sem_take` / `k_msgq_get` |
+| Timer | `xTimerCreate` / `xTimerStart` | `k_timer_start` / `k_timer_stop` |
+| Memory allocation | `pvPortMalloc` / `vPortFree` | `k_malloc` / `k_free` or heap pool |
+| Device model | manual initialization | Device Tree + `device_is_ready()` |
+| Configuration system | Kconfig (ESP-IDF style) | Kconfig (native) + DTS overlay |
+| Build system | CMake + idf.py / make | CMake + west |
+| Multi-core | manual core pinning | IPC service + AMP support |
 
 ---
 
-## 线程模型
+## Thread Model
 
-### 线程创建
+### Thread Creation
 
 ```c
-/* Zephyr 线程创建 */
+/* Zephyr thread creation */
 K_THREAD_STACK_DEFINE(my_stack, 4096);
 static struct k_thread my_thread_data;
 
 void my_thread_entry(void *p1, void *p2, void *p3) {
-    /* 线程主循环 */
+    /* Thread main loop */
     while (1) {
-        /* 处理事件 */
+        /* Handle events */
         k_msleep(100);
     }
 }
@@ -62,37 +62,37 @@ k_tid_t tid = k_thread_create(
     K_THREAD_STACK_SIZEOF(my_stack),
     my_thread_entry,
     NULL, NULL, NULL,
-    5,  /* 优先级 */
-    0,  /* 选项 */
-    K_NO_WAIT  /* 启动延迟 */
+    5,  /* priority */
+    0,  /* options */
+    K_NO_WAIT  /* startup delay */
 );
 ```
 
-### FreeRTOS 对照
+### FreeRTOS Comparison
 
-| FreeRTOS | Zephyr | 说明 |
+| FreeRTOS | Zephyr | Description |
 |----------|--------|------|
-| `xTaskCreate(func, name, stack, param, prio, &handle)` | `k_thread_create(...)` | 栈由 `K_THREAD_STACK_DEFINE` 分配 |
-| `vTaskDelete(handle)` | `k_thread_abort(tid)` | Zephyr 用 `abort` 语义 |
-| `vTaskDelay(ms)` | `k_msleep(ms)` | 单位相同 |
-| `vTaskDelayUntil(&tick, period)` | `k_msleep(period)` 或 `k_timer` | Zephyr 推荐用 timer |
-| `xTaskNotifyGive(tid)` | `k_sem_give(&sem)` 或 `k_event_post()` | Notification → Semaphore/Event |
-| `ulTaskNotifyTake(...)` | `k_sem_take(&sem, ...)` 或 `k_event_wait()` | 同上 |
+| `xTaskCreate(func, name, stack, param, prio, &handle)` | `k_thread_create(...)` | stack allocated by `K_THREAD_STACK_DEFINE` |
+| `vTaskDelete(handle)` | `k_thread_abort(tid)` | Zephyr uses `abort` semantics |
+| `vTaskDelay(ms)` | `k_msleep(ms)` | same unit |
+| `vTaskDelayUntil(&tick, period)` | `k_msleep(period)` or `k_timer` | Zephyr recommends using timer |
+| `xTaskNotifyGive(tid)` | `k_sem_give(&sem)` or `k_event_post()` | Notification → Semaphore/Event |
+| `ulTaskNotifyTake(...)` | `k_sem_take(&sem, ...)` or `k_event_wait()` | same as above |
 
-### 优先级
+### Priority
 
-- Zephyr：**数字越小优先级越高**（与 STM32 FreeRTOS 相同）
-- `K_PRIO_PREEMPT(5)` = 优先级 5，可抢占
-- `K_PRIO_COOP(5)` = 优先级 5，协作式
+- Zephyr: **smaller number = higher priority** (same as STM32 FreeRTOS)
+- `K_PRIO_PREEMPT(5)` = priority 5, preemptible
+- `K_PRIO_COOP(5)` = priority 5, cooperative
 
 ---
 
-## 设备驱动框架
+## Device Driver Framework
 
-### 设备获取
+### Device Access
 
 ```c
-/* Device Tree 方式 */
+/* Device Tree method */
 const struct device *dev = DEVICE_DT_GET(DT_NODELABEL(i2c0));
 if (!device_is_ready(dev)) {
     LOG_ERR("I2C device not ready");
@@ -107,10 +107,10 @@ if (!device_is_ready(dev)) {
 
 static const struct gpio_dt_spec led = GPIO_DT_SPEC_GET(DT_NODELABEL(led0), gpios);
 
-/* 初始化 */
+/* Initialize */
 gpio_pin_configure_dt(&dev, GPIO_OUTPUT_ACTIVE);
 
-/* 控制 */
+/* Control */
 gpio_pin_set_dt(&led, 1);
 ```
 
@@ -143,7 +143,7 @@ struct spi_config cfg = {
 
 ## Device Tree (DTS)
 
-### 基本结构
+### Basic Structure
 
 ```dts
 /* boards/my_board.overlay */
@@ -165,73 +165,73 @@ struct spi_config cfg = {
 };
 ```
 
-### DTS → C 绑定
+### DTS → C Binding
 
 ```c
-/* 获取 DTS 节点设备 */
+/* Get DTS node device */
 #define SENSOR_NODE DT_NODELABEL(sensor)
 const struct device *sensor = DEVICE_DT_GET(SENSOR_NODE);
 
-/* 获取 DTS 属性 */
+/* Get DTS property */
 #define SENSOR_LABEL DT_LABEL(SENSOR_NODE)
 ```
 
 ---
 
-## Kconfig 配置
+## Kconfig Configuration
 
-### 常用配置
+### Common Configuration
 
 ```kconfig
-# 启用 GPIO
+# Enable GPIO
 CONFIG_GPIO=y
 
-# 启用 I2C
+# Enable I2C
 CONFIG_I2C=y
 
-# 启用 SPI
+# Enable SPI
 CONFIG_SPI=y
 
-# 启用 LVGL
+# Enable LVGL
 CONFIG_LVGL=y
 CONFIG_LV_Z_HOR_RES_MAX=240
 CONFIG_LV_Z_VER_RES_MAX=320
 
-# 网络
+# Network
 CONFIG_NETWORKING=y
 CONFIG_NET_IPV4=y
 CONFIG_NET_TCP=y
 CONFIG_WIFI=y
 
-# 低功耗
+# Low Power
 CONFIG_PM=y
 CONFIG_PM_DEVICE=y
 ```
 
-### 条件编译
+### Conditional Compilation
 
 ```c
 #include <zephyr/kernel.h>
 
 #ifdef CONFIG_WIFI
-    /* WiFi 相关代码 */
+    /* WiFi related code */
 #endif
 
 #ifdef CONFIG_LVGL
-    /* LVGL 相关代码 */
+    /* LVGL related code */
 #endif
 ```
 
 ---
 
-## 内存管理
+## Memory Management
 
-### 堆分配
+### Heap Allocation
 
 ```c
 #include <zephyr/kernel.h>
 
-/* 动态分配 */
+/* Dynamic allocation */
 void *buf = k_malloc(1024);
 if (buf == NULL) {
     LOG_ERR("malloc failed");
@@ -240,14 +240,14 @@ if (buf == NULL) {
 k_free(buf);
 ```
 
-### 静态内存池
+### Static Memory Pool
 
 ```c
 K_MEM_POOL_DEFINE(my_pool, 64, 1024, 4, 4);
 
 void *block;
 k_mem_pool_alloc(&my_pool, &block, 256, K_MSEC(100));
-/* 使用 block */
+/* use block */
 k_mem_pool_free(&block);
 ```
 

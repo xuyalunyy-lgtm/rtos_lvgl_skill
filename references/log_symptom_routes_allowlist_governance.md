@@ -1,18 +1,18 @@
 ﻿# log symptom allowlist governance
 
-## 允许列表变更审批路径
+## Allowlist Change Approval Path
 
-1. 在 `references/log_symptom_route_conflict_allowlist.json` 中提交变更前，先在 PR 描述里说明：
-   - 变更条目的 `fixture` 或 `route_id` 来源
-   - 对应冲突的复现证据（日志/路由或可复现脚本）
-   - 预计清理计划与失效日期
-2. 通过 `python scripts/check_log_symptom_quality_gate.py --strict` 验证规则不会被放大到非预期范围。
-3. 在代码评审中单独列出：
-   - 这是“新增/移除 allowlist 条目”变更
-   - 该变更是一次性豁免，且附带回收条件
+1. Before submitting changes in `references/log_symptom_route_conflict_allowlist.json`, describe in the PR description:
+   - Source of the `fixture` or `route_id` for the changed entry
+   - Reproduction evidence for the corresponding conflict (logs/routes or reproducible scripts)
+   - Planned cleanup schedule and expiration date
+2. Verify that rules will not be amplified to unexpected scope via `python scripts/check_log_symptom_quality_gate.py --strict`.
+3. List separately in code review:
+   - This is an “add/remove allowlist entry” change
+   - The change is a one-time exemption with reclaim conditions attached
 
-## 快速治理规则
+## Quick Governance Rules
 
-- `scripts/check_log_symptom_quality_gate.py` 会在每次运行时记录 allowlist 与 policy 的 `md5 + mtime`。
-- 与 `HEAD` 对比发现仅格式化或语义不变时会返回失败（语义 noop 拒绝），用于防止“空白改动”进入仓库。
-- 若 `allowlist` 或 `policy` 文件被修改，建议在评审中同步更新上述审计记录（原因、归档时间、Owner）。
+- `scripts/check_log_symptom_quality_gate.py` records the `md5 + mtime` of the allowlist and policy on each run.
+- When compared with `HEAD`, it returns a failure if only formatting or semantics are unchanged (semantic noop rejection), to prevent “empty changes” from entering the repository.
+- If the `allowlist` or `policy` files are modified, it is recommended to update the above audit records in the review (reason, archival time, Owner).

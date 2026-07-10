@@ -2,7 +2,7 @@
   "symptoms": [
     {
       "id": "WDT_RESET",
-      "name": "Task WDT 复位",
+      "name": "Task WDT Reset",
       "patterns": [
         "task_wdt",
         "WDT",
@@ -15,19 +15,19 @@
         "xQueueSend.*blocked"
       ],
       "natural_patterns": [
-        "重启",
-        "复位",
-        "看门狗",
+        "restart",
+        "reset",
+        "watchdog",
         "WDT",
-        "跑一会就死",
-        "运行一段时间后重启",
-        "偶发重启",
-        "跑久了重启"
+        "dies after running for a while",
+        "restarts after running for a period",
+        "occasional restart",
+        "restarts after running for a long time"
       ],
       "weak_patterns": [
-        "异常",
-        "不稳定",
-        "死机"
+        "anomaly",
+        "unstable",
+        "freeze"
       ],
       "category": "software",
       "severity": "P0",
@@ -37,25 +37,25 @@
         "C35"
       ],
       "root_cause_hints": [
-        "长阻塞调用",
-        "优先级反转",
-        "队列满无限等待"
+        "long blocking call",
+        "priority inversion",
+        "infinite wait on full queue"
       ],
       "verify_steps": [
-        "检查 WDT 超时配置",
-        "检查任务优先级表",
-        "检查是否有 portMAX_DELAY"
+        "check WDT timeout configuration",
+        "check task priority table",
+        "check if portMAX_DELAY is used"
       ],
       "missing_facts": [
-        "哪个任务触发 WDT",
-        "WDT 超时时间",
-        "重启前最后日志"
+        "which task triggered WDT",
+        "WDT timeout value",
+        "last log before restart"
       ],
       "diagnostic_probes": {
         "log_confirm": [
-          "看 reset reason 寄存器值",
-          "看 WDT 超时前最后打印的任务名",
-          "看是否有 portMAX_DELAY 调用"
+          "check reset reason register value",
+          "check last task name printed before WDT timeout",
+          "check if portMAX_DELAY calls exist"
         ],
         "code_locate": [
           "grep -rn 'portMAX_DELAY' src/",
@@ -76,7 +76,7 @@
         "priority_checker"
       ],
       "stop_conditions": [
-        "如果是硬件 watchdog（非 task watchdog），先检查硬件"
+        "if hardware watchdog (not task watchdog), check hardware first"
       ],
       "architecture_flags": [
         "timeout budget missing",
@@ -94,14 +94,14 @@
         "panic"
       ],
       "natural_patterns": [
-        "崩溃",
-        "死机",
+        "crash",
+        "freeze",
         "HardFault",
         "Guru Meditation",
         "abort",
         "panic",
-        "直接挂了",
-        "跑着跑着挂了"
+        "crashed directly",
+        "crashed while running"
       ],
       "weak_patterns": [
         "异常",

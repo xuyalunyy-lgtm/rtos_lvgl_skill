@@ -1,58 +1,58 @@
 # Context Route Quality Samples
 
-> 5 条核心质量样例，验证 compact 默认预算没有"省 token 省到漏关键约束"。
+> 5 core quality samples to verify that the compact default budget does not "save tokens at the cost of missing critical constraints".
 
-## 样例定义
+## Sample Definitions
 
 ### 1. cjson_review_esp32
 
-- **场景**：ESP32 项目 cJSON 泄漏审查
-- **workflow**：code_review
-- **platform**：esp32
-- **constraints**：C3, C7
-- **compact 必须覆盖**：
-  - constraint_review.md（C3 cJSON 生命周期）
-  - constraint_memory.md（C7 内存分配）
-  - esp32_quick.md（PSRAM/heap 差异）
-- **升级触发**：需要完整 cJSON checker 规则、ESP32 heap_caps 详细 API
-- **质量期望**：compact 模式应能识别 cJSON_Parse/Delete 配对问题、goto cleanup 模板
+- **Scenario**: ESP32 project cJSON leak review
+- **workflow**: code_review
+- **platform**: esp32
+- **constraints**: C3, C7
+- **compact must cover**:
+  - constraint_review.md (C3 cJSON lifecycle)
+  - constraint_memory.md (C7 memory allocation)
+  - esp32_quick.md (PSRAM/heap differences)
+- **Upgrade trigger**: Requires complete cJSON checker rules, detailed ESP32 heap_caps API
+- **Quality expectation**: Compact mode should be able to identify cJSON_Parse/Delete pairing issues, goto cleanup templates
 
 ### 2. zephyr_crash_log
 
-- **场景**：Zephyr 设备 kernel oops 诊断
-- **workflow**：crash_debug
-- **platform**：zephyr
-- **constraints**：C4, C8, C31
-- **compact 必须覆盖**：
-  - constraint_review.md（C4 ISR 安全）
-  - constraint_rtos.md（C8 启动顺序、C31 超时预算）
-  - zephyr_quick.md（Zephyr crash 定位）
-- **升级触发**：需要完整 Zephyr kernel API、devicetree 配置细节
-- **质量期望**：compact 模式应能识别 ISR 阻塞、启动顺序错误、永久等待
+- **Scenario**: Zephyr device kernel oops diagnosis
+- **workflow**: crash_debug
+- **platform**: zephyr
+- **constraints**: C4, C8, C31
+- **compact must cover**:
+  - constraint_review.md (C4 ISR safety)
+  - constraint_rtos.md (C8 boot sequence, C31 timeout budget)
+  - zephyr_quick.md (Zephyr crash localization)
+- **Upgrade trigger**: Requires complete Zephyr kernel API, devicetree configuration details
+- **Quality expectation**: Compact mode should be able to identify ISR blocking, boot sequence errors, infinite waits
 
 ### 3. esp32_memory_pressure
 
-- **场景**：ESP32 设备堆持续下降
-- **workflow**：memory_analysis
-- **platform**：esp32
-- **constraints**：C7, C28, C36
-- **compact 必须覆盖**：
-  - constraint_memory.md（C7 内存分配、C28 DMA、C36 拷贝预算）
-  - esp32_quick.md（PSRAM/heap 分区）
-- **升级触发**：需要完整 heap_caps API、DMA buffer 对齐细节
-- **质量期望**：compact 模式应能识别未配对 free、PSRAM 误用、DMA cache 问题
+- **Scenario**: ESP32 device heap continuously declining
+- **workflow**: memory_analysis
+- **platform**: esp32
+- **constraints**: C7, C28, C36
+- **compact must cover**:
+  - constraint_memory.md (C7 memory allocation, C28 DMA, C36 copy budget)
+  - esp32_quick.md (PSRAM/heap partitioning)
+- **Upgrade trigger**: Requires complete heap_caps API, DMA buffer alignment details
+- **Quality expectation**: Compact mode should be able to identify unmatched free calls, PSRAM misuse, DMA cache issues
 
 ### 4. ota_rollback_review
 
-- **场景**：ESP32 OTA 升级后自动回滚
-- **workflow**：code_review
-- **platform**：esp32
-- **constraints**：C9, C22
-- **compact 必须覆盖**：
-  - constraint_ota.md（C9 密钥、C22 OTA 安全）
-  - esp32_quick.md（OTA 常见踩坑）
-- **升级触发**：需要完整 OTA API、secure boot 配置、分区表细节
-- **质量期望**：compact 模式应能识别未 mark_valid、签名验证缺失、回滚路径不清
+- **Scenario**: ESP32 automatic rollback after OTA upgrade
+- **workflow**: code_review
+- **platform**: esp32
+- **constraints**: C9, C22
+- **compact must cover**:
+  - constraint_ota.md (C9 keys, C22 OTA security)
+  - esp32_quick.md (OTA common pitfalls)
+- **Upgrade trigger**: Requires complete OTA API, secure boot configuration, partition table details
+- **Quality expectation**: Compact mode should be able to identify missing mark_valid, missing signature verification, unclear rollback paths
 
 ### 5. media_dma_lifecycle
 

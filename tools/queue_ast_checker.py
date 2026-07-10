@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-Queue 所有权 AST 审查（增强版，精确函数边界 + 跨变量追踪）。
+Queue ownership AST review (enhanced, precise function boundary + cross-variable tracking).
 
-比 queue_ownership_checker.py 精度更高：
-- 精确函数边界检测（大括号深度追踪）
-- 变量赋值链追踪（ptr = &stack_var → ptr 进 Queue）
-- cJSON 指针生命周期追踪
+Higher precision than queue_ownership_checker.py:
+- Precise function boundary detection (brace depth tracking)
+- Variable assignment chain tracking (ptr = &stack_var -> ptr into Queue)
+- cJSON pointer lifecycle tracking
 
-用法:
+Usage:
     python tools/queue_ast_checker.py path/to/file.c
     python tools/queue_ast_checker.py path/to/file.c --json
 """
@@ -23,7 +23,7 @@ lookup = SdkLookup("esp32")
 
 
 def check_file(path: Path) -> list[dict]:
-    """检查单个文件的 Queue 所有权 AST 违规。"""
+    """Check a single file for Queue ownership AST violations."""
     result = read_file(path)
     if result is None:
         return []
@@ -31,7 +31,7 @@ def check_file(path: Path) -> list[dict]:
     lines, text = result
     errors: list[dict] = []
 
-    # 精确函数边界检测
+    # Precise function boundary detection
     functions = []
     brace_depth = 0
     current_func = None
@@ -91,22 +91,22 @@ def check_file(path: Path) -> list[dict]:
             if not send_re.search(line):
                 continue
 
-            # 检查 cJSON 在 xQueueSend 行
+            # Check for cJSON on xQueueSend line
             if re.search(r"cJSON", line, re.I):
                 errors.append(make_issue(path, abs_line, "C2", "P0",
-                    f"{func_name}(): xQueueSend 行含 cJSON — 禁止"))
+                    f"{func_name}(): xQueueSend line contains cJSON — forbidden"))
 
-            # 检查 payload 赋值
+            # Check payload assignment
             for m in payload_assign.finditer("\n".join(body)):
                 rhs = m.group(1)
                 if rhs in stack_vars:
                     errors.append(make_issue(path, abs_line, "C2", "P0",
-                        f"{func_name}(): .payload 指向栈变量 '{rhs}'"))
+                        f"{func_name}(): .payload points to stack variable '{rhs}'"))
                 if rhs in cjson_vars:
                     errors.append(make_issue(path, abs_line, "C2", "P0",
-                        f"{func_name}(): 字段赋值为 cJSON* '{rhs}'"))
+                        f"{func_name}(): field assigned with cJSON* '{rhs}'"))
 
-            # 检查 xQueueSend 第二个参数
+            # Check xQueueSend second argument
             send_m = re.search(
                 r"xQueue\w+\s*\(\s*[^,]+,\s*&(\w+)", line
             )
@@ -114,15 +114,15 @@ def check_file(path: Path) -> list[dict]:
                 arg = send_m.group(1)
                 if arg in cjson_vars:
                     errors.append(make_issue(path, abs_line, "C2", "P0",
-                        f"{func_name}(): xQueueSend 传递 cJSON* '&{arg}'"))
+                        f"{func_name}(): xQueueSend passes cJSON* '&{arg}'"))
                 if arg in stack_vars:
                     errors.append(make_issue(path, abs_line, "C2", "P0",
-                        f"{func_name}(): xQueueSend 传递栈 buffer '&{arg}'"))
+                        f"{func_name}(): xQueueSend passes stack buffer '&{arg}'"))
                 if arg in ptr_from_stack_map:
                     errors.append(make_issue(path, abs_line, "C2", "P0",
-                        f"{func_name}(): 传递指向栈 '{ptr_from_stack_map[arg]}' 的指针 '&{arg}'"))
+                        f"{func_name}(): passes pointer to stack '{ptr_from_stack_map[arg]}' as '&{arg}'"))
 
-    # 去重
+    # Deduplicate
     seen: set[tuple[str, int]] = set()
     unique: list[dict] = []
     for e in errors:
@@ -135,4 +135,4 @@ def check_file(path: Path) -> list[dict]:
 
 
 if __name__ == "__main__":
-    raise SystemExit(run_checker(check_file, "Queue 所有权 AST 审查（增强版）", ("C2",)))
+    raise SystemExit(run_checker(check_file, "Queue ownership AST review (enhanced)", ("C2",)))

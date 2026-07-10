@@ -1,5 +1,5 @@
-# BK (Beken/博通集成) 平台 SDK 映射
-# 标准操作 → bk_idk / Armino (FreeRTOS v10) 具体 API
+# BK (Beken) Platform SDK Mapping
+# Standard operations → bk_idk / Armino (FreeRTOS v10) specific APIs
 
 platform: bk
 sdk: bk_idk / Armino
@@ -7,7 +7,7 @@ rtos: FreeRTOS v10 (via rtos_* wrapper)
 
 mappings:
 
-  # ---- RTOS 信号量 ----
+  # ---- RTOS Semaphores ----
   SEM_CREATE:
     apis: ["rtos_init_semaphore"]
     headers: ["<os/os.h>"]
@@ -24,7 +24,7 @@ mappings:
     apis: ["rtos_deinit_semaphore"]
     headers: ["<os/os.h>"]
 
-  # ---- RTOS 互斥锁 ----
+  # ---- RTOS Mutexes ----
   MUTEX_CREATE:
     apis: ["rtos_init_mutex"]
     headers: ["<os/os.h>"]
@@ -38,7 +38,7 @@ mappings:
     apis: ["rtos_deinit_mutex"]
     headers: ["<os/os.h>"]
 
-  # ---- RTOS 队列 ----
+  # ---- RTOS Queues ----
   QUEUE_CREATE:
     apis: ["rtos_init_queue"]
     headers: ["<os/os.h>"]
@@ -46,7 +46,7 @@ mappings:
     apis: ["rtos_push_to_queue"]
     headers: ["<os/os.h>"]
     timeout_param_index: 2
-    note: "timeout=0 是非阻塞（BEKEN_NO_WAIT），不是永久等待"
+    note: "timeout=0 is non-blocking (BEKEN_NO_WAIT), not wait forever"
   QUEUE_RECV:
     apis: ["rtos_pop_from_queue"]
     headers: ["<os/os.h>"]
@@ -55,12 +55,12 @@ mappings:
     apis: []
     headers: []
     unsupported: true
-    reason: "BK SDK 无覆写队列 API"
+    reason: "BK SDK has no queue overwrite API"
   QUEUE_DELETE:
     apis: ["rtos_deinit_queue"]
     headers: ["<os/os.h>"]
 
-  # ---- RTOS 任务 ----
+  # ---- RTOS Tasks ----
   TASK_CREATE:
     apis: ["rtos_create_thread"]
     headers: ["<os/os.h>"]
@@ -68,7 +68,7 @@ mappings:
   TASK_DELETE:
     apis: ["rtos_delete_thread"]
     headers: ["<os/os.h>"]
-    note: "传 NULL 删除当前线程"
+    note: "Pass NULL to delete the current thread"
   TASK_DELAY:
     apis: ["rtos_delay_milliseconds"]
     headers: ["<os/os.h>"]
@@ -77,19 +77,19 @@ mappings:
     apis: []
     headers: []
     unsupported: true
-    reason: "BK SDK 无 task notify，使用队列或信号量替代"
+    reason: "BK SDK has no task notify, use queues or semaphores instead"
   TASK_NOTIFY_TAKE:
     apis: []
     headers: []
     unsupported: true
-    reason: "BK SDK 无 task notify API"
+    reason: "BK SDK has no task notify API"
   TASK_PRIORITY_SET:
     apis: []
     headers: []
     unsupported: true
-    reason: "BK SDK 无运行时优先级修改 API"
+    reason: "BK SDK has no runtime priority modification API"
 
-  # ---- RTOS 定时器 ----
+  # ---- RTOS Timers ----
   TIMER_CREATE:
     apis: ["rtos_init_timer"]
     headers: ["<os/os.h>"]
@@ -103,7 +103,7 @@ mappings:
     apis: ["rtos_deinit_timer"]
     headers: ["<os/os.h>"]
 
-  # ---- RTOS 临界区 ----
+  # ---- RTOS Critical Section ----
   CRITICAL_ENTER:
     apis: ["rtos_enter_critical"]
     headers: ["<os/os.h>"]
@@ -120,7 +120,7 @@ mappings:
     apis: ["portYIELD_FROM_ISR"]
     headers: ["freertos/portmacro.h"]
 
-  # ---- 内存 ----
+  # ---- Memory ----
   HEAP_ALLOC:
     apis: ["rtos_malloc", "malloc", "pvPortMalloc"]
     headers: ["<os/os.h>", "stdlib.h", "freertos/portable.h"]
@@ -130,11 +130,11 @@ mappings:
   HEAP_ALLOC_DMA:
     apis: ["rtos_malloc"]
     headers: ["<os/os.h>"]
-    note: "BK7258 驱动管理 DMA buffer"
+    note: "BK7258 driver manages DMA buffer"
   HEAP_ALLOC_EXTERNAL:
     apis: ["psram_malloc"]
     headers: ["<os/os.h>"]
-    note: "BK7258 支持 PSRAM"
+    note: "BK7258 supports PSRAM"
   HEAP_FREE_SIZE:
     apis: ["xPortGetFreeHeapSize", "xPortGetMinimumEverFreeHeapSize"]
     headers: ["freertos/portable.h"]
@@ -142,9 +142,9 @@ mappings:
     apis: []
     headers: []
     unsupported: true
-    reason: "BK SDK 无静态内存池 API"
+    reason: "BK SDK has no static memory pool API"
 
-  # ---- 常量 ----
+  # ---- Constants ----
   TIMEOUT_FOREVER:
     value: "BEKEN_WAIT_FOREVER"
     numeric: "0xFFFFFFFF"
@@ -153,7 +153,7 @@ mappings:
     numeric: "0"
   MS_TO_TICKS:
     value: "1"
-    note: "BK API 直接接受毫秒"
+    note: "BK API accepts milliseconds directly"
 
   # ---- cJSON ----
   PARSE:
@@ -189,7 +189,7 @@ mappings:
     apis: ["lv_disp_drv_register", "lv_disp_drv_init"]
     headers: ["lvgl.h"]
 
-  # ---- 网络 Socket ----
+  # ---- Network Socket ----
   SOCKET_RECV:
     apis: ["recv", "lwip_recv"]
     headers: ["lwip/sockets.h"]
@@ -222,17 +222,17 @@ mappings:
     apis: []
     headers: []
     unsupported: true
-    reason: "BK 使用 easy_flash 或 flashdb，无标准 NVS API"
+    reason: "BK uses easy_flash or flashdb, no standard NVS API"
   NVS_COMMIT:
     apis: []
     headers: []
     unsupported: true
-    reason: "BK 无 NVS API"
+    reason: "BK has no NVS API"
   NVS_CLOSE:
     apis: []
     headers: []
     unsupported: true
-    reason: "BK 无 NVS API"
+    reason: "BK has no NVS API"
   FLASH_WRITE:
     apis: ["flash_write"]
     headers: ["components/bk_flash.h"]
@@ -254,12 +254,12 @@ mappings:
     apis: []
     headers: []
     unsupported: true
-    reason: "BK OTA 由 bootloader 管理分区，无标准 API"
+    reason: "BK OTA partitions are managed by bootloader, no standard API"
   OTA_ROLLBACK:
     apis: []
     headers: []
     unsupported: true
-    reason: "BK 无 OTA 回滚 API"
+    reason: "BK has no OTA rollback API"
 
   # ---- GPIO ----
   GPIO_CONFIG:
@@ -281,7 +281,7 @@ mappings:
     apis: ["bk_adc_init"]
     headers: ["components/bk_adc.h"]
 
-  # ---- 电源 ----
+  # ---- Power ----
   DEEP_SLEEP:
     apis: ["bk_enter_deep_sleep"]
     headers: ["components/bk_pm.h"]
@@ -295,7 +295,7 @@ mappings:
     apis: []
     headers: []
     unsupported: true
-    reason: "BK SDK 无统一外设断电 API"
+    reason: "BK SDK has no unified peripheral power-down API"
 
   CODEC_OPEN:
     apis: []
@@ -314,7 +314,7 @@ mappings:
     unsupported: true
     reason: "Checker-level concept, not an SDK API"
 
-  # ---- 日志 ----
+  # ---- Logging ----
   LOG_WRITE:
     apis: ["BK_LOGI", "BK_LOGW", "BK_LOGE", "os_printf"]
     headers: ["<os/os.h>"]
@@ -322,7 +322,7 @@ mappings:
     apis: ["os_printf", "printf"]
     headers: ["<os/os.h>", "stdio.h"]
 
-  # ---- 时间 ----
+  # ---- Time ----
   TICK_GET:
     apis: ["rtos_get_time"]
     headers: ["<os/os.h>"]
@@ -333,12 +333,12 @@ mappings:
     apis: []
     headers: []
     unsupported: true
-    reason: "BK rtos_get_time 直接返回毫秒，无需转换"
+    reason: "BK rtos_get_time returns milliseconds directly, no conversion needed"
   MS_TO_TICKS_OP:
     apis: []
     headers: []
     unsupported: true
-    reason: "BK API 直接接受毫秒，无需转换"
+    reason: "BK API accepts milliseconds directly, no conversion needed"
 
   # ---- WiFi ----
   WIFI_CONNECT:
@@ -380,12 +380,12 @@ mappings:
     unsupported: true
     reason: "Platform-specific DMA sync"
 
-  # ---- 看门狗 ----
+  # ---- Watchdog ----
   WDT_ADD:
     apis: []
     headers: []
     unsupported: true
-    reason: "BK SDK 无任务注册到看门狗 API"
+    reason: "BK SDK has no task registration to watchdog API"
   WDT_RESET:
     apis: ["bk_wdt_feed"]
     headers: ["components/bk_wdt.h"]

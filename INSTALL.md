@@ -1,34 +1,34 @@
-# 安装说明（FreeRTOS Embedded Architect Skill — 完整版）
+# Installation Guide (FreeRTOS Embedded Architect Skill — Full Edition)
 
-本仓库为 **完整版**：含 `SKILL.md`、平台专档、场景 prompt、`examples/` 正反范例、`tools/` checker/codegen。
+This repository is the **Full Edition**: includes `SKILL.md`, platform-specific docs, scenario prompts, `examples/` positive/negative examples, `tools/` checker/codegen.
 
-## 分发边界
+## Distribution Boundary
 
-源码仓保留维护资料与发布资料；安装到 Cursor / Claude Code / Codex 时默认只复制 skill 运行所需文件。
+The source repository retains maintenance and release materials; when installing to Cursor / Claude Code / Codex, only files required for skill runtime are copied by default.
 
-安装脚本会排除：仓库根目录的 `README.md`、`INSTALL.md`、`CHANGELOG.md`，以及 `.github/`、`.vscode/`、`freertos-skill-lite/`、`__pycache__/`、本地 SDK 目录和常见缓存目录。完整版能力中的 `tools/`、`examples/`、`prompts/`、`platforms/`、`references/` 会保留，包括 `workflows/README.md`、`examples/README.md` 等运行时索引。
+The installation script excludes: `README.md`, `INSTALL.md`, `CHANGELOG.md` in the repository root, as well as `.github/`, `.vscode/`, `freertos-skill-lite/`, `__pycache__/`, local SDK directories, and common cache directories. Full-edition capabilities such as `tools/`, `examples/`, `prompts/`, `platforms/`, `references/` are preserved, including runtime indexes like `workflows/README.md` and `examples/README.md`.
 
-Windows 下运行标准 skill 校验或任何会读取中文 `SKILL.md` 的 Python 脚本时，建议固定 UTF-8：
+When running standard skill validation or any Python script that reads the Chinese `SKILL.md` on Windows, it is recommended to fix UTF-8 encoding:
 
 ```powershell
 $env:PYTHONUTF8='1'
 $env:PYTHONIOENCODING='utf-8'
 ```
 
-## 安装到 Cursor
+## Install to Cursor
 
-### 个人 Skill（推荐，全项目可用）
+### Personal Skill (Recommended, available across all projects)
 
-本机路径 `~/.cursor/skills/`，**不**走 Cursor 云账号；全项目 Agent 可加载。
+Local path `~/.cursor/skills/`, does **not** go through Cursor cloud account; available to all project Agents.
 
-**Windows（推荐 `.cmd`，无需改 ExecutionPolicy）**
+**Windows (`.cmd` recommended, no need to change ExecutionPolicy)**
 
 ```powershell
 cd C:\path\to\skill
 .\scripts\install_skill.cmd
 ```
 
-或 PowerShell（需 Bypass 或 RemoteSigned）：
+Or PowerShell (requires Bypass or RemoteSigned):
 
 ```powershell
 cd C:\path\to\skill
@@ -43,14 +43,14 @@ chmod +x scripts/install_skill.sh
 ./scripts/install_skill.sh
 ```
 
-手动复制（须排除 `fw-AC79_AIoT_SDK/` 与 `.git/`）：
+Manual copy (must exclude `fw-AC79_AIoT_SDK/` and `.git/`):
 
 ```powershell
-# Windows — 勿用裸 Copy-Item -Recurse，会把本地 SDK 参考目录一并装进 skill
+# Windows — do not use bare Copy-Item -Recurse, it will install local SDK reference directories into the skill
 .\scripts\install_skill.ps1
 ```
 
-### 项目 Skill（团队共享）
+### Project Skill (Team Sharing)
 
 ```bash
 mkdir -p .cursor/skills

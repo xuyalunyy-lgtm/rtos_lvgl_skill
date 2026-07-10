@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-cJSON 静态泄漏审查工具。
+cJSON static leak review tool.
 
-检查 cJSON_Parse / cJSON_ParseWithLength 与 cJSON_Delete 是否成对出现，
-并标记可能的泄漏路径。
+Checks whether cJSON_Parse / cJSON_ParseWithLength and cJSON_Delete appear in pairs,
+and flags potential leak paths.
 
-用法:
+Usage:
     python tools/cjson_leak_checker.py path/to/file.c
     python tools/cjson_leak_checker.py --dir path/to/dir
 """
@@ -255,7 +255,7 @@ def analyze(content: str, filename: str = "<stdin>") -> CheckResult:
             var = site.var_name
             if var is None:
                 result.errors.append(
-                    f"函数 '{site.func_name}()': L{site.line_no} Parse 结果未赋值 — 无法释放 cJSON 树"
+                    f"Function '{site.func_name}()': L{site.line_no} Parse result not assigned — cannot free cJSON tree"
                 )
                 continue
 
@@ -266,7 +266,7 @@ def analyze(content: str, filename: str = "<stdin>") -> CheckResult:
             ]
             if not delete_lines:
                 result.errors.append(
-                    f"函数 '{site.func_name}()': L{site.line_no} 解析到 '{var}' 后未发现 cJSON_Delete({var})"
+                    f"Function '{site.func_name}()': L{site.line_no} parsed into '{var}' but no cJSON_Delete({var}) found"
                 )
 
             for idx in range(local_parse_idx + 1, len(func_body)):
@@ -283,7 +283,7 @@ def analyze(content: str, filename: str = "<stdin>") -> CheckResult:
                     if _label_deletes_var(func_body, label, var):
                         continue
                     result.errors.append(
-                        f"函数 '{site.func_name}()': L{line_no} goto {label} 早于 cJSON_Delete({var})"
+                        f"Function '{site.func_name}()': L{line_no} goto {label} before cJSON_Delete({var})"
                     )
                     continue
 
@@ -295,26 +295,26 @@ def analyze(content: str, filename: str = "<stdin>") -> CheckResult:
                 if _line_deletes_var(segment, var):
                     continue
                 result.errors.append(
-                    f"函数 '{site.func_name}()': L{line_no} 提前退出早于 cJSON_Delete({var})"
+                    f"Function '{site.func_name}()': L{line_no} early exit before cJSON_Delete({var})"
                 )
 
-    # Create 对象也需要 Delete
+    # Create objects also need Delete
     if result.create_count > 0 and result.delete_count < result.create_count:
         result.warnings.append(
-            f"cJSON_Create* 调用 {result.create_count} 次，Delete 仅 {result.delete_count} 次"
+            f"cJSON_Create* called {result.create_count} times, Delete only {result.delete_count} times"
         )
 
-    # 检查常见反模式
+    # Check common anti-patterns
     if any(site.var_name is None for site in result.parse_sites):
         result.warnings.append(
-            "检测到 Parse 结果未赋值给变量 — 无法追踪释放"
+            "Parse result not assigned to variable — cannot track deallocation"
         )
 
     return result
 
 
 def check_file(path: Path) -> list[dict]:
-    """检查单个文件，返回 issue dict 列表。"""
+    """Check a single file, return issue dict list."""
     data = read_file(path)
     if data is None:
         return []
@@ -331,5 +331,5 @@ def check_file(path: Path) -> list[dict]:
 
 
 if __name__ == "__main__":
-    raise SystemExit(run_checker(check_file, "cJSON 静态泄漏审查", ("C3",),
+    raise SystemExit(run_checker(check_file, "cJSON static leak review", ("C3",),
                                  suffixes={".c", ".h", ".cpp"}))

@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """
-cJSON AST 泄漏审查（增强版，精确到函数级别 + goto 追踪）。
+cJSON AST leak review (enhanced, function-level precision + goto tracking).
 
-比 cjson_leak_checker.py 精度更高：
-- 精确函数边界检测（大括号深度追踪）
-- goto cleanup 模式识别
-- Parse 失败分支排除
-- cleanup 标签覆盖检查
+Higher precision than cjson_leak_checker.py:
+- Precise function boundary detection (brace depth tracking)
+- goto cleanup pattern recognition
+- Parse failure branch exclusion
+- cleanup label coverage check
 
-用法:
+Usage:
     python tools/cjson_ast_checker.py path/to/file.c
     python tools/cjson_ast_checker.py path/to/file.c --json
 """
@@ -28,13 +28,13 @@ lookup = SdkLookup("esp32")
 # ---------------------------------------------------------------------------
 
 def check_file(path: Path) -> list[dict]:
-    """分析单个 C 文件的 cJSON AST 泄漏问题，返回 issue 列表。"""
+    """Analyze cJSON AST leak issues in a single C file, return issue list."""
     result = read_file(path)
     if result is None:
         return []
     lines, content = result
 
-    # 精确函数边界检测（大括号深度）
+    # Precise function boundary detection (brace depth)
     functions: list[tuple[str, int, int]] = []
     brace_depth = 0
     current_func: str | None = None
@@ -96,32 +96,32 @@ def check_file(path: Path) -> list[dict]:
             if m_label and m_label.group(1) == "cleanup":
                 cleanup_label_line = abs_line
 
-        # 检查 1: Parse 数 > Delete 数
+        # Check 1: Parse count > Delete count
         if len(parse_lines) > len(delete_lines):
             issues.append(make_issue(
                 path, parse_lines[0], "C3", "P2",
-                f"{func_name}(): Parse {len(parse_lines)} 次, Delete {len(delete_lines)} 次",
+                f"{func_name}(): Parse {len(parse_lines)} times, Delete {len(delete_lines)} times",
             ))
 
-        # 检查 2: 有 Parse + early return 但无 goto cleanup
+        # Check 2: Has Parse + early return but no goto cleanup
         if parse_lines and not goto_cleanup_lines and not cleanup_label_line:
             first_delete = min(delete_lines) if delete_lines else 999999
             has_early = any(rl < first_delete for rl in return_lines)
             if has_early:
                 issues.append(make_issue(
                     path, min(return_lines), "C3", "P2",
-                    f"{func_name}(): 有 Parse + early return 但无 goto cleanup",
+                    f"{func_name}(): Has Parse + early return but no goto cleanup",
                 ))
 
-        # 检查 3: goto cleanup 但无 cleanup 标签
+        # Check 3: goto cleanup but no cleanup label
         if goto_cleanup_lines and not cleanup_label_line:
             issues.append(make_issue(
                 path, goto_cleanup_lines[0], "C3", "P2",
-                f"{func_name}(): goto cleanup 但无 cleanup: 标签",
+                f"{func_name}(): goto cleanup but no cleanup: label",
             ))
 
     return issues
 
 
 if __name__ == "__main__":
-    raise SystemExit(run_checker(check_file, "cJSON AST 泄漏审查（增强版）", ("C3",)))
+    raise SystemExit(run_checker(check_file, "cJSON AST leak review (enhanced)", ("C3",)))

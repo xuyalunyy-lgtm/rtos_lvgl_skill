@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-MVP 架构代码骨架生成器（与 Skill 对齐）。
+MVP architecture code skeleton generator (aligned with Skill).
 
-- Android Handler/Looper 风格 Presenter
-- 统一事件总线与 payload 所有权
-- 每模块 APP_TEST_MODE_* 测试宏
+- Android Handler/Looper style Presenter
+- Unified event bus with payload ownership
+- Per-module APP_TEST_MODE_* test macros
 - --platform: freertos | esp32 | stm32 | jl | bk
 
-用法:
+Usage:
     python tools/mvp_codegen_tool.py Network --platform jl -o ./generated
     python tools/mvp_codegen_tool.py Audio --platform bk
 """
@@ -81,7 +81,7 @@ PLATFORM_CTX = {
         (void)pid;""",
         "malloc": "malloc",
         "free": "free",
-        "stack_unit_note": "words (杰理 thread_fork)",
+        "stack_unit_note": "words (JieLi thread_fork)",
         "default_stack": 1024,
         "default_prio": "6",
         "pres_prio": "3",
@@ -97,7 +97,7 @@ PLATFORM_CTX = {
         configASSERT(ret == pdPASS);""",
         "malloc": "pvPortMalloc",
         "free": "vPortFree",
-        "stack_unit_note": "bytes (BK7258 xTaskCreate，以 SDK 为准)",
+        "stack_unit_note": "bytes (BK7258 xTaskCreate, refer to SDK)",
         "default_stack": 4096,
         "default_prio": "(configMAX_PRIORITIES - 5)",
         "pres_prio": "(configMAX_PRIORITIES - 7)",
@@ -106,29 +106,29 @@ PLATFORM_CTX = {
 
 TEST_CONFIG_TEMPLATE = """/**
  * @file app_test_config.h
- * @brief 测试模式宏 — 打开后只运行对应模块自测（见 prompts/test_mode_macro.txt）
+ * @brief Test mode macros — when enabled, only runs the corresponding module self-test (see prompts/test_mode_macro.txt)
  *
- * 多次 mvp_codegen 生成时：保留已有 #define，仅追加 APP_TEST_MODE_{module_upper}。
+ * When generating multiple times with mvp_codegen: keep existing #define, only append APP_TEST_MODE_{module_upper}.
  */
 
 #ifndef APP_TEST_CONFIG_H
 #define APP_TEST_CONFIG_H
 
-#define APP_TEST_MODE_{module_upper}    0   /* 1=仅测 {module_name} 模块 */
+#define APP_TEST_MODE_{module_upper}    0   /* 1=test only {module_name} module */
 
 #endif /* APP_TEST_CONFIG_H */
 """
 
 HEADER_TEMPLATE = """/**
  * @file {module_lower}_mvp.h
- * @brief {module_name} MVP — Android Handler 风格事件总线
+ * @brief {module_name} MVP — Android Handler style event bus
  *
- * 共享类型见 app_mvp.h（net_evt_t / app_mvp_ui_async_t 等）。
+ * Shared types see app_mvp.h (net_evt_t / app_mvp_ui_async_t etc.).
  * Model    → xQueueSend (sendMessage)
- * Presenter→ Looper 消费 (handleMessage)
+ * Presenter→ Looper consume (handleMessage)
  * View     → lv_async_call (runOnUiThread)
  *
- * payload: Model 分配 → Presenter {free}（见 prompts/memory_ownership.txt）
+ * payload: Model allocates → Presenter {free} (see prompts/memory_ownership.txt)
  */
 
 #ifndef {guard}_H
@@ -154,7 +154,7 @@ typedef enum {{
 
 typedef struct {{
     {module_lower}_evt_type_t type;
-    void *payload;          /* Model 分配，Presenter 释放；禁止传 cJSON* */
+    void *payload;          /* Model allocates, Presenter frees; do not pass cJSON* */
     size_t payload_len;
 }} {module_lower}_evt_t;
 
@@ -181,7 +181,7 @@ void {module_lower}_test_run(void);
 
 MODEL_TEMPLATE = """/**
  * @file {module_lower}_model.c
- * @brief {module_name} Model — 后台任务，禁止 lv_obj_*
+ * @brief {module_name} Model — background task, no lv_obj_* allowed
  */
 
 #include "{module_lower}_mvp.h"
@@ -212,7 +212,7 @@ static void {module_lower}_model_task(void *parm)
 {{
     (void)parm;
     for (;;) {{
-        /* TODO: 硬件/网络采集 */
+        /* TODO: hardware/network data collection */
         {delay_10}
     }}
 }}
@@ -235,7 +235,7 @@ QueueHandle_t {module_lower}_model_queue(void) {{ return s_q; }}
 void {module_lower}_test_run(void)
 {{
     {module_lower}_model_start();
-    /* 自测：模拟 emit，不启完整产品 */
+    /* Self-test: simulate emit, do not start full product */
     char *p = {malloc_stub};
     if (p != NULL) {{
         strcpy(p, "{module_name} test");
@@ -248,7 +248,7 @@ void {module_lower}_test_run(void)
 
 PRESENTER_TEMPLATE = """/**
  * @file {module_lower}_presenter.c
- * @brief {module_name} Presenter — Looper 线程 (handleMessage)
+ * @brief {module_name} Presenter — Looper thread (handleMessage)
  */
 
 #include "{module_lower}_mvp.h"
@@ -302,7 +302,7 @@ void {module_lower}_presenter_start(void)
 
 VIEW_TEMPLATE = """/**
  * @file {module_lower}_view.c
- * @brief {module_name} View — lv_async_call 刷新 (runOnUiThread)
+ * @brief {module_name} View — lv_async_call refresh (runOnUiThread)
  */
 
 #include "{module_lower}_mvp.h"
@@ -343,7 +343,7 @@ void {module_lower}_view_post_text(const char *text)
 def sanitize_module_name(name: str) -> str:
     cleaned = re.sub(r"[^A-Za-z0-9_]", "", name)
     if not cleaned:
-        raise ValueError(f"无效的模块名: {name!r}")
+        raise ValueError(f"Invalid module name: {name!r}")
     return cleaned
 
 
@@ -354,7 +354,7 @@ def to_upper_snake(name: str) -> str:
 def load_app_mvp_h() -> str:
     path = Path(__file__).resolve().parent.parent / "examples" / "app_mvp.h"
     if not path.is_file():
-        raise FileNotFoundError(f"缺少 examples/app_mvp.h: {path}")
+        raise FileNotFoundError(f"Missing examples/app_mvp.h: {path}")
     return path.read_text(encoding="utf-8")
 
 
@@ -370,7 +370,7 @@ def build_task_create(platform: str, func: str, name: str, stack: int, prio: str
 
 def generate(module_name: str, platform: str) -> dict[str, str]:
     if platform not in PLATFORM_CTX:
-        raise ValueError(f"未知平台: {platform}")
+        raise ValueError(f"Unknown platform: {platform}")
 
     mod = sanitize_module_name(module_name)
     pc = PLATFORM_CTX[platform]
@@ -420,8 +420,8 @@ def generate(module_name: str, platform: str) -> dict[str, str]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="MVP 骨架生成器（Skill 对齐版）")
-    parser.add_argument("module", help="模块名，如 Network, Audio")
+    parser = argparse.ArgumentParser(description="MVP skeleton generator (Skill-aligned)")
+    parser.add_argument("module", help="Module name, e.g. Network, Audio")
     parser.add_argument(
         "--platform", "-p",
         choices=PLATFORMS,
@@ -434,7 +434,7 @@ def main() -> int:
     try:
         files = generate(args.module, args.platform)
     except ValueError as e:
-        print(f"错误: {e}", file=sys.stderr)
+        print(f"Error: {e}", file=sys.stderr)
         return 1
 
     note = PLATFORM_CTX[args.platform]["stack_unit_note"]
@@ -444,15 +444,15 @@ def main() -> int:
             path = os.path.join(args.output_dir, fn)
             with open(path, "w", encoding="utf-8", newline="\n") as f:
                 f.write(content)
-            print(f"已生成: {path}")
+            print(f"Generated: {path}")
     else:
         for fn, content in files.items():
             print(f"\n{'=' * 60}\n// FILE: {fn}\n{'=' * 60}\n{content}")
 
-    print(f"\n✅ 平台={args.platform}，栈单位: {note}")
-    print("   已生成 app_mvp.h + 模块 _mvp.h（共享类型见 examples/app_mvp.h）")
-    print("   配对范例: examples/good_presenter_consumer.c")
-    print("   多次生成请手动合并 app_test_config.h 中的 APP_TEST_MODE_* 宏")
+    print(f"\n✅ Platform={args.platform}, stack unit: {note}")
+    print("   Generated app_mvp.h + module _mvp.h (shared types see examples/app_mvp.h)")
+    print("   Pairing example: examples/good_presenter_consumer.c")
+    print("   For multiple generations, manually merge APP_TEST_MODE_* macros in app_test_config.h")
     return 0
 
 

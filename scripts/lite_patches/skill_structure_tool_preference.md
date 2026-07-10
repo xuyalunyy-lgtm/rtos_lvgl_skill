@@ -1,1 +1,1 @@
-| Lite 优先 | `lite_manual_checklist.md` + `constraint_index.md` 手工核对 |
+| Lite Preferred | `lite_manual_checklist.md` + `constraint_index.md` manual verification |

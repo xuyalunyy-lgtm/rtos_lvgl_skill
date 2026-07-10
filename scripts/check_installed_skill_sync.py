@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-安装版同步检查 — 比较 repo skill 与 Codex 安装目录版本一致性。
+Installed version sync check — compare repo skill against Codex install directory version.
 
-用法:
+Usage:
     python scripts/check_installed_skill_sync.py
     python scripts/check_installed_skill_sync.py --strict
     python scripts/check_installed_skill_sync.py --self-test
@@ -20,7 +20,7 @@ DEFAULT_INSTALL_DIR = Path(os.environ.get("USERPROFILE", "")) / ".codex" / "skil
 
 
 def get_version(path: Path) -> str | None:
-    """从 SKILL.md 提取版本号。"""
+    """Extract version number from SKILL.md."""
     if not path.exists():
         return None
     text = path.read_text(encoding="utf-8")
@@ -32,7 +32,7 @@ def get_version(path: Path) -> str | None:
 
 
 def check_sync(install_dir: Path, strict: bool = False) -> dict:
-    """检查安装版与仓库版同步状态。"""
+    """Check installed version against repo version sync status."""
     repo_version = get_version(ROOT / "SKILL.md")
     install_version = get_version(install_dir / "SKILL.md")
 
@@ -46,7 +46,7 @@ def check_sync(install_dir: Path, strict: bool = False) -> dict:
     }
 
     if not install_dir.exists():
-        msg = f"安装目录不存在: {install_dir}"
+        msg = f"Install directory does not exist: {install_dir}"
         if strict:
             result["passed"] = False
             result["issues"].append(msg)
@@ -56,11 +56,11 @@ def check_sync(install_dir: Path, strict: bool = False) -> dict:
 
     if not install_version:
         result["passed"] = False
-        result["issues"].append(f"安装版 SKILL.md 缺少版本号")
+        result["issues"].append(f"Installed SKILL.md missing version number")
         return result
 
     if repo_version and install_version != repo_version:
-        msg = f"版本不一致: repo={repo_version}, installed={install_version}"
+        msg = f"Version mismatch: repo={repo_version}, installed={install_version}"
         if strict:
             result["passed"] = False
             result["issues"].append(msg)
@@ -76,20 +76,20 @@ def run_self_test() -> int:
 
     import tempfile
 
-    # 1. 不存在的安装目录（非 strict）
+    # 1. Non-existent install directory (non-strict)
     r = check_sync(Path("/nonexistent/path"), strict=False)
     assert r["passed"] is True
-    assert any("不存在" in i for i in r["issues"])
+    assert any("does not exist" in i for i in r["issues"])
     print("[PASS] missing install dir (non-strict) → warning")
     passed += 1
 
-    # 2. 不存在的安装目录（strict）
+    # 2. Non-existent install directory (strict)
     r = check_sync(Path("/nonexistent/path"), strict=True)
     assert r["passed"] is False
     print("[PASS] missing install dir (strict) → fail")
     passed += 1
 
-    # 3. 版本一致
+    # 3. Version match
     with tempfile.TemporaryDirectory() as tmp:
         tmp = Path(tmp)
         skill_content = "---\nmetadata:\n  version: 1.0.0\n---\n# Test\n"
@@ -97,7 +97,7 @@ def run_self_test() -> int:
         r = check_sync(tmp, strict=True)
         # repo version is 21.0.8, install is 1.0.0 → mismatch
         assert r["passed"] is False
-        assert any("不一致" in i for i in r["issues"])
+        assert any("mismatch" in i for i in r["issues"])
         print("[PASS] version mismatch → fail")
         passed += 1
 
@@ -106,9 +106,9 @@ def run_self_test() -> int:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="安装版同步检查")
-    parser.add_argument("--install-dir", default=str(DEFAULT_INSTALL_DIR), help="安装目录")
-    parser.add_argument("--strict", action="store_true", help="严格模式（未安装也 fail）")
+    parser = argparse.ArgumentParser(description="Installed version sync check")
+    parser.add_argument("--install-dir", default=str(DEFAULT_INSTALL_DIR), help="Install directory")
+    parser.add_argument("--strict", action="store_true", help="Strict mode (fail if not installed)")
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--self-test", action="store_true")
     args = parser.parse_args()
@@ -123,7 +123,7 @@ def main() -> int:
         print(json.dumps(r, indent=2, ensure_ascii=False))
     else:
         print(f"Repo:     {r['repo_version']}")
-        print(f"Installed: {r['install_version'] or '(未安装)'}")
+        print(f"Installed: {r['install_version'] or '(not installed)'}")
         print(f"Passed:   {r['passed']}")
         for i in r["issues"]:
             print(f"  - {i}")

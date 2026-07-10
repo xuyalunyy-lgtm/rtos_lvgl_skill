@@ -1,5 +1,5 @@
-# ESP32 平台 SDK 映射
-# 标准操作 → ESP-IDF v5.x (FreeRTOS) 具体 API
+# ESP32 Platform SDK Mapping
+# Standard operations → ESP-IDF v5.x (FreeRTOS) specific APIs
 
 platform: esp32
 sdk: ESP-IDF v5.x
@@ -7,7 +7,7 @@ rtos: FreeRTOS
 
 mappings:
 
-  # ---- RTOS 信号量 ----
+  # ---- RTOS Semaphores ----
   SEM_CREATE:
     apis: ["xSemaphoreCreateBinary", "xSemaphoreCreateCounting", "xSemaphoreCreateMutex"]
     headers: ["freertos/semphr.h"]
@@ -26,7 +26,7 @@ mappings:
     apis: ["vSemaphoreDelete"]
     headers: ["freertos/semphr.h"]
 
-  # ---- RTOS 互斥锁 ----
+  # ---- RTOS Mutexes ----
   MUTEX_CREATE:
     apis: ["xSemaphoreCreateMutex"]
     headers: ["freertos/semphr.h"]
@@ -41,7 +41,7 @@ mappings:
     apis: ["vSemaphoreDelete"]
     headers: ["freertos/semphr.h"]
 
-  # ---- RTOS 队列 ----
+  # ---- RTOS Queues ----
   QUEUE_CREATE:
     apis: ["xQueueCreate", "xQueueCreateStatic", "xQueueGenericCreate"]
     headers: ["freertos/queue.h"]
@@ -61,7 +61,7 @@ mappings:
     apis: ["vQueueDelete"]
     headers: ["freertos/queue.h"]
 
-  # ---- RTOS 任务 ----
+  # ---- RTOS Tasks ----
   TASK_CREATE:
     apis: ["xTaskCreate", "xTaskCreatePinnedToCore", "xTaskCreateStatic"]
     headers: ["freertos/task.h"]
@@ -84,7 +84,7 @@ mappings:
     apis: ["vTaskPrioritySet"]
     headers: ["freertos/task.h"]
 
-  # ---- RTOS 定时器 ----
+  # ---- RTOS Timers ----
   TIMER_CREATE:
     apis: ["xTimerCreate", "xTimerCreateStatic"]
     headers: ["freertos/timers.h"]
@@ -98,7 +98,7 @@ mappings:
     apis: ["xTimerDelete"]
     headers: ["freertos/timers.h"]
 
-  # ---- RTOS 临界区 ----
+  # ---- RTOS Critical Section ----
   CRITICAL_ENTER:
     apis: ["taskENTER_CRITICAL", "portENTER_CRITICAL", "portENTER_CRITICAL_FROM_ISR"]
     headers: ["freertos/portmacro.h"]
@@ -115,7 +115,7 @@ mappings:
     apis: ["portYIELD_FROM_ISR"]
     headers: ["freertos/portmacro.h"]
 
-  # ---- 内存 ----
+  # ---- Memory ----
   HEAP_ALLOC:
     apis: ["pvPortMalloc", "malloc", "calloc", "heap_caps_malloc", "heap_caps_calloc", "heap_caps_realloc"]
     headers: ["freertos/portmacro.h", "stdlib.h", "esp_heap_caps.h"]
@@ -137,9 +137,9 @@ mappings:
     apis: []
     headers: []
     unsupported: true
-    reason: "ESP-IDF 无标准静态内存池 API，使用 heap_caps 或 custom allocator"
+    reason: "ESP-IDF has no standard static memory pool API, use heap_caps or custom allocator"
 
-  # ---- 常量 ----
+  # ---- Constants ----
   TIMEOUT_FOREVER:
     value: "portMAX_DELAY"
   TIMEOUT_ZERO:
@@ -163,6 +163,7 @@ mappings:
     headers: ["cJSON.h"]
 
   # ---- LVGL ----
+
   TIMER_HANDLER:
     apis: ["lv_timer_handler"]
     headers: ["lvgl.h"]

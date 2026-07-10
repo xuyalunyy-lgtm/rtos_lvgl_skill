@@ -1,19 +1,19 @@
-# 铁律约束分片：音视频管线与编解码（Media）
+# Iron Rule Constraint Shard: Audio/Video Pipeline and Codec (Media)
 
-本文件包含音视频管线/A/V Sync、音视频编解码/媒体格式一致性、音视频时钟漂移/Jitter Buffer 等约束。
+This file contains constraints for audio/video pipeline/A/V Sync, audio/video codec/media format consistency, audio/video clock drift/Jitter Buffer, etc.
 
-> 对应约束 ID：C25–C27
-> 其他分片：[constraint_review.md](constraint_review.md) | [constraint_memory.md](constraint_memory.md) | [constraint_rtos.md](constraint_rtos.md) | [constraint_platform.md](constraint_platform.md) | [constraint_ota.md](constraint_ota.md) | [constraint_recover.md](constraint_recover.md)
+> Corresponding constraint IDs: C25–C27
+> Other shards:[constraint_review.md](constraint_review.md) | [constraint_memory.md](constraint_memory.md) | [constraint_rtos.md](constraint_rtos.md) | [constraint_platform.md](constraint_platform.md) | [constraint_ota.md](constraint_ota.md) | [constraint_recover.md](constraint_recover.md)
 
 ---
 
-## 严重度定义
+## Severity Definitions
 
-| 级别 | 含义 | 处理 |
+| Level | Meaning | Action |
 |------|------|------|
-| P0 | 必崩 / 必泄漏 / 必死锁 | 阻塞合并，须附修复 diff 或范例引用 |
-| P1 | 高概率量产问题 | 本迭代必须修复或登记风险 |
-| P2 | 可维护性 / 可测试性 | 建议修复，可排期 |
+| P0 | Guaranteed crash / leak / deadlock | Blocks merge; MUST attach fix diff or example reference |
+| P1 | High-probability mass-production issue | MUST fix in this iteration or register risk |
+| P2 | Maintainability / testability | Recommended fix, can be scheduled |
 
 ---
 

@@ -1,73 +1,73 @@
-# Workflow: 软硬联调 / IO 口规划
+# Workflow: Hardware-Software Co-debug / IO Pin Planning
 
-**触发：** 硬件联调、IO 口分配、GPIO 冲突排查、引脚复用、外设接线、新板 bring-up、PCB 布局评审。
+**Trigger:** Hardware co-debug, IO pin allocation, GPIO conflict investigation, pin muxing, peripheral wiring, new board bring-up, PCB layout review.
 
 <thinking>
-1. IO 口是嵌入式系统的物理约束，软件再正确、IO 接错 = 硬件不工作
-2. 用户**必须**提供完整 IO 口用途表；Agent **禁止**凭假设补全引脚
-3. 每次涉及 IO 变更须**反复核对**：平台能力 → 引脚复用 → 电气约束 → 软件配置
-4. 本 workflow 与 L3_new_module 联动：新增外设前先走 IO 核对
-5. 新项目只能**参考**已有配置文件的格式和结构，**禁止直接复用或修改原配置文件**；必须严格按照用户输入编写全新配置
+1. IO pins are the physical constraints of an embedded system — no matter how correct the software is, wrong IO wiring means hardware won't work
+2. User **must** provide a complete IO pin usage table; Agent is **forbidden** from assuming pin assignments
+3. Every IO change requires **repeated verification**: platform capability → pin mux → electrical constraints → software configuration
+4. This workflow integrates with L3_new_module: run IO verification before adding new peripherals
+5. New projects may only **reference** the format and structure of existing configuration files; **direct reuse or modification of original configuration files is forbidden**; must write entirely new configurations strictly per user input
 </thinking>
 
-## Step 0 — 收集 IO 口用途表（必做，不可跳过）
+## Step 0 — Collect IO Pin Usage Table (Mandatory, Cannot Skip)
 
-**铁律：**
-1. 用户未提供完整 IO 表之前，Agent 禁止输出任何引脚相关的代码或配置
-2. 新项目只能**参考**已有项目/模板的配置文件格式与结构，**禁止直接复制、复用或修改原项目配置文件**；必须严格按照用户输入编写全新配置
+**Iron Rules:**
+1. Before user provides a complete IO table, Agent is forbidden from outputting any pin-related code or configuration
+2. New projects may only **reference** the format and structure of existing project/template configuration files; **direct copy, reuse, or modification of original project configuration files is forbidden**; must write entirely new configurations strictly per user input
 
-### 0.1 强制交互模板
+### 0.1 Mandatory Interaction Template
 
-Agent 输出以下模板，要求用户逐项填写：
+Agent outputs the following template, requiring user to fill in each item:
 
 ```markdown
-## IO 口用途表（请填写所有已分配的 IO）
+## IO Pin Usage Table (Please fill in all allocated IOs)
 
-### 基础信息
-- 芯片型号：____
-- 封装/引脚数：____
-- 开发板型号：____
+### Basic Information
+- Chip Model: ____
+- Package/Pin Count: ____
+- Development Board Model: ____
 
-### GPIO 分配
+### GPIO Allocation
 
-| IO 编号 | 功能 | 外设/协议 | 电平 | 方向 | 备注 |
+| IO Number | Function | Peripheral/Protocol | Level | Direction | Remarks |
 |---------|------|-----------|------|------|------|
-| GPIO_xx | 例: LED 指示灯 | GPIO OUT | 3.3V | 输出 | 板载绿色 LED |
-| GPIO_xx | 例: 按键输入 | GPIO IN | 3.3V | 输入 | 内部上拉 |
-| GPIO_xx | 例: I2S_SCK | I2S0 | 3.3V | — | 麦克风时钟 |
+| GPIO_xx | e.g. LED Indicator | GPIO OUT | 3.3V | Output | Onboard green LED |
+| GPIO_xx | e.g. Button Input | GPIO IN | 3.3V | Input | Internal pull-up |
+| GPIO_xx | e.g. I2S_SCK | I2S0 | 3.3V | — | Microphone clock |
 | ... | ... | ... | ... | ... | ... |
 
-### 模拟 IO（若有）
+### Analog IO (if any)
 
-| IO 编号 | 功能 | ADC 通道 | 分辨率 | 采样范围 | 备注 |
+| IO Number | Function | ADC Channel | Resolution | Sampling Range | Remarks |
 |---------|------|----------|--------|----------|------|
 | ... | ... | ... | ... | ... | ... |
 
-### 通信总线
+### Communication Buses
 
-| 总线 | SCL/SCK | SDA/MOSI | MISO | CS/SS | 速率 | 从设备 |
+| Bus | SCL/SCK | SDA/MOSI | MISO | CS/SS | Speed | Slave Devices |
 |------|---------|----------|------|-------|------|--------|
-| I2C0 | GPIO_xx | GPIO_xx | — | — | 400kHz | OLED + 传感器 |
+| I2C0 | GPIO_xx | GPIO_xx | — | — | 400kHz | OLED + Sensor |
 | SPI0 | GPIO_xx | GPIO_xx | GPIO_xx | GPIO_xx | 10MHz | Flash + LCD |
-| UART1 | TX: GPIO_xx | RX: GPIO_xx | — | — | 115200 | 调试串口 |
+| UART1 | TX: GPIO_xx | RX: GPIO_xx | — | — | 115200 | Debug UART |
 
-### 特殊引脚
+### Special Pins
 
-| IO 编号 | 功能 | 约束 |
+| IO Number | Function | Constraints |
 |---------|------|------|
-| ... | BOOT/下载模式 | 上电时电平决定启动模式 |
-| ... | EN/复位 | 不可配置为普通 GPIO |
-| ... | JTAG/SWD | 调试接口，量产可释放 |
+| ... | BOOT/Download Mode | Power-on level determines boot mode |
+| ... | EN/Reset | Cannot be configured as general GPIO |
+| ... | JTAG/SWD | Debug interface, can be released in production |
 ```
 
-### 0.2 用户填写不完整时的处理
+### 0.2 Handling Incomplete User Input
 
-| 缺失情况 | Agent 行动 |
+| Missing Information | Agent Action |
 |----------|-----------|
-| IO 表完全未提供 | **拒绝继续**，输出模板并说明原因 |
-| 部分行标注「待定」 | 允许，但在最终核对时**必须**补全 |
-| 仅写了外设名未写具体 IO | 要求补全，不可自行假设 |
-| 只给了原理图截图 | Agent 尝试读取并提取，但**必须**让用户确认 |
+| IO table not provided at all | **Refuse to continue**, output template and explain reason |
+| Some rows marked "TBD" | Allowed, but **must** complete during final verification |
+| Only peripheral name written without specific IO | Request completion, cannot assume on its own |
+| Only schematic screenshot provided | Agent attempts to read and extract, but **must** have user confirm |
 
 ---
 

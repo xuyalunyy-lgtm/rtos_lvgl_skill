@@ -1,22 +1,22 @@
-# 测试：Codegen Gate 约束驱动生成
+# Test: Codegen Gate Constraint-Driven Generation
 
-## 输入
-- 项目：tools/fixtures/mini_esp32
-- 工具：project_scaffold.py + codegen_gate.py
-- 期望触发：生成 → manifest → gate → 通过/失败
+## Input
+- Project: tools/fixtures/mini_esp32
+- Tools: project_scaffold.py + codegen_gate.py
+- Expected trigger: generate -> manifest -> gate -> pass/fail
 
-## 验收条件
-- [ ] project_scaffold.py --name test --platform esp32 生成 generation_manifest.json
-- [ ] generation_manifest.json 包含 schema_version、generator、platform、generated_files、constraints
-- [ ] codegen_gate.py --self-test 5 项全绿
-- [ ] codegen_gate.py --dir <生成目录> --manifest <manifest> --strict 对合法代码通过
-- [ ] codegen_gate.py 对含裸 portMAX_DELAY 的代码拒绝
-- [ ] codegen_gate.py 对缺文件的 manifest 拒绝
-- [ ] codegen_gate.py 对缺必填字段的 manifest 拒绝
-- [ ] codegen_gate.py 对约束未覆盖（strict 模式）拒绝
-- [ ] 无 Python traceback
+## Acceptance Criteria
+- [ ] project_scaffold.py --name test --platform esp32 generates generation_manifest.json
+- [ ] generation_manifest.json contains schema_version, generator, platform, generated_files, constraints
+- [ ] codegen_gate.py --self-test all 5 items pass
+- [ ] codegen_gate.py --dir <generated_dir> --manifest <manifest> --strict passes for valid code
+- [ ] codegen_gate.py rejects code containing bare portMAX_DELAY
+- [ ] codegen_gate.py rejects manifest with missing files
+- [ ] codegen_gate.py rejects manifest with missing required fields
+- [ ] codegen_gate.py rejects when constraints are uncovered (strict mode)
+- [ ] No Python traceback
 
-## 自动化命令
+## Automation Command
 ```bash
 python tools/codegen_gate.py --self-test
 python tools/project_scaffold.py --name gate_test --platform esp32 --outdir /tmp/gate_test
