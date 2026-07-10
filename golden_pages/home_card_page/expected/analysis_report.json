@@ -1,0 +1,81 @@
+{
+  "page_name": "home_card_page",
+  "screen": {
+    "width": 480,
+    "height": 800,
+    "lvgl_version": "v9",
+    "color_depth": 16
+  },
+  "assets": [],
+  "components": [
+    {
+      "id": "page_root",
+      "type": "container",
+      "bbox": [0, 0, 480, 800],
+      "source": "layout_root",
+      "confidence": 1.0,
+      "style": {"bg_color": "0x0D1B2A"}
+    },
+    {
+      "id": "card_weather",
+      "type": "card",
+      "bbox": [20, 60, 440, 120],
+      "source": "template_match",
+      "confidence": 0.94,
+      "style": {"bg_color": "0x1B2838", "radius": 16}
+    },
+    {
+      "id": "title_weather",
+      "type": "label",
+      "bbox": [40, 75, 100, 24],
+      "source": "template_match",
+      "confidence": 0.91,
+      "text": "Weather"
+    },
+    {
+      "id": "sub_weather",
+      "type": "label",
+      "bbox": [40, 105, 120, 20],
+      "source": "template_match",
+      "confidence": 0.88,
+      "text": "25C Sunny"
+    },
+    {
+      "id": "card_schedule",
+      "type": "card",
+      "bbox": [20, 200, 440, 120],
+      "source": "template_match",
+      "confidence": 0.93,
+      "style": {"bg_color": "0x1B2838", "radius": 16}
+    },
+    {
+      "id": "title_schedule",
+      "type": "label",
+      "bbox": [40, 215, 100, 24],
+      "source": "template_match",
+      "confidence": 0.90,
+      "text": "Schedule"
+    },
+    {
+      "id": "sub_schedule",
+      "type": "label",
+      "bbox": [40, 245, 150, 20],
+      "source": "template_match",
+      "confidence": 0.87,
+      "text": "3 meetings today"
+    },
+    {
+      "id": "nav_button",
+      "type": "button",
+      "bbox": [210, 700, 60, 60],
+      "source": "bright_circle_detection",
+      "confidence": 0.96,
+      "style": {"bg_color": "0x2196F3", "radius": 30}
+    }
+  ],
+  "layout_policy": {
+    "mode": "pixel_exact",
+    "exception_count": 8
+  },
+  "warnings": []
+}

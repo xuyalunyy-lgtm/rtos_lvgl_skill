@@ -1,0 +1,62 @@
+{
+  "page_name": "loading_page",
+  "screen": {
+    "width": 480,
+    "height": 800,
+    "lvgl_version": "v9",
+    "color_depth": 16
+  },
+  "assets": [],
+  "components": [
+    {
+      "id": "page_root",
+      "type": "container",
+      "bbox": [0, 0, 480, 800],
+      "source": "layout_root",
+      "confidence": 1.0,
+      "style": {
+        "bg_color": "0x1A1A2E"
+      }
+    },
+    {
+      "id": "glass_circle",
+      "type": "container",
+      "bbox": [198, 358, 84, 84],
+      "source": "bright_circle_detection",
+      "confidence": 0.95,
+      "style": {
+        "radius": 42,
+        "bg_color": "0xFFFFFF",
+        "bg_opa": 30
+      }
+    },
+    {
+      "id": "loading_text",
+      "type": "label",
+      "bbox": [190, 460, 100, 24],
+      "source": "template_match",
+      "confidence": 0.92,
+      "text": "Loading...",
+      "style": {
+        "text_color": "0xFFFFFF"
+      }
+    },
+    {
+      "id": "time_label",
+      "type": "label",
+      "bbox": [20, 12, 60, 20],
+      "source": "template_match",
+      "confidence": 0.88,
+      "text": "12:30",
+      "style": {
+        "text_color": "0xFFFFFF"
+      }
+    }
+  ],
+  "layout_policy": {
+    "mode": "pixel_exact",
+    "exception_count": 4,
+    "notes": "All components use absolute positioning with LVGL_LAYOUT_EXCEPTION"
+  },
+  "warnings": []
+}

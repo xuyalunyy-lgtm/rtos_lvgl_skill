@@ -1,0 +1,7 @@
+{
+  "page_name": "media_page",
+  "assets": [],
+  "macros": {"text": [], "images": [], "fonts": []},
+  "generated_files": ["generated.c"],
+  "dependencies": ["lvgl.h"]
+}

@@ -1,0 +1,40 @@
+{
+  "display": {
+    "width": 480,
+    "height": 800
+  },
+  "tree": {
+    "id": "content",
+    "type": "container",
+    "computed_styles": {
+      "bg_opa": 0,
+      "bg_color": "0xFFFFFF"
+    },
+    "layout": "flex",
+    "children": [
+      {
+        "id": "title",
+        "type": "label",
+        "computed_styles": {
+          "bg_opa": 0,
+          "text_color": "0x212121"
+        },
+        "text": "TODO title",
+        "children": []
+      },
+      {
+        "id": "primary_action",
+        "type": "button",
+        "computed_styles": {
+          "bg_color": "0x2196F3",
+          "text_color": "#FFFFFF",
+          "radius": 8
+        },
+        "text": "OK",
+        "children": []
+      }
+    ],
+    "w": 480,
+    "h": 800
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "page_name": "media_page",
+  "screen": {"width": 480, "height": 800, "lvgl_version": "v9", "color_depth": 16},
+  "assets": [],
+  "components": [
+    {"id": "page_root", "type": "container", "bbox": [0, 0, 480, 800], "source": "layout_root", "confidence": 1.0},
+    {"id": "cover", "type": "container", "bbox": [90, 80, 300, 300], "source": "template_match", "confidence": 0.95, "style": {"radius": 20, "bg_color": "0x2A2A2A"}},
+    {"id": "song_title", "type": "label", "bbox": [140, 410, 200, 28], "source": "template_match", "confidence": 0.92, "text": "Song Title"},
+    {"id": "artist_name", "type": "label", "bbox": [170, 445, 140, 20], "source": "template_match", "confidence": 0.88, "text": "Artist Name"},
+    {"id": "progress_bar", "type": "bar", "bbox": [50, 520, 380, 6], "source": "template_match", "confidence": 0.90, "value": 35},
+    {"id": "play_btn", "type": "button", "bbox": [205, 600, 70, 70], "source": "bright_circle_detection", "confidence": 0.96, "style": {"radius": 35, "bg_color": "0x2196F3"}},
+    {"id": "prev_btn", "type": "button", "bbox": [100, 610, 50, 50], "source": "template_match", "confidence": 0.85, "style": {"radius": 25}},
+    {"id": "next_btn", "type": "button", "bbox": [330, 610, 50, 50], "source": "template_match", "confidence": 0.85, "style": {"radius": 25}}
+  ],
+  "layout_policy": {"mode": "pixel_exact", "exception_count": 8},
+  "warnings": []
+}
