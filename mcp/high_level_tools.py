@@ -60,7 +60,7 @@ def inspect_design(args: dict[str, Any]) -> dict[str, Any]:
     height = display.get("height", 800)
     lvgl_version = args.get("lvgl_version", "v9")
     cut_dir = args.get("cut_dir")
-    output_dir = args.get("output_dir", "artifacts/inspect")
+    out = _safe_output_dir(args.get("output_dir", "artifacts/inspect"))
 
     # Preflight
     pf = preflight(design_path, width, height, lvgl_version, cut_dir)
@@ -68,21 +68,48 @@ def inspect_design(args: dict[str, Any]) -> dict[str, Any]:
         return _fail(pf["errors"], stage="preflight")
 
     # Analysis
-    analysis = analyze(design_path, width, height, lvgl_version, cut_dir)
+    analysis = analyze(design_path, width, height, lvgl_version, cut_dir, output_dir=out)
     if not analysis.get("ok"):
         return _fail(analysis.get("errors", ["Analysis failed"]), stage="analysis")
 
     report = analysis["report"]
 
-    return _ok({
+    response = {
         "stage": "inspect",
         "analysis_report": analysis.get("report_path", ""),
-        "input_manifest": pf["metadata"].get("manifest_path", ""),
         "debug_overlay": report.get("overlay_path", ""),
         "confidence": report.get("confidence", 0),
         "uncertain_regions": report.get("uncertain_regions", []),
         "questions": report.get("questions", []),
-    })
+    }
+    asset_intents = args.get("asset_intents")
+    if asset_intents is None:
+        return _ok({**response, "status": "manual_required", "manual_required": ["asset_intents must be supplied by visual analysis before deterministic asset resolution"]})
+
+    from mcp.asset_contract import build_initial_manifest, write_initial_manifest
+
+    asset_root_arg = args.get("asset_root") or args.get("cut_dir")
+    asset_root = Path(asset_root_arg).resolve() if asset_root_arg else None
+    package_root = asset_root.parent if asset_root and asset_root.name.lower() == "assets" else None
+    design = Path(design_path).resolve()
+    if package_root:
+        try:
+            design_reference = design.relative_to(package_root).as_posix()
+        except ValueError:
+            design_reference = str(design)
+        stored_asset_root = asset_root.relative_to(package_root).as_posix()
+    else:
+        design_reference = str(design)
+        stored_asset_root = str(asset_root) if asset_root else None
+    manifest = build_initial_manifest(
+        project=str(args.get("project") or design.stem), design_reference=design_reference,
+        display=display, assets=asset_intents, asset_root=stored_asset_root,
+        max_flash_bytes=args.get("asset_flash_budget_bytes"),
+    )
+    written = write_initial_manifest(out / "initial_asset_manifest.json", manifest)
+    if not written.get("ok"):
+        return _fail(written["errors"], stage="asset_intent_contract", status="invalid_asset_contract")
+    return _ok({**response, "status": "initial_asset_manifest_ready", "initial_asset_manifest": written["path"]})
 
 
 # ── generate_ui ───────────────────────────────────────────────────
@@ -95,7 +122,13 @@ def generate_ui(args: dict[str, Any]) -> dict[str, Any]:
     ui_dir = args.get("ui_dir")
     if ui_dir:
         from mcp.standard_ui_package import generate_standard_ui_package
-        return generate_standard_ui_package(ui_dir, _safe_output_dir(args.get("output_dir", "artifacts/auto_ui")))
+        return generate_standard_ui_package(
+            ui_dir,
+            _safe_output_dir(args.get("output_dir", "artifacts/auto_ui")),
+            asset_manifest_path=args.get("asset_manifest_path"),
+            strict_asset_contract=bool(args.get("strict_asset_contract", True)),
+            final_only=args.get("delivery_mode", "final_only") == "final_only",
+        )
 
     manifest_path = args.get("manifest_path")
     if manifest_path:
@@ -106,6 +139,12 @@ def generate_ui(args: dict[str, Any]) -> dict[str, Any]:
     lvgl_version = args.get("lvgl_version", "v9")
     output_dir = args.get("output_dir", "artifacts/generated")
     template = str(args.get("template", "auto"))
+
+    if design_path and not spec_path and not args.get("asset_manifest_path") and bool(args.get("strict_asset_contract", True)):
+        return _fail(
+            ["A design-driven generation requires asset_manifest_path from inspect_design; design screenshots cannot be used as runtime assets or cutout sources"],
+            stage="asset_contract", status="manual_required",
+        )
 
     if template not in {"auto", "interactive_scene", "generic"}:
         return _fail([f"Unknown template: {template}"], stage="generate")

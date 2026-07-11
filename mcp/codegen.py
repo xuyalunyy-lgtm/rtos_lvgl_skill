@@ -895,12 +895,14 @@ def generate_initial_loading_page(args: dict[str, Any]) -> dict[str, Any]:
 
                 lv_obj_t *bg = {image_create}(s_page);
                 {image_set_src}(bg, {bg_src_macro});
+                {"lv_image_set_inner_align(bg, LV_IMAGE_ALIGN_STRETCH);" if version == "v9" else ""}
                 /* LVGL_LAYOUT_EXCEPTION: full-screen pixel-matched background from design screenshot. */
                 lv_obj_set_pos(bg, 0, 0);
                 lv_obj_set_size(bg, UI_INITIAL_LOADING_WIDTH, UI_INITIAL_LOADING_HEIGHT);
 
                 lv_obj_t *pet = {image_create}(s_page);
                 {image_set_src}(pet, {pet_src_macro});
+                {"lv_image_set_inner_align(pet, LV_IMAGE_ALIGN_STRETCH);" if version == "v9" else ""}
                 /* LVGL_LAYOUT_EXCEPTION: pet cutout position matched from design screenshot. */
                 lv_obj_set_pos(pet, {pet_x}, {pet_y});
                 lv_obj_set_size(pet, {pet_w}, {pet_h});

@@ -447,8 +447,8 @@ def _validate_manifest_v21(manifest: dict[str, Any], root_dir: Path | None) -> d
     quality = manifest.get("quality")
     if not isinstance(memory, dict) or not isinstance(memory.get("max_runtime_asset_bytes"), int) or not isinstance(memory.get("max_dynamic_heap_bytes"), int):
         errors.append("memory must declare max_runtime_asset_bytes and max_dynamic_heap_bytes")
-    if not isinstance(quality, dict) or quality.get("profile", "mvp_80") not in {"mvp_80", "golden_strict"}:
-        errors.append("quality.profile must be mvp_80 or golden_strict")
+    if not isinstance(quality, dict) or quality.get("profile", "mvp_90") not in {"mvp_90", "golden_strict"}:
+        errors.append("quality.profile must be mvp_90 or golden_strict")
     return {"ok": not errors, "errors": errors, "warnings": warnings, "version": "2.1"}
 
 
