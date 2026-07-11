@@ -100,7 +100,7 @@ static int execute_command(const scene_cmd_header_t *cmd, const uint8_t *payload
 
     case OP_CREATE_BUTTON: {
         parent = obj ? obj : lv_display_get_screen_active(lv_display_get_default());
-        lv_obj_t *btn = lv_btn_create(parent);
+        lv_obj_t *btn = lv_button_create(parent);
         register_node(cmd->node_id, btn, NULL);
         return 0;
     }

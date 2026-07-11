@@ -35,8 +35,8 @@
 /* ── Widget usage ──────────────────────────────────────────────── */
 
 #define LV_USE_LABEL            1
-#define LV_USE_BTN              1
-#define LV_USE_IMG              1
+#define LV_USE_BUTTON           1
+#define LV_USE_IMAGE            1
 #define LV_USE_BAR              1
 #define LV_USE_SLIDER           1
 #define LV_USE_SWITCH           1

@@ -49,7 +49,7 @@ static uint32_t get_type_id(lv_obj_t *obj) {
     const lv_obj_class_t *cls = lv_obj_get_class(obj);
     if (cls == &lv_obj_class) return 1;      /* container */
     if (cls == &lv_label_class) return 2;    /* label */
-    if (cls == &lv_btn_class) return 3;      /* button */
+    if (cls == &lv_button_class) return 3;   /* button */
 #if LVGL_VERSION_MAJOR >= 9
     if (cls == &lv_image_class) return 4;    /* image */
 #else
