@@ -11,4 +11,5 @@ __pycache__/
 forward_tests/out/
 # Generated gate artifacts
 artifacts/
-*ui
+# Reproducible generated UI packages
+generated/

@@ -129,6 +129,24 @@ def generate_ui(args: dict[str, Any]) -> dict[str, Any]:
         return _fail(["spec_path or design_path required"])
 
     out = _safe_output_dir(output_dir)
+
+    # Validate generated spec before writing
+    from mcp.lvgl_ir.spec_validator import validate_spec
+    display_cfg = args.get("display", {})
+    validation = validate_spec(
+        spec,
+        asset_pack_path=args.get("asset_pack_path"),
+        display=display_cfg,
+        expected_lvgl_version=lvgl_version,
+    )
+    if not validation["valid"]:
+        return _fail(
+            validation["errors"],
+            stage="generate",
+            status="invalid_input",
+            validation=validation,
+        )
+
     spec_path_out = out / "ui_spec.json"
     spec_path_out.write_text(json.dumps(spec, ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="\n")
 
@@ -143,7 +161,8 @@ def generate_ui(args: dict[str, Any]) -> dict[str, Any]:
         "h_path": result.get("h_path"),
         "spec_path": str(spec_path_out),
         "node_count": result.get("node_count", 0),
-        "warnings": result.get("warnings", []),
+        "warnings": result.get("warnings", [], ) + validation.get("warnings", []),
+        "validation": validation,
     })
 
 
@@ -153,9 +172,8 @@ def generate_ui(args: dict[str, Any]) -> dict[str, Any]:
 def render_ui(args: dict[str, Any]) -> dict[str, Any]:
     """Render LVGL code using server-side preset."""
     spec_path = args.get("spec_path")
-    ui_dir = args.get("ui_dir")
-    if not spec_path and not ui_dir:
-        return _fail(["spec_path or ui_dir required"])
+    if not spec_path:
+        return _fail(["spec_path is required"])
 
     engine = args.get("engine", "lvgl_simulator")
     preset = args.get("preset", "headless-480x800")
@@ -166,30 +184,29 @@ def render_ui(args: dict[str, Any]) -> dict[str, Any]:
         # Real LVGL rendering via built-in simulator
         from mcp.lvgl_sim_resolver import resolve_runner, run_simulator
         from mcp.lvgl_ir.scene_encoder import encode_spec
+        from mcp.lvgl_ir.spec_validator import validate_spec
 
-        # The native scene encoder consumes UI Spec v2's flat `nodes` array.
-        # Reject incompatible/empty documents before creating any output so a
-        # legacy `tree` document can never masquerade as a rendered blank UI.
-        if spec_path:
-            try:
-                spec = json.loads(Path(spec_path).read_text(encoding="utf-8"))
-            except (OSError, json.JSONDecodeError) as exc:
-                return _fail([f"Unable to read UI Spec: {exc}"], stage="render", status="invalid_spec")
-        else:
-            # Generate minimal spec from ui_dir
-            spec = {"schema_version": "2.0", "nodes": [{"id": "root", "type": "screen"}]}
+        # Read and validate spec
+        try:
+            spec = json.loads(Path(spec_path).read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            return _fail([f"Unable to read UI Spec: {exc}"], stage="render", status="invalid_spec")
 
-        if not isinstance(spec, dict):
-            return _fail(["UI Spec must be a JSON object with a non-empty `nodes` array"], stage="render", status="invalid_spec")
-        nodes = spec.get("nodes")
-        if not isinstance(nodes, list) or not nodes:
+        # Full structural validation before encoding
+        display_cfg = args.get("display", {})
+        validation = validate_spec(
+            spec,
+            asset_pack_path=args.get("asset_pack_path"),
+            display=display_cfg,
+            expected_lvgl_version=lvgl_version,
+        )
+        if not validation["valid"]:
             return _fail(
-                ["Native LVGL rendering requires UI Spec v2 `nodes`; `tree/children` documents are unsupported. Regenerate with generate_ui."],
+                validation["errors"],
                 stage="render",
-                status="invalid_spec",
+                status="invalid_input",
+                validation=validation,
             )
-        if not all(isinstance(node, dict) for node in nodes):
-            return _fail(["Every UI Spec `nodes` entry must be an object"], stage="render", status="invalid_spec")
 
         out = _safe_output_dir(output_dir)
 
@@ -219,22 +236,40 @@ def render_ui(args: dict[str, Any]) -> dict[str, Any]:
         if not result["ok"]:
             return _fail([result.get("error", "Simulator failed")], stage="render")
 
-        return _ok({
+        # Determine status — capability_gap if unsupported opcodes were hit
+        render_status = "scene_rendered"
+        if result.get("capability_gap"):
+            render_status = "capability_gap"
+
+        response = {
             "stage": "render",
             "engine": engine,
             "authoritative": True,
             "render_path": result.get("render_png", str(out / "render.png")),
             "object_tree_path": result.get("tree", str(out / "object_tree.bin")),
-            "status": "rendered",
+            "object_tree_json_path": result.get("tree_json"),
+            "status": render_status,
             "platform": runner["platform"],
             "lvgl_version": lvgl_version,
-        })
+        }
+
+        # Pass through evidence
+        if result.get("asset_load_report"):
+            response["asset_load_report"] = result["asset_load_report"]
+        if result.get("renderer_capabilities"):
+            response["renderer_capabilities"] = result["renderer_capabilities"]
+        if result.get("unsupported_opcodes"):
+            response["unsupported_opcodes"] = result["unsupported_opcodes"]
+        if result.get("capability_gap"):
+            response["capability_gap"] = True
+
+        return _ok(response)
 
     elif engine == "python_preview":
         # Fast preview using static analysis (not authoritative)
         out = _safe_output_dir(output_dir)
         from mcp.lvgl_compile_gate import validate_directory
-        validation = validate_directory(str(ui_dir) if ui_dir else ".", "v9")
+        validation_result = validate_directory(str(Path(spec_path).parent) if spec_path else ".", "v9")
 
         placeholder = out / "render.png"
         if not placeholder.exists():
@@ -245,7 +280,7 @@ def render_ui(args: dict[str, Any]) -> dict[str, Any]:
             "engine": engine,
             "authoritative": False,
             "render_path": str(placeholder),
-            "static_validation": validation,
+            "static_validation": validation_result,
             "status": "preview_only",
         })
 
@@ -288,7 +323,8 @@ def compare_ui(args: dict[str, Any]) -> dict[str, Any]:
     if spec_path and Path(spec_path).is_file():
         spec = json.loads(Path(spec_path).read_text(encoding="utf-8"))
 
-    result = compare(actual_path, baseline_path, spec)
+    profile = args.get("threshold_profile", "golden_strict")
+    result = compare(actual_path, baseline_path, spec, profile=profile)
 
     if spec:
         result["refinements"] = suggest_refinements(result, spec)
@@ -338,6 +374,22 @@ def apply_patch(args: dict[str, Any]) -> dict[str, Any]:
 
     if not src.is_dir():
         return _fail([f"source_dir not found: {source_dir}"])
+
+    # Gate: only verified runs may apply in replace mode
+    if mode == "replace_generated_files":
+        run_manifest_path = src / "run_manifest.json"
+        if run_manifest_path.is_file():
+            try:
+                run_manifest = json.loads(run_manifest_path.read_text(encoding="utf-8"))
+                run_status = run_manifest.get("status")
+                if run_status != "verified":
+                    return _fail(
+                        [f"Run status is {run_status!r}, not 'verified'. Only verified runs may apply patches."],
+                        stage="apply",
+                        status=run_status,
+                    )
+            except (OSError, json.JSONDecodeError):
+                pass  # No valid manifest — allow legacy behavior
 
     # Verify hashes
     hash_errors = []
@@ -445,10 +497,28 @@ def _should_use_interactive_scene(template: str, args: dict[str, Any]) -> bool:
     if not cut_dir:
         return False
     try:
-        names = {path.stem.lower() for path in Path(str(cut_dir)).iterdir() if path.is_file()}
+        names = {path.stem.lower() for path in Path(str(cut_dir)).rglob("*") if path.is_file()}
     except OSError:
         return False
-    return "initial_page_pet" in names and {"mood_calmness", "mood_good", "mood_down", "mood_stressed"}.issubset(names)
+    has_pet = bool({"initial_page_pet", "pet_idle"} & names)
+    mood_sets = (
+        {"mood_calmness", "mood_good", "mood_down", "mood_stressed"},
+        {"calmness", "good", "down", "stressed"},
+    )
+    return has_pet and any(mood_set.issubset(names) for mood_set in mood_sets)
+
+
+def _find_scene_asset(asset_root: Path, candidates: tuple[str, ...]) -> Path | None:
+    """Resolve a named scene asset from either the legacy flat or organized tree."""
+    wanted = {name.casefold(): index for index, name in enumerate(candidates)}
+    matches: list[tuple[int, str, Path]] = []
+    try:
+        for path in asset_root.rglob("*"):
+            if path.is_file() and path.name.casefold() in wanted:
+                matches.append((wanted[path.name.casefold()], path.as_posix().casefold(), path))
+    except OSError:
+        return None
+    return min(matches)[2] if matches else None
 
 
 def _scene_bbox(summary: dict[str, Any], name: str, fallback: list[int]) -> list[int]:
@@ -470,20 +540,28 @@ def _generate_interactive_scene_v2(args: dict[str, Any]) -> dict[str, Any]:
     width = int(display.get("width", 480))
     height = int(display.get("height", 800))
     mood_keys = ("calmness", "good", "down", "stressed")
-    mood_paths = {key: cut_dir / f"mood_{key}.png" for key in mood_keys}
+    mood_paths = {
+        key: _find_scene_asset(cut_dir, (f"mood_{key}.png", f"{key}.png"))
+        for key in mood_keys
+    }
     # Prefer the state-matched background when it is supplied.  `home_bg.jpg`
     # belongs to a different scene state in the interactive-scene cutout set,
     # while `Affirmation-bg.png` is the compositing background for the
     # affirmative/favorited design.  Keep the former as a backwards-compatible
     # fallback for older cutout bundles.
-    background_candidates = (
-        cut_dir / "Affirmation-bg.png",
-        cut_dir / "affirmation-bg.png",
-        cut_dir / "home_bg.jpg",
-    )
-    background = next((path for path in background_candidates if path.is_file()), background_candidates[-1])
-    pet = cut_dir / "initial_page_pet.png"
-    missing = [path.name for path in (background, pet, *mood_paths.values()) if not path.is_file()]
+    background = _find_scene_asset(cut_dir, (
+        "affirmation_favorited.png",
+        "Affirmation-bg.png",
+        "affirmation-bg.png",
+        "home_default.jpg",
+        "home_bg.jpg",
+    ))
+    pet = _find_scene_asset(cut_dir, ("pet_idle.png", "initial_page_pet.png"))
+    required_assets = (background, pet, *mood_paths.values())
+    missing = [
+        "scene background" if index == 0 else "pet" if index == 1 else f"mood_{mood_keys[index - 2]}"
+        for index, path in enumerate(required_assets) if path is None
+    ]
     if missing:
         return _fail([f"interactive_scene requires cutouts: {', '.join(missing)}"], stage="assets", status="missing_assets")
 

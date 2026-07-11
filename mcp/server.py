@@ -554,7 +554,7 @@ def run_self_test() -> int:
         })
     checks.append((
         "render_rejects_legacy_tree_spec",
-        invalid_render.get("ok") is False and invalid_render.get("status") == "invalid_spec",
+        invalid_render.get("ok") is False and invalid_render.get("status") in ("invalid_spec", "invalid_input"),
         f"unexpected result: {invalid_render}",
     ))
 

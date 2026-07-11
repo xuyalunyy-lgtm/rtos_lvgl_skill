@@ -62,8 +62,7 @@ HIGH_LEVEL_SCHEMAS: list[dict[str, Any]] = [
         "inputSchema": {
             "type": "object",
             "properties": {
-                "spec_path": {"type": "string", "description": "Path to UI Spec JSON (preferred)"},
-                "ui_dir": {"type": "string", "description": "Directory containing generated C/H files (alternative)"},
+                "spec_path": {"type": "string", "description": "Path to UI Spec JSON (required)"},
                 "output_dir": {"type": "string", "default": "artifacts/render"},
                 "asset_pack_path": {"type": "string", "description": "Optional asset.pack whose symbols are referenced by image node src fields"},
                 "engine": {"type": "string", "enum": ["lvgl_simulator", "python_preview"], "default": "lvgl_simulator"},
@@ -77,6 +76,7 @@ HIGH_LEVEL_SCHEMAS: list[dict[str, Any]] = [
                 },
                 "preset": {"type": "string", "enum": ["headless-480x800", "headless-320x240"], "default": "headless-480x800"},
             },
+            "required": ["spec_path"],
             "additionalProperties": False,
         },
     },

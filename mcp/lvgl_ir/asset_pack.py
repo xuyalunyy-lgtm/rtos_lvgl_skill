@@ -221,6 +221,40 @@ def encode_pack(assets: list[dict[str, Any]]) -> bytes:
     return header + b"".join(entries) + b"".join(pixel_blocks)
 
 
+# ── Pack file reading ─────────────────────────────────────────────
+
+
+def list_pack_symbols(pack_path: str | Path) -> list[str]:
+    """Read a .pack file and return the list of asset symbols it contains.
+
+    Returns an empty list if the file is not a valid asset pack.
+    """
+    path = Path(pack_path)
+    data = path.read_bytes()
+    if len(data) < HEADER_SIZE:
+        return []
+
+    magic, version, asset_count = struct.unpack("<4sII", data[:12])
+    if magic != PACK_MAGIC or version != PACK_VERSION:
+        return []
+
+    symbols: list[str] = []
+    for i in range(asset_count):
+        entry_offset = HEADER_SIZE + i * ENTRY_SIZE
+        if entry_offset + ENTRY_SIZE > len(data):
+            break
+        symbol_bytes = data[entry_offset:entry_offset + 32]
+        # Null-terminated ASCII
+        null_pos = symbol_bytes.find(b"\x00")
+        if null_pos >= 0:
+            symbol_bytes = symbol_bytes[:null_pos]
+        try:
+            symbols.append(symbol_bytes.decode("ascii"))
+        except UnicodeDecodeError:
+            continue
+    return symbols
+
+
 # ── Manifest generation ───────────────────────────────────────────
 
 

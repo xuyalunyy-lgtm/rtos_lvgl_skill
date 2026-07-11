@@ -241,6 +241,42 @@ def run_simulator(
             if png_path.is_file():
                 result["render_png"] = str(png_path)
 
+        # Read evidence files produced by runner
+        asset_report_path = Path(output_dir) / "asset_load_report.json"
+        if asset_report_path.is_file():
+            try:
+                result["asset_load_report"] = json.loads(asset_report_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                pass
+
+        caps_path = Path(output_dir) / "renderer_capabilities.json"
+        if caps_path.is_file():
+            try:
+                result["renderer_capabilities"] = json.loads(caps_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                pass
+
+        # Convert binary object tree to JSON
+        if tree_path.is_file():
+            try:
+                from mcp.lvgl_ir.object_tree_reader import read_object_tree
+                tree_json_path = Path(output_dir) / "object_tree.json"
+                tree_json = read_object_tree(tree_path)
+                tree_json_path.write_text(
+                    json.dumps(tree_json, ensure_ascii=False, indent=2) + "\n",
+                    encoding="utf-8", newline="\n",
+                )
+                result["tree_json"] = str(tree_json_path)
+                result["object_tree"] = tree_json
+            except Exception:
+                pass
+
+        # Check for capability gaps
+        unsupported = result.get("unsupported_opcodes", [])
+        if unsupported:
+            result["capability_gap"] = True
+            result["capability_gap_opcodes"] = unsupported
+
         return result
 
     except subprocess.TimeoutExpired:

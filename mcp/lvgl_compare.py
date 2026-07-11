@@ -25,6 +25,33 @@ except ImportError:
 ROOT = Path(__file__).resolve().parent.parent
 
 
+# ── Threshold profiles ────────────────────────────────────────────
+
+THRESHOLD_PROFILES: dict[str, dict[str, float]] = {
+    "preview_relaxed": {
+        "global_ssim_pass": 0.75,
+        "global_ssim_warn": 0.65,
+        "region_ssim_pass": 0.65,
+        "changed_pixel_pass": 0.15,
+        "changed_pixel_warn": 0.25,
+    },
+    "hardware_tolerant": {
+        "global_ssim_pass": 0.82,
+        "global_ssim_warn": 0.75,
+        "region_ssim_pass": 0.75,
+        "changed_pixel_pass": 0.10,
+        "changed_pixel_warn": 0.15,
+    },
+    "golden_strict": {
+        "global_ssim_pass": 0.90,
+        "global_ssim_warn": 0.82,
+        "region_ssim_pass": 0.85,
+        "changed_pixel_pass": 0.05,
+        "changed_pixel_warn": 0.10,
+    },
+}
+
+
 # ── Pixel comparison ──────────────────────────────────────────────
 
 
@@ -231,6 +258,7 @@ def compare(
     baseline_path: str,
     spec: dict[str, Any] | None = None,
     render_tree: dict[str, Any] | None = None,
+    profile: str = "golden_strict",
 ) -> dict[str, Any]:
     """Compare rendered output with design baseline.
 
@@ -239,6 +267,7 @@ def compare(
         baseline_path: Path to design screenshot.
         spec: Optional UI Spec for text/tree comparison.
         render_tree: Optional rendered object tree.
+        profile: Threshold profile — "preview_relaxed", "hardware_tolerant", or "golden_strict".
 
     Returns:
         Comparison report.
@@ -294,24 +323,65 @@ def compare(
     except Exception:
         warnings.append("Failed to generate diff overlay")
 
-    # Determine status
+    # Determine status using threshold profile
+    thresholds = THRESHOLD_PROFILES.get(profile, THRESHOLD_PROFILES["golden_strict"])
+
+    # Check critical region SSIM
+    min_region_ssim = None
+    if region_diffs:
+        region_ssims = [r["ssim"] for r in region_diffs if r.get("ssim") is not None]
+        if region_ssims:
+            min_region_ssim = round(min(region_ssims), 4)
+
     if pixel_result.get("error"):
         status = "failed"
-    elif ssim >= 0.92 and pixel_result["changed_pixel_ratio"] < 0.05:
-        status = "passed"
-    elif ssim >= 0.85 and pixel_result["changed_pixel_ratio"] < 0.10:
-        status = "passed_with_warnings"
     else:
-        status = "failed"
+        global_pass = ssim >= thresholds["global_ssim_pass"]
+        pixel_pass = pixel_result["changed_pixel_ratio"] < thresholds["changed_pixel_pass"]
+        region_pass = (
+            min_region_ssim is None
+            or min_region_ssim >= thresholds["region_ssim_pass"]
+        )
+
+        if global_pass and pixel_pass and region_pass:
+            status = "passed"
+        else:
+            global_warn = ssim >= thresholds["global_ssim_warn"]
+            pixel_warn = pixel_result["changed_pixel_ratio"] < thresholds["changed_pixel_warn"]
+            region_warn = (
+                min_region_ssim is None
+                or min_region_ssim >= thresholds["region_ssim_pass"] * 0.9
+            )
+            if global_warn and pixel_warn and region_warn:
+                status = "passed_with_warnings"
+            else:
+                status = "failed"
+
+    # Collect failure reasons
+    failure_reasons: list[str] = []
+    if status == "failed":
+        if ssim < thresholds["global_ssim_warn"]:
+            failure_reasons.append(f"global_ssim={ssim} < {thresholds['global_ssim_warn']}")
+        if pixel_result["changed_pixel_ratio"] >= thresholds["changed_pixel_warn"]:
+            failure_reasons.append(
+                f"changed_pixel_ratio={pixel_result['changed_pixel_ratio']} >= {thresholds['changed_pixel_warn']}"
+            )
+        if min_region_ssim is not None and min_region_ssim < thresholds["region_ssim_pass"] * 0.9:
+            failure_reasons.append(
+                f"min_region_ssim={min_region_ssim} < {thresholds['region_ssim_pass'] * 0.9}"
+            )
 
     return {
         "ok": status in ("passed", "passed_with_warnings"),
         "status": status,
+        "profile": profile,
         "global_ssim": ssim,
+        "min_region_ssim": min_region_ssim,
         "changed_pixel_ratio": pixel_result["changed_pixel_ratio"],
         "region_diffs": region_diffs,
         "text_diffs": text_diffs,
         "control_tree_diffs": tree_diffs,
+        "failure_reasons": failure_reasons,
         "baseline_path": str(baseline),
         "actual_path": str(actual),
         "diff_overlay_path": str(diff_overlay_path),
