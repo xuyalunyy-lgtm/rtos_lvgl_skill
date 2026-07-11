@@ -616,27 +616,9 @@ def _generate_app_mvp(manifest_path: str, args: dict[str, Any]) -> dict[str, Any
                 f"Page {page_id!r}: {e}" for e in page_result.get("errors", [])
             )
 
-    # Determine overall status
+    # Preliminary status from page results (refined after codegen + validation)
     all_ok = all(r.get("ok") for r in page_results)
     status = "verified" if all_ok else "needs_manual_work"
-
-    # Build app-level evidence
-    app_evidence = {
-        "app_id": app_id,
-        "schema_version": "2.0",
-        "status": status,
-        "page_count": len(page_results),
-        "pages_ok": sum(1 for r in page_results if r.get("ok")),
-        "pages_failed": sum(1 for r in page_results if not r.get("ok")),
-        "route_count": len(resolved.get("routes", [])),
-        "model_count": len(resolved.get("models", [])),
-        "page_results": page_results,
-    }
-    evidence_path = out / "app_evidence.json"
-    evidence_path.write_text(
-        json.dumps(app_evidence, ensure_ascii=False, indent=2) + "\n",
-        encoding="utf-8", newline="\n",
-    )
 
     # ── Generate app-level C/H scaffolding ──
     from mcp.app_codegen import (
@@ -705,6 +687,43 @@ def _generate_app_mvp(manifest_path: str, args: dict[str, Any]) -> dict[str, Any
     cmake_lines.append(")")
     cmake_path.write_text("\n".join(cmake_lines) + "\n", encoding="utf-8", newline="\n")
 
+    # ── App-level validation ──
+    from mcp.app_validator import validate_app
+    generated_content: dict[str, str] = {}
+    for rel_path in generated_files:
+        abs_path = out / rel_path
+        if abs_path.is_file():
+            try:
+                generated_content[rel_path] = abs_path.read_text(encoding="utf-8")
+            except OSError:
+                pass
+
+    app_validation = validate_app(resolved, generated_content)
+    if not all_ok:
+        status = "needs_manual_work"
+    elif app_validation["status"] != "verified":
+        status = app_validation["status"]
+    # else keep status = "verified"
+
+    # Build and write app-level evidence
+    app_evidence = {
+        "app_id": app_id,
+        "schema_version": "2.0",
+        "status": status,
+        "page_count": len(page_results),
+        "pages_ok": sum(1 for r in page_results if r.get("ok")),
+        "pages_failed": sum(1 for r in page_results if not r.get("ok")),
+        "route_count": len(resolved.get("routes", [])),
+        "model_count": len(resolved.get("models", [])),
+        "page_results": page_results,
+        "validation": app_validation,
+    }
+    evidence_path = out / "app_evidence.json"
+    evidence_path.write_text(
+        json.dumps(app_evidence, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8", newline="\n",
+    )
+
     if page_errors:
         return _fail(
             page_errors,
@@ -714,6 +733,7 @@ def _generate_app_mvp(manifest_path: str, args: dict[str, Any]) -> dict[str, Any
             resolved_manifest_path=str(resolved_path),
             page_results=page_results,
             generated_files=generated_files,
+            app_validation=app_validation,
             warnings=validation.get("warnings", []),
         )
 
@@ -726,6 +746,7 @@ def _generate_app_mvp(manifest_path: str, args: dict[str, Any]) -> dict[str, Any
         "cmake_path": str(cmake_path),
         "page_results": page_results,
         "generated_files": generated_files,
+        "app_validation": app_validation,
         "warnings": validation.get("warnings", []),
     })
 
