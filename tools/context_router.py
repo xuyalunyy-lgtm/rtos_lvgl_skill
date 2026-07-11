@@ -419,36 +419,43 @@ WORKFLOWS = {
     "code_review": {
         "file": "workflows/l2_code_review.md",
         "constraint_shards": ["review", "memory"],
+        "prompts": ["prompts/lvgl_thread_safety.txt", "prompts/memory_ownership.txt", "prompts/cjson_safe_parse.txt"],
         "description": "代码审查",
     },
     "project_review": {
         "file": "workflows/l2_project_review.md",
         "constraint_shards": ["review", "platform"],
+        "prompts": ["prompts/runtime_efficiency_contracts.txt"],
         "description": "项目审查",
     },
     "crash_debug": {
         "file": "workflows/debug_crash.md",
         "constraint_shards": ["review", "rtos", "platform"],
+        "prompts": ["prompts/crash_log_decode.txt"],
         "description": "崩溃调试",
     },
     "memory_analysis": {
         "file": "workflows/l2_memory_analysis.md",
         "constraint_shards": ["memory", "rtos"],
+        "prompts": ["prompts/memory_ownership.txt", "prompts/memory_alloc_optimize.txt"],
         "description": "内存分析",
     },
     "sdk_trim": {
         "file": "workflows/l3_sdk_trim.md",
         "constraint_shards": ["platform"],
+        "prompts": ["prompts/sdk_trim_prune.txt"],
         "description": "SDK 裁剪",
     },
     "new_module": {
         "file": "workflows/l3_new_module.md",
         "constraint_shards": ["rtos", "review"],
+        "prompts": ["prompts/runtime_efficiency_contracts.txt"],
         "description": "新模块",
     },
     "bring_up": {
         "file": "workflows/l3_bring_up.md",
         "constraint_shards": ["platform", "rtos"],
+        "prompts": ["prompts/boot_wdt_lifecycle.txt"],
         "description": "板级 Bring-up",
     },
     "lvgl_page": {
@@ -457,12 +464,14 @@ WORKFLOWS = {
         "quick_refs": ["references/lvgl_design_codegen_quick.md"],
         "quick_constraint_mode": "embedded",
         "quick_platform_optional": True,
-        "constraint_shards": ["review", "media"],
+        "constraint_shards": ["review", "media", "voice"],
+        "prompts": ["prompts/lvgl_thread_safety.txt"],
         "description": "LVGL 页面生成",
     },
     "hw_sw_debug": {
         "file": "workflows/hw_sw_cocodebug.md",
         "constraint_shards": ["platform", "review"],
+        "prompts": [],
         "description": "软硬联调",
     },
 }
@@ -843,9 +852,29 @@ def build_load_plan(workflow: str, platform: str, rtos: str, constraints: list[s
             "estimated_tokens": tokens,
         })
 
+    # ── Select prompts ──
+    selected_prompts = []
+    for prompt in wf.get("prompts", []):
+        if (ROOT / prompt).is_file():
+            selected_prompts.append(prompt)
+
+    # ── Enforce compact hard limit (8k tokens) ──
+    COMPACT_HARD_LIMIT = 8000
     budget_warning = None
-    if budget == "compact" and total_tokens > 15000:
-        budget_warning = f"compact plan is {total_tokens} tokens; consider standard when over 15k"
+    if budget == "compact" and total_tokens > COMPACT_HARD_LIMIT:
+        budget_warning = f"compact plan is {total_tokens} tokens (limit: {COMPACT_HARD_LIMIT}); removing non-essential files"
+        # Remove non-essential files until under limit
+        essential_prefixes = ("workflows/", "references/core_rules", "references/constraint_quick_index")
+        while total_tokens > COMPACT_HARD_LIMIT and len(files_with_reason) > 3:
+            # Find least essential file
+            for i in range(len(files_with_reason) - 1, -1, -1):
+                f = files_with_reason[i]
+                if not any(f["path"].startswith(p) for p in essential_prefixes):
+                    total_tokens -= f["estimated_tokens"]
+                    files_with_reason.pop(i)
+                    break
+            else:
+                break  # All remaining are essential
     elif budget == "standard" and total_tokens > 30000:
         budget_warning = f"standard plan is {total_tokens} tokens; consider full when over 30k"
 
@@ -858,6 +887,7 @@ def build_load_plan(workflow: str, platform: str, rtos: str, constraints: list[s
         "rtos_primary": rtos_entry["primary"],
         "budget_mode": budget,
         "required_files": files_with_reason,
+        "selected_prompts": selected_prompts,
         "forbidden_by_default": FORBIDDEN_BY_DEFAULT,
         "estimated_tokens": total_tokens,
         "budget_warning": budget_warning,

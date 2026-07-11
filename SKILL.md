@@ -1,7 +1,7 @@
 ---
 name: freertos-embedded-architect
 metadata:
-  version: 44.0.0
+  version: 45.0.0
 description: >-
   FreeRTOS/IoT firmware architect: MVP code review, LVGL UI generation,
   crash debugging, OTA safety, SDK trimming, module contracts, task topology,
@@ -20,8 +20,8 @@ and practical production hardening.
 
 1. Choose exactly one workflow from the routing table.
 2. Choose platform and RTOS before loading platform-specific references.
-3. Run `python tools/context_router.py --workflow <router_id> --platform <id> --rtos <id> --json`.
-4. Load only the router's `required_files`; treat `forbidden_by_default` as off-limits unless the user asks.
+3. Run `python tools/context_router.py --workflow <id> --platform <id> --rtos <id> --json`.
+4. Load only the router's `required_files`; treat `forbidden_by_default` as off-limits.
 5. Load only the 1-3 prompts selected by the workflow or by a specific symptom.
 
 Router IDs: `code_review`, `project_review`, `crash_debug`,
@@ -39,14 +39,8 @@ Router IDs: `code_review`, `project_review`, `crash_debug`,
 | SDK trimming | [l3_sdk_trim.md](workflows/l3_sdk_trim.md) | platform |
 | New module | [l3_new_module.md](workflows/l3_new_module.md) | rtos, review |
 | Bring-up | [l3_bring_up.md](workflows/l3_bring_up.md) | platform, rtos |
-| LVGL pages | [l3_lvgl_page.md](workflows/l3_lvgl_page.md) | review, media |
+| LVGL pages | [l3_lvgl_page.md](workflows/l3_lvgl_page.md) | review, media, voice |
 | Soft/Hardware co-debug | [hw_sw_cocodebug.md](workflows/hw_sw_cocodebug.md) | platform, review |
-
-## Required Context
-
-- Quick index: [constraint_quick_index](references/constraint_quick_index.md) lists C1-C46 names, scenarios, and shard mapping.
-- SDK abstraction: [sdk_abstraction](references/sdk_abstraction.yaml) defines normalized API categories for platform-agnostic checkers.
-- Core rules: [core_rules](references/core_rules.md) is mandatory for L2+ review or implementation work.
 
 ## Constraint Shards
 
@@ -55,38 +49,30 @@ Router IDs: `code_review`, `project_review`, `crash_debug`,
 - `references/constraint_rtos.md`: C8, C15, C17, C29-C35, C43-C44.
 - `references/constraint_platform.md`: C18-C21, C23, C42, C45-C46.
 - `references/constraint_media.md`: C25-C27.
+- `references/constraint_voice.md`: C10.
 - `references/constraint_ota.md`: C9, C22, C24.
 - `references/constraint_recover.md`: C37-C41.
+- `references/constraint_bluetooth_protocol.md`: C46.
 
 ## On-Demand Context
 
-- Platform docs: [esp32](platforms/esp32.md), [stm32](platforms/stm32.md), [jl](platforms/jl.md), [bk](platforms/bk.md).
-- RTOS docs: [freertos](platforms/freertos.md), [zephyr](platforms/zephyr.md).
-- SDK maps: `platforms/*_sdk_map.yaml`, including FreeRTOS and Zephyr RTOS maps.
-- Prompt index: [prompt_index](references/prompt_index.md); load prompts only after workflow and symptom selection. MCP adapter: [server](mcp/server.py) plus [lvgl_ui](mcp/lvgl_ui.py) expose resources/tools; scripts remain authoritative.
-
-## Resource Layers
-
-| Layer | Contents | Runtime policy |
-|---|---|---|
-| Runtime | `SKILL.md`, `agents/`, `workflows/`, routed `references/`, `prompts/`, `platforms/`, active `tools/`, `mcp/`, selected `assets/` templates | Keep installed and load by router only. |
-| Test | `tools/fixtures/`, `examples/`, `scene_presets/`, selected `scripts/check_*` | Keep in source and full runtime when required by gates; do not load by default. |
-| Maintenance | root `README.md`, `INSTALL.md`, `CHANGELOG.md`, `archive/`, `forward_tests/`, local caches | Keep out of installed runtime payload unless explicitly maintaining the skill. |
+- Platform docs: `platforms/esp32.md`, `platforms/stm32.md`, `platforms/jl.md`, `platforms/bk.md`.
+- RTOS docs: `platforms/freertos.md`, `platforms/zephyr.md`.
+- SDK maps: `platforms/*_sdk_map.yaml`.
+- Prompt index: [prompt_index](references/prompt_index.md).
 
 ## Entry Points
 
-- **CLI / CI**: `python tools/run_review.py` and `tools/*.py`. See [README.md](README.md#quick-start).
-- **IDE / Claude Code**: MCP tools via `.mcp.json` (thin adapter over `tools/*.py`).
-- **LVGL**: MCP-first; fallback to `workflows/l3_lvgl_page.md` when MCP unavailable.
+- **CLI / CI**: `python tools/run_review.py` and `tools/*.py`.
+- **IDE / Claude Code**: MCP tools via `.mcp.json`.
+- **LVGL**: MCP-first; see [lvgl_image_to_code_contract](references/lvgl_image_to_code_contract.md).
 
 ## Rules
 
 - Keep L1/L2/L3 mapping explicit; select a workflow before acting.
 - Ask for platform when missing; ESP32/STM32/JL/BK are platforms, FreeRTOS/Zephyr are RTOS choices.
-- Read routed prompts/references before suggesting platform bindings or protocol adaptation.
+- Read routed prompts/references before suggesting platform bindings.
 - Do not perform unplanned core SDK refactors; preserve critical logs and watchdog behavior.
 - For commit requests, follow [git_commit_style](references/git_commit_style.md) and use `type(scope):`.
-- For self-iteration, run `python scripts/skill_iterate.py --check` before release or commit review.
-- **LVGL UI generation must use the MCP toolchain** — bypassing MCP to hand-write LVGL page code is prohibited. Mandatory flow: `get_lvgl_theme_skill` → `convert_image_to_lvgl_source` → `generate_lvgl_layout_spec` → `generate_lvgl_page_code` → `validate_lvgl_layout_code`. Missing any step means no final LVGL code may be output. Fallback to `workflows/l3_lvgl_page.md` only when MCP unavailable.
-- LVGL design cut-image work has additional requirements: read MCP `lvgl://display-config`, `lvgl://theme-skill`, `lvgl://regression-sandbox-config`; classify design/cut/reference assets; output `analysis_report.json` + `debug_overlay.png`; `preview.html` is only an approximate preview; JSON/C coordinate validation must be run. Absolute coordinates require a `LVGL_LAYOUT_EXCEPTION` comment. Baselines and artifacts must not be placed in the runtime directory.
+- LVGL UI generation must use the MCP toolchain; see [validation_contract](references/lvgl_validation_contract.md).
 - Default output should be concise; use `--fix-detail full` only when complete details are needed.
