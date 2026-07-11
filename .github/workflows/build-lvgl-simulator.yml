@@ -5,11 +5,23 @@ on:
     paths:
       - 'native/lvgl_sim_runner/**'
       - 'mcp/lvgl_ir/**'
+      - 'mcp/asset_contract.py'
+      - 'mcp/high_level_tools.py'
+      - 'mcp/high_level_schemas.py'
+      - 'mcp/standard_ui_package.py'
+      - 'tests/test_asset_contract.py'
+      - 'tests/ci_generate_asset_contract_fixture.py'
       - '.github/workflows/build-lvgl-simulator.yml'
   pull_request:
     paths:
       - 'native/lvgl_sim_runner/**'
       - 'mcp/lvgl_ir/**'
+      - 'mcp/asset_contract.py'
+      - 'mcp/high_level_tools.py'
+      - 'mcp/high_level_schemas.py'
+      - 'mcp/standard_ui_package.py'
+      - 'tests/test_asset_contract.py'
+      - 'tests/ci_generate_asset_contract_fixture.py'
       - '.github/workflows/build-lvgl-simulator.yml'
   workflow_dispatch:
 
@@ -18,6 +30,22 @@ env:
   LVGL_REPO: "https://github.com/lvgl/lvgl.git"
 
 jobs:
+  asset-contract-python:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.10', '3.11', '3.12']
+    name: Asset contract Python ${{ matrix.python-version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Run deterministic asset contract tests
+        run: |
+          python -m pip install --disable-pip-version-check pytest Pillow
+          python -m pytest tests/test_asset_contract.py tests/test_firmware_asset_closure.py -q
+
   build:
     strategy:
       matrix:
@@ -44,8 +72,11 @@ jobs:
       - name: Run scene and asset protocol tests
         shell: bash
         run: |
-          python -m pip install --disable-pip-version-check pytest
+          python -m pip install --disable-pip-version-check pytest Pillow
           python -m pytest tests/lvgl -q
+
+      - name: Generate deterministic asset contract fixture
+        run: python tests/ci_generate_asset_contract_fixture.py
 
       - name: Checkout LVGL
         uses: actions/checkout@v4
@@ -59,6 +90,7 @@ jobs:
         run: |
           cmake -S native/lvgl_sim_runner -B build \
             -DLVGL_ROOT="$GITHUB_WORKSPACE/lvgl-source" \
+            -DASSET_CONTRACT_DIR="$GITHUB_WORKSPACE/artifacts/asset_contract_ci/generated" \
             -DCMAKE_BUILD_TYPE=Release
 
       - name: Build
@@ -92,6 +124,28 @@ jobs:
           fi
           $EXE --self-test
         shell: bash
+
+      - name: Verify generated asset descriptors compile and link
+        shell: bash
+        run: |
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            HARNESS=$(find build -name lvgl_asset_link_harness.exe | head -1)
+          else
+            HARNESS=build/lvgl_asset_link_harness
+          fi
+          test -n "$HARNESS"
+          "$HARNESS"
+          python -c "import json; from pathlib import Path; p=Path('artifacts/asset_contract_ci/generated/asset_compile_evidence.json'); p.write_text(json.dumps({'status':'verified','lvgl_version':'${{ env.LVGL_VERSION }}','platform':'${{ matrix.platform }}'}, indent=2) + '\n')"
+
+      - name: Verify resolved asset.pack with native runner
+        shell: bash
+        run: |
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            EXE=$(find build -name lvgl_sim_v9.exe | head -1)
+          else
+            EXE=build/lvgl_sim_v9
+          fi
+          $EXE --scene artifacts/asset_contract_ci/generated/scene.bin --assets artifacts/asset_contract_ci/generated/asset.pack --output artifacts/asset_contract_ci/native_render --width 48 --height 80
 
       - name: Create test scene
         shell: bash
@@ -178,6 +232,17 @@ jobs:
         with:
           name: lvgl-sim-${{ matrix.platform }}
           path: staging/${{ matrix.platform }}/
+
+      - name: Upload asset contract evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: asset-contract-evidence-${{ matrix.platform }}
+          path: |
+            artifacts/asset_contract_ci/generated/resolved_asset_manifest.json
+            artifacts/asset_contract_ci/generated/asset_resolution_report.json
+            artifacts/asset_contract_ci/generated/resource_closure_report.json
+            artifacts/asset_contract_ci/generated/asset_compile_evidence.json
+            artifacts/asset_contract_ci/native_render/
 
   # ── Merge manifests ──────────────────────────────────────────────
   manifest:

@@ -4,7 +4,8 @@
       "Bash(python *)",
       "Bash(git add *)",
       "Bash(git commit -m 'feat\\(app-codegen\\): generate Router, Presenter, Model Mock, App scaffolding *)",
-      "Bash(git commit -m 'feat\\(app-validator\\): route graph, code structure, thread boundary, resource dedup *)"
+      "Bash(git commit -m 'feat\\(app-validator\\): route graph, code structure, thread boundary, resource dedup *)",
+      "Bash(git commit *)"
     ]
   },
   "enabledMcpjsonServers": [
