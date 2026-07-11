@@ -47,6 +47,7 @@ typedef enum {
     OP_SET_FLEX_ALIGN   = 31,
     OP_SET_PAD_GAP      = 32,
     OP_SET_PAD          = 33,
+    OP_SET_GRID         = 34,
 
     OP_SET_STYLE_BG_COLOR     = 40,
     OP_SET_STYLE_BG_OPA       = 41,
