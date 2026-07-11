@@ -49,13 +49,20 @@ def resolve_runner(lvgl_version: str = "v9") -> dict[str, Any]:
     """Find the built-in LVGL simulator binary.
 
     Args:
-        lvgl_version: "v8" or "v9"
+        lvgl_version: "v9" only (v8 not yet supported)
 
     Returns:
         {"ok": bool, "path": str, "platform": str, "version": str, "sha256": str}
     """
+    if lvgl_version != "v9":
+        return {
+            "ok": False,
+            "error": f"LVGL {lvgl_version} not supported. Only v9 is currently available.",
+            "status": "unsupported_version",
+        }
+
     plat = detect_platform()
-    runner_name = f"lvgl_sim_{lvgl_version}"
+    runner_name = "lvgl_sim_v9"
     if platform.system().lower() == "windows":
         runner_name += ".exe"
 
@@ -65,6 +72,7 @@ def resolve_runner(lvgl_version: str = "v9") -> dict[str, Any]:
         return {
             "ok": False,
             "error": f"Runner not found: {runner_path}",
+            "status": "environment_unavailable",
             "platform": plat,
             "version": lvgl_version,
             "available_platforms": _list_available_platforms(),

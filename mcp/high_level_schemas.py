@@ -65,7 +65,7 @@ HIGH_LEVEL_SCHEMAS: list[dict[str, Any]] = [
                 "ui_dir": {"type": "string", "description": "Directory containing generated C/H files (alternative)"},
                 "output_dir": {"type": "string", "default": "artifacts/render"},
                 "engine": {"type": "string", "enum": ["lvgl_simulator", "python_preview"], "default": "lvgl_simulator"},
-                "lvgl_version": {"type": "string", "enum": ["v8", "v9"], "default": "v9"},
+                "lvgl_version": {"type": "string", "enum": ["v9"], "default": "v9", "description": "LVGL version (v9 only, v8 not yet supported)"},
                 "display": {
                     "type": "object",
                     "properties": {

@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "scene_protocol_version": 1,
+  "lvgl_version": "v9.2.2",
+  "note": "Runners are built by CI. See .github/workflows/build-lvgl-simulator.yml",
+  "runners": {}
+}

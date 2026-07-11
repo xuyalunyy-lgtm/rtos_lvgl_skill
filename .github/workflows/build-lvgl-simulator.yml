@@ -1,0 +1,225 @@
+name: Build LVGL Simulator
+
+on:
+  push:
+    paths:
+      - 'native/lvgl_sim_runner/**'
+      - '.github/workflows/build-lvgl-simulator.yml'
+  pull_request:
+    paths:
+      - 'native/lvgl_sim_runner/**'
+      - '.github/workflows/build-lvgl-simulator.yml'
+  workflow_dispatch:
+
+env:
+  LVGL_VERSION: "v9.2.2"
+  LVGL_REPO: "https://github.com/lvgl/lvgl.git"
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            platform: win-x64
+            artifact_name: lvgl_sim_v9.exe
+          - os: ubuntu-latest
+            platform: linux-x64
+            artifact_name: lvgl_sim_v9
+
+    runs-on: ${{ matrix.os }}
+    name: Build ${{ matrix.platform }}
+
+    steps:
+      - name: Checkout skill repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Checkout LVGL
+        uses: actions/checkout@v4
+        with:
+          repository: lvgl/lvgl
+          ref: ${{ env.LVGL_VERSION }}
+          path: lvgl-source
+
+      - name: Configure CMake
+        run: |
+          cmake -S native/lvgl_sim_runner -B build \
+            -DLVGL_ROOT=${{ github.workspace }}/lvgl-source \
+            -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Verify binary exists
+        run: |
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            test -f build/Release/lvgl_sim_v9.exe || test -f build/lvgl_sim_v9.exe
+          else
+            test -f build/lvgl_sim_v9
+          fi
+        shell: bash
+
+      - name: Run --version
+        run: |
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            EXE=$(find build -name lvgl_sim_v9.exe | head -1)
+          else
+            EXE=build/lvgl_sim_v9
+          fi
+          $EXE --version
+        shell: bash
+
+      - name: Run --self-test
+        run: |
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            EXE=$(find build -name lvgl_sim_v9.exe | head -1)
+          else
+            EXE=build/lvgl_sim_v9
+          fi
+          $EXE --self-test
+        shell: bash
+
+      - name: Create test scene
+        run: |
+          python -c "
+          import sys
+          sys.path.insert(0, 'mcp')
+          from lvgl_ir.scene_encoder import encode_spec
+          spec = {
+              'schema_version': '2.0',
+              'page_name': 'test',
+              'display': {'width': 480, 'height': 800},
+              'lvgl_version': 'v9',
+              'nodes': [
+                  {'id': 'root', 'type': 'screen'},
+                  {'id': 'title', 'type': 'label', 'parent_id': 'root', 'text': 'CI Test'},
+              ]
+          }
+          data = encode_spec(spec)
+          import pathlib
+          pathlib.Path('artifacts/ci_test').mkdir(parents=True, exist_ok=True)
+          pathlib.Path('artifacts/ci_test/scene.bin').write_bytes(data)
+          print(f'Scene: {len(data)} bytes')
+          "
+
+      - name: Render test scene
+        run: |
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            EXE=$(find build -name lvgl_sim_v9.exe | head -1)
+          else
+            EXE=build/lvgl_sim_v9
+          fi
+          $EXE --scene artifacts/ci_test/scene.bin --output artifacts/ci_test/render --width 480 --height 800
+        shell: bash
+
+      - name: Verify render output
+        run: |
+          python -c "
+          from pathlib import Path
+          ppm = Path('artifacts/ci_test/render/render.ppm')
+          tree = Path('artifacts/ci_test/render/object_tree.bin')
+          assert ppm.is_file(), 'render.ppm not found'
+          assert tree.is_file(), 'object_tree.bin not found'
+          assert ppm.stat().st_size > 100, f'render.ppm too small: {ppm.stat().st_size}'
+          assert tree.stat().st_size > 20, f'object_tree.bin too small: {tree.stat().st_size}'
+          print(f'render.ppm: {ppm.stat().st_size} bytes')
+          print(f'object_tree.bin: {tree.stat().st_size} bytes')
+          print('PASS: Render output verified')
+          "
+
+      - name: Compute SHA256
+        id: sha256
+        shell: bash
+        run: |
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            EXE=$(find build -name lvgl_sim_v9.exe | head -1)
+          else
+            EXE=build/lvgl_sim_v9
+          fi
+          SHA=$(sha256sum "$EXE" | cut -d' ' -f1)
+          echo "hash=$SHA" >> $GITHUB_OUTPUT
+          echo "SHA256: $SHA"
+
+      - name: Package artifact
+        shell: bash
+        run: |
+          mkdir -p "runtime/simulator/${{ matrix.platform }}"
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            EXE=$(find build -name lvgl_sim_v9.exe | head -1)
+          else
+            EXE=build/lvgl_sim_v9
+          fi
+          cp "$EXE" "runtime/simulator/${{ matrix.platform }}/"
+
+      - name: Generate manifest entry
+        shell: bash
+        run: |
+          python -c "
+          import json
+          entry = {
+              'file': '${{ matrix.platform }}/${{ matrix.artifact_name }}',
+              'sha256': '${{ steps.sha256.outputs.hash }}',
+              'self_test': True,
+              'lvgl_version': '${{ env.LVGL_VERSION }}',
+          }
+          print(json.dumps(entry, indent=2))
+          "
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lvgl-sim-${{ matrix.platform }}
+          path: runtime/simulator/
+
+  # ── Merge manifests ──────────────────────────────────────────────
+  manifest:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: runtime/simulator
+
+      - name: Generate manifest
+        run: |
+          python -c "
+          import json, hashlib, os
+          from pathlib import Path
+
+          manifest = {
+              'schema_version': 1,
+              'scene_protocol_version': 1,
+              'lvgl_version': '${{ env.LVGL_VERSION }}',
+              'runners': {},
+          }
+
+          for platform_dir in Path('runtime/simulator').iterdir():
+              if not platform_dir.is_dir():
+                  continue
+              for runner_file in platform_dir.iterdir():
+                  if runner_file.name.startswith('lvgl_sim'):
+                      sha = hashlib.sha256(runner_file.read_bytes()).hexdigest()
+                      key = f'{platform_dir.name}/v9'
+                      manifest['runners'][key] = {
+                          'file': f'{platform_dir.name}/{runner_file.name}',
+                          'sha256': sha,
+                          'self_test': True,
+                      }
+
+          Path('runtime/simulator/manifest.json').write_text(
+              json.dumps(manifest, indent=2)
+          )
+          print(json.dumps(manifest, indent=2))
+          "
+
+      - name: Upload final package
+        uses: actions/upload-artifact@v4
+        with:
+          name: lvgl-simulator-package
+          path: runtime/simulator/

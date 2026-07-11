@@ -16,7 +16,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#include <errno.h>
+
+#ifdef _WIN32
+#include <direct.h>
+#define mkdir(path, mode) _mkdir(path)
+#else
 #include <sys/stat.h>
+#endif
 
 #include "lvgl.h"
 #include "scene_decoder.h"
@@ -41,32 +48,23 @@
 /* ── Platform directory creation ───────────────────────────────── */
 
 static int mkdir_p(const char *path) {
-#ifdef _WIN32
-    /* Windows: use _mkdir or CreateDirectoryA */
     char tmp[MAX_PATH_LEN];
     snprintf(tmp, sizeof(tmp), "%s", path);
+
     for (char *p = tmp + 1; *p; p++) {
         if (*p == '/' || *p == '\\') {
             char c = *p;
             *p = '\0';
-            _mkdir(tmp);
+            if (mkdir(tmp, 0755) != 0 && errno != EEXIST) {
+                return -1;
+            }
             *p = c;
         }
     }
-    return _mkdir(tmp);
-#else
-    /* POSIX: use mkdir with mode */
-    char tmp[MAX_PATH_LEN];
-    snprintf(tmp, sizeof(tmp), "%s", path);
-    for (char *p = tmp + 1; *p; p++) {
-        if (*p == '/') {
-            *p = '\0';
-            mkdir(tmp, 0755);
-            *p = '/';
-        }
+    if (mkdir(tmp, 0755) != 0 && errno != EEXIST) {
+        return -1;
     }
-    return mkdir(tmp, 0755);
-#endif
+    return 0;
 }
 
 /* ── Command line parsing ──────────────────────────────────────── */
@@ -80,6 +78,17 @@ typedef struct {
     int self_test;
     int version;
 } sim_args_t;
+
+static int parse_int(const char *str, const char *name, int min_val, int max_val) {
+    char *endptr;
+    errno = 0;
+    long val = strtol(str, &endptr, 10);
+    if (errno != 0 || *endptr != '\0' || val < min_val || val > max_val) {
+        fprintf(stderr, "ERROR: %s must be integer %d-%d, got '%s'\n", name, min_val, max_val, str);
+        return -1;
+    }
+    return (int)val;
+}
 
 static int parse_args(int argc, char *argv[], sim_args_t *args) {
     args->scene_path = NULL;
@@ -96,11 +105,17 @@ static int parse_args(int argc, char *argv[], sim_args_t *args) {
         } else if (strcmp(argv[i], "--output") == 0 && i + 1 < argc) {
             args->output_dir = argv[++i];
         } else if (strcmp(argv[i], "--width") == 0 && i + 1 < argc) {
-            args->width = atoi(argv[++i]);
+            int v = parse_int(argv[++i], "width", MIN_WIDTH, MAX_WIDTH);
+            if (v < 0) return 1;
+            args->width = v;
         } else if (strcmp(argv[i], "--height") == 0 && i + 1 < argc) {
-            args->height = atoi(argv[++i]);
+            int v = parse_int(argv[++i], "height", MIN_HEIGHT, MAX_HEIGHT);
+            if (v < 0) return 1;
+            args->height = v;
         } else if (strcmp(argv[i], "--render-time") == 0 && i + 1 < argc) {
-            args->render_time_ms = atoi(argv[++i]);
+            int v = parse_int(argv[++i], "render-time", MIN_RENDER_MS, MAX_RENDER_MS);
+            if (v < 0) return 1;
+            args->render_time_ms = v;
         } else if (strcmp(argv[i], "--self-test") == 0) {
             args->self_test = 1;
         } else if (strcmp(argv[i], "--version") == 0) {
@@ -196,6 +211,8 @@ static int write_ppm(const char *path, const uint8_t *fb, int width, int height)
 /* ── Self-test ─────────────────────────────────────────────────── */
 
 static int run_self_test(void) {
+    int errors = 0;
+
     fprintf(stderr, "LVGL Simulator v%s self-test\n", SIM_VERSION);
     fprintf(stderr, "LVGL version: %s\n", LV_VERSION_INFO);
     fprintf(stderr, "Display: %dx%d RGB565\n", 480, 800);
@@ -209,12 +226,30 @@ static int run_self_test(void) {
         fprintf(stderr, "FAIL: Failed to create framebuffer\n");
         return 1;
     }
+    if (!display->framebuffer) {
+        fprintf(stderr, "FAIL: Framebuffer is NULL\n");
+        fb_display_destroy(display);
+        return 1;
+    }
+    fprintf(stderr, "  [PASS] Framebuffer created (%dx%d)\n", 480, 800);
 
     /* Create a simple test scene */
     lv_obj_t *scr = lv_display_get_screen_active(lv_display_get_default());
+    if (!scr) {
+        fprintf(stderr, "FAIL: No active screen\n");
+        fb_display_destroy(display);
+        return 1;
+    }
+
     lv_obj_t *label = lv_label_create(scr);
+    if (!label) {
+        fprintf(stderr, "FAIL: Failed to create label\n");
+        fb_display_destroy(display);
+        return 1;
+    }
     lv_label_set_text(label, "Self-Test OK");
     lv_obj_center(label);
+    fprintf(stderr, "  [PASS] Test scene created (screen + label)\n");
 
     /* Render */
     for (int i = 0; i < 20; i++) {
@@ -223,14 +258,66 @@ static int run_self_test(void) {
     }
 
     /* Write test output */
-    mkdir_p("artifacts/self_test");
-    write_ppm("artifacts/self_test/test.ppm", display->framebuffer, 480, 800);
-    object_tree_dump("artifacts/self_test/test_tree.bin", 480, 800);
+    if (mkdir_p("artifacts/self_test") != 0) {
+        fprintf(stderr, "FAIL: Cannot create output directory\n");
+        fb_display_destroy(display);
+        return 1;
+    }
+
+    int ppm_ok = write_ppm("artifacts/self_test/test.ppm", display->framebuffer, 480, 800) == 0;
+    if (!ppm_ok) {
+        fprintf(stderr, "FAIL: write_ppm failed\n");
+        errors++;
+    }
+
+    int tree_ok = object_tree_dump("artifacts/self_test/test_tree.bin", 480, 800) == 0;
+    if (!tree_ok) {
+        fprintf(stderr, "FAIL: object_tree_dump failed\n");
+        errors++;
+    }
+
+    /* Check file sizes */
+    FILE *f_ppm = fopen("artifacts/self_test/test.ppm", "rb");
+    if (f_ppm) {
+        fseek(f_ppm, 0, SEEK_END);
+        long ppm_size = ftell(f_ppm);
+        fclose(f_ppm);
+        if (ppm_size < 100) {
+            fprintf(stderr, "FAIL: test.ppm too small (%ld bytes)\n", ppm_size);
+            errors++;
+        } else {
+            fprintf(stderr, "  [PASS] test.ppm (%ld bytes)\n", ppm_size);
+        }
+    } else {
+        fprintf(stderr, "FAIL: Cannot open test.ppm\n");
+        errors++;
+    }
+
+    FILE *f_tree = fopen("artifacts/self_test/test_tree.bin", "rb");
+    if (f_tree) {
+        fseek(f_tree, 0, SEEK_END);
+        long tree_size = ftell(f_tree);
+        fclose(f_tree);
+        if (tree_size < 20) {
+            fprintf(stderr, "FAIL: test_tree.bin too small (%ld bytes)\n", tree_size);
+            errors++;
+        } else {
+            fprintf(stderr, "  [PASS] test_tree.bin (%ld bytes)\n", tree_size);
+        }
+    } else {
+        fprintf(stderr, "FAIL: Cannot open test_tree.bin\n");
+        errors++;
+    }
+
+    fb_display_destroy(display);
+
+    if (errors > 0) {
+        fprintf(stderr, "FAIL: %d errors\n", errors);
+        return 1;
+    }
 
     fprintf(stderr, "PASS: Self-test completed\n");
     fprintf(stdout, "{\"ok\":true,\"version\":\"%s\",\"lvgl\":\"%s\"}\n", SIM_VERSION, LV_VERSION_INFO);
-
-    fb_display_destroy(display);
     return 0;
 }
 

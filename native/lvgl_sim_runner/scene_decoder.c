@@ -292,14 +292,14 @@ int scene_decode_and_execute(const uint8_t *data, size_t size, fb_display_t *dis
         return -1;
     }
 
-    /* Validate offsets and sizes */
-    if (header->string_table_offset >= size ||
-        header->string_table_offset + header->string_table_size > size) {
+    /* Validate offsets and sizes (overflow-safe) */
+    if (header->string_table_offset > size ||
+        header->string_table_size > size - header->string_table_offset) {
         fprintf(stderr, "ERROR: String table extends beyond scene file\n");
         return -1;
     }
-    if (header->command_offset >= size ||
-        header->command_offset + header->command_size > size) {
+    if (header->command_offset > size ||
+        header->command_size > size - header->command_offset) {
         fprintf(stderr, "ERROR: Command section extends beyond scene file\n");
         return -1;
     }
