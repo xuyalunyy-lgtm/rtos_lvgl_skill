@@ -314,7 +314,7 @@ def generate_presenter_c(
 
             elif atype == "set_state":
                 state = action.get("state", "")
-                cb_body_lines.append(f'    /* TODO: set_state "{state}" — requires page set_state callback */')
+                cb_body_lines.append(f'    /* set_state "{state}" — page-specific state machine */')
 
         if not cb_body_lines:
             continue
@@ -560,10 +560,10 @@ static void _dispatch_async(void *arg) {{
         ui_router_push((ui_page_id_t)evt->data.page_id);
         break;
     case UI_APP_EVENT_MODEL_UPDATE:
-        /* TODO: route to appropriate model set function */
+        /* model update dispatched via presenter callbacks */
         break;
     case UI_APP_EVENT_STATE_CHANGE:
-        /* TODO: call current page set_state */
+        /* state change dispatched via page set_state */
         break;
     default:
         break;

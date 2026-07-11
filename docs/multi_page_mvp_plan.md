@@ -138,9 +138,9 @@ artifacts/ui_app/<app_id>/
 
 ## 实施批次
 
-1. **Manifest v2 与 Validator**：兼容读取 v1 单页；v2 开启 app 模式；补路由、事件、Model、状态与资源校验。
-2. **App 代码生成器**：生成 Page Factory、Router、Presenter、Model Mock、统一 CMake 清单。
-3. **应用级验证器**：实现路由图、生命周期、线程边界、资源去重、手工待办门禁。
+1. ✅ **Manifest v2 与 Validator** (`693d49e`)：兼容读取 v1 单页；v2 开启 app 模式；补路由、事件、Model、状态与资源校验。45 tests.
+2. ✅ **App 代码生成器** (`e642768`)：生成 Page Factory、Router、Presenter、Model Mock、统一 CMake 清单。38 tests.
+3. ✅ **应用级验证器** (`b5c49ae`)：实现路由图、生命周期、线程边界、资源去重、手工待办门禁。28 tests.
 4. **三页 MVP 夹具与 CI**：编译生成代码，模拟点击与导航，执行 native 渲染和视觉回归。
 5. **接入真实 UI 包**：按同一 Manifest 填入页面后，由我只负责审查 `app_evidence.json`、render 结果、CI 和回归差异。
 

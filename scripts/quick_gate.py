@@ -46,6 +46,7 @@ STEPS = [
     GateStep("runtime distribution", [sys.executable, "scripts/check_runtime_distribution.py"]),
     GateStep("link check", [sys.executable, "tools/check_links.py"]),
     GateStep("native LVGL regression", [sys.executable, "scripts/check_lvgl_regression.py"]),
+    GateStep("multi-page MVP", [sys.executable, "-m", "pytest", "tests/test_manifest_v2.py", "tests/test_app_codegen.py", "tests/test_app_validator.py", "tests/test_mvp_integration.py", "-v"]),
 ]
 
 
