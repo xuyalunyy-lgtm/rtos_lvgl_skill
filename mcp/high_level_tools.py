@@ -638,15 +638,67 @@ def _generate_app_mvp(manifest_path: str, args: dict[str, Any]) -> dict[str, Any
         encoding="utf-8", newline="\n",
     )
 
-    # CMake source list placeholder
-    cmake_sources = [f"app/ui_app.c", f"app/ui_router.c"]
-    for page in resolved.get("pages", []):
+    # ── Generate app-level C/H scaffolding ──
+    from mcp.app_codegen import (
+        generate_app_c, generate_app_h,
+        generate_router_c, generate_router_h,
+        generate_presenter_c, generate_presenter_h,
+        generate_model_c, generate_model_h,
+    )
+    from mcp.lvgl_codegen import safe_c_identifier
+
+    pages = resolved.get("pages", [])
+    routes = resolved.get("routes", [])
+    models = resolved.get("models", [])
+    entry_page = resolved["app"]["entry_page"]
+    max_depth = resolved.get("app", {}).get("navigation", {}).get("max_depth", 8)
+    generated_files: list[str] = []
+
+    # Router
+    router_c = generate_router_c(app_id, pages, routes, max_depth)
+    router_h = generate_router_h(app_id, pages, max_depth)
+    (app_dir / "ui_router.c").write_text(router_c, encoding="utf-8", newline="\n")
+    (app_dir / "ui_router.h").write_text(router_h, encoding="utf-8", newline="\n")
+    generated_files.extend(["app/ui_router.c", "app/ui_router.h"])
+
+    # App
+    app_c = generate_app_c(app_id, entry_page, models)
+    app_h = generate_app_h(app_id)
+    (app_dir / "ui_app.c").write_text(app_c, encoding="utf-8", newline="\n")
+    (app_dir / "ui_app.h").write_text(app_h, encoding="utf-8", newline="\n")
+    generated_files.extend(["app/ui_app.c", "app/ui_app.h"])
+
+    # Presenters
+    pres_dir = out / "presenters"
+    pres_dir.mkdir(parents=True, exist_ok=True)
+    for page in pages:
         pid = page.get("id", "")
-        cmake_sources.append(f"pages/{pid}/ui_{pid}.c")
-        cmake_sources.append(f"presenters/presenter_{pid}.c")
-    for model in resolved.get("models", []):
+        pres_c = generate_presenter_c(pid, page.get("events", []), routes, models)
+        pres_h = generate_presenter_h(pid)
+        safe_pid = safe_c_identifier(pid)
+        (pres_dir / f"presenter_{safe_pid}.c").write_text(pres_c, encoding="utf-8", newline="\n")
+        (pres_dir / f"presenter_{safe_pid}.h").write_text(pres_h, encoding="utf-8", newline="\n")
+        generated_files.append(f"presenters/presenter_{safe_pid}.c")
+        generated_files.append(f"presenters/presenter_{safe_pid}.h")
+
+    # Models
+    model_dir = out / "models"
+    model_dir.mkdir(parents=True, exist_ok=True)
+    for model in models:
         mname = model.get("name", "")
-        cmake_sources.append(f"models/model_{mname}.c")
+        m_c = generate_model_c(mname, model.get("fields", []))
+        m_h = generate_model_h(mname, model.get("fields", []))
+        safe_mname = safe_c_identifier(mname)
+        (model_dir / f"model_{safe_mname}.c").write_text(m_c, encoding="utf-8", newline="\n")
+        (model_dir / f"model_{safe_mname}.h").write_text(m_h, encoding="utf-8", newline="\n")
+        generated_files.append(f"models/model_{safe_mname}.c")
+        generated_files.append(f"models/model_{safe_mname}.h")
+
+    # CMake source list
+    cmake_sources = generated_files + [
+        f"pages/{page.get('id', '')}/ui_{safe_c_identifier(page.get('id', ''))}.c"
+        for page in pages
+    ]
     cmake_path = out / "ui_app_sources.cmake"
     cmake_lines = [f"# Auto-generated CMake source list for {app_id}", "set(UI_APP_SOURCES"]
     cmake_lines.extend(f"    \"{s}\"" for s in cmake_sources)
@@ -661,6 +713,7 @@ def _generate_app_mvp(manifest_path: str, args: dict[str, Any]) -> dict[str, Any
             app_evidence_path=str(evidence_path),
             resolved_manifest_path=str(resolved_path),
             page_results=page_results,
+            generated_files=generated_files,
             warnings=validation.get("warnings", []),
         )
 
@@ -672,6 +725,7 @@ def _generate_app_mvp(manifest_path: str, args: dict[str, Any]) -> dict[str, Any
         "resolved_manifest_path": str(resolved_path),
         "cmake_path": str(cmake_path),
         "page_results": page_results,
+        "generated_files": generated_files,
         "warnings": validation.get("warnings", []),
     })
 
