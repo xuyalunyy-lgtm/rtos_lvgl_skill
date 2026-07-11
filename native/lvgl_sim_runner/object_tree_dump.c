@@ -12,13 +12,20 @@
 #define TREE_MAGIC  0x00454554  /* "TEE\0" */
 #define TREE_MAX_DEPTH 32
 
+#if defined(_MSC_VER)
+#pragma pack(push, 1)
+#define LVGL_SIM_PACKED
+#else
+#define LVGL_SIM_PACKED __attribute__((packed))
+#endif
+
 typedef struct {
     uint32_t magic;
     uint32_t version;
     uint32_t display_width;
     uint32_t display_height;
     uint32_t node_count;
-} __attribute__((packed)) tree_header_t;
+} LVGL_SIM_PACKED tree_header_t;
 
 typedef struct {
     uint32_t type_id;       /* Widget type enum */
@@ -29,7 +36,12 @@ typedef struct {
     uint32_t text_offset;   /* offset into string table, 0 if no text */
     uint32_t value;         /* for bar/slider */
     uint32_t reserved[2];
-} __attribute__((packed)) tree_node_t;
+} LVGL_SIM_PACKED tree_node_t;
+
+#if defined(_MSC_VER)
+#pragma pack(pop)
+#endif
+#undef LVGL_SIM_PACKED
 
 /* ── Widget type IDs ───────────────────────────────────────────── */
 

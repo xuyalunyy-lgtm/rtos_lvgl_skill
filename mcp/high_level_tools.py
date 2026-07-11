@@ -174,6 +174,7 @@ def render_ui(args: dict[str, Any]) -> dict[str, Any]:
             str(out),
             width,
             height,
+            asset_pack_path=args.get("asset_pack_path"),
         )
 
         if not result["ok"]:

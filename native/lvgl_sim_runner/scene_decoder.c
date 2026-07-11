@@ -68,7 +68,8 @@ static void register_node(uint32_t id, lv_obj_t *obj, const char *name) {
 
 /* ── Command execution ─────────────────────────────────────────── */
 
-static int execute_command(const scene_cmd_header_t *cmd, const uint8_t *payload, fb_display_t *display) {
+static int execute_command(const scene_cmd_header_t *cmd, const uint8_t *payload,
+                           fb_display_t *display, const asset_pack_t *assets) {
     lv_obj_t *obj = find_node(cmd->node_id);
     lv_obj_t *parent = NULL;
 
@@ -156,6 +157,20 @@ static int execute_command(const scene_cmd_header_t *cmd, const uint8_t *payload
         return 0;
     }
 
+    case OP_SET_IMAGE_SOURCE: {
+        if (cmd->size != 4 || !obj) return -1;
+        uint32_t str_idx;
+        memcpy(&str_idx, payload, sizeof(str_idx));
+        const char *symbol = scene_get_string(NULL, str_idx);
+        const lv_image_dsc_t *image = asset_pack_find(assets, symbol);
+        if (!symbol || !image) {
+            fprintf(stderr, "ERROR: Image asset not found: %s\n", symbol ? symbol : "<invalid>");
+            return -1;
+        }
+        lv_image_set_src(obj, image);
+        return 0;
+    }
+
     case OP_SET_VALUE: {
         if (cmd->size >= 4 && obj) {
             int32_t value;
@@ -212,6 +227,33 @@ static int execute_command(const scene_cmd_header_t *cmd, const uint8_t *payload
         return 0;
     }
 
+    case OP_SET_STYLE_BG_OPA: {
+        if (cmd->size >= 4 && obj) {
+            uint32_t opacity;
+            memcpy(&opacity, payload, sizeof(opacity));
+            lv_obj_set_style_bg_opa(obj, (lv_opa_t)opacity, 0);
+        }
+        return 0;
+    }
+
+    case OP_SET_STYLE_BORDER_WIDTH: {
+        if (cmd->size >= 4 && obj) {
+            int32_t width;
+            memcpy(&width, payload, sizeof(width));
+            lv_obj_set_style_border_width(obj, width, 0);
+        }
+        return 0;
+    }
+
+    case OP_SET_STYLE_BORDER_COLOR: {
+        if (cmd->size >= 4 && obj) {
+            uint32_t color;
+            memcpy(&color, payload, sizeof(color));
+            lv_obj_set_style_border_color(obj, lv_color_hex(color), 0);
+        }
+        return 0;
+    }
+
     case OP_SET_STYLE_TEXT_COLOR: {
         if (cmd->size >= 4 && obj) {
             uint32_t color;
@@ -239,14 +281,10 @@ static int execute_command(const scene_cmd_header_t *cmd, const uint8_t *payload
         return 0;
     }
 
-    case OP_SET_STYLE_BG_OPA:
-    case OP_SET_STYLE_BORDER_WIDTH:
-    case OP_SET_STYLE_BORDER_COLOR:
     case OP_SET_EVENT_CLICKED:
     case OP_SET_EVENT_VALUE_CHANGED:
     case OP_SET_NODE_ID:
     case OP_SET_SOURCE_BBOX:
-    case OP_SET_IMAGE_SOURCE:
     case OP_SET_STYLE_TEXT_FONT_SIZE:
     case OP_SET_PAD:
     case OP_SET_FLEX_ALIGN:
@@ -270,7 +308,8 @@ static int execute_command(const scene_cmd_header_t *cmd, const uint8_t *payload
 
 /* ── Main decode function ──────────────────────────────────────── */
 
-int scene_decode_and_execute(const uint8_t *data, size_t size, fb_display_t *display) {
+int scene_decode_and_execute(const uint8_t *data, size_t size, fb_display_t *display,
+                             const asset_pack_t *assets) {
     if (size < sizeof(scene_header_t)) {
         fprintf(stderr, "ERROR: Scene too small (%zu bytes)\n", size);
         return -1;
@@ -333,7 +372,7 @@ int scene_decode_and_execute(const uint8_t *data, size_t size, fb_display_t *dis
             return -1;
         }
 
-        int result = execute_command(cmd, payload, display);
+        int result = execute_command(cmd, payload, display, assets);
         if (result != 0) {
             return result;
         }

@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(ROOT / "mcp"))
 
 from lvgl_ir.scene_encoder import encode_spec
-from lvgl_sim_resolver import resolve_runner, run_simulator
+from lvgl_sim_resolver import resolve_runner, run_runner_self_test, run_simulator
 
 
 # ── Test spec ─────────────────────────────────────────────────────
@@ -85,14 +85,8 @@ class TestNativeRunnerE2E:
         return info
 
     def test_runner_self_test(self, runner_info, tmp_path):
-        result = run_simulator(
-            runner_info["path"],
-            str(tmp_path / "dummy.bin"),  # won't be used for --self-test
-            str(tmp_path),
-        )
-        # self-test is triggered by --self-test flag, not by scene
-        # This test just verifies the binary exists and is executable
-        assert runner_info["path"]
+        result = run_runner_self_test(runner_info["path"])
+        assert result["ok"], result.get("stderr", result)
 
     def test_render_test_spec(self, runner_info, tmp_path):
         # Encode scene

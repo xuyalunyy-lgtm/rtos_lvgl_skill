@@ -4,10 +4,12 @@ on:
   push:
     paths:
       - 'native/lvgl_sim_runner/**'
+      - 'mcp/lvgl_ir/**'
       - '.github/workflows/build-lvgl-simulator.yml'
   pull_request:
     paths:
       - 'native/lvgl_sim_runner/**'
+      - 'mcp/lvgl_ir/**'
       - '.github/workflows/build-lvgl-simulator.yml'
   workflow_dispatch:
 
@@ -39,6 +41,12 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Run scene and asset protocol tests
+        shell: bash
+        run: |
+          python -m pip install --disable-pip-version-check pytest
+          python -m pytest tests/lvgl -q
+
       - name: Checkout LVGL
         uses: actions/checkout@v4
         with:
@@ -47,9 +55,10 @@ jobs:
           path: lvgl-source
 
       - name: Configure CMake
+        shell: bash
         run: |
           cmake -S native/lvgl_sim_runner -B build \
-            -DLVGL_ROOT=${{ github.workspace }}/lvgl-source \
+            -DLVGL_ROOT="$GITHUB_WORKSPACE/lvgl-source" \
             -DCMAKE_BUILD_TYPE=Release
 
       - name: Build
@@ -85,6 +94,7 @@ jobs:
         shell: bash
 
       - name: Create test scene
+        shell: bash
         run: |
           python -c "
           import sys
@@ -98,12 +108,18 @@ jobs:
               'nodes': [
                   {'id': 'root', 'type': 'screen'},
                   {'id': 'title', 'type': 'label', 'parent_id': 'root', 'text': 'CI Test'},
+                  {'id': 'pixel', 'type': 'image', 'parent_id': 'root', 'src': 'CI_PIXEL'},
               ]
           }
           data = encode_spec(spec)
+          from lvgl_ir.asset_pack import encode_pack
           import pathlib
           pathlib.Path('artifacts/ci_test').mkdir(parents=True, exist_ok=True)
           pathlib.Path('artifacts/ci_test/scene.bin').write_bytes(data)
+          pathlib.Path('artifacts/ci_test/assets.pack').write_bytes(encode_pack([{
+              'ok': True, 'symbol': 'CI_PIXEL', 'width': 1, 'height': 1,
+              'format_id': 1, 'pixel_data': b'\\x00\\xf8', 'alpha_data': b'',
+          }]))
           print(f'Scene: {len(data)} bytes')
           "
 
@@ -114,10 +130,11 @@ jobs:
           else
             EXE=build/lvgl_sim_v9
           fi
-          $EXE --scene artifacts/ci_test/scene.bin --output artifacts/ci_test/render --width 480 --height 800
+          $EXE --scene artifacts/ci_test/scene.bin --assets artifacts/ci_test/assets.pack --output artifacts/ci_test/render --width 480 --height 800
         shell: bash
 
       - name: Verify render output
+        shell: bash
         run: |
           python -c "
           from pathlib import Path
@@ -148,33 +165,19 @@ jobs:
       - name: Package artifact
         shell: bash
         run: |
-          mkdir -p "runtime/simulator/${{ matrix.platform }}"
+          mkdir -p "staging/${{ matrix.platform }}"
           if [ "${{ matrix.os }}" = "windows-latest" ]; then
             EXE=$(find build -name lvgl_sim_v9.exe | head -1)
           else
             EXE=build/lvgl_sim_v9
           fi
-          cp "$EXE" "runtime/simulator/${{ matrix.platform }}/"
-
-      - name: Generate manifest entry
-        shell: bash
-        run: |
-          python -c "
-          import json
-          entry = {
-              'file': '${{ matrix.platform }}/${{ matrix.artifact_name }}',
-              'sha256': '${{ steps.sha256.outputs.hash }}',
-              'self_test': True,
-              'lvgl_version': '${{ env.LVGL_VERSION }}',
-          }
-          print(json.dumps(entry, indent=2))
-          "
+          cp "$EXE" "staging/${{ matrix.platform }}/${{ matrix.artifact_name }}"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: lvgl-sim-${{ matrix.platform }}
-          path: runtime/simulator/
+          path: staging/${{ matrix.platform }}/
 
   # ── Merge manifests ──────────────────────────────────────────────
   manifest:
@@ -184,7 +187,14 @@ jobs:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
-          path: runtime/simulator
+          name: lvgl-sim-win-x64
+          path: staging/win-x64
+
+      - name: Download Linux artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: lvgl-sim-linux-x64
+          path: staging/linux-x64
 
       - name: Generate manifest
         run: |
@@ -199,11 +209,17 @@ jobs:
               'runners': {},
           }
 
-          for platform_dir in Path('runtime/simulator').iterdir():
+          output = Path('runtime/simulator')
+          output.mkdir(parents=True, exist_ok=True)
+          for platform_dir in Path('staging').iterdir():
               if not platform_dir.is_dir():
                   continue
+              target_dir = output / platform_dir.name
+              target_dir.mkdir(parents=True, exist_ok=True)
               for runner_file in platform_dir.iterdir():
                   if runner_file.name.startswith('lvgl_sim'):
+                      target = target_dir / runner_file.name
+                      target.write_bytes(runner_file.read_bytes())
                       sha = hashlib.sha256(runner_file.read_bytes()).hexdigest()
                       key = f'{platform_dir.name}/v9'
                       manifest['runners'][key] = {

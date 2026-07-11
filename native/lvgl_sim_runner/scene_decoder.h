@@ -5,8 +5,10 @@
 #ifndef SCENE_DECODER_H
 #define SCENE_DECODER_H
 
+#include <stddef.h>
 #include <stdint.h>
 #include "lvgl.h"
+#include "asset_pack.h"
 #include "framebuffer_display.h"
 
 /* ── Scene file format ─────────────────────────────────────────── */
@@ -51,7 +53,10 @@ typedef enum {
     OP_SET_STYLE_RADIUS       = 42,
     OP_SET_STYLE_BORDER_WIDTH = 43,
     OP_SET_STYLE_BORDER_COLOR = 44,
-    OP_SET_STYLE_TEXT_COLOR   = 45,
+    OP_SET_STYLE_SHADOW_WIDTH = 45,
+    OP_SET_STYLE_TEXT_COLOR   = 46,
+    OP_SET_STYLE_TEXT_FONT_SIZE = 47,
+    OP_SET_STYLE_TEXT_ALIGN   = 48,
     OP_SET_STYLE_WIDTH        = 49,
     OP_SET_STYLE_HEIGHT       = 50,
 
@@ -64,11 +69,18 @@ typedef enum {
 
 /* ── Command header ────────────────────────────────────────────── */
 
+#if defined(_MSC_VER)
+#pragma pack(push, 1)
+#define LVGL_SIM_PACKED
+#else
+#define LVGL_SIM_PACKED __attribute__((packed))
+#endif
+
 typedef struct {
     uint16_t opcode;
     uint16_t size;
     uint32_t node_id;
-} __attribute__((packed)) scene_cmd_header_t;
+} LVGL_SIM_PACKED scene_cmd_header_t;
 
 /* ── Scene header ──────────────────────────────────────────────── */
 
@@ -81,7 +93,12 @@ typedef struct {
     uint32_t command_offset;
     uint32_t command_size;
     uint32_t reserved;
-} __attribute__((packed)) scene_header_t;
+} LVGL_SIM_PACKED scene_header_t;
+
+#if defined(_MSC_VER)
+#pragma pack(pop)
+#endif
+#undef LVGL_SIM_PACKED
 
 /* ── API ───────────────────────────────────────────────────────── */
 
@@ -93,7 +110,8 @@ typedef struct {
  * @param display   Framebuffer display context.
  * @return 0 on success, non-zero on error.
  */
-int scene_decode_and_execute(const uint8_t *data, size_t size, fb_display_t *display);
+int scene_decode_and_execute(const uint8_t *data, size_t size, fb_display_t *display,
+                             const asset_pack_t *assets);
 
 /**
  * Get string from scene string table.

@@ -30,6 +30,8 @@ except ImportError:
 
 PACK_MAGIC = b"APK\x00"
 PACK_VERSION = 1
+HEADER_SIZE = 16
+ENTRY_SIZE = 64
 
 FORMAT_RGB565 = 1
 FORMAT_RGB565A8 = 2
@@ -100,8 +102,8 @@ def _convert_a8(img: Any) -> bytes:
 def pack_asset(
     image_path: Path,
     symbol: str,
-    color_format: str = "RGB565",
-    auto_crop: bool = True,
+    color_format: str = "AUTO",
+    auto_crop: bool = False,
 ) -> dict[str, Any]:
     """Pack a single image into asset data.
 
@@ -126,7 +128,15 @@ def pack_asset(
             crop_offset = (bbox[0], bbox[1], bbox[2] - bbox[0], bbox[3] - bbox[1])
             width, height = img.size
 
-    # Convert to target format
+    # Preserve geometry by default. Cropping transparent padding changes the
+    # coordinate contract unless the scene is rewritten to compensate.
+
+    # Convert to target format. AUTO preserves real transparency in the
+    # RGB565A8 layout understood by the native LVGL runner.
+    if color_format == "AUTO":
+        rgba = img.convert("RGBA")
+        alpha_min, _alpha_max = rgba.getchannel("A").getextrema()
+        color_format = "RGB565A8" if alpha_min < 255 else "RGB565"
     fmt = FORMAT_MAP.get(color_format, FORMAT_RGB565)
     alpha_data = b""
 
@@ -171,23 +181,25 @@ def encode_pack(assets: list[dict[str, Any]]) -> bytes:
       Entry table: one entry per asset (64 bytes each)
       Pixel data: concatenated
     """
-    HEADER_SIZE = 16
-    ENTRY_SIZE = 64  # fixed-size entry
+    # Only successful assets are represented in both the header and table.
+    # Keeping failed conversion attempts in ``asset_count`` corrupts every
+    # following offset because the native reader trusts the fixed-size table.
+    packed_assets = [asset for asset in assets if asset.get("ok")]
 
     # Build entry table and pixel data
     entries = []
     pixel_blocks = []
-    offset = HEADER_SIZE + len(assets) * ENTRY_SIZE
+    offset = HEADER_SIZE + len(packed_assets) * ENTRY_SIZE
 
-    for asset in assets:
-        if not asset.get("ok"):
-            continue
-
+    for asset in packed_assets:
         pixel_data = asset["pixel_data"]
         alpha_data = asset.get("alpha_data", b"")
+        symbol_raw = asset["symbol"].encode("ascii")
+        if not symbol_raw or len(symbol_raw) > 31:
+            raise ValueError("asset symbol must be 1-31 ASCII bytes")
 
         # Entry: symbol(32) + offset(4) + pixel_size(4) + alpha_size(4) + width(4) + height(4) + format(4) + reserved(8)
-        symbol_bytes = asset["symbol"][:31].encode("utf-8").ljust(32, b"\x00")
+        symbol_bytes = symbol_raw.ljust(32, b"\x00")
         entry = struct.pack("<32sIIIIII8s",
             symbol_bytes,
             offset,
@@ -205,7 +217,7 @@ def encode_pack(assets: list[dict[str, Any]]) -> bytes:
         offset += len(pixel_data) + len(alpha_data)
 
     # Build file
-    header = struct.pack("<4sII4s", PACK_MAGIC, PACK_VERSION, len(assets), b"\x00" * 4)
+    header = struct.pack("<4sII4s", PACK_MAGIC, PACK_VERSION, len(packed_assets), b"\x00" * 4)
     return header + b"".join(entries) + b"".join(pixel_blocks)
 
 
@@ -248,9 +260,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input", required=True, help="Input directory or single image")
     parser.add_argument("--output", required=True, help="Output .pack file")
-    parser.add_argument("--format", default="RGB565", choices=["RGB565", "RGB565A8", "ARGB8888", "A8"])
+    parser.add_argument("--format", default="AUTO", choices=["AUTO", "RGB565", "RGB565A8", "ARGB8888", "A8"])
     parser.add_argument("--prefix", default="ui_img", help="Symbol prefix")
-    parser.add_argument("--no-crop", action="store_true", help="Disable auto-crop")
+    parser.add_argument("--crop", action="store_true", help="Crop transparent borders (changes image geometry)")
     args = parser.parse_args()
 
     input_path = Path(args.input)
@@ -275,7 +287,7 @@ def main():
     assets = []
     for img_path in images:
         symbol = f"{args.prefix}_{img_path.stem}".upper()
-        result = pack_asset(img_path, symbol, args.format, not args.no_crop)
+        result = pack_asset(img_path, symbol, args.format, args.crop)
         assets.append(result)
         if result["ok"]:
             print(f"  {img_path.name}: {result['width']}x{result['height']} {args.format} ({result['flash_bytes']} bytes)")

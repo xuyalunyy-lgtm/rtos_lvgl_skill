@@ -2,6 +2,14 @@
 
 最近 3 个版本。完整历史见 [archive/CHANGELOG_FULL.md](archive/CHANGELOG_FULL.md)。
 
+## 45.0.0 - 2026-07-11
+
+v45: 内置 LVGL v9 headless runner 与图片转 LVGL 闭环。
+- MCP 收口为 6 个面向模型的高层工具，并修复 render/apply/self-test 契约。
+- 新增 Windows x64 与 Linux x64 runner CI、完整性 manifest 和端到端渲染 smoke test。
+- 新增 asset.pack 协议、RGB565A8 Alpha 支持，以及原生 runner 图片资源加载。
+- 增加 scene、runner resolver、资产包与 golden 页面编码的回归测试。
+
 ## 44.0.0 - 2026-07-04
 
 v44: Module Boundary Contract - high cohesion / low coupling as first-class C29 rules.

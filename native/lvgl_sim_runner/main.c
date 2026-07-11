@@ -26,6 +26,7 @@
 #endif
 
 #include "lvgl.h"
+#include "asset_pack.h"
 #include "scene_decoder.h"
 #include "framebuffer_display.h"
 #include "object_tree_dump.h"
@@ -71,6 +72,7 @@ static int mkdir_p(const char *path) {
 
 typedef struct {
     const char *scene_path;
+    const char *asset_path;
     const char *output_dir;
     int width;
     int height;
@@ -92,6 +94,7 @@ static int parse_int(const char *str, const char *name, int min_val, int max_val
 
 static int parse_args(int argc, char *argv[], sim_args_t *args) {
     args->scene_path = NULL;
+    args->asset_path = NULL;
     args->output_dir = "artifacts/render";
     args->width = 480;
     args->height = 800;
@@ -102,6 +105,8 @@ static int parse_args(int argc, char *argv[], sim_args_t *args) {
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--scene") == 0 && i + 1 < argc) {
             args->scene_path = argv[++i];
+        } else if (strcmp(argv[i], "--assets") == 0 && i + 1 < argc) {
+            args->asset_path = argv[++i];
         } else if (strcmp(argv[i], "--output") == 0 && i + 1 < argc) {
             args->output_dir = argv[++i];
         } else if (strcmp(argv[i], "--width") == 0 && i + 1 < argc) {
@@ -122,7 +127,7 @@ static int parse_args(int argc, char *argv[], sim_args_t *args) {
             args->version = 1;
         } else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
             fprintf(stderr, "LVGL Headless Simulator v%s (LVGL %s)\n", SIM_VERSION, SIM_LVGL_VERSION);
-            fprintf(stderr, "Usage: %s --scene scene.bin [--output dir] [--width W] [--height H]\n", argv[0]);
+            fprintf(stderr, "Usage: %s --scene scene.bin [--assets asset.pack] [--output dir] [--width W] [--height H]\n", argv[0]);
             fprintf(stderr, "       %s --version\n", argv[0]);
             fprintf(stderr, "       %s --self-test\n", argv[0]);
             return 1;
@@ -360,6 +365,22 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "Scene: %s (%zu bytes)\n", args.scene_path, scene_size);
     fprintf(stderr, "Display: %dx%d\n", args.width, args.height);
 
+    /* Load optional read-only image assets before scene execution. */
+    uint8_t *asset_data = NULL;
+    asset_pack_t assets;
+    memset(&assets, 0, sizeof(assets));
+    if (args.asset_path) {
+        size_t asset_size = 0;
+        asset_data = read_file(args.asset_path, &asset_size);
+        if (!asset_data || asset_pack_load(&assets, asset_data, asset_size) != 0) {
+            fprintf(stderr, "ERROR: Failed to load asset pack: %s\n", args.asset_path);
+            free(asset_data);
+            free(scene_data);
+            return 1;
+        }
+        fprintf(stderr, "Assets: %s (%u entries)\n", args.asset_path, assets.count);
+    }
+
     /* Initialize LVGL */
     lv_init();
 
@@ -367,17 +388,20 @@ int main(int argc, char *argv[]) {
     fb_display_t *display = fb_display_create(args.width, args.height);
     if (!display) {
         fprintf(stderr, "ERROR: Failed to create framebuffer\n");
+        free(asset_data);
         free(scene_data);
         return 1;
     }
 
     /* Decode and execute scene */
-    int result = scene_decode_and_execute(scene_data, scene_size, display);
+    int result = scene_decode_and_execute(scene_data, scene_size, display,
+                                          args.asset_path ? &assets : NULL);
     free(scene_data);
 
     if (result != 0) {
         fprintf(stderr, "ERROR: Scene decode failed (%d)\n", result);
         fb_display_destroy(display);
+        free(asset_data);
         return 1;
     }
 
@@ -389,7 +413,12 @@ int main(int argc, char *argv[]) {
     }
 
     /* Create output directory */
-    mkdir_p(args.output_dir);
+    if (mkdir_p(args.output_dir) != 0) {
+        fprintf(stderr, "ERROR: Cannot create output directory\n");
+        fb_display_destroy(display);
+        free(asset_data);
+        return 1;
+    }
 
     /* Write PPM screenshot */
     char ppm_path[MAX_PATH_LEN];
@@ -398,6 +427,9 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "Screenshot: %s\n", ppm_path);
     } else {
         fprintf(stderr, "ERROR: Failed to write PPM\n");
+        fb_display_destroy(display);
+        free(asset_data);
+        return 1;
     }
 
     /* Write object tree */
@@ -407,7 +439,10 @@ int main(int argc, char *argv[]) {
     if (tree_result == 0) {
         fprintf(stderr, "Object tree: %s\n", tree_path);
     } else {
-        fprintf(stderr, "WARNING: Object tree dump failed (%d)\n", tree_result);
+        fprintf(stderr, "ERROR: Object tree dump failed (%d)\n", tree_result);
+        fb_display_destroy(display);
+        free(asset_data);
+        return 1;
     }
 
     /* Write status JSON to stdout */
@@ -415,5 +450,6 @@ int main(int argc, char *argv[]) {
             ppm_path, tree_path, args.width, args.height, SIM_VERSION);
 
     fb_display_destroy(display);
+    free(asset_data);
     return 0;
 }

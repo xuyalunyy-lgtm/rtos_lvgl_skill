@@ -81,16 +81,39 @@ def resolve_runner(lvgl_version: str = "v9") -> dict[str, Any]:
     # Compute SHA256
     sha256 = _file_hash(runner_path)
 
-    # Verify against manifest
+    # A bundled binary is trusted only when it has a matching release manifest.
     manifest = _load_manifest()
-    if manifest:
-        expected = manifest.get(plat, {}).get(lvgl_version, {}).get("sha256")
-        if expected and expected != sha256:
-            return {
-                "ok": False,
-                "error": f"SHA256 mismatch: expected {expected}, got {sha256}",
-                "path": str(runner_path),
-            }
+    if not isinstance(manifest, dict) or manifest.get("schema_version") != 1 or manifest.get("scene_protocol_version") != 1:
+        return {
+            "ok": False,
+            "error": "Missing or incompatible simulator manifest",
+            "status": "integrity_check_failed",
+            "path": str(runner_path),
+        }
+    entry = manifest.get("runners", {}).get(f"{plat}/{lvgl_version}") if manifest else None
+    if not isinstance(entry, dict):
+        return {
+            "ok": False,
+            "error": f"No manifest entry for {plat}/{lvgl_version}",
+            "status": "integrity_check_failed",
+            "path": str(runner_path),
+        }
+    expected = entry.get("sha256")
+    expected_file = entry.get("file")
+    if not isinstance(expected, str) or len(expected) != 64 or expected != sha256:
+        return {
+            "ok": False,
+            "error": f"SHA256 mismatch: expected {expected}, got {sha256}",
+            "status": "integrity_check_failed",
+            "path": str(runner_path),
+        }
+    if expected_file != f"{plat}/{runner_name}":
+        return {
+            "ok": False,
+            "error": f"Manifest file mismatch: expected {plat}/{runner_name}, got {expected_file}",
+            "status": "integrity_check_failed",
+            "path": str(runner_path),
+        }
 
     return {
         "ok": True,
@@ -105,7 +128,10 @@ def _list_available_platforms() -> list[str]:
     """List platforms with available runners."""
     if not SIMULATOR_DIR.is_dir():
         return []
-    return [d.name for d in SIMULATOR_DIR.iterdir() if d.is_dir() and (d / "lvgl_sim_v9.exe").is_file() or (d / "lvgl_sim_v9").is_file()]
+    return [
+        d.name for d in SIMULATOR_DIR.iterdir()
+        if d.is_dir() and ((d / "lvgl_sim_v9.exe").is_file() or (d / "lvgl_sim_v9").is_file())
+    ]
 
 
 def _file_hash(path: Path) -> str:
@@ -139,6 +165,7 @@ def run_simulator(
     height: int = 800,
     render_time_ms: int = 100,
     timeout: int = 20,
+    asset_pack_path: str | None = None,
 ) -> dict[str, Any]:
     """Run the LVGL simulator in an isolated subprocess.
 
@@ -162,6 +189,8 @@ def run_simulator(
         "--height", str(height),
         "--render-time", str(render_time_ms),
     ]
+    if asset_pack_path:
+        cmd.extend(["--assets", asset_pack_path])
 
     try:
         proc = subprocess.run(
@@ -188,8 +217,24 @@ def run_simulator(
         result["stderr"] = proc.stderr
         result["command"] = cmd
 
-        # Convert PPM to PNG if possible
+        # A successful process is not enough: enforce the runner output contract.
         ppm_path = Path(output_dir) / "render.ppm"
+        tree_path = Path(output_dir) / "object_tree.bin"
+        if proc.returncode != 0 or not result.get("ok"):
+            result["ok"] = False
+            result.setdefault("error", "Simulator returned failure")
+            return result
+        if not ppm_path.is_file() or ppm_path.stat().st_size <= 100:
+            result["ok"] = False
+            result["error"] = "Simulator did not produce a valid render.ppm"
+            return result
+        if not tree_path.is_file() or tree_path.stat().st_size <= 20:
+            result["ok"] = False
+            result["error"] = "Simulator did not produce a valid object_tree.bin"
+            return result
+
+        result["tree"] = str(tree_path)
+        # Convert PPM to PNG if possible
         png_path = Path(output_dir) / "render.png"
         if ppm_path.is_file():
             _ppm_to_png(ppm_path, png_path)
@@ -216,6 +261,35 @@ def run_simulator(
             "error": str(e),
             "command": cmd,
         }
+
+
+def run_runner_self_test(runner_path: str, timeout: int = 20) -> dict[str, Any]:
+    """Execute the runner's built-in self-test and require JSON success."""
+    cmd = [runner_path, "--self-test"]
+    try:
+        proc = subprocess.run(cmd, capture_output=True, encoding="utf-8", errors="replace", timeout=timeout)
+        result: dict[str, Any] = {"ok": False}
+        for line in proc.stdout.strip().split("\n"):
+            try:
+                parsed = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(parsed, dict):
+                result = parsed
+                break
+        result["exit_code"] = proc.returncode
+        result["stderr"] = proc.stderr
+        result["command"] = cmd
+        if proc.returncode != 0 or not result.get("ok"):
+            result["ok"] = False
+            result.setdefault("error", "Runner self-test failed")
+        return result
+    except subprocess.TimeoutExpired:
+        return {"ok": False, "error": f"Runner self-test timed out after {timeout}s", "command": cmd}
+    except FileNotFoundError:
+        return {"ok": False, "error": f"Runner not found: {runner_path}", "command": cmd}
+    except Exception as e:
+        return {"ok": False, "error": str(e), "command": cmd}
 
 
 def _ppm_to_png(ppm_path: Path, png_path: Path):
@@ -282,7 +356,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--scene", required=True, help="Path to scene.bin")
     parser.add_argument("--output", default="artifacts/render", help="Output directory")
-    parser.add_argument("--lvgl-version", default="v9", choices=["v8", "v9"])
+    parser.add_argument("--lvgl-version", default="v9", choices=["v9"])
+    parser.add_argument("--assets", help="Optional asset.pack path")
     parser.add_argument("--width", type=int, default=480)
     parser.add_argument("--height", type=int, default=800)
     parser.add_argument("--json", action="store_true")
@@ -305,6 +380,7 @@ def main():
         args.output,
         args.width,
         args.height,
+        asset_pack_path=args.assets,
     )
 
     if args.json:
