@@ -109,6 +109,8 @@ HIGH_LEVEL_SCHEMAS: list[dict[str, Any]] = [
                 "lvgl_version": {"type": "string", "enum": ["v8", "v9"], "default": "v9"},
                 "max_iterations": {"type": "integer", "minimum": 1, "maximum": 3, "default": 3},
                 "output_dir": {"type": "string", "default": "artifacts/refine"},
+                "baseline_evidence_path": {"type": "string", "description": "Native baseline evidence JSON required for scoring"},
+                "candidate_evidence_paths": {"type": "array", "maxItems": 3, "items": {"type": "string"}, "description": "Native candidate evidence JSON files"},
             },
             "required": ["design_path"],
             "additionalProperties": False,

@@ -296,6 +296,7 @@ def generate_page_code(spec: dict[str, Any], lvgl_version: str | None = None) ->
     includes = [
         '#include "lvgl.h"',
         f'#include "ui_page_{safe_c_identifier(page_name)}.h"',
+        '#include <string.h>',
     ]
     font_bundle = spec.get("font_bundle", {})
     if isinstance(font_bundle, dict):
@@ -371,6 +372,35 @@ def generate_page_code(spec: dict[str, Any], lvgl_version: str | None = None) ->
     create_lines.append("    return root;")
     create_lines.append("}")
 
+    # App-mode page contract.  These functions are harmless for single-page
+    # output and give Router/Presenter a deterministic way to own objects.
+    lifecycle_funcs = [
+        f"void {func_name}_destroy(lv_obj_t *root)",
+        "{",
+        "    if (root != NULL) lv_obj_del(root);",
+        *[f"    s_{safe_c_identifier(node['id'])} = NULL;" for node in nodes],
+        "}",
+        "",
+        f"int {func_name}_set_state(const char *state)",
+        "{",
+        "    if (state == NULL) return -1;",
+        "    /* State-specific overrides are applied by the generated app IR. */",
+        "    return 0;",
+        "}",
+        "",
+        f"void {func_name}_refresh(void)",
+        "{",
+        "    /* Bindings are refreshed by the generated Presenter. */",
+        "}",
+        "",
+        f"lv_obj_t *{func_name}_get_node(const char *node_id)",
+        "{",
+        "    if (node_id == NULL) return NULL;",
+        *[f'    if (strcmp(node_id, "{safe_c_identifier(node["id"])}") == 0) return s_{safe_c_identifier(node["id"])};' for node in nodes],
+        "    return NULL;",
+        "}",
+    ]
+
     # ── Generate update functions ──
     update_funcs = []
     for node in nodes:
@@ -397,6 +427,9 @@ def generate_page_code(spec: dict[str, Any], lvgl_version: str | None = None) ->
         "",
         "/* ── Page create ── */",
         "\n".join(create_lines),
+        "",
+        "/* ── App lifecycle and node registry ── */",
+        "\n".join(lifecycle_funcs),
     ]
     if update_funcs:
         c_parts.append("")
@@ -417,6 +450,10 @@ def generate_page_code(spec: dict[str, Any], lvgl_version: str | None = None) ->
 
         /* ── Page lifecycle ── */
         lv_obj_t *{func_name}_create(lv_obj_t *parent);
+        void {func_name}_destroy(lv_obj_t *root);
+        int {func_name}_set_state(const char *state);
+        void {func_name}_refresh(void);
+        lv_obj_t *{func_name}_get_node(const char *node_id);
 
         /* ── Update functions ── */
         {chr(10).join(f'void {func_name}_set_{safe_c_identifier(n["id"])}_text(const char *text);' for n in nodes if n.get("text_macro"))}

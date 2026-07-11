@@ -22,6 +22,10 @@ from typing import Any
 VALID_ROUTE_MODES = {"push", "replace", "back"}
 VALID_MODEL_FIELD_TYPES = {"bool", "int32", "string"}
 VALID_EVENT_ACTIONS = {"route", "model_set", "model_toggle", "set_state"}
+VALID_BINDING_TARGETS = {"text", "checked", "hidden", "value", "image", "page.state"}
+VALID_ASSET_KINDS = {"image"}
+VALID_ALPHA = {"auto", "opaque", "transparent"}
+VALID_ASSET_FORMATS = {"auto", "RGB565", "RGB565A8", "ARGB8888"}
 _SNAKE_CASE_RE = re.compile(r"^[a-z][a-z0-9]*(_[a-z0-9]+)*$")
 
 
@@ -45,7 +49,7 @@ def load_manifest(path_or_dict: str | Path | dict[str, Any]) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def validate_manifest(manifest: dict[str, Any]) -> dict[str, Any]:
+def validate_manifest(manifest: dict[str, Any], root_dir: str | Path | None = None) -> dict[str, Any]:
     """Validate manifest structure. v1 is accepted as-is.
 
     Returns:
@@ -58,8 +62,10 @@ def validate_manifest(manifest: dict[str, Any]) -> dict[str, Any]:
     if version == "1.0":
         return {"ok": True, "errors": [], "warnings": ["v1 manifest — single-page mode"], "version": "1.0"}
 
+    if version == "2.1":
+        return _validate_manifest_v21(manifest, Path(root_dir).resolve() if root_dir else None)
     if version != "2.0":
-        return _fail([f"Unsupported schema_version: {version!r}. Expected '1.0' or '2.0'."])
+        return _fail([f"Unsupported schema_version: {version!r}. Expected '1.0', '2.0', or '2.1'."])
 
     errors: list[str] = []
     warnings: list[str] = []
@@ -318,9 +324,205 @@ def resolve_manifest(manifest: dict[str, Any]) -> dict[str, Any]:
         # Default state
         states = page.get("states")
         if not isinstance(states, list) or len(states) == 0:
-            page["states"] = ["default"]
+            if resolved.get("schema_version") == "2.1" and not isinstance(states, dict):
+                page["states"] = {"default": {"design": page.get("design", "")}}
+            else:
+                page["states"] = ["default"]
 
     return resolved
+
+
+def _validate_manifest_v21(manifest: dict[str, Any], root_dir: Path | None) -> dict[str, Any]:
+    """Validate the evidence-capable multi-page contract.
+
+    Version 2.1 deliberately does not reuse the v2.0 scaffold validator:
+    verified applications need state objects, resource identities and flows,
+    not just enough information to emit placeholder C files.
+    """
+    errors: list[str] = []
+    warnings: list[str] = []
+    app = manifest.get("app")
+    display = manifest.get("display")
+    pages = manifest.get("pages")
+    routes = manifest.get("routes", [])
+    models = manifest.get("models", [])
+    shared = manifest.get("shared", {})
+
+    if not isinstance(app, dict) or not _valid_id(app.get("id")):
+        errors.append("app.id is required and must be snake_case")
+    if not isinstance(display, dict) or not all(isinstance(display.get(k), int) and display[k] > 0 for k in ("width", "height")):
+        errors.append("display.width and display.height must be positive integers")
+    elif display.get("color_format", "RGB565") != "RGB565":
+        errors.append("display.color_format must be RGB565 for v2.1")
+
+    if not isinstance(pages, list) or not pages:
+        return _fail(errors + ["pages must be a non-empty array"])
+    page_ids: set[str] = set()
+    event_keys: set[tuple[str, str]] = set()
+    page_nodes: dict[str, set[str]] = {}
+    for index, page in enumerate(pages):
+        if not isinstance(page, dict) or not _valid_id(page.get("id")):
+            errors.append(f"pages[{index}].id must be unique snake_case")
+            continue
+        pid = page["id"]
+        if pid in page_ids:
+            errors.append(f"Duplicate page id: {pid!r}")
+        page_ids.add(pid)
+        states = page.get("states")
+        if not isinstance(states, dict) or not states or "default" not in states:
+            errors.append(f"pages[{index}].states must be a non-empty object containing default")
+        else:
+            for state_id, state in states.items():
+                if not _valid_id(state_id) or not isinstance(state, dict):
+                    errors.append(f"pages[{index}].states has invalid state {state_id!r}")
+                    continue
+                _validate_path(state.get("design"), f"pages[{index}].states.{state_id}.design", root_dir, errors)
+        nodes = page.get("nodes", [])
+        if nodes is not None and not isinstance(nodes, list):
+            errors.append(f"pages[{index}].nodes must be an array when supplied")
+        page_nodes[pid] = {n for n in nodes if isinstance(n, str)}
+        for event in page.get("events", []):
+            if not isinstance(event, dict) or not isinstance(event.get("node_id"), str) or not isinstance(event.get("trigger"), str):
+                errors.append(f"pages[{index}].events entries need node_id and trigger")
+                continue
+            event_keys.add((pid, f"{event['node_id']}.{event['trigger']}"))
+            _validate_event_actions_v21(event.get("actions"), pid, errors)
+        for binding in page.get("bindings", []):
+            _validate_binding(binding, pid, page_nodes[pid], models, errors)
+        for region in page.get("quality_regions", []):
+            if not isinstance(region, dict) or region.get("kind") not in {"text", "interaction", "status"}:
+                errors.append(f"pages[{index}].quality_regions must declare text, interaction, or status")
+
+    if not isinstance(app, dict) or app.get("entry_page") not in page_ids:
+        errors.append("app.entry_page must reference a page")
+    nav = app.get("navigation", {}) if isinstance(app, dict) else {}
+    if not isinstance(nav, dict) or nav.get("mode", "stack") != "stack" or not isinstance(nav.get("max_depth", 8), int) or nav.get("max_depth", 8) < 1:
+        errors.append("app.navigation must be stack with positive max_depth")
+
+    _validate_resource_block(shared.get("assets", {}), "shared.assets", root_dir, errors, asset=True)
+    _validate_resource_block(shared.get("fonts", {}), "shared.fonts", root_dir, errors, asset=False)
+    for page in pages:
+        if isinstance(page, dict):
+            _validate_resource_block(page.get("assets", {}), f"pages.{page.get('id', '?')}.assets", root_dir, errors, asset=True)
+            _validate_resource_block(page.get("fonts", {}), f"pages.{page.get('id', '?')}.fonts", root_dir, errors, asset=False)
+
+    route_ids: set[str] = set()
+    for index, route in enumerate(routes if isinstance(routes, list) else []):
+        if not isinstance(route, dict) or not _valid_id(route.get("id")):
+            errors.append(f"routes[{index}].id must be snake_case")
+            continue
+        rid = route["id"]
+        if rid in route_ids:
+            errors.append(f"Duplicate route id: {rid!r}")
+        route_ids.add(rid)
+        src, event, mode = route.get("from"), route.get("event"), route.get("mode")
+        if src not in page_ids or not isinstance(event, str) or (src, event) not in event_keys:
+            errors.append(f"routes[{index}] must match a declared page event")
+        if mode not in VALID_ROUTE_MODES:
+            errors.append(f"routes[{index}].mode is invalid")
+        if mode == "back":
+            if route.get("to") is not None:
+                errors.append(f"routes[{index}] back route must not declare to")
+        elif route.get("to") not in page_ids:
+            errors.append(f"routes[{index}].to must reference a page")
+
+    _validate_models_v21(models, errors)
+    for page in pages:
+        if not isinstance(page, dict):
+            continue
+        for event in page.get("events", []):
+            for action in event.get("actions", []) if isinstance(event, dict) else []:
+                if isinstance(action, dict) and action.get("type") == "route" and action.get("route_id") not in route_ids:
+                    errors.append(f"page {page.get('id')} references unknown route {action.get('route_id')!r}")
+
+    flows = manifest.get("flows")
+    if not isinstance(flows, list) or not flows:
+        errors.append("flows must be a non-empty array for a v2.1 verified app")
+    else:
+        for index, flow in enumerate(flows):
+            if not isinstance(flow, dict) or not _valid_id(flow.get("id")) or flow.get("start_page") not in page_ids or not isinstance(flow.get("steps"), list) or not flow["steps"]:
+                errors.append(f"flows[{index}] requires id, start_page and non-empty steps")
+
+    memory = manifest.get("memory")
+    quality = manifest.get("quality")
+    if not isinstance(memory, dict) or not isinstance(memory.get("max_runtime_asset_bytes"), int) or not isinstance(memory.get("max_dynamic_heap_bytes"), int):
+        errors.append("memory must declare max_runtime_asset_bytes and max_dynamic_heap_bytes")
+    if not isinstance(quality, dict) or quality.get("profile", "mvp_80") not in {"mvp_80", "golden_strict"}:
+        errors.append("quality.profile must be mvp_80 or golden_strict")
+    return {"ok": not errors, "errors": errors, "warnings": warnings, "version": "2.1"}
+
+
+def _valid_id(value: Any) -> bool:
+    return isinstance(value, str) and bool(_SNAKE_CASE_RE.match(value))
+
+
+def _validate_path(value: Any, label: str, root_dir: Path | None, errors: list[str]) -> None:
+    if not isinstance(value, str) or not value:
+        errors.append(f"{label} is required")
+        return
+    if root_dir is not None:
+        try:
+            resolved = (root_dir / value).resolve()
+            resolved.relative_to(root_dir)
+        except (OSError, ValueError):
+            errors.append(f"{label} must stay inside the UI package")
+            return
+        if not resolved.is_file():
+            errors.append(f"{label} does not exist: {value}")
+
+
+def _validate_resource_block(block: Any, label: str, root_dir: Path | None, errors: list[str], *, asset: bool) -> None:
+    if not isinstance(block, dict):
+        errors.append(f"{label} must be an object")
+        return
+    for role, item in block.items():
+        if not _valid_id(role) or not isinstance(item, dict):
+            errors.append(f"{label}.{role} must be a resource object")
+            continue
+        _validate_path(item.get("source"), f"{label}.{role}.source", root_dir, errors)
+        if not _valid_id(item.get("symbol")):
+            errors.append(f"{label}.{role}.symbol must be snake_case")
+        if asset:
+            if item.get("kind") not in VALID_ASSET_KINDS or item.get("alpha", "auto") not in VALID_ALPHA or item.get("format", "auto") not in VALID_ASSET_FORMATS:
+                errors.append(f"{label}.{role} has invalid asset metadata")
+        else:
+            _validate_path(item.get("preview_bin"), f"{label}.{role}.preview_bin", root_dir, errors)
+            if not isinstance(item.get("roles"), list) or not item["roles"]:
+                errors.append(f"{label}.{role}.roles must be non-empty")
+
+
+def _validate_models_v21(models: Any, errors: list[str]) -> None:
+    if not isinstance(models, list):
+        errors.append("models must be an array")
+        return
+    for index, model in enumerate(models):
+        if not isinstance(model, dict) or not _valid_id(model.get("name")) or not isinstance(model.get("fields"), list):
+            errors.append(f"models[{index}] requires name and fields")
+
+
+def _validate_event_actions_v21(actions: Any, page_id: str, errors: list[str]) -> None:
+    if not isinstance(actions, list) or not actions:
+        errors.append(f"page {page_id} event needs actions")
+        return
+    for action in actions:
+        if not isinstance(action, dict) or action.get("type") not in VALID_EVENT_ACTIONS:
+            errors.append(f"page {page_id} has invalid event action")
+
+
+def _validate_binding(binding: Any, page_id: str, node_ids: set[str], models: Any, errors: list[str]) -> None:
+    if not isinstance(binding, dict):
+        errors.append(f"page {page_id} binding must be an object")
+        return
+    node_id = binding.get("node_id")
+    if not isinstance(node_id, str):
+        errors.append(f"page {page_id} binding requires node_id")
+    elif node_ids and node_id not in node_ids:
+        errors.append(f"page {page_id} binding references undeclared node {node_id!r}")
+    if binding.get("target") not in VALID_BINDING_TARGETS:
+        errors.append(f"page {page_id} binding target is invalid")
+    source = binding.get("source")
+    if not isinstance(source, str) or (source != "page.state" and "." not in source):
+        errors.append(f"page {page_id} binding source must be model.field or page.state")
 
 
 # ── Internal helpers ───────────────────────────────────────────────

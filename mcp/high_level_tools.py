@@ -418,6 +418,8 @@ def refine_ui(args: dict[str, Any]) -> dict[str, Any]:
         cut_dir=args.get("cut_dir"),
         output_dir=args.get("output_dir", "artifacts/refine"),
         max_iterations=args.get("max_iterations", 3),
+        baseline_evidence_path=args.get("baseline_evidence_path"),
+        candidate_evidence_paths=args.get("candidate_evidence_paths"),
     )
     return result
 
@@ -538,7 +540,8 @@ def _generate_app_mvp(manifest_path: str, args: dict[str, Any]) -> dict[str, Any
     except Exception as exc:
         return _fail([f"Failed to read manifest: {exc}"], stage="manifest")
 
-    validation = validate_manifest(manifest)
+    manifest_root = Path(manifest_path).resolve().parent
+    validation = validate_manifest(manifest, manifest_root)
     if not validation["ok"]:
         return _fail(
             validation["errors"],
@@ -547,12 +550,15 @@ def _generate_app_mvp(manifest_path: str, args: dict[str, Any]) -> dict[str, Any
             warnings=validation.get("warnings", []),
         )
 
-    if manifest.get("schema_version") != "2.0":
+    if manifest.get("schema_version") not in {"2.0", "2.1"}:
         return _fail(
-            ["manifest_path requires schema_version '2.0'; use spec_path for single-page v1"],
+            ["manifest_path requires schema_version '2.0' or '2.1'; use spec_path for single-page v1"],
             stage="manifest",
             status="wrong_version",
         )
+
+    if manifest.get("schema_version") == "2.1":
+        return _generate_app_v21(manifest_path, manifest, args, validation)
 
     resolved = resolve_manifest(manifest)
     app_id = resolved["app"]["id"]
@@ -618,7 +624,9 @@ def _generate_app_mvp(manifest_path: str, args: dict[str, Any]) -> dict[str, Any
 
     # Preliminary status from page results (refined after codegen + validation)
     all_ok = all(r.get("ok") for r in page_results)
-    status = "verified" if all_ok else "needs_manual_work"
+    # v2.0 deliberately remains scaffold-only.  Static generation is useful,
+    # but cannot substitute for state renders, native compilation and flows.
+    status = "needs_manual_work"
 
     # ── Generate app-level C/H scaffolding ──
     from mcp.app_codegen import (
@@ -751,6 +759,135 @@ def _generate_app_mvp(manifest_path: str, args: dict[str, Any]) -> dict[str, Any
     })
 
 
+def _generate_app_v21(
+    manifest_path: str,
+    manifest: dict[str, Any],
+    args: dict[str, Any],
+    validation: dict[str, Any],
+) -> dict[str, Any]:
+    """Generate a v2.1 app with one independently auditable artifact per state."""
+    from mcp.manifest_v2 import resolve_manifest
+    from mcp.app_v21_codegen import (
+        generate_app_c, generate_app_h, generate_presenter_c, generate_presenter_h,
+        generate_router_c, generate_router_h,
+    )
+    from mcp.app_codegen import generate_model_c, generate_model_h
+    from mcp.lvgl_codegen import safe_c_identifier
+    from mcp.app_validator import validate_app
+
+    resolved = resolve_manifest(manifest)
+    app_id = resolved["app"]["id"]
+    root = Path(manifest_path).resolve().parent
+    out = _safe_output_dir(args.get("output_dir", f"artifacts/ui_app/{app_id}"))
+    app_dir = out / "app"
+    app_dir.mkdir(parents=True, exist_ok=True)
+    (app_dir / "ui_app_manifest_resolved.json").write_text(
+        json.dumps(resolved, ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="\n"
+    )
+
+    page_results: list[dict[str, Any]] = []
+    generated_files: list[str] = []
+    errors: list[str] = []
+    display = resolved["display"]
+    for page in resolved["pages"]:
+        page_id = page["id"]
+        page_dir = out / "pages" / page_id
+        state_results: list[dict[str, Any]] = []
+        for state_id, state in page["states"].items():
+            state_dir = page_dir if state_id == "default" else page_dir / "states" / state_id
+            design_path = root / state["design"]
+            result = generate_ui({
+                "design_path": str(design_path),
+                "display": display,
+                "lvgl_version": args.get("lvgl_version", "v9"),
+                "output_dir": str(state_dir),
+                "template": page.get("template", "auto"),
+                "cut_dir": args.get("cut_dir", str(root)),
+                "page_name": page_id,
+            })
+            result["state_id"] = state_id
+            state_results.append(result)
+            if not result.get("ok"):
+                errors.extend(f"{page_id}.{state_id}: {item}" for item in result.get("errors", []))
+        default = next((item for item in state_results if item["state_id"] == "default"), {})
+        if default.get("ok"):
+            generated_files.extend([
+                f"pages/{page_id}/ui_page_{safe_c_identifier(page_id)}.c",
+                f"pages/{page_id}/ui_page_{safe_c_identifier(page_id)}.h",
+            ])
+        page_results.append({"page_id": page_id, "states": state_results, "ok": all(item.get("ok") for item in state_results)})
+
+    pages, routes, models = resolved["pages"], resolved.get("routes", []), resolved.get("models", [])
+    max_depth = resolved["app"].get("navigation", {}).get("max_depth", 8)
+    router_h = generate_router_h(pages, max_depth)
+    router_c = generate_router_c(pages)
+    app_h = generate_app_h()
+    app_c = generate_app_c(resolved["app"]["entry_page"], models)
+    for name, content in {
+        "ui_router.h": router_h, "ui_router.c": router_c, "ui_app.h": app_h, "ui_app.c": app_c,
+    }.items():
+        (app_dir / name).write_text(content, encoding="utf-8", newline="\n")
+        generated_files.append(f"app/{name}")
+
+    presenter_dir = out / "presenters"; presenter_dir.mkdir(parents=True, exist_ok=True)
+    for page in pages:
+        pid = safe_c_identifier(page["id"])
+        for suffix, content in {
+            ".h": generate_presenter_h(pid),
+            ".c": generate_presenter_c(page, routes, models),
+        }.items():
+            name = f"presenter_{pid}{suffix}"
+            (presenter_dir / name).write_text(content, encoding="utf-8", newline="\n")
+            generated_files.append(f"presenters/{name}")
+
+    model_dir = out / "models"; model_dir.mkdir(parents=True, exist_ok=True)
+    for model in models:
+        name = safe_c_identifier(model["name"])
+        for suffix, content in {
+            ".h": generate_model_h(model["name"], model["fields"]),
+            ".c": generate_model_c(model["name"], model["fields"]),
+        }.items():
+            filename = f"model_{name}{suffix}"
+            (model_dir / filename).write_text(content, encoding="utf-8", newline="\n")
+            generated_files.append(f"models/{filename}")
+
+    cmake_lines = ["# Auto-generated v2.1 app source list", "set(UI_APP_SOURCES"]
+    cmake_lines.extend(f'    "{path}"' for path in generated_files if path.endswith(".c"))
+    cmake_lines.append(")")
+    cmake_path = out / "ui_app_sources.cmake"
+    cmake_path.write_text("\n".join(cmake_lines) + "\n", encoding="utf-8", newline="\n")
+
+    missing = [path for path in generated_files if not (out / path).is_file()]
+    generated_content = {path: (out / path).read_text(encoding="utf-8") for path in generated_files if (out / path).is_file()}
+    app_validation = validate_app(resolved, generated_content)
+    manual_required = [
+        "native_app_compile_pending_ci",
+        "native_state_render_pending_ci",
+        "flow_execution_pending_ci",
+    ]
+    if missing:
+        errors.extend(f"generated file missing: {path}" for path in missing)
+    status = "needs_manual_work" if not errors else "invalid"
+    evidence = {
+        "app_id": app_id, "schema_version": "2.1", "status": status,
+        "authoritative": False, "manual_required": manual_required,
+        "page_results": page_results, "validation": app_validation,
+        "generated_files": generated_files,
+        "file_hashes": {path: _file_hash(out / path) for path in generated_files if (out / path).is_file()},
+        "next_gate": "native_app_compile_and_flow",
+    }
+    evidence_path = out / "app_evidence.json"
+    evidence_path.write_text(json.dumps(evidence, ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="\n")
+    if errors:
+        return _fail(errors, stage="app_mvp", status=status, app_evidence_path=str(evidence_path), page_results=page_results)
+    return _ok({
+        "stage": "app_mvp", "status": status, "app_id": app_id,
+        "app_evidence_path": str(evidence_path), "cmake_path": str(cmake_path),
+        "page_results": page_results, "generated_files": generated_files,
+        "app_validation": app_validation, "warnings": validation.get("warnings", []),
+    })
+
+
 def _analysis_to_spec(report: dict[str, Any], args: dict[str, Any]) -> dict[str, Any]:
     """Convert inspection result to UI Spec v2."""
     display = args.get("display", {})
@@ -772,7 +909,7 @@ def _analysis_to_spec(report: dict[str, Any], args: dict[str, Any]) -> dict[str,
         })
     return {
         "schema_version": "2.0",
-        "page_name": "page",
+        "page_name": str(args.get("page_name", "page")),
         "display": {
             "width": display.get("width", 480),
             "height": display.get("height", 800),

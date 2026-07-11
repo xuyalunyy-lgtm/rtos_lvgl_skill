@@ -23,6 +23,7 @@ except ImportError:
     np = None
 
 ROOT = Path(__file__).resolve().parent.parent
+SCORER_VERSION = "lvgl_visual_score_v1"
 
 
 # ── Threshold profiles ────────────────────────────────────────────
@@ -50,6 +51,63 @@ THRESHOLD_PROFILES: dict[str, dict[str, float]] = {
         "changed_pixel_warn": 0.10,
     },
 }
+
+
+def score_evidence(
+    comparison: dict[str, Any],
+    *,
+    critical_region_ids: set[str] | None = None,
+    hard_gates: dict[str, bool] | None = None,
+) -> dict[str, Any]:
+    """Produce a stable integer visual score from deterministic evidence.
+
+    Scores are intentionally not a substitute for hard gates.  Callers must
+    record both so a good image cannot mask a missing font or blank native
+    render.
+    """
+    critical_region_ids = critical_region_ids or set()
+    region_diffs = comparison.get("region_diffs", [])
+    region_scores = {
+        str(item.get("id")): _quantize(float(item.get("ssim", 0.0)))
+        for item in region_diffs if isinstance(item, dict) and item.get("id") is not None
+    }
+    selected = [region_scores[key] for key in critical_region_ids if key in region_scores]
+    if not selected:
+        selected = list(region_scores.values()) or [_quantize(float(comparison.get("global_ssim", 0.0)))]
+    global_ssim = _quantize(float(comparison.get("global_ssim", 0.0)))
+    region_ssim = _quantize(sum(selected) / len(selected))
+    pixel_similarity = _quantize(1.0 - float(comparison.get("changed_pixel_ratio", 1.0)))
+    tree_diffs = comparison.get("control_tree_diffs", [])
+    tree_coverage = 1.0 if not tree_diffs else max(0.0, 1.0 - len(tree_diffs) / max(len(tree_diffs) + 1, 1))
+    text_diffs = comparison.get("text_diffs", [])
+    text_coverage = 1.0 if not text_diffs else sum(1 for item in text_diffs if item.get("match")) / len(text_diffs)
+    # Bounding-box agreement is represented by region coverage until the app
+    # harness supplies explicit layout IoU evidence.
+    bbox_iou = region_ssim
+    total = round(10000 * (
+        0.35 * global_ssim + 0.30 * region_ssim + 0.15 * pixel_similarity +
+        0.10 * bbox_iou + 0.05 * tree_coverage + 0.05 * text_coverage
+    ))
+    gates = dict(hard_gates or {})
+    return {
+        "scorer_version": SCORER_VERSION,
+        "total_score": int(total),
+        "metrics": {
+            "global_ssim": global_ssim,
+            "critical_region_ssim": region_ssim,
+            "pixel_similarity": pixel_similarity,
+            "layout_bbox_iou": bbox_iou,
+            "object_tree_coverage": _quantize(tree_coverage),
+            "text_glyph_coverage": _quantize(text_coverage),
+        },
+        "critical_regions": region_scores,
+        "hard_gates": gates,
+        "hard_gates_pass": all(gates.values()) if gates else False,
+    }
+
+
+def _quantize(value: float) -> float:
+    return round(max(0.0, min(1.0, value)), 6)
 
 
 # ── Pixel comparison ──────────────────────────────────────────────
