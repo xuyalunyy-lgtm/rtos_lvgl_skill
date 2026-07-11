@@ -17,15 +17,18 @@ L4 可执行     tools/                完整版 L2+；Lite 无此层
 
 ---
 
-## 五条主链路
+## 四个域 + 三条主链路
 
-所有 workflow 归入 5 条主链路：
+SKILL.md 使用 **域检测（Domain Detection）** 路由用户意图到 4 个域之一。每个域有独立的加载规则，避免跨域加载浪费 token。
 
-| 主链路 | 典型 workflow | 核心工具 | 输出 |
-|--------|--------------|---------|------|
-| **review** | l2_code_review, l2_project_review, hw_sw_cocodebug | run_review, module_boundary_checker | issues + constraints + evidence |
-| **generate** | l3_new_module, l3_bring_up, l3_sdk_trim, l3_lvgl_page | project_scaffold, module_contract_gen, codegen_gate, MCP LVGL tools | manifest + files + proof |
-| **debug** | debug_crash, l2_memory_analysis | context_router, log_triage | root_cause + verify_probes |
+| 域 | 触发关键词 | 主链路 | 典型 workflow | 核心工具 |
+|----|-----------|--------|--------------|---------|
+| **review** | 审查, review, audit, ISR, DMA | review | l2_code_review, l2_project_review, hw_sw_cocodebug | run_review, context_router |
+| **generate** | LVGL, UI, 页面, 新模块, bring-up | generate | l3_lvgl_page, l3_new_module, l3_bring_up, l3_sdk_trim | MCP LVGL tools |
+| **debug** | crash, HardFault, 死机, 看门狗 | debug | debug_crash | log_triage, context_router |
+| **app** | manifest, 多页, Router, Model | generate | (通过 MCP generate_ui) | MCP generate_ui |
+
+**铁律：** 每个域只加载自己域的文件，禁止跨域加载。详见 SKILL.md 各域的 Loading Rules。
 
 ---
 
