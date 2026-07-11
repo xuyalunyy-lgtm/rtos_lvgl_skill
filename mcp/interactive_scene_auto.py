@@ -461,7 +461,12 @@ def analyze_interactive_scene(
         by0 = min(c["y"] for c in button_candidates)
         bx1 = max(c["x"] + c["w"] for c in button_candidates)
         by1 = max(c["y"] + c["h"] for c in button_candidates)
-        panel = {"x": int(max(0, bx0 - 24)), "y": int(max(0, by0 - 102)), "w": int(min(width, bx1 + 24) - max(0, bx0 - 24)), "h": int(min(height, by1 + 8) - max(0, by0 - 102)), "radius": 28, "source": "button_bounds_fallback"}
+        # The panel contains two heading lines above the mood row and extends
+        # below the circular controls.  Preserve those margins when the thin,
+        # translucent border cannot be isolated as a bright component.
+        panel_top = max(0, by0 - 131)
+        panel_bottom = min(height, by1 + 24)
+        panel = {"x": int(max(0, bx0 - 24)), "y": int(panel_top), "w": int(min(width, bx1 + 24) - max(0, bx0 - 24)), "h": int(panel_bottom - panel_top), "radius": 28, "source": "button_bounds_fallback"}
 
     button_y = min(c["y"] for c in button_candidates)
     text_region_h = max(1, button_y - panel["y"] - 8)
@@ -475,13 +480,13 @@ def analyze_interactive_scene(
     upper = [c for c in text_candidates if c["y"] < panel["y"] + 56]
     lower = [c for c in text_candidates if c["y"] >= panel["y"] + 56]
     title_fallback = {"x": panel["x"] + 48, "y": panel["y"] + 2, "w": panel["w"] - 96, "h": 54}
-    hint_fallback = {"x": panel["x"] + 120, "y": panel["y"] + 52, "w": panel["w"] - 240, "h": 44}
+    hint_fallback = {"x": panel["x"] + 120, "y": panel["y"] + 78, "w": panel["w"] - 240, "h": 44}
     title = _union(upper) if upper else title_fallback
     hint = _union(lower) if lower else hint_fallback
     if title["y"] < panel["y"] or title["h"] > 70 or title["w"] > panel["w"]:
         title = title_fallback
         upper = []
-    if hint["y"] < panel["y"] or hint["y"] > panel["y"] + 56 or hint["h"] > 60 or hint["w"] > panel["w"]:
+    if hint["y"] < panel["y"] + 45 or hint["y"] > panel["y"] + 120 or hint["h"] > 60 or hint["w"] > panel["w"]:
         hint = hint_fallback
         lower = []
     title = {"x": int(title["x"]), "y": int(title["y"]), "w": int(max(80, title["w"])), "h": int(max(24, title["h"])), "font": 34, "source": "panel_white_text_union" if upper else "fallback_static"}
@@ -605,45 +610,12 @@ def _write_preview_crops(
     analysis: dict[str, Any],
     crops_dir: Path | None = None,
 ) -> dict[str, Any]:
-    try:
-        from PIL import Image
-    except Exception:
-        return {}
-    try:
-        design = Image.open(design_path).convert("RGBA")
-        width, height = design.size
-        crops_dir = crops_dir or output_dir / "assets"
-        crops_dir.mkdir(parents=True, exist_ok=True)
-        saved: dict[str, Any] = {}
-
-        text = analysis.get("text") or {}
-        top_prompt = text.get("top_prompt")
-        if isinstance(top_prompt, dict):
-            x0, y0, x1, y1 = _crop_rect(top_prompt, width, height, margin=6)
-            path = crops_dir / "derived_top_prompt.png"
-            design.crop((x0, y0, x1, y1)).save(path)
-            saved["top_prompt"] = {"path": str(path), "x": x0, "y": y0, "w": x1 - x0, "h": y1 - y0}
-
-        panel = analysis.get("glass_panel")
-        if isinstance(panel, dict):
-            x0, y0, x1, y1 = _crop_rect(panel, width, height)
-            path = crops_dir / "derived_interaction_panel.png"
-            design.crop((x0, y0, x1, y1)).save(path)
-            saved["interaction_panel"] = {"path": str(path), "x": x0, "y": y0, "w": x1 - x0, "h": y1 - y0}
-
-        status_rects = [
-            rect for rect in (analysis.get("status_bar") or {}).values()
-            if isinstance(rect, dict) and int(rect.get("w", 0)) > 0 and int(rect.get("h", 0)) > 0
-        ]
-        if status_rects:
-            status = _union(status_rects)
-            x0, y0, x1, y1 = _crop_rect(status, width, height, margin=5)
-            path = crops_dir / "derived_status_bar.png"
-            design.crop((x0, y0, x1, y1)).save(path)
-            saved["status_bar"] = {"path": str(path), "x": x0, "y": y0, "w": x1 - x0, "h": y1 - y0}
-        return saved
-    except Exception:
-        return {}
+    # Design screenshots are analysis/comparison references only.  In
+    # particular, do not silently turn text, panels, or status icons into
+    # runtime cutouts by cropping the design.  The parameters remain for API
+    # compatibility with older callers.
+    del output_dir, design_path, analysis, crops_dir
+    return {}
 
 
 def _write_layered_preview(
@@ -813,7 +785,10 @@ def generate_interactive_scene_page(args: dict[str, Any]) -> dict[str, Any]:
     if return_mode not in {"compact", "full"}:
         raise ValueError("return_mode must be 'compact' or 'full'")
     preview_design_reference_requested = bool(args.get("preview_design_reference", False))
+    if preview_design_reference_requested:
+        raise ValueError("preview_design_reference is forbidden: a design screenshot cannot be used as a generated preview or runtime layer")
     skip_preflight = bool(args.get("skip_preflight", False))
+    inferred_layout = bool(args.get("inferred_layout", False))
     background_gate_threshold = float(args.get("background_gate_threshold", BACKGROUND_GATE_DEFAULT_AVG_DELTA))
     allow_layered_reconstruction = bool(args.get("allow_layered_reconstruction", True))
 
@@ -823,7 +798,7 @@ def generate_interactive_scene_page(args: dict[str, Any]) -> dict[str, Any]:
     mood_src_macro_args = _as_string_map(args.get("mood_src_macros"))
 
     raw_design_path = args.get("design_path")
-    design_path = base.resolve_path(raw_design_path) if raw_design_path else base.resolve_path(_find_by_token(design_dir, SCENE_TOKEN))
+    design_path = None if inferred_layout else (base.resolve_path(raw_design_path) if raw_design_path else base.resolve_path(_find_by_token(design_dir, SCENE_TOKEN)))
     background_path = base.resolve_path(args.get("background_path", design_dir / base.INITIAL_LOADING_BACKGROUND_FILE))
     pet_path = base.resolve_path(args.get("pet_path", design_dir / base.INITIAL_LOADING_PET_FILE))
     mood_paths = {}
@@ -831,7 +806,11 @@ def generate_interactive_scene_page(args: dict[str, Any]) -> dict[str, Any]:
         raw_mood_path = args.get(f"{key}_path") or mood_path_args.get(key)
         token = str(args.get(f"{key}_token") or MOOD_TOKENS.get(key, key))
         mood_paths[key] = base.resolve_path(raw_mood_path) if raw_mood_path else base.resolve_path(_find_by_token(design_dir, token))
-    for item in (design_path, background_path, pet_path, *mood_paths.values()):
+    from mcp.design_asset_policy import assert_design_not_runtime
+    if design_path is None and not (inferred_layout and skip_preflight):
+        raise ValueError("design_path is required unless inferred_layout=true and skip_preflight=true")
+    assert_design_not_runtime(design_path, (background_path, pet_path, *mood_paths.values()))
+    for item in (background_path, pet_path, *mood_paths.values()):
         if not item.is_file():
             raise ValueError(f"design asset does not exist: {item}")
 
@@ -854,10 +833,10 @@ def generate_interactive_scene_page(args: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(bg_gate, dict):
         bg_gate = {}
     bg_blocked = bool(bg_gate.get("layered_pixel_reconstruction_blocked", False))
-    preview_design_reference = preview_design_reference_requested or bg_blocked
+    preview_design_reference = False
     should_run_layered = allow_layered_reconstruction and not bg_blocked
     auto_analyze = bool(args.get("auto_analyze", True))
-    if auto_analyze and should_run_layered:
+    if auto_analyze and should_run_layered and design_path is not None:
         analysis = analyze_interactive_scene(design_path, background_path, pet_path, mood_paths, width, height, mood_order, background_gate_threshold)
     else:
         fallback_sizes = {key: (37, 37) for key in mood_order}
@@ -866,8 +845,8 @@ def generate_interactive_scene_page(args: dict[str, Any]) -> dict[str, Any]:
             analysis["warnings"] = analysis.get("warnings", []) + ["layered pixel reconstruction skipped due to background consistency gate"]
     preview_decision = {
         "requested_design_reference": preview_design_reference_requested,
-        "effective_mode": "design_reference" if preview_design_reference else "layered_reconstruction",
-        "auto_switched_by_background_gate": bg_blocked and not preview_design_reference_requested,
+        "effective_mode": "manual_required" if bg_blocked else "layered_reconstruction",
+        "auto_switched_by_background_gate": False,
         "layered_pixel_reconstruction_blocked": bg_blocked,
         "reason": bg_gate.get("reason", "") if bg_blocked else "",
         "preflight": preflight,
@@ -880,9 +859,7 @@ def generate_interactive_scene_page(args: dict[str, Any]) -> dict[str, Any]:
     height = int(args.get("height", 800))
     page_name = base.safe_symbol(str(args.get("page_name", "interactive_scene")))
 
-    asset_aliases = {
-        "design": _copy_asset(design_path, assets_dir / f"{page_name}_design.png"),
-    }
+    asset_aliases: dict[str, str] = {}
     for key in mood_order:
         asset_aliases[key] = _copy_asset(mood_paths[key], assets_dir / f"mood_{key}.png")
 
@@ -909,6 +886,12 @@ def generate_interactive_scene_page(args: dict[str, Any]) -> dict[str, Any]:
 
     image_create = "lv_image_create" if version == "v9" else "lv_img_create"
     image_set_src = "lv_image_set_src" if version == "v9" else "lv_img_set_src"
+    def image_fit_line(variable: str) -> str:
+        # lv_obj_set_size() changes the image widget's clip area; it does not
+        # scale a v9 image source by itself.  The bundled runner uses v9.2.2,
+        # so use its STRETCH mode (CONTAIN was added in v9.3).  Standard UI
+        # packages trim only transparent source padding before this point.
+        return f"    lv_image_set_inner_align({variable}, LV_IMAGE_ALIGN_STRETCH);" if version == "v9" else ""
     delete_api = "lv_obj_delete" if version == "v9" else "lv_obj_del"
     custom_events_enabled = bool(args.get("custom_events_enabled", True))
     state_machine_enabled = bool(args.get("state_machine_enabled", True))
@@ -948,7 +931,7 @@ def generate_interactive_scene_page(args: dict[str, Any]) -> dict[str, Any]:
         "page_name": page_name,
         "display": {"width": width, "height": height, "color_depth": base.DISPLAY_CONFIG["display"]["color_depth"]},
         "lvgl_version": version,
-        "design": str(design_path),
+        "design": str(design_path) if design_path is not None else None,
         "analysis": analysis,
         "asset_aliases": asset_aliases,
         "background_consistency_gate": bg_gate,
@@ -977,8 +960,8 @@ def generate_interactive_scene_page(args: dict[str, Any]) -> dict[str, Any]:
     }
     base._write_json(spec_path, spec)
     base._write_json(analysis_report_path, analysis)
-    analysis_artifacts = _write_analysis_artifacts(output_dir, design_path, analysis)
-    preview_crops = _write_preview_crops(output_dir, design_path, analysis, assets_dir)
+    analysis_artifacts = _write_analysis_artifacts(output_dir, design_path, analysis) if design_path is not None else {}
+    preview_crops: dict[str, Any] = {}
     layered_preview_path = (
         _write_layered_preview(
             output_dir,
@@ -1159,6 +1142,7 @@ lv_obj_t *{create_fn}(lv_obj_t *parent)
 
     lv_obj_t *bg = {image_create}(s_page);
     {image_set_src}(bg, {bg_src_macro});
+{image_fit_line("bg")}
     /* LVGL_LAYOUT_EXCEPTION: full-screen background cut asset inferred from design. */
     lv_obj_set_pos(bg, 0, 0);
     lv_obj_set_size(bg, UI_INTERACTIVE_SCENE_WIDTH, UI_INTERACTIVE_SCENE_HEIGHT);
@@ -1214,6 +1198,7 @@ lv_obj_t *{create_fn}(lv_obj_t *parent)
 
     lv_obj_t *pet = {image_create}(s_page);
     {image_set_src}(pet, {pet_src_macro});
+{image_fit_line("pet")}
     /* LVGL_LAYOUT_EXCEPTION: pet cutout position matched by alpha-template analysis. */
     lv_obj_set_pos(pet, {int(pet['x'])}, {int(pet['y'])});
     lv_obj_set_size(pet, {int(pet['w'])}, {int(pet['h'])});
@@ -1256,6 +1241,7 @@ lv_obj_t *{create_fn}(lv_obj_t *parent)
 
         lv_obj_t *icon = {image_create}(button);
         {image_set_src}(icon, spec->src);
+{image_fit_line("icon")}
         /* LVGL_LAYOUT_EXCEPTION: mood icon offset centered inside the detected button bbox. */
         lv_obj_set_pos(icon, spec->icon_x, spec->icon_y);
         lv_obj_set_size(icon, spec->icon_w, spec->icon_h);
@@ -1366,13 +1352,12 @@ void {set_mood_fn}(ui_{page_name}_mood_t mood);
     )
     mood_macro_list = ", ".join(f"`{mood_src_macro[key]}`" for key in mood_order)
     asset_header_note = f"- Include `{asset_header}` before using the default asset macros.\n" if asset_header else ""
-    design_rel = base.relative_asset_path(Path(asset_aliases["design"]), output_dir)
     preview = f'''
 <!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Interactive Scene Preview</title>
 <style>
-body{{margin:0;min-height:100vh;display:grid;place-items:center;background:#1d2419}}.screen{{position:relative;width:{width}px;height:{height}px;overflow:hidden;background:#79a05f}}.design{{position:absolute;inset:0;width:100%;height:100%;display:block;user-select:none;pointer-events:none}}.hotspot{{position:absolute;border:0;padding:0;margin:0;background:transparent;border-radius:50%;cursor:pointer}}.hotspot:focus-visible{{outline:2px solid rgba(255,255,255,.85);outline-offset:2px}}
-</style></head><body><div class="screen"><img class="design" src="{base.html_attr(design_rel)}" alt="">{preview_buttons}</div></body></html>
+body{{margin:0;min-height:100vh;display:grid;place-items:center;background:#1d2419;color:#fff;font-family:sans-serif}}.notice{{max-width:40rem;padding:2rem;line-height:1.6}}
+</style></head><body><div class="notice">Preview intentionally omits the design screenshot. It is analysis/comparison-only; inspect <code>layered_preview.png</code> when available, or use native LVGL evidence.</div></body></html>
 '''
     design_reference_preview_path.write_text(textwrap.dedent(preview), encoding="utf-8", newline="\n")
     if design_reference_preview_path != preview_path:
@@ -1383,7 +1368,7 @@ body{{margin:0;min-height:100vh;display:grid;place-items:center;background:#1d24
 
 Generated from the interactive scene design.
 
-`preview.html` mode is selected by the background consistency gate. When the clean background does not match the design screenshot, preview switches to design-reference mode and keeps transparent mood hit zones. Use `analysis_report.json` and `debug_overlay.png` for detection QA.
+`preview.html` never embeds the design screenshot. The design is analysis/comparison-only and must not be cropped into runtime assets. Use `layered_preview.png` when available, plus `analysis_report.json` and `debug_overlay.png` for detection QA.
 
 Background consistency gate:
 

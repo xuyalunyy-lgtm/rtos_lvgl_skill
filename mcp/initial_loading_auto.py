@@ -363,25 +363,8 @@ def _write_analysis_artifacts(output_dir: Path, design_path: Path, analysis: dic
         overlay.save(overlay_path)
         saved["debug_overlay"] = str(overlay_path)
 
-        arc = analysis.get("loading_arc") or {}
-        template_path = arc.get("template_path")
-        if arc.get("source") == "template_match" and template_path:
-            template = Image.open(template_path).convert("RGBA")
-            x = int(arc["x"])
-            y = int(arc["y"])
-            w = int(arc["w"])
-            h = int(arc["h"])
-            crop = design.crop((x, y, x + w, y + h))
-            gap = 16
-            out = Image.new("RGBA", (w * 2 + gap, max(h, template.height)), (31, 31, 31, 255))
-            out.alpha_composite(template.resize((w, h)), (0, 0))
-            out.alpha_composite(crop, (w + gap, 0))
-            cmp_draw = ImageDraw.Draw(out)
-            cmp_draw.rectangle((0, 0, w - 1, h - 1), outline="#00E5FF", width=2)
-            cmp_draw.rectangle((w + gap, 0, w + gap + w - 1, h - 1), outline="#00E5FF", width=2)
-            match_path = output_dir / "debug_loading_template_match.png"
-            out.save(match_path)
-            saved["debug_loading_template_match"] = str(match_path)
+        # Do not crop a design screenshot, even for a diagnostic composite.
+        # The overlay above is sufficient evidence for template matching.
     except Exception:
         return saved
     return saved
@@ -436,6 +419,7 @@ def generate_initial_loading_page(args: dict[str, Any]) -> dict[str, Any]:
     body_macro = str(args.get("body_text_macro", "UI_TEXT_INITIAL_LOADING_BODY"))
     image_create = "lv_image_create" if version == "v9" else "lv_img_create"
     image_set_src = "lv_image_set_src" if version == "v9" else "lv_img_set_src"
+    image_fit = "    lv_image_set_inner_align({name}, LV_IMAGE_ALIGN_STRETCH);" if version == "v9" else ""
     delete_api = "lv_obj_delete" if version == "v9" else "lv_obj_del"
     custom_events_enabled = bool(args.get("custom_events_enabled", True))
     state_machine_enabled = bool(args.get("state_machine_enabled", True))
@@ -623,6 +607,7 @@ lv_obj_t *{create_fn}(lv_obj_t *parent)
 
     lv_obj_t *bg = {image_create}(s_page);
     {image_set_src}(bg, {bg_src_macro});
+{image_fit.format(name="bg")}
     /* LVGL_LAYOUT_EXCEPTION: full-screen background cut asset inferred from design. */
     lv_obj_set_pos(bg, 0, 0);
     lv_obj_set_size(bg, UI_INITIAL_LOADING_WIDTH, UI_INITIAL_LOADING_HEIGHT);
@@ -645,6 +630,7 @@ lv_obj_t *{create_fn}(lv_obj_t *parent)
 
     lv_obj_t *pet = {image_create}(s_page);
     {image_set_src}(pet, {pet_src_macro});
+{image_fit.format(name="pet")}
     /* LVGL_LAYOUT_EXCEPTION: pet cutout position matched by alpha-template analysis. */
     lv_obj_set_pos(pet, {pet_x}, {pet_y});
     lv_obj_set_size(pet, {pet_w}, {pet_h});
