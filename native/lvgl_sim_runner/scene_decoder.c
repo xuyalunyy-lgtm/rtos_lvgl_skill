@@ -77,7 +77,7 @@ static void register_node(uint32_t id, lv_obj_t *obj, const char *name) {
 /* ── Command execution ─────────────────────────────────────────── */
 
 static int execute_command(const scene_cmd_header_t *cmd, const uint8_t *payload,
-                           fb_display_t *display, const asset_pack_t *assets) {
+                           fb_display_t *display, const asset_pack_t *assets, const font_registry_t *fonts) {
     lv_obj_t *obj = find_node(cmd->node_id);
     lv_obj_t *parent = NULL;
 
@@ -285,6 +285,20 @@ static int execute_command(const scene_cmd_header_t *cmd, const uint8_t *payload
         return 0;
     }
 
+    case OP_SET_STYLE_TEXT_FONT: {
+        if (cmd->size != 4 || !obj) return -1;
+        uint32_t str_idx;
+        memcpy(&str_idx, payload, sizeof(str_idx));
+        const char *font_id = scene_get_string(NULL, str_idx);
+        const lv_font_t *font = font_registry_find(fonts, font_id);
+        if (!font) {
+            fprintf(stderr, "ERROR: Font asset not found: %s\n", font_id ? font_id : "<invalid>");
+            return -1;
+        }
+        lv_obj_set_style_text_font(obj, font, 0);
+        return 0;
+    }
+
     case OP_SET_STYLE_WIDTH: {
         if (cmd->size >= 4 && obj) {
             int32_t w;
@@ -368,7 +382,7 @@ uint32_t scene_decoder_get_asset_stats(uint32_t *requests, uint32_t *hits) {
 /* ── Main decode function ──────────────────────────────────────── */
 
 int scene_decode_and_execute(const uint8_t *data, size_t size, fb_display_t *display,
-                             const asset_pack_t *assets) {
+                             const asset_pack_t *assets, const font_registry_t *fonts) {
     if (size < sizeof(scene_header_t)) {
         fprintf(stderr, "ERROR: Scene too small (%zu bytes)\n", size);
         return -1;
@@ -432,7 +446,7 @@ int scene_decode_and_execute(const uint8_t *data, size_t size, fb_display_t *dis
             return -1;
         }
 
-        int result = execute_command(cmd, payload, display, assets);
+        int result = execute_command(cmd, payload, display, assets, fonts);
 
         /* Track opcode usage for capability reporting */
         if (cmd->opcode < MAX_OPCODE) {

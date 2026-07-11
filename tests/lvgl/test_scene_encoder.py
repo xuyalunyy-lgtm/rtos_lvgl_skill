@@ -130,6 +130,27 @@ class TestEncodeSpec:
         count = struct.unpack("<I", data[8:12])[0]
         assert count == 6
 
+    def test_font_reference_emits_font_opcode(self):
+        spec = {
+            **self.MINIMAL_SPEC,
+            "nodes": [
+                {"id": "root", "type": "screen"},
+                {"id": "title", "type": "label", "parent_id": "root", "text": "Hello",
+                 "styles": {"font_id": "font_title"}},
+            ],
+        }
+        data = encode_spec(spec)
+        string_offset, string_size, command_offset, command_size = struct.unpack("<IIII", data[12:28])
+        commands = data[command_offset:command_offset + command_size]
+        opcodes = []
+        offset = 0
+        while offset + 8 <= len(commands):
+            opcode, size, _node_id = struct.unpack("<HHI", commands[offset:offset + 8])
+            opcodes.append(opcode)
+            offset += 8 + size
+        assert Op.SET_STYLE_TEXT_FONT in opcodes
+        assert b"font_title\x00" in data[string_offset:string_offset + string_size]
+
 
 # ── Golden page specs ─────────────────────────────────────────────
 

@@ -27,6 +27,7 @@
 
 #include "lvgl.h"
 #include "asset_pack.h"
+#include "font_registry.h"
 #include "scene_decoder.h"
 #include "framebuffer_display.h"
 #include "object_tree_dump.h"
@@ -45,6 +46,7 @@
 #define MIN_RENDER_MS   1
 #define MAX_RENDER_MS   10000
 #define MAX_PATH_LEN    1024
+#define MAX_FONT_ARGS    FONT_REGISTRY_MAX_FONTS
 
 /* ── Platform directory creation ───────────────────────────────── */
 
@@ -99,6 +101,8 @@ static void json_write_string(FILE *stream, const char *value) {
 typedef struct {
     const char *scene_path;
     const char *asset_path;
+    const char *font_bindings[MAX_FONT_ARGS];
+    int font_count;
     const char *output_dir;
     int width;
     int height;
@@ -121,6 +125,7 @@ static int parse_int(const char *str, const char *name, int min_val, int max_val
 static int parse_args(int argc, char *argv[], sim_args_t *args) {
     args->scene_path = NULL;
     args->asset_path = NULL;
+    args->font_count = 0;
     args->output_dir = "artifacts/render";
     args->width = 480;
     args->height = 800;
@@ -133,6 +138,12 @@ static int parse_args(int argc, char *argv[], sim_args_t *args) {
             args->scene_path = argv[++i];
         } else if (strcmp(argv[i], "--assets") == 0 && i + 1 < argc) {
             args->asset_path = argv[++i];
+        } else if (strcmp(argv[i], "--font") == 0 && i + 1 < argc) {
+            if (args->font_count >= MAX_FONT_ARGS) {
+                fprintf(stderr, "ERROR: Too many --font bindings (max %d)\n", MAX_FONT_ARGS);
+                return 1;
+            }
+            args->font_bindings[args->font_count++] = argv[++i];
         } else if (strcmp(argv[i], "--output") == 0 && i + 1 < argc) {
             args->output_dir = argv[++i];
         } else if (strcmp(argv[i], "--width") == 0 && i + 1 < argc) {
@@ -153,7 +164,7 @@ static int parse_args(int argc, char *argv[], sim_args_t *args) {
             args->version = 1;
         } else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
             fprintf(stderr, "LVGL Headless Simulator v%s (LVGL %s)\n", SIM_VERSION, SIM_LVGL_VERSION);
-            fprintf(stderr, "Usage: %s --scene scene.bin [--assets asset.pack] [--output dir] [--width W] [--height H]\n", argv[0]);
+            fprintf(stderr, "Usage: %s --scene scene.bin [--assets asset.pack] [--font ID=font.bin] [--output dir] [--width W] [--height H]\n", argv[0]);
             fprintf(stderr, "       %s --version\n", argv[0]);
             fprintf(stderr, "       %s --self-test\n", argv[0]);
             return 1;
@@ -257,6 +268,7 @@ static int run_self_test(void) {
         fprintf(stderr, "FAIL: Failed to create framebuffer\n");
         return 1;
     }
+
     if (!display->framebuffer) {
         fprintf(stderr, "FAIL: Framebuffer is NULL\n");
         fb_display_destroy(display);
@@ -419,14 +431,28 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
+    /* Bind official LVGL binary fonts before scene execution. */
+    font_registry_t fonts;
+    font_registry_init(&fonts);
+    for (int i = 0; i < args.font_count; i++) {
+        if (font_registry_load(&fonts, args.font_bindings[i]) != 0) {
+            font_registry_destroy(&fonts);
+            fb_display_destroy(display);
+            free(asset_data);
+            free(scene_data);
+            return 1;
+        }
+    }
+
     /* Decode and execute scene */
     int result = scene_decode_and_execute(scene_data, scene_size, display,
-                                          args.asset_path ? &assets : NULL);
+                                          args.asset_path ? &assets : NULL, &fonts);
     free(scene_data);
 
     if (result != 0) {
         fprintf(stderr, "ERROR: Scene decode failed (%d)\n", result);
         fb_display_destroy(display);
+        font_registry_destroy(&fonts);
         free(asset_data);
         return 1;
     }
@@ -442,6 +468,7 @@ int main(int argc, char *argv[]) {
     if (mkdir_p(args.output_dir) != 0) {
         fprintf(stderr, "ERROR: Cannot create output directory\n");
         fb_display_destroy(display);
+        font_registry_destroy(&fonts);
         free(asset_data);
         return 1;
     }
@@ -454,6 +481,7 @@ int main(int argc, char *argv[]) {
     } else {
         fprintf(stderr, "ERROR: Failed to write PPM\n");
         fb_display_destroy(display);
+        font_registry_destroy(&fonts);
         free(asset_data);
         return 1;
     }
@@ -467,6 +495,7 @@ int main(int argc, char *argv[]) {
     } else {
         fprintf(stderr, "ERROR: Object tree dump failed (%d)\n", tree_result);
         fb_display_destroy(display);
+        font_registry_destroy(&fonts);
         free(asset_data);
         return 1;
     }
@@ -476,6 +505,24 @@ int main(int argc, char *argv[]) {
     uint32_t n_unsupported = scene_decoder_get_unsupported(unsupported_opcodes, 128);
     uint32_t asset_requests = 0, asset_hits = 0;
     scene_decoder_get_asset_stats(&asset_requests, &asset_hits);
+
+    /* Write font_load_report.json; this is the evidence the MCP consumes to
+     * distinguish a real font render from LVGL's default-font fallback. */
+    {
+        char path[MAX_PATH_LEN];
+        snprintf(path, sizeof(path), "%s/font_load_report.json", args.output_dir);
+        FILE *f = fopen(path, "w");
+        if (f) {
+            fprintf(f, "{\"count\":%u,\"font_ids\":[", font_registry_count(&fonts));
+            for (uint32_t i = 0; i < font_registry_count(&fonts); i++) {
+                if (i > 0) fputc(',', f);
+                json_write_string(f, fonts.entries[i].id);
+            }
+            fputs("]}\n", f);
+            fclose(f);
+            fprintf(stderr, "Fonts: %s\n", path);
+        }
+    }
 
     /* Write asset_load_report.json */
     {
@@ -533,10 +580,11 @@ int main(int argc, char *argv[]) {
     fputs(",\"width\":", stdout);
     fprintf(stdout, "%d,\"height\":%d,\"version\":", args.width, args.height);
     json_write_string(stdout, SIM_VERSION);
-    fprintf(stdout, ",\"unsupported_opcodes\":%s,\"asset_requests\":%u,\"asset_hits\":%u}\n",
-            unsupported_json, asset_requests, asset_hits);
+    fprintf(stdout, ",\"unsupported_opcodes\":%s,\"asset_requests\":%u,\"asset_hits\":%u,\"fonts_loaded\":%u}\n",
+            unsupported_json, asset_requests, asset_hits, font_registry_count(&fonts));
 
     fb_display_destroy(display);
+    font_registry_destroy(&fonts);
     free(asset_data);
     return 0;
 }

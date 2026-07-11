@@ -69,6 +69,10 @@
 #define LV_FONT_MONTSERRAT_24   1
 #define LV_FONT_DEFAULT         &lv_font_montserrat_14
 
+/* Runtime loading of official LVGL .bin fonts for native verification. */
+#define LV_USE_FS_STDIO         1
+#define LV_FS_STDIO_LETTER      '\0'
+
 /* ── Image decoder ─────────────────────────────────────────────── */
 
 #define LV_USE_PNG              0

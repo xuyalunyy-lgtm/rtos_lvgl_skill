@@ -83,6 +83,10 @@ def generate_style_code(var_name: str, styles: dict[str, Any], lvgl_version: str
     if "text_color" in styles:
         color = styles["text_color"].lstrip("#")
         lines.append(f"    {prefix}_text_color({var_name}, lv_color_hex(0x{color.upper()}), 0);")
+    if "font" in styles:
+        font_expr = str(styles["font"]).strip()
+        if re.fullmatch(r"&?[A-Za-z_][A-Za-z0-9_]*", font_expr):
+            lines.append(f"    {prefix}_text_font({var_name}, {font_expr}, 0);")
     if "text_font_size" in styles:
         # Font size is handled via font reference, not direct style
         pass
@@ -293,6 +297,11 @@ def generate_page_code(spec: dict[str, Any], lvgl_version: str | None = None) ->
         '#include "lvgl.h"',
         f'#include "ui_page_{safe_c_identifier(page_name)}.h"',
     ]
+    font_bundle = spec.get("font_bundle", {})
+    if isinstance(font_bundle, dict):
+        header = font_bundle.get("header")
+        if isinstance(header, str) and re.fullmatch(r"[A-Za-z0-9_.-]+", header):
+            includes.append(f'#include "{header}"')
     # Add asset includes
     for asset in spec.get("assets", []):
         symbol = asset.get("symbol", "")

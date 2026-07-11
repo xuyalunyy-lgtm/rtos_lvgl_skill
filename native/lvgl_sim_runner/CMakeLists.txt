@@ -24,6 +24,7 @@ file(GLOB_RECURSE LVGL_SOURCES "${LVGL_ROOT}/src/*.c")
 set(SIM_SOURCES
     main.c
     asset_pack.c
+    font_registry.c
     scene_decoder.c
     framebuffer_display.c
     object_tree_dump.c

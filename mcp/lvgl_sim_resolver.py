@@ -166,6 +166,7 @@ def run_simulator(
     render_time_ms: int = 100,
     timeout: int = 20,
     asset_pack_path: str | None = None,
+    font_bindings: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """Run the LVGL simulator in an isolated subprocess.
 
@@ -191,6 +192,8 @@ def run_simulator(
     ]
     if asset_pack_path:
         cmd.extend(["--assets", asset_pack_path])
+    for font_id, font_path in sorted((font_bindings or {}).items()):
+        cmd.extend(["--font", f"{font_id}={font_path}"])
 
     try:
         proc = subprocess.run(
@@ -246,6 +249,13 @@ def run_simulator(
         if asset_report_path.is_file():
             try:
                 result["asset_load_report"] = json.loads(asset_report_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                pass
+
+        font_report_path = Path(output_dir) / "font_load_report.json"
+        if font_report_path.is_file():
+            try:
+                result["font_load_report"] = json.loads(font_report_path.read_text(encoding="utf-8"))
             except (OSError, json.JSONDecodeError):
                 pass
 

@@ -9,6 +9,7 @@
 #include <stdint.h>
 #include "lvgl.h"
 #include "asset_pack.h"
+#include "font_registry.h"
 #include "framebuffer_display.h"
 
 /* ── Scene file format ─────────────────────────────────────────── */
@@ -60,6 +61,7 @@ typedef enum {
     OP_SET_STYLE_TEXT_ALIGN   = 48,
     OP_SET_STYLE_WIDTH        = 49,
     OP_SET_STYLE_HEIGHT       = 50,
+    OP_SET_STYLE_TEXT_FONT    = 51,
 
     OP_SET_EVENT_CLICKED       = 60,
     OP_SET_EVENT_VALUE_CHANGED = 61,
@@ -112,7 +114,7 @@ typedef struct {
  * @return 0 on success, non-zero on error.
  */
 int scene_decode_and_execute(const uint8_t *data, size_t size, fb_display_t *display,
-                             const asset_pack_t *assets);
+                             const asset_pack_t *assets, const font_registry_t *fonts);
 
 /**
  * Get string from scene string table.

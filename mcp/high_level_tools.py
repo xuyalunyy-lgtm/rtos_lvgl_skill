@@ -131,6 +131,27 @@ def generate_ui(args: dict[str, Any]) -> dict[str, Any]:
 
     out = _safe_output_dir(output_dir)
 
+    # A UI project may declare its own LVGL fonts in ui/manifest.json.  Apply
+    # that contract to every codegen path, not only semantic templates.
+    font_warnings: list[str] = []
+    cut_dir_arg = args.get("cut_dir")
+    if cut_dir_arg:
+        cut_dir = Path(str(cut_dir_arg)).resolve()
+        if cut_dir.is_dir():
+            source_design = Path(str(design_path)).resolve() if design_path else None
+            try:
+                manifest_fonts, font_warnings = _resolve_manifest_fonts(
+                    cut_dir,
+                    source_design,
+                    page_name=str(spec.get("page_name", "")),
+                    template=template,
+                )
+            except ValueError as exc:
+                return _fail([str(exc)], stage="fonts", status="font_config_invalid")
+            if manifest_fonts:
+                bundle = _write_user_font_bundle(out, manifest_fonts, str(spec.get("page_name", "page")))
+                _apply_manifest_fonts_to_spec(spec, manifest_fonts, bundle)
+
     # Validate generated spec before writing
     from mcp.lvgl_ir.spec_validator import validate_spec
     display_cfg = args.get("display", {})
@@ -162,7 +183,12 @@ def generate_ui(args: dict[str, Any]) -> dict[str, Any]:
         "h_path": result.get("h_path"),
         "spec_path": str(spec_path_out),
         "node_count": result.get("node_count", 0),
-        "warnings": result.get("warnings", [], ) + validation.get("warnings", []),
+        "font_sources": [
+            font.get("output_source") or font.get("source")
+            for font in spec.get("fonts", []) if isinstance(font, dict) and (font.get("output_source") or font.get("source"))
+        ],
+        "font_cmake_path": spec.get("font_bundle", {}).get("cmake_path", ""),
+        "warnings": font_warnings + result.get("warnings", [], ) + validation.get("warnings", []),
         "validation": validation,
     })
 
@@ -216,6 +242,15 @@ def render_ui(args: dict[str, Any]) -> dict[str, Any]:
         if not runner["ok"]:
             return _fail([runner.get("error", "Runner not found")], stage="render", status="environment_unavailable")
 
+        font_bindings, missing_font_previews = _native_font_bindings(spec)
+        if missing_font_previews:
+            return _fail(
+                ["Native render requires LVGL .bin preview fonts for: " + ", ".join(missing_font_previews)],
+                stage="render",
+                status="font_preview_unavailable",
+                missing_font_ids=missing_font_previews,
+            )
+
         scene_bytes = encode_spec(spec)
         scene_path = out / "scene.bin"
         scene_path.write_bytes(scene_bytes)
@@ -232,10 +267,21 @@ def render_ui(args: dict[str, Any]) -> dict[str, Any]:
             width,
             height,
             asset_pack_path=args.get("asset_pack_path"),
+            font_bindings=font_bindings,
         )
 
         if not result["ok"]:
             return _fail([result.get("error", "Simulator failed")], stage="render")
+
+        loaded_font_ids = set(result.get("font_load_report", {}).get("font_ids", []))
+        if set(font_bindings) != loaded_font_ids:
+            return _fail(
+                ["Native runner did not provide complete font-load evidence"],
+                stage="render",
+                status="font_evidence_missing",
+                expected_font_ids=sorted(font_bindings),
+                loaded_font_ids=sorted(loaded_font_ids),
+            )
 
         # Determine status — capability_gap if unsupported opcodes were hit
         render_status = "scene_rendered"
@@ -253,12 +299,22 @@ def render_ui(args: dict[str, Any]) -> dict[str, Any]:
             "platform": runner["platform"],
             "lvgl_version": lvgl_version,
         }
+        if font_bindings:
+            response["font_evidence"] = {
+                "requested": [
+                    {"id": font_id, "source": source, "sha256": _file_hash(Path(source))}
+                    for font_id, source in sorted(font_bindings.items())
+                ],
+                "loaded_ids": sorted(loaded_font_ids),
+            }
 
         # Pass through evidence
         if result.get("asset_load_report"):
             response["asset_load_report"] = result["asset_load_report"]
         if result.get("renderer_capabilities"):
             response["renderer_capabilities"] = result["renderer_capabilities"]
+        if result.get("font_load_report"):
+            response["font_load_report"] = result["font_load_report"]
         if result.get("unsupported_opcodes"):
             response["unsupported_opcodes"] = result["unsupported_opcodes"]
         if result.get("capability_gap"):
@@ -537,7 +593,13 @@ def _scene_bbox(summary: dict[str, Any], name: str, fallback: list[int]) -> list
 _FONT_SYMBOL_RE = re.compile(r"\b(?:const\s+)?lv_font_t\s+([A-Za-z_]\w*)\s*=")
 
 
-def _resolve_manifest_fonts(cut_dir: Path, design_path: Path) -> tuple[list[dict[str, str]], list[str]]:
+def _resolve_manifest_fonts(
+    cut_dir: Path,
+    design_path: Path | None,
+    *,
+    page_name: str = "",
+    template: str = "",
+) -> tuple[list[dict[str, str]], list[str]]:
     """Resolve declared UI fonts and their LVGL symbols from ui/manifest.json."""
     manifest_path = cut_dir / "manifest.json"
     if not manifest_path.is_file():
@@ -555,21 +617,32 @@ def _resolve_manifest_fonts(cut_dir: Path, design_path: Path) -> tuple[list[dict
         if not isinstance(page, dict):
             continue
         raw_design = page.get("design")
-        if isinstance(raw_design, str) and (cut_dir / raw_design).resolve() == design_path:
+        if design_path is not None and isinstance(raw_design, str) and (cut_dir / raw_design).resolve() == design_path:
             selected = page
             break
     if selected is None:
-        selected = next((page for page in pages if isinstance(page, dict) and page.get("template") == "interactive_scene"), None)
+        selected = next((page for page in pages if isinstance(page, dict) and page_name and page.get("id") == page_name), None)
+    if selected is None and template and template != "auto":
+        selected = next((page for page in pages if isinstance(page, dict) and page.get("template") == template), None)
     if selected is None or not selected.get("fonts"):
         return [], ["The selected manifest page does not declare fonts; generated C uses integrator-provided UI_FONT_* overrides or LVGL defaults."]
 
     raw_fonts = selected["fonts"]
     if not isinstance(raw_fonts, dict):
         raise ValueError("manifest page fonts must be an object with title, body, and caption entries")
-    role_map = (("top", "title"), ("title", "body"), ("hint", "caption"))
+    role_map = (("title", "title"), ("body", "body"), ("caption", "caption"))
     resolved: list[dict[str, str]] = []
     for usage, role in role_map:
-        raw_path = raw_fonts.get(role)
+        raw_font = raw_fonts.get(role)
+        if isinstance(raw_font, str):
+            raw_path = raw_font
+            raw_preview_bin = ""
+        elif isinstance(raw_font, dict):
+            raw_path = raw_font.get("source", raw_font.get("c", ""))
+            raw_preview_bin = raw_font.get("preview_bin", "")
+        else:
+            raw_path = ""
+            raw_preview_bin = ""
         if not isinstance(raw_path, str) or not raw_path.strip():
             raise ValueError(f"manifest page fonts.{role} is required when fonts are declared")
         source = (cut_dir / raw_path).resolve()
@@ -578,11 +651,19 @@ def _resolve_manifest_fonts(cut_dir: Path, design_path: Path) -> tuple[list[dict
         match = _FONT_SYMBOL_RE.search(source.read_text(encoding="utf-8", errors="ignore"))
         if not match:
             raise ValueError(f"cannot find an lv_font_t symbol in manifest page fonts.{role}: {raw_path}")
-        resolved.append({"usage": usage, "role": role, "source": str(source), "symbol": match.group(1)})
+        entry = {"usage": usage, "role": role, "source": str(source), "symbol": match.group(1)}
+        if raw_preview_bin:
+            if not isinstance(raw_preview_bin, str):
+                raise ValueError(f"manifest page fonts.{role}.preview_bin must be a path string")
+            preview_bin = (cut_dir / raw_preview_bin).resolve()
+            if not preview_bin.is_relative_to(cut_dir) or not preview_bin.is_file():
+                raise ValueError(f"manifest page fonts.{role}.preview_bin is missing or outside ui/: {raw_preview_bin}")
+            entry["preview_bin"] = str(preview_bin)
+        resolved.append(entry)
     return resolved, []
 
 
-def _write_user_font_bundle(output_dir: Path, fonts: list[dict[str, str]]) -> tuple[str, str]:
+def _write_user_font_bundle(output_dir: Path, fonts: list[dict[str, str]], page_name: str) -> dict[str, str]:
     """Copy manifest fonts and emit declarations plus a build-source list."""
     fonts_dir = output_dir / "fonts"
     fonts_dir.mkdir(parents=True, exist_ok=True)
@@ -594,21 +675,75 @@ def _write_user_font_bundle(output_dir: Path, fonts: list[dict[str, str]]) -> tu
         font["output_source"] = str(destination)
         copied.append(destination.as_posix())
 
-    header = output_dir / "ui_interactive_scene_fonts.h"
+    safe_page = re.sub(r"[^A-Za-z0-9_]", "_", page_name).strip("_").lower() or "page"
+    macro_page = re.sub(r"[^A-Za-z0-9_]", "_", page_name).strip("_").upper() or "PAGE"
+    header = output_dir / f"ui_{safe_page}_fonts.h"
     unique_symbols = list(dict.fromkeys(font["symbol"] for font in fonts))
     declarations = "\n".join(f"extern const lv_font_t {symbol};" for symbol in unique_symbols)
     header.write_text(
-        "#ifndef UI_INTERACTIVE_SCENE_FONTS_H\n#define UI_INTERACTIVE_SCENE_FONTS_H\n\n"
+        f"#ifndef UI_{macro_page}_FONTS_H\n#define UI_{macro_page}_FONTS_H\n\n"
         "#include \"lvgl.h\"\n\n"
-        f"{declarations}\n\n#endif /* UI_INTERACTIVE_SCENE_FONTS_H */\n",
+        f"{declarations}\n\n#endif /* UI_{macro_page}_FONTS_H */\n",
         encoding="utf-8", newline="\n",
     )
-    cmake = output_dir / "ui_interactive_scene_fonts.cmake"
-    lines = ["# Add these sources to the target that builds ui_interactive_scene.c.", "set(UI_INTERACTIVE_SCENE_FONT_SOURCES"]
+    cmake = output_dir / f"ui_{safe_page}_fonts.cmake"
+    lines = [f"# Add these sources to the target that builds ui_{safe_page}.c.", f"set(UI_{macro_page}_FONT_SOURCES"]
     lines.extend(f'    "{Path(path).as_posix()}"' for path in copied)
     lines.append(")")
     cmake.write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
-    return header.name, str(cmake)
+    return {"header": header.name, "header_path": str(header), "cmake_path": str(cmake)}
+
+
+def _apply_manifest_fonts_to_spec(spec: dict[str, Any], fonts: list[dict[str, str]], bundle: dict[str, str]) -> None:
+    """Attach font provenance and deterministic role-based references to a UI Spec."""
+    by_role = {font["role"]: font for font in fonts}
+    for node in spec.get("nodes", []):
+        if not isinstance(node, dict) or node.get("type") not in {"label", "button", "checkbox", "dropdown"}:
+            continue
+        styles = node.setdefault("styles", {})
+        if not isinstance(styles, dict) or styles.get("font"):
+            continue
+        node_id = str(node.get("id", "")).casefold()
+        requested_role = str(styles.get("font_role", "")).casefold()
+        if requested_role not in by_role:
+            if any(token in node_id for token in ("title", "header", "top", "heading")):
+                requested_role = "title"
+            elif any(token in node_id for token in ("caption", "hint", "subtitle", "footnote")):
+                requested_role = "caption"
+            else:
+                requested_role = "body"
+        selected = by_role.get(requested_role, by_role["body"])
+        styles["font"] = f"&{selected['symbol']}"
+        styles["font_role"] = requested_role
+        styles["font_id"] = selected["symbol"]
+    spec["fonts"] = fonts
+    spec["font_bundle"] = bundle
+
+
+def _native_font_bindings(spec: dict[str, Any]) -> tuple[dict[str, str], list[str]]:
+    """Resolve official LVGL .bin fonts required by a native render."""
+    requested: set[str] = set()
+    for node in spec.get("nodes", []):
+        if not isinstance(node, dict):
+            continue
+        styles = node.get("styles", {})
+        if not isinstance(styles, dict):
+            continue
+        value = styles.get("font_id", styles.get("font", ""))
+        if isinstance(value, str) and value.strip():
+            requested.add(value.strip().lstrip("&"))
+    if not requested:
+        return {}, []
+
+    available: dict[str, str] = {}
+    for font in spec.get("fonts", []):
+        if not isinstance(font, dict):
+            continue
+        symbol = font.get("symbol")
+        preview_bin = font.get("preview_bin")
+        if isinstance(symbol, str) and isinstance(preview_bin, str) and Path(preview_bin).is_file():
+            available[symbol] = preview_bin
+    return {font_id: available[font_id] for font_id in requested if font_id in available}, sorted(requested - available.keys())
 
 
 def _generate_interactive_scene_v2(args: dict[str, Any]) -> dict[str, Any]:
@@ -623,17 +758,21 @@ def _generate_interactive_scene_v2(args: dict[str, Any]) -> dict[str, Any]:
     width = int(display.get("width", 480))
     height = int(display.get("height", 800))
     try:
-        manifest_fonts, font_warnings = _resolve_manifest_fonts(cut_dir, design_path)
+        manifest_fonts, font_warnings = _resolve_manifest_fonts(
+            cut_dir, design_path, page_name="interactive_scene", template="interactive_scene"
+        )
     except ValueError as exc:
         return _fail([str(exc)], stage="fonts", status="font_config_invalid")
     font_header = ""
     font_cmake_path = ""
     if manifest_fonts:
-        font_header, font_cmake_path = _write_user_font_bundle(out, manifest_fonts)
+        font_bundle = _write_user_font_bundle(out, manifest_fonts, "interactive_scene")
+        font_header = font_bundle["header"]
+        font_cmake_path = font_bundle["cmake_path"]
     font_macros = {
-        "top": f"&{next(font['symbol'] for font in manifest_fonts if font['usage'] == 'top')}",
-        "title": f"&{next(font['symbol'] for font in manifest_fonts if font['usage'] == 'title')}",
-        "hint": f"&{next(font['symbol'] for font in manifest_fonts if font['usage'] == 'hint')}",
+        "top": f"&{next(font['symbol'] for font in manifest_fonts if font['role'] == 'title')}",
+        "title": f"&{next(font['symbol'] for font in manifest_fonts if font['role'] == 'body')}",
+        "hint": f"&{next(font['symbol'] for font in manifest_fonts if font['role'] == 'caption')}",
     } if manifest_fonts else {}
     mood_keys = ("calmness", "good", "down", "stressed")
     mood_paths = {
@@ -754,7 +893,7 @@ def _generate_interactive_scene_v2(args: dict[str, Any]) -> dict[str, Any]:
         "spec_path": str(spec_path),
         "asset_pack_path": str(asset_pack_path),
         "node_count": len(nodes),
-        "font_sources": [font.get("output_source", font["source"]) for font in manifest_fonts],
+        "font_sources": [font.get("output_source") or font.get("source") for font in manifest_fonts],
         "font_cmake_path": font_cmake_path,
         "warnings": [*font_warnings, *generated.get("summary", {}).get("warnings", [])],
     })

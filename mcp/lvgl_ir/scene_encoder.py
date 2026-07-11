@@ -59,6 +59,7 @@ class Op:
     SET_STYLE_TEXT_ALIGN = 48
     SET_STYLE_WIDTH = 49
     SET_STYLE_HEIGHT = 50
+    SET_STYLE_TEXT_FONT = 51
 
     # Events
     SET_EVENT_CLICKED = 60
@@ -208,6 +209,10 @@ class CommandBuffer:
 
     def set_style_text_color(self, node_id: int, color: int):
         self._emit(Op.SET_STYLE_TEXT_COLOR, node_id, struct.pack("<I", color))
+
+    def set_style_text_font(self, node_id: int, font_id: str):
+        idx = self.strings.add(font_id)
+        self._emit(Op.SET_STYLE_TEXT_FONT, node_id, struct.pack("<I", idx))
 
     def set_style_width(self, node_id: int, width: int):
         self._emit(Op.SET_STYLE_WIDTH, node_id, struct.pack("<i", width))
@@ -374,6 +379,9 @@ def _encode_styles(cmds: CommandBuffer, node_id: int, styles: dict[str, Any]):
         cmds.set_style_border_color(node_id, _parse_color(styles["border_color"]))
     if "text_color" in styles:
         cmds.set_style_text_color(node_id, _parse_color(styles["text_color"]))
+    font_id = styles.get("font_id", styles.get("font", ""))
+    if isinstance(font_id, str) and font_id.strip():
+        cmds.set_style_text_font(node_id, font_id.strip().lstrip("&"))
     if "width" in styles and styles["width"] > 0:
         cmds.set_style_width(node_id, styles["width"])
     if "height" in styles and styles["height"] > 0:
