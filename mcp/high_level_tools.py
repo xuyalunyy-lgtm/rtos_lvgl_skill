@@ -471,7 +471,17 @@ def _generate_interactive_scene_v2(args: dict[str, Any]) -> dict[str, Any]:
     height = int(display.get("height", 800))
     mood_keys = ("calmness", "good", "down", "stressed")
     mood_paths = {key: cut_dir / f"mood_{key}.png" for key in mood_keys}
-    background = cut_dir / "home_bg.jpg"
+    # Prefer the state-matched background when it is supplied.  `home_bg.jpg`
+    # belongs to a different scene state in the interactive-scene cutout set,
+    # while `Affirmation-bg.png` is the compositing background for the
+    # affirmative/favorited design.  Keep the former as a backwards-compatible
+    # fallback for older cutout bundles.
+    background_candidates = (
+        cut_dir / "Affirmation-bg.png",
+        cut_dir / "affirmation-bg.png",
+        cut_dir / "home_bg.jpg",
+    )
+    background = next((path for path in background_candidates if path.is_file()), background_candidates[-1])
     pet = cut_dir / "initial_page_pet.png"
     missing = [path.name for path in (background, pet, *mood_paths.values()) if not path.is_file()]
     if missing:
