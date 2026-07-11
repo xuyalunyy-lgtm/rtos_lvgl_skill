@@ -11,6 +11,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -541,6 +542,21 @@ def run_self_test() -> int:
     })
     negotiated = initialize.get("result", {}).get("protocolVersion") if isinstance(initialize, dict) else None
     checks.append(("protocol_version_negotiation", negotiated == "2025-06-18", f"negotiated {negotiated!r}"))
+
+    # 7. A legacy tree document must be rejected before native scene encoding.
+    with tempfile.TemporaryDirectory(prefix="mcp-invalid-spec-") as temp_dir:
+        bad_spec = Path(temp_dir) / "legacy_tree.json"
+        bad_spec.write_text(json.dumps({"tree": {"type": "screen", "children": []}}), encoding="utf-8")
+        invalid_render = _call_tool("render_ui", {
+            "spec_path": str(bad_spec),
+            "output_dir": "artifacts/mcp_selftest_invalid_spec",
+            "engine": "lvgl_simulator",
+        })
+    checks.append((
+        "render_rejects_legacy_tree_spec",
+        invalid_render.get("ok") is False and invalid_render.get("status") == "invalid_spec",
+        f"unexpected result: {invalid_render}",
+    ))
 
     failed = [item for item in checks if not item[1]]
     for name, ok, detail in checks:

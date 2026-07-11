@@ -140,24 +140,41 @@ def render_ui(args: dict[str, Any]) -> dict[str, Any]:
     output_dir = args.get("output_dir", "artifacts/render")
     lvgl_version = args.get("lvgl_version", "v9")
 
-    out = _safe_output_dir(output_dir)
-
     if engine == "lvgl_simulator":
         # Real LVGL rendering via built-in simulator
         from mcp.lvgl_sim_resolver import resolve_runner, run_simulator
         from mcp.lvgl_ir.scene_encoder import encode_spec
 
+        # The native scene encoder consumes UI Spec v2's flat `nodes` array.
+        # Reject incompatible/empty documents before creating any output so a
+        # legacy `tree` document can never masquerade as a rendered blank UI.
+        if spec_path:
+            try:
+                spec = json.loads(Path(spec_path).read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError) as exc:
+                return _fail([f"Unable to read UI Spec: {exc}"], stage="render", status="invalid_spec")
+        else:
+            # Generate minimal spec from ui_dir
+            spec = {"schema_version": "2.0", "nodes": [{"id": "root", "type": "screen"}]}
+
+        if not isinstance(spec, dict):
+            return _fail(["UI Spec must be a JSON object with a non-empty `nodes` array"], stage="render", status="invalid_spec")
+        nodes = spec.get("nodes")
+        if not isinstance(nodes, list) or not nodes:
+            return _fail(
+                ["Native LVGL rendering requires UI Spec v2 `nodes`; `tree/children` documents are unsupported. Regenerate with generate_ui."],
+                stage="render",
+                status="invalid_spec",
+            )
+        if not all(isinstance(node, dict) for node in nodes):
+            return _fail(["Every UI Spec `nodes` entry must be an object"], stage="render", status="invalid_spec")
+
+        out = _safe_output_dir(output_dir)
+
         # Resolve built-in runner
         runner = resolve_runner(lvgl_version)
         if not runner["ok"]:
             return _fail([runner.get("error", "Runner not found")], stage="render", status="environment_unavailable")
-
-        # Encode spec to scene.bin
-        if spec_path:
-            spec = json.loads(Path(spec_path).read_text(encoding="utf-8"))
-        else:
-            # Generate minimal spec from ui_dir
-            spec = {"schema_version": "2.0", "nodes": [{"id": "root", "type": "screen"}]}
 
         scene_bytes = encode_spec(spec)
         scene_path = out / "scene.bin"
@@ -193,6 +210,7 @@ def render_ui(args: dict[str, Any]) -> dict[str, Any]:
 
     elif engine == "python_preview":
         # Fast preview using static analysis (not authoritative)
+        out = _safe_output_dir(output_dir)
         from mcp.lvgl_compile_gate import validate_directory
         validation = validate_directory(str(ui_dir) if ui_dir else ".", "v9")
 
