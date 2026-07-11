@@ -1,7 +1,12 @@
 {
+  "schema_version": "1.0",
   "page_name": "media_page",
+  "generated_files": [
+    "C:\\Users\\xuyl\\Desktop\\skill\\artifacts\\golden_candidates\\media_page\\ui_page_media_page.c",
+    "C:\\Users\\xuyl\\Desktop\\skill\\artifacts\\golden_candidates\\media_page\\ui_page_media_page.h"
+  ],
   "assets": [],
-  "macros": {"text": [], "images": [], "fonts": []},
-  "generated_files": ["generated.c"],
-  "dependencies": ["lvgl.h"]
+  "fonts": [],
+  "total_flash_bytes": 0,
+  "total_ram_bytes": 0
 }

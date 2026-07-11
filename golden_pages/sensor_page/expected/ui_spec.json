@@ -1,0 +1,199 @@
+{
+  "schema_version": "2.0",
+  "page_name": "sensor_page",
+  "display": {
+    "width": 480,
+    "height": 800,
+    "color_depth": 16
+  },
+  "lvgl_version": "v9",
+  "theme": {
+    "background_color": "#002020",
+    "text_color": "#204040",
+    "primary_color": "#206080"
+  },
+  "fonts": [],
+  "assets": [],
+  "nodes": [
+    {
+      "id": "root",
+      "type": "screen"
+    },
+    {
+      "id": "region_0",
+      "type": "container",
+      "parent_id": "root",
+      "source_bbox": [
+        183,
+        18,
+        55,
+        56
+      ],
+      "confidence": 0.9
+    },
+    {
+      "id": "region_1",
+      "type": "container",
+      "parent_id": "root",
+      "source_bbox": [
+        239,
+        18,
+        44,
+        56
+      ],
+      "confidence": 0.9
+    },
+    {
+      "id": "region_2",
+      "type": "container",
+      "parent_id": "root",
+      "source_bbox": [
+        30,
+        83,
+        40,
+        54
+      ],
+      "confidence": 0.9
+    },
+    {
+      "id": "region_3",
+      "type": "container",
+      "parent_id": "root",
+      "source_bbox": [
+        71,
+        83,
+        55,
+        54
+      ],
+      "confidence": 0.9
+    },
+    {
+      "id": "region_4",
+      "type": "container",
+      "parent_id": "root",
+      "source_bbox": [
+        266,
+        83,
+        28,
+        54
+      ],
+      "confidence": 0.9
+    },
+    {
+      "id": "region_5",
+      "type": "container",
+      "parent_id": "root",
+      "source_bbox": [
+        295,
+        85,
+        55,
+        52
+      ],
+      "confidence": 0.9
+    },
+    {
+      "id": "region_6",
+      "type": "container",
+      "parent_id": "root",
+      "source_bbox": [
+        15,
+        138,
+        55,
+        57
+      ],
+      "confidence": 0.9
+    },
+    {
+      "id": "region_7",
+      "type": "container",
+      "parent_id": "root",
+      "source_bbox": [
+        71,
+        138,
+        55,
+        10
+      ],
+      "confidence": 0.9
+    },
+    {
+      "id": "region_8",
+      "type": "container",
+      "parent_id": "root",
+      "source_bbox": [
+        250,
+        138,
+        44,
+        57
+      ],
+      "confidence": 0.9
+    },
+    {
+      "id": "region_9",
+      "type": "container",
+      "parent_id": "root",
+      "source_bbox": [
+        15,
+        198,
+        55,
+        49
+      ],
+      "confidence": 0.9
+    },
+    {
+      "id": "region_10",
+      "type": "container",
+      "parent_id": "root",
+      "source_bbox": [
+        71,
+        283,
+        55,
+        11
+      ],
+      "confidence": 0.9
+    },
+    {
+      "id": "region_11",
+      "type": "container",
+      "parent_id": "root",
+      "source_bbox": [
+        127,
+        283,
+        53,
+        11
+      ],
+      "confidence": 0.9
+    },
+    {
+      "id": "region_12",
+      "type": "label",
+      "parent_id": "root",
+      "source_bbox": [
+        0,
+        126,
+        479,
+        19
+      ],
+      "confidence": 0.6
+    },
+    {
+      "id": "region_13",
+      "type": "label",
+      "parent_id": "root",
+      "source_bbox": [
+        0,
+        283,
+        479,
+        11
+      ],
+      "confidence": 0.6
+    }
+  ],
+  "events": [],
+  "data_bindings": [],
+  "lifecycle": {
+    "create_function": "ui_page_sensor_page_create"
+  },
+  "metadata": {
+    "generator_version": "golden_generator_v1"
+  }
+}

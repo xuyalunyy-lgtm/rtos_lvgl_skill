@@ -1,0 +1,331 @@
+{
+  "schema_version": "2.0",
+  "page_name": "media_page",
+  "display": {
+    "width": 480,
+    "height": 800,
+    "color_depth": 16
+  },
+  "lvgl_version": "v9",
+  "theme": {
+    "background_color": "#000020",
+    "text_color": "#002020",
+    "primary_color": "#2080e0"
+  },
+  "fonts": [],
+  "assets": [],
+  "nodes": [
+    {
+      "id": "root",
+      "type": "screen"
+    },
+    {
+      "id": "region_0",
+      "type": "container",
+      "parent_id": "root",
+      "source_bbox": [
+        90,
+        80,
+        27,
+        30
+      ],
+      "confidence": 0.9
+    },
+    {
+      "id": "region_1",
+      "type": "container",
+      "parent_id": "root",
+      "source_bbox": [
+        177,
+        13,
+        58,
+        67
+      ],
+      "confidence": 0.9
+    },
+    {
+      "id": "region_2",
+      "type": "container",
+      "parent_id": "root",
+      "source_bbox": [
+        236,
+        13,
+        58,
+        67
+      ],
+      "confidence": 0.9
+    },
+    {
+      "id": "region_3",
+      "type": "container",
+      "parent_id": "root",
+      "source_bbox": [
+        354,
+        80,
+        36,
+        30
+      ],
+      "confidence": 0.9
+    },
+    {
+      "id": "region_4",
+      "type": "container",
+      "parent_id": "root",
+      "source_bbox": [
+        90,
+        307,
+        27,
+        73
+      ],
+      "confidence": 0.9
+    },
+    {
+      "id": "region_5",
+      "type": "container",
+      "parent_id": "root",
+      "source_bbox": [
+        118,
+        380,
+        58,
+        24
+      ],
+      "confidence": 0.9
+    },
+    {
+      "id": "region_6",
+      "type": "container",
+      "parent_id": "root",
+      "source_bbox": [
+        177,
+        380,
+        58,
+        24
+      ],
+      "confidence": 0.9
+    },
+    {
+      "id": "region_7",
+      "type": "container",
+      "parent_id": "root",
+      "source_bbox": [
+        236,
+        380,
+        58,
+        24
+      ],
+      "confidence": 0.9
+    },
+    {
+      "id": "region_8",
+      "type": "container",
+      "parent_id": "root",
+      "source_bbox": [
+        295,
+        380,
+        58,
+        24
+      ],
+      "confidence": 0.9
+    },
+    {
+      "id": "region_9",
+      "type": "container",
+      "parent_id": "root",
+      "source_bbox": [
+        354,
+        307,
+        36,
+        73
+      ],
+      "confidence": 0.9
+    },
+    {
+      "id": "region_10",
+      "type": "container",
+      "parent_id": "root",
+      "source_bbox": [
+        0,
+        405,
+        58,
+        97
+      ],
+      "confidence": 0.9
+    },
+    {
+      "id": "region_11",
+      "type": "container",
+      "parent_id": "root",
+      "source_bbox": [
+        59,
+        460,
+        58,
+        10
+      ],
+      "confidence": 0.9
+    },
+    {
+      "id": "region_12",
+      "type": "container",
+      "parent_id": "root",
+      "source_bbox": [
+        118,
+        405,
+        58,
+        65
+      ],
+      "confidence": 0.9
+    },
+    {
+      "id": "region_13",
+      "type": "container",
+      "parent_id": "root",
+      "source_bbox": [
+        177,
+        405,
+        58,
+        65
+      ],
+      "confidence": 0.9
+    },
+    {
+      "id": "region_14",
+      "type": "container",
+      "parent_id": "root",
+      "source_bbox": [
+        236,
+        405,
+        58,
+        65
+      ],
+      "confidence": 0.9
+    },
+    {
+      "id": "region_15",
+      "type": "container",
+      "parent_id": "root",
+      "source_bbox": [
+        295,
+        405,
+        58,
+        65
+      ],
+      "confidence": 0.9
+    },
+    {
+      "id": "region_16",
+      "type": "container",
+      "parent_id": "root",
+      "source_bbox": [
+        354,
+        460,
+        58,
+        30
+      ],
+      "confidence": 0.9
+    },
+    {
+      "id": "region_17",
+      "type": "container",
+      "parent_id": "root",
+      "source_bbox": [
+        413,
+        460,
+        27,
+        30
+      ],
+      "confidence": 0.9
+    },
+    {
+      "id": "region_18",
+      "type": "container",
+      "parent_id": "root",
+      "source_bbox": [
+        100,
+        548,
+        17,
+        52
+      ],
+      "confidence": 0.9
+    },
+    {
+      "id": "region_19",
+      "type": "container",
+      "parent_id": "root",
+      "source_bbox": [
+        118,
+        545,
+        42,
+        55
+      ],
+      "confidence": 0.9
+    },
+    {
+      "id": "region_20",
+      "type": "container",
+      "parent_id": "root",
+      "source_bbox": [
+        200,
+        530,
+        35,
+        70
+      ],
+      "confidence": 0.9
+    },
+    {
+      "id": "region_21",
+      "type": "container",
+      "parent_id": "root",
+      "source_bbox": [
+        236,
+        530,
+        44,
+        70
+      ],
+      "confidence": 0.9
+    },
+    {
+      "id": "region_22",
+      "type": "container",
+      "parent_id": "root",
+      "source_bbox": [
+        320,
+        545,
+        33,
+        55
+      ],
+      "confidence": 0.9
+    },
+    {
+      "id": "region_23",
+      "type": "container",
+      "parent_id": "root",
+      "source_bbox": [
+        354,
+        545,
+        26,
+        55
+      ],
+      "confidence": 0.9
+    },
+    {
+      "id": "region_24",
+      "type": "label",
+      "parent_id": "root",
+      "source_bbox": [
+        0,
+        408,
+        479,
+        10
+      ],
+      "confidence": 0.6
+    }
+  ],
+  "events": [],
+  "data_bindings": [],
+  "lifecycle": {
+    "create_function": "ui_page_media_page_create"
+  },
+  "metadata": {
+    "generator_version": "golden_generator_v1"
+  }
+}

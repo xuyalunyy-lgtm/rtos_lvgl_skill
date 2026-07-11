@@ -1,7 +1,10 @@
 {
   "schema_version": "1.0",
   "page_name": "dark_theme_page",
-  "generated_files": [],
+  "generated_files": [
+    "C:\\Users\\xuyl\\Desktop\\skill\\artifacts\\golden_candidates\\dark_theme_page\\ui_page_dark_theme_page.c",
+    "C:\\Users\\xuyl\\Desktop\\skill\\artifacts\\golden_candidates\\dark_theme_page\\ui_page_dark_theme_page.h"
+  ],
   "assets": [],
   "fonts": [],
   "total_flash_bytes": 0,

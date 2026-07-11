@@ -1,15 +1,12 @@
 {
+  "schema_version": "1.0",
   "page_name": "loading_page",
-  "assets": [],
-  "macros": {
-    "text": [],
-    "images": [],
-    "fonts": []
-  },
   "generated_files": [
-    "generated.c"
+    "C:\\Users\\xuyl\\Desktop\\skill\\artifacts\\golden_candidates\\loading_page\\ui_page_loading_page.c",
+    "C:\\Users\\xuyl\\Desktop\\skill\\artifacts\\golden_candidates\\loading_page\\ui_page_loading_page.h"
   ],
-  "dependencies": [
-    "lvgl.h"
-  ]
+  "assets": [],
+  "fonts": [],
+  "total_flash_bytes": 0,
+  "total_ram_bytes": 0
 }

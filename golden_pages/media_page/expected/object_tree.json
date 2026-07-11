@@ -4,37 +4,20 @@
     "height": 800
   },
   "tree": {
-    "id": "content",
-    "type": "container",
-    "computed_styles": {
-      "bg_opa": 0,
-      "bg_color": "0xFFFFFF"
-    },
-    "layout": "flex",
-    "children": [
-      {
-        "id": "title",
-        "type": "label",
-        "computed_styles": {
-          "bg_opa": 0,
-          "text_color": "0x212121"
-        },
-        "text": "TODO title",
-        "children": []
-      },
-      {
-        "id": "primary_action",
-        "type": "button",
-        "computed_styles": {
-          "bg_color": "0x2196F3",
-          "text_color": "#FFFFFF",
-          "radius": 8
-        },
-        "text": "OK",
-        "children": []
-      }
-    ],
+    "id": "media_page",
+    "type": "screen",
     "w": 480,
-    "h": 800
+    "h": 800,
+    "layout": {
+      "main_direction": "column",
+      "main_place": "start",
+      "cross_place": "start"
+    },
+    "computed_styles": {
+      "bg_color": "#20242A",
+      "bg_opa": 255,
+      "pad_all": 0
+    },
+    "children": []
   }
 }
