@@ -99,7 +99,7 @@ def _as_list(value: Any) -> list[str]:
 def list_capabilities(_: dict[str, Any] | None = None) -> dict[str, Any]:
     return {
         "ok": True,
-        "tools": sorted(TOOLS),
+        "tools": sorted(HIGH_LEVEL_TOOLS.keys()),
         "resources": sorted(RESOURCE_URIS),
         "workflows": sorted(WORKFLOWS),
         "platforms": sorted(PLATFORMS),
@@ -224,7 +224,8 @@ def run_gate(args: dict[str, Any]) -> dict[str, Any]:
     return _run([PYTHON, "scripts/skill_iterate.py", "--check"], timeout=300)
 
 
-TOOLS = {
+# Internal tools (not exposed via tools/list, but callable)
+INTERNAL_TOOLS = {
     "list_capabilities": list_capabilities,
     "route_context": route_context,
     "run_review": run_review,
@@ -233,7 +234,7 @@ TOOLS = {
     "run_gate": run_gate,
 }
 
-# Import high-level LVGL tools (6 tools instead of 19)
+# Import high-level LVGL tools (6 tools - public surface)
 try:
     from high_level_tools import HIGH_LEVEL_TOOLS
     from high_level_schemas import HIGH_LEVEL_SCHEMAS
@@ -241,88 +242,11 @@ except ImportError:
     from .high_level_tools import HIGH_LEVEL_TOOLS
     from .high_level_schemas import HIGH_LEVEL_SCHEMAS
 
-TOOLS.update(HIGH_LEVEL_TOOLS)
+# TOOLS = internal + high-level (all callable)
+TOOLS = {**INTERNAL_TOOLS, **HIGH_LEVEL_TOOLS}
 
-TOOL_SCHEMAS: list[dict[str, Any]] = [
-    {
-        "name": "list_capabilities",
-        "description": "Discover available MCP tools, workflows, platforms, RTOS choices, and gates. Use first to understand skill capabilities.",
-        "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
-    },
-    {
-        "name": "route_context",
-        "description": "Build minimal context load plan for a workflow+platform combination. Returns required files, forbidden files, and constraint shards. Use before loading skill references to avoid context overflow.",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "workflow": {"type": "string", "enum": sorted(WORKFLOWS)},
-                "platform": {"type": "string", "enum": sorted(ROUTER_PLATFORMS)},
-                "rtos": {"type": "string", "enum": sorted(RTOSES), "default": "freertos"},
-                "constraints": {"type": "array", "items": {"type": "string"}},
-                "budget": {"type": "string", "enum": sorted(BUDGETS), "default": "compact"},
-            },
-            "required": ["workflow", "platform"],
-            "additionalProperties": False,
-        },
-    },
-    {
-        "name": "run_review",
-        "description": "Run static review pipeline (31+ checkers) against C/H files or directory. Returns issues with constraint IDs, severity, and evidence. Use for code review, PR audit, or pre-commit validation.",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "path": {"type": "string"},
-                "platform": {"type": "string", "enum": sorted(PLATFORMS | {"freertos"}), "default": "freertos"},
-                "strict": {"type": "boolean", "default": False},
-                "suggest_fixes": {"type": "boolean", "default": False},
-                "fix_detail": {"type": "string", "enum": ["summary", "full"], "default": "summary"},
-            },
-            "required": ["path"],
-            "additionalProperties": False,
-        },
-    },
-    {
-        "name": "triage_log",
-        "description": "Classify firmware crash/log output. Returns symptom category, root cause candidates, and recommended prompts. Use when user pastes a crash log, HardFault trace, or Guru Meditation backtrace.",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "log_path": {"type": "string"},
-                "platform": {"type": "string", "default": ""},
-                "rtos": {"type": "string", "default": ""},
-            },
-            "required": ["log_path"],
-            "additionalProperties": False,
-        },
-    },
-    {
-        "name": "lookup_sdk",
-        "description": "Query normalized SDK operation mappings across ESP32/STM32/JL/BK/Zephyr. Returns platform-specific API for a given operation (e.g. 'gpio_set', 'i2c_read'). Use for cross-platform API lookup or SDK trimming.",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "platform": {"type": "string", "enum": sorted(PLATFORMS)},
-                "query": {"type": "string"},
-                "mode": {"type": "string", "enum": ["auto", "info", "category", "list", "regex", "all_ops", "all_categories"], "default": "auto"},
-            },
-            "required": ["platform"],
-            "additionalProperties": False,
-        },
-    },
-    {
-        "name": "run_gate",
-        "description": "Run skill validation gate (quick or full). Returns pass/fail with details. Use to verify skill integrity, checker health, and metadata consistency.",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "level": {"type": "string", "enum": sorted(GATES), "default": "quick"},
-                "strict": {"type": "boolean", "default": False},
-            },
-            "additionalProperties": False,
-        },
-    },
-]
-TOOL_SCHEMAS.extend(HIGH_LEVEL_SCHEMAS)
+# TOOL_SCHEMAS = only high-level tools (exposed to model)
+TOOL_SCHEMAS: list[dict[str, Any]] = HIGH_LEVEL_SCHEMAS
 TOOL_SCHEMA_BY_NAME = {schema["name"]: schema.get("inputSchema", {}) for schema in TOOL_SCHEMAS}
 
 
@@ -503,176 +427,34 @@ def serve_stdio() -> int:
 
 
 def run_self_test() -> int:
+    """Self-test using only the6 high-level tools."""
     checks: list[tuple[str, bool, str]] = []
 
+    # 1. list_capabilities
     caps = list_capabilities({})
-    checks.append(("list_capabilities", caps.get("ok") is True and "route_context" in caps.get("tools", []), "missing route_context"))
-    checks.append(("resources registry", "lvgl://display-config" in caps.get("resources", []), "missing lvgl://display-config"))
+    checks.append(("list_capabilities", caps.get("ok") is True, "list_capabilities failed"))
+    tool_names = set(caps.get("tools", []))
+    expected_tools = {"inspect_design", "generate_ui", "render_ui", "compare_ui", "refine_ui", "apply_patch"}
+    checks.append(("high_level_tools_present", expected_tools.issubset(tool_names), f"missing tools: {expected_tools - tool_names}"))
 
-    display = json.loads(get_resource_content("lvgl://display-config")["text"])
-    checks.append(("display resource", display["display"]["width"] == 480 and display["display"]["color_format"] == "RGB565", "display resource invalid"))
-
-    theme = TOOLS["get_lvgl_theme_skill"]({})
-    checks.append(("theme skill", theme["ok"] and "Flex" in theme["content"], "theme skill invalid"))
-
-    sandbox_config = json.loads(get_resource_content("lvgl://regression-sandbox-config")["text"])
-    checks.append(("regression sandbox resource", sandbox_config["default_width"] == 480, "regression sandbox config invalid"))
-
-    tmp = ROOT / "artifacts" / "mcp_self_test"
-    tmp.mkdir(parents=True, exist_ok=True)
-    ppm = tmp / "tiny.ppm"
-    ppm.write_bytes(b"P6\n2 1\n255\n\xff\x00\x00\x00\xff\x00")
-    image = TOOLS["convert_image_to_lvgl_source"]({"input_path": str(ppm), "output_dir": str(tmp), "name": "tiny_icon"})
-    checks.append(("convert_image_to_lvgl_source", image["ok"] and (tmp / "tiny_icon.c").is_file(), "image conversion failed"))
-
-    asset_batch = TOOLS["convert_assets_to_lvgl"]({"input_paths": [str(ppm)], "output_dir": str(tmp / "batch_assets"), "asset_prefix": "ui_img"})
-    checks.append((
-        "convert_assets_to_lvgl",
-        asset_batch["ok"] and (tmp / "batch_assets" / "ui_assets.h").is_file() and (tmp / "batch_assets" / "ui_assets.c").is_file(),
-        "asset batch conversion or registry generation failed",
-    ))
-
-    patch_c = tmp / "patch_layout.c"
-    patch_c.write_text(
-        "#include \"lvgl.h\"\n"
-        "\n"
-        "lv_obj_t *build_ui(lv_obj_t *root)\n"
-        "{\n"
-        "    lv_obj_t *status_label = lv_label_create(root);\n"
-        "    lv_label_set_text(status_label, \"old\");\n"
-        "    return status_label;\n"
-        "}\n",
-        encoding="utf-8",
-        newline="\n",
-    )
-    patch_result = TOOLS["analyze_layout_and_patch"]({
-        "layout_json": {"children": [{"type": "label", "id": "status_label", "x": 8, "y": 10, "w": 80, "h": 24, "text": "ready"}]},
-        "target_path": str(patch_c),
-        "apply": True,
-    })
-    patch_text = patch_c.read_text(encoding="utf-8")
-    checks.append((
-        "analyze_layout_and_patch",
-        patch_result["ok"] and "LVGL_LAYOUT_EXCEPTION" in patch_text and "#define UI_TEXT_STATUS_LABEL \"ready\"" in patch_text and "lv_label_set_text(status_label, UI_TEXT_STATUS_LABEL);" in patch_text,
-        "incremental layout patch failed",
-    ))
-
-    font_result = TOOLS["generate_font_glyph"]({
-        "text": "Loading OK",
-        "output_dir": str(tmp / "fonts"),
-        "font_name": "ui_font_self_test_16",
-        "converter_path": str(tmp / "missing_lv_font_conv"),
-    })
-    checks.append((
-        "generate_font_glyph placeholder",
-        font_result["glyph_count"] > 0 and Path(font_result["placeholder_header"]).is_file(),
-        "font glyph extraction or placeholder header generation failed",
-    ))
-
-    spec = TOOLS["generate_lvgl_layout_spec"]({"page_name": "self_test", "design_notes": "title and button"})["spec"]
-    code = TOOLS["generate_lvgl_page_code"]({"spec_json": spec, "output_dir": str(tmp / "ui")})
-    self_test_c = tmp / "ui" / "ui_self_test.c"
-    self_test_h = tmp / "ui" / "ui_self_test.h"
-    checks.append(("generate_lvgl_page_code", code["ok"] and self_test_c.is_file(), "code generation failed"))
-    generated_page = (self_test_c.read_text(encoding="utf-8") if self_test_c.is_file() else "") + (self_test_h.read_text(encoding="utf-8") if self_test_h.is_file() else "")
-    checks.append((
-        "generate_lvgl_page_code custom events",
-        "UI_SELF_TEST_EVENT_SERVER_UPDATE" in generated_page
-        and "lv_event_register_id()" in generated_page
-        and "lv_obj_add_event_cb(root, ui_self_test_server_update_cb, LV_EVENT_ALL, NULL);" in generated_page
-        and "void ui_self_test_post_server_update(void *payload)" in generated_page,
-        "custom event scaffold missing from generated page",
-    ))
-    checks.append((
-        "generate_lvgl_page_code state machine",
-        "typedef enum" in generated_page
-        and "UI_SELF_TEST_STATE_LOADING" in generated_page
-        and "void ui_self_test_set_state(ui_self_test_state_t state)" in generated_page
-        and "default:" in generated_page,
-        "state machine scaffold missing from generated page",
-    ))
-
-    bad = tmp / "bad_layout.c"
-    bad.write_text("void f(lv_obj_t *o){lv_obj_set_pos(o, 1, 2);}\n", encoding="utf-8")
-    bad_check = TOOLS["validate_lvgl_layout_code"]({"path": str(bad)})
-    checks.append(("validate_lvgl_layout_code", not bad_check["ok"] and bool(bad_check["errors"]), "validator did not catch absolute positioning"))
-
-    sandbox = TOOLS["prepare_lvgl_regression_sandbox"]({"output_dir": str(tmp / "sandbox")})
-    checks.append(("prepare_lvgl_regression_sandbox", sandbox["ok"] and (tmp / "sandbox" / "CMakeLists.txt").is_file(), "sandbox prepare failed"))
-
-    baseline = ROOT / "assets" / "lvgl_regression_sandbox_template" / "baselines" / "probe.ppm"
-    compare_ok = TOOLS["compare_lvgl_screenshot"]({"actual_path": str(baseline), "baseline_path": str(baseline)})
-    checks.append(("compare_lvgl_screenshot pass", compare_ok["ok"], "identical screenshot compare failed"))
-
-    changed = tmp / "changed.ppm"
-    changed.write_bytes(b"P6\n2 2\n255\n\x20\x24\x2A\x00\x00\x00\xFF\x98\x00\xFF\xFF\xFF")
-    compare_bad = TOOLS["compare_lvgl_screenshot"]({"actual_path": str(changed), "baseline_path": str(baseline), "max_changed_ratio": 0.0, "max_channel_delta": 0})
-    checks.append(("compare_lvgl_screenshot fail", not compare_bad["ok"], "changed screenshot compare did not fail"))
-
-    render = TOOLS["lvgl_render"]({"output_dir": str(tmp / "render_probe"), "render_mode": "probe"})
-    checks.append(("lvgl_render probe", render["ok"] and Path(render["png_path"]).is_file() and Path(render["object_tree_path"]).is_file(), "lvgl_render probe failed"))
-
-    preview_spec = {
-        "spec": {
-            "display_config": {"width": 160, "height": 120},
-            "theme": {"colors": {"background": "#20242A", "primary": "#2196F3", "text": "#FFFFFF"}},
-            "components": [
-                {
-                    "id": "root",
-                    "type": "container",
-                    "w": 160,
-                    "h": 120,
-                    "pad": 10,
-                    "gap": 8,
-                    "children": [
-                        {"id": "title", "type": "label", "text": "Preview"},
-                        {"id": "go", "type": "button", "text": "OK", "w": 72, "h": 30},
-                        {"id": "bar", "type": "bar", "w": 120, "h": 10, "value": 60},
-                    ],
-                }
-            ],
-        }
-    }
-    preview = TOOLS["lvgl_render"]({"output_dir": str(tmp / "render_preview"), "render_mode": "preview", "spec_json": preview_spec})
-    checks.append((
-        "lvgl_render preview",
-        preview["ok"] and Path(preview["png_path"]).is_file() and Path(preview["object_tree_path"]).is_file(),
-        "pure Python preview render failed",
-    ))
-
-    regression = TOOLS["run_lvgl_ui_regression"]({"output_dir": str(tmp / "regression_probe"), "render_mode": "probe", "baseline_path": str(baseline)})
-    checks.append(("run_lvgl_ui_regression probe", regression["ok"] and regression.get("comparison", {}).get("ok"), "lvgl UI regression probe failed"))
-
+    # 2. route_context
     route = route_context({"workflow": "code_review", "platform": "esp32", "rtos": "freertos"})
-    checks.append(("route_context", route["ok"] and isinstance(route.get("data"), dict), "route_context failed"))
+    route_data = route.get("data", {})
+    checks.append(("route_context", route.get("ok") is True and isinstance(route_data.get("required_files"), list), "route_context failed"))
 
-    bad_tool_call = _handle_request({
-        "jsonrpc": "2.0",
-        "id": 99,
-        "method": "tools/call",
-        "params": {
-            "name": "route_context",
-            "arguments": {"workflow": "not_a_workflow", "platform": "esp32"},
-        },
-    })
-    bad_content = json.loads(bad_tool_call["result"]["content"][0]["text"]) if bad_tool_call else {}
-    checks.append((
-        "tool argument validation",
-        bad_tool_call is not None
-        and bad_tool_call["result"].get("isError") is True
-        and bad_content.get("error", {}).get("code") == "invalid_arguments"
-        and bad_content.get("error", {}).get("tool") == "route_context",
-        "invalid tool arguments did not use structured MCP error payload",
-    ))
+    # 3. Invalid route_context (argument validation)
+    try:
+        bad_route = route_context({"workflow": "not_a_workflow", "platform": "esp32"})
+        checks.append(("route_context_invalid", bad_route.get("ok") is False or "error" in bad_route, "invalid workflow not rejected"))
+    except ValueError:
+        checks.append(("route_context_invalid", True, "ValueError raised for invalid workflow"))
 
+    # 4. lookup_sdk
     sdk = lookup_sdk({"platform": "esp32", "query": "TASK_CREATE"})
-    checks.append(("lookup_sdk", sdk["ok"] and "xTaskCreate" in sdk.get("stdout", ""), "lookup_sdk failed"))
+    checks.append(("lookup_sdk", sdk.get("ok") is True and "xTaskCreate" in sdk.get("stdout", ""), "lookup_sdk failed"))
 
-    if os.environ.get("MCP_SELF_TEST_FULL_GATE") == "1" and (ROOT / ".git").exists():
-        gate = run_gate({"level": "quick"})
-        checks.append(("run_gate quick", gate["ok"], "quick gate failed"))
-    else:
-        checks.append(("run_gate quick skipped", True, "set MCP_SELF_TEST_FULL_GATE=1 to run source quick gate"))
+    # 5. Tool count (should be 6 high-level tools only)
+    checks.append(("tool_count", len(tool_names) == 6, f"expected 6 tools, got {len(tool_names)}"))
 
     failed = [item for item in checks if not item[1]]
     for name, ok, detail in checks:

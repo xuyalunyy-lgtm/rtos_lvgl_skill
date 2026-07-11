@@ -61,12 +61,20 @@ HIGH_LEVEL_SCHEMAS: list[dict[str, Any]] = [
         "inputSchema": {
             "type": "object",
             "properties": {
-                "ui_dir": {"type": "string", "description": "Directory containing generated C/H files"},
+                "spec_path": {"type": "string", "description": "Path to UI Spec JSON (preferred)"},
+                "ui_dir": {"type": "string", "description": "Directory containing generated C/H files (alternative)"},
                 "output_dir": {"type": "string", "default": "artifacts/render"},
-                "engine": {"type": "string", "enum": ["lvgl_simulator", "python_preview"], "default": "python_preview"},
+                "engine": {"type": "string", "enum": ["lvgl_simulator", "python_preview"], "default": "lvgl_simulator"},
+                "lvgl_version": {"type": "string", "enum": ["v8", "v9"], "default": "v9"},
+                "display": {
+                    "type": "object",
+                    "properties": {
+                        "width": {"type": "integer", "minimum": 1, "maximum": 4096, "default": 480},
+                        "height": {"type": "integer", "minimum": 1, "maximum": 4096, "default": 800},
+                    },
+                },
                 "preset": {"type": "string", "enum": ["headless-480x800", "headless-320x240"], "default": "headless-480x800"},
             },
-            "required": ["ui_dir"],
             "additionalProperties": False,
         },
     },

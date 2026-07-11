@@ -272,7 +272,7 @@ static int execute_command(const scene_cmd_header_t *cmd, const uint8_t *payload
 
 int scene_decode_and_execute(const uint8_t *data, size_t size, fb_display_t *display) {
     if (size < sizeof(scene_header_t)) {
-        fprintf(stderr, "ERROR: Scene too small\n");
+        fprintf(stderr, "ERROR: Scene too small (%zu bytes)\n", size);
         return -1;
     }
 
@@ -289,6 +289,22 @@ int scene_decode_and_execute(const uint8_t *data, size_t size, fb_display_t *dis
     }
     if (header->node_count > SCENE_MAX_NODES) {
         fprintf(stderr, "ERROR: Too many nodes (%d, max %d)\n", header->node_count, SCENE_MAX_NODES);
+        return -1;
+    }
+
+    /* Validate offsets and sizes */
+    if (header->string_table_offset >= size ||
+        header->string_table_offset + header->string_table_size > size) {
+        fprintf(stderr, "ERROR: String table extends beyond scene file\n");
+        return -1;
+    }
+    if (header->command_offset >= size ||
+        header->command_offset + header->command_size > size) {
+        fprintf(stderr, "ERROR: Command section extends beyond scene file\n");
+        return -1;
+    }
+    if (header->string_table_size > SCENE_MAX_STRING * 64) {
+        fprintf(stderr, "ERROR: String table too large (%u bytes)\n", header->string_table_size);
         return -1;
     }
 

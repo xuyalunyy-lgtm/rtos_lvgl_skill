@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import shutil
 import tempfile
 from pathlib import Path
@@ -340,12 +341,16 @@ def apply_patch(args: dict[str, Any]) -> dict[str, Any]:
         # Write to temp, then atomic replace
         tmp_fd, tmp_path = tempfile.mkstemp(dir=dst, suffix=".tmp")
         try:
+            os.close(tmp_fd)  # Close fd immediately
             shutil.copy2(src_file, tmp_path)
             os.replace(tmp_path, dst_file)
             written.append(f["filename"])
         except Exception as e:
             if Path(tmp_path).exists():
-                Path(tmp_path).unlink()
+                try:
+                    Path(tmp_path).unlink()
+                except OSError:
+                    pass
             return _fail([f"Failed to write {f['filename']}: {e}"])
 
     return _ok({
