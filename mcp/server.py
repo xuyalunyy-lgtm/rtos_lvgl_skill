@@ -25,14 +25,19 @@ def _configure_stdio_utf8() -> None:
 
 _configure_stdio_utf8()
 
-# Ensure mcp/ directory is on sys.path so lvgl_ui imports regardless of cwd
-_MCP_DIR = str(Path(__file__).resolve().parent)
-if _MCP_DIR not in sys.path:
-    sys.path.insert(0, _MCP_DIR)
+# The MCP process may be launched from any working directory.  Both the
+# package root (for ``from mcp...`` imports in high-level tools) and mcp/
+# itself (for legacy direct module imports) must be importable before loading
+# the tool registry.
+ROOT = Path(__file__).resolve().parent.parent
+_MCP_DIR = str(ROOT / "mcp")
+_ROOT_DIR = str(ROOT)
+for _import_path in (_ROOT_DIR, _MCP_DIR):
+    if _import_path not in sys.path:
+        sys.path.insert(0, _import_path)
 
 from lvgl_ui import LVGL_TOOL_SCHEMAS, LVGL_TOOLS, RESOURCE_SCHEMAS, RESOURCE_URIS, get_resource_content
 
-ROOT = Path(__file__).resolve().parent.parent
 PYTHON = sys.executable
 
 # Codex clients may negotiate any of these MCP revisions.  The server must
