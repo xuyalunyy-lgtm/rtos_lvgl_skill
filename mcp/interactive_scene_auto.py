@@ -887,6 +887,13 @@ def generate_interactive_scene_page(args: dict[str, Any]) -> dict[str, Any]:
     top_macro = str(args.get("top_text_macro", "UI_TEXT_INTERACTIVE_SCENE_TOP"))
     title_macro = str(args.get("title_text_macro", "UI_TEXT_INTERACTIVE_SCENE_TITLE"))
     hint_macro = str(args.get("hint_text_macro", "UI_TEXT_INTERACTIVE_SCENE_HINT"))
+    font_header = str(args.get("font_header", "")).strip()
+    raw_font_macro_exprs = args.get("font_macro_exprs", {})
+    if raw_font_macro_exprs is None:
+        raw_font_macro_exprs = {}
+    if not isinstance(raw_font_macro_exprs, dict) or any(not isinstance(key, str) or not isinstance(value, str) for key, value in raw_font_macro_exprs.items()):
+        raise ValueError("font_macro_exprs must be a mapping of font usage to C expressions")
+    font_macro_exprs = {key: value.strip() for key, value in raw_font_macro_exprs.items() if value.strip()}
 
     image_create = "lv_image_create" if version == "v9" else "lv_img_create"
     image_set_src = "lv_image_set_src" if version == "v9" else "lv_img_set_src"
@@ -941,6 +948,7 @@ def generate_interactive_scene_page(args: dict[str, Any]) -> dict[str, Any]:
             {"id": "pet", "path": str(pet_path), "runtime_src": pet_src, "pos": [pet["x"], pet["y"]], "size": [pet["w"], pet["h"]]},
             *[{"id": f"mood_{m['id']}", "path": m["asset_path"], "runtime_src": mood_src[m["id"]], "pos": [m["icon"]["x"], m["icon"]["y"]], "size": [m["icon"]["w"], m["icon"]["h"]]} for m in moods],
         ],
+        "fonts": {"header": font_header or None, "macro_expressions": font_macro_exprs},
         "components": [
             {"id": "background", "type": "image", "pos": [0, 0], "size": [width, height], "source": "cut_asset"},
             {"id": "pet", "type": "image", "pos": [pet["x"], pet["y"]], "size": [pet["w"], pet["h"]], "source": "matched_cut_asset"},
@@ -984,10 +992,17 @@ def generate_interactive_scene_page(args: dict[str, Any]) -> dict[str, Any]:
     mood_macro_defs = "\n\n".join(f"#ifndef {mood_src_macro[m]}\n#define {mood_src_macro[m]} {base.image_source_expr(mood_src[m])}\n#endif" for m in mood_order)
     mood_specs = ",\n".join(f"    {{{_enum_constant(page_name, m['id'])}, {int(m['button']['x'])}, {int(m['button']['y'])}, {int(m['button']['w'])}, {int(m['button']['h'])}, {int(m['icon']['x'] - m['button']['x'])}, {int(m['icon']['y'] - m['button']['y'])}, {int(m['icon']['w'])}, {int(m['icon']['h'])}, {mood_src_macro[m['id']]} }}" for m in moods)
     asset_include = f'#include "{base.c_string(asset_header)}"\n' if asset_header else ""
+    font_include = f'#include "{base.c_string(font_header)}"\n' if font_header else ""
+    font_macro_defaults = "\n\n".join(
+        f"#ifndef {macro}\n#define {macro} {font_macro_exprs[usage]}\n#endif"
+        for usage, macro in (("top", "UI_FONT_INTERACTIVE_SCENE_TOP"), ("title", "UI_FONT_INTERACTIVE_SCENE_TITLE"), ("hint", "UI_FONT_INTERACTIVE_SCENE_HINT"))
+        if usage in font_macro_exprs
+    )
 
     c_source = f'''
 #include "ui_{page_name}.h"
 {asset_include}
+{font_include}
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -1002,6 +1017,8 @@ def generate_interactive_scene_page(args: dict[str, Any]) -> dict[str, Any]:
 #endif
 
 {mood_macro_defs}
+
+{font_macro_defaults}
 
 #ifndef {top_macro}
 #define {top_macro} {base.c_text_expr(top_text)}
@@ -1373,7 +1390,7 @@ Runtime integration:
 
 {asset_header_note}- Override `{bg_src_macro}`, `{pet_src_macro}`, {mood_macro_list}.
 - Override `{top_macro}`, `{title_macro}`, and `{hint_macro}` for final product copy.
-- Optional font macros: `UI_FONT_INTERACTIVE_SCENE_TOP`, `UI_FONT_INTERACTIVE_SCENE_TITLE`, `UI_FONT_INTERACTIVE_SCENE_HINT`.
+- Fonts: {"manifest font bundle is included and selected by default" if font_header else "override `UI_FONT_INTERACTIVE_SCENE_TOP`, `UI_FONT_INTERACTIVE_SCENE_TITLE`, and `UI_FONT_INTERACTIVE_SCENE_HINT` as needed"}.
 - Worker/network threads should call `ui_{page_name}_post_server_update(payload)` instead of touching LVGL objects directly.
 '''
     readme_path.write_text(textwrap.dedent(readme), encoding="utf-8", newline="\n")

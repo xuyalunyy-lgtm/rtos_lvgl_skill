@@ -8,6 +8,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import shutil
 import tempfile
 from pathlib import Path
@@ -533,6 +534,83 @@ def _scene_bbox(summary: dict[str, Any], name: str, fallback: list[int]) -> list
     return fallback
 
 
+_FONT_SYMBOL_RE = re.compile(r"\b(?:const\s+)?lv_font_t\s+([A-Za-z_]\w*)\s*=")
+
+
+def _resolve_manifest_fonts(cut_dir: Path, design_path: Path) -> tuple[list[dict[str, str]], list[str]]:
+    """Resolve declared UI fonts and their LVGL symbols from ui/manifest.json."""
+    manifest_path = cut_dir / "manifest.json"
+    if not manifest_path.is_file():
+        return [], ["No ui/manifest.json font mapping found; generated C uses integrator-provided UI_FONT_* overrides or LVGL defaults."]
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"cannot read {manifest_path.name}: {exc}") from exc
+    pages = manifest.get("pages")
+    if not isinstance(pages, list):
+        raise ValueError("ui/manifest.json must contain a pages array")
+
+    selected: dict[str, Any] | None = None
+    for page in pages:
+        if not isinstance(page, dict):
+            continue
+        raw_design = page.get("design")
+        if isinstance(raw_design, str) and (cut_dir / raw_design).resolve() == design_path:
+            selected = page
+            break
+    if selected is None:
+        selected = next((page for page in pages if isinstance(page, dict) and page.get("template") == "interactive_scene"), None)
+    if selected is None or not selected.get("fonts"):
+        return [], ["The selected manifest page does not declare fonts; generated C uses integrator-provided UI_FONT_* overrides or LVGL defaults."]
+
+    raw_fonts = selected["fonts"]
+    if not isinstance(raw_fonts, dict):
+        raise ValueError("manifest page fonts must be an object with title, body, and caption entries")
+    role_map = (("top", "title"), ("title", "body"), ("hint", "caption"))
+    resolved: list[dict[str, str]] = []
+    for usage, role in role_map:
+        raw_path = raw_fonts.get(role)
+        if not isinstance(raw_path, str) or not raw_path.strip():
+            raise ValueError(f"manifest page fonts.{role} is required when fonts are declared")
+        source = (cut_dir / raw_path).resolve()
+        if not source.is_relative_to(cut_dir) or not source.is_file():
+            raise ValueError(f"manifest page fonts.{role} is missing or outside ui/: {raw_path}")
+        match = _FONT_SYMBOL_RE.search(source.read_text(encoding="utf-8", errors="ignore"))
+        if not match:
+            raise ValueError(f"cannot find an lv_font_t symbol in manifest page fonts.{role}: {raw_path}")
+        resolved.append({"usage": usage, "role": role, "source": str(source), "symbol": match.group(1)})
+    return resolved, []
+
+
+def _write_user_font_bundle(output_dir: Path, fonts: list[dict[str, str]]) -> tuple[str, str]:
+    """Copy manifest fonts and emit declarations plus a build-source list."""
+    fonts_dir = output_dir / "fonts"
+    fonts_dir.mkdir(parents=True, exist_ok=True)
+    copied: list[str] = []
+    for font in fonts:
+        source = Path(font["source"])
+        destination = fonts_dir / source.name
+        shutil.copy2(source, destination)
+        font["output_source"] = str(destination)
+        copied.append(destination.as_posix())
+
+    header = output_dir / "ui_interactive_scene_fonts.h"
+    unique_symbols = list(dict.fromkeys(font["symbol"] for font in fonts))
+    declarations = "\n".join(f"extern const lv_font_t {symbol};" for symbol in unique_symbols)
+    header.write_text(
+        "#ifndef UI_INTERACTIVE_SCENE_FONTS_H\n#define UI_INTERACTIVE_SCENE_FONTS_H\n\n"
+        "#include \"lvgl.h\"\n\n"
+        f"{declarations}\n\n#endif /* UI_INTERACTIVE_SCENE_FONTS_H */\n",
+        encoding="utf-8", newline="\n",
+    )
+    cmake = output_dir / "ui_interactive_scene_fonts.cmake"
+    lines = ["# Add these sources to the target that builds ui_interactive_scene.c.", "set(UI_INTERACTIVE_SCENE_FONT_SOURCES"]
+    lines.extend(f'    "{Path(path).as_posix()}"' for path in copied)
+    lines.append(")")
+    cmake.write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
+    return header.name, str(cmake)
+
+
 def _generate_interactive_scene_v2(args: dict[str, Any]) -> dict[str, Any]:
     """Adapt the semantic interactive-scene generator to UI Spec v2 + asset.pack."""
     from mcp.interactive_scene_auto import generate_interactive_scene_page
@@ -544,6 +622,19 @@ def _generate_interactive_scene_v2(args: dict[str, Any]) -> dict[str, Any]:
     display = args.get("display", {})
     width = int(display.get("width", 480))
     height = int(display.get("height", 800))
+    try:
+        manifest_fonts, font_warnings = _resolve_manifest_fonts(cut_dir, design_path)
+    except ValueError as exc:
+        return _fail([str(exc)], stage="fonts", status="font_config_invalid")
+    font_header = ""
+    font_cmake_path = ""
+    if manifest_fonts:
+        font_header, font_cmake_path = _write_user_font_bundle(out, manifest_fonts)
+    font_macros = {
+        "top": f"&{next(font['symbol'] for font in manifest_fonts if font['usage'] == 'top')}",
+        "title": f"&{next(font['symbol'] for font in manifest_fonts if font['usage'] == 'title')}",
+        "hint": f"&{next(font['symbol'] for font in manifest_fonts if font['usage'] == 'hint')}",
+    } if manifest_fonts else {}
     mood_keys = ("calmness", "good", "down", "stressed")
     mood_paths = {
         key: _find_scene_asset(cut_dir, (f"mood_{key}.png", f"{key}.png"))
@@ -584,6 +675,8 @@ def _generate_interactive_scene_v2(args: dict[str, Any]) -> dict[str, Any]:
             "height": height,
             "lvgl_version": args.get("lvgl_version", "v9"),
             "allow_preflight_warnings": True,
+            "font_header": font_header,
+            "font_macro_exprs": font_macros,
             "return_mode": "compact",
         })
     except Exception as exc:
@@ -616,10 +709,10 @@ def _generate_interactive_scene_v2(args: dict[str, Any]) -> dict[str, Any]:
         {"id": "pet", "type": "image", "parent_id": "root", "src": "SCENE_PET", "source_bbox": pet_box},
         {"id": "favorite_button", "type": "button", "parent_id": "root", "source_bbox": favorite_box, "styles": {"bg_color": "#FFFFFF", "radius": 20}},
         {"id": "favorite_icon", "type": "label", "parent_id": "root", "text": "*", "source_bbox": favorite_box, "styles": {"text_color": "#D8A500"}},
-        {"id": "top_prompt", "type": "label", "parent_id": "root", "text": "I am completely\\nforgiven-past,\\npresent, future", "source_bbox": [78, 140, 324, 134], "styles": {"text_color": "#FFFFFF"}},
+        {"id": "top_prompt", "type": "label", "parent_id": "root", "text": "I am completely\\nforgiven-past,\\npresent, future", "source_bbox": [78, 140, 324, 134], "styles": {"text_color": "#FFFFFF", **({"font": font_macros["top"]} if font_macros else {})}},
         {"id": "mood_panel", "type": "container", "parent_id": "root", "source_bbox": panel_box, "styles": {"bg_color": "#E4E2C7", "bg_opa": 96, "border_color": "#FFFFFF", "border_width": 1, "radius": 28}},
-        {"id": "mood_title", "type": "label", "parent_id": "root", "text": "How's your mood", "source_bbox": title_box, "styles": {"text_color": "#FFFFFF"}},
-        {"id": "mood_hint", "type": "label", "parent_id": "root", "text": "today?", "source_bbox": hint_box, "styles": {"text_color": "#FFFFFF"}},
+        {"id": "mood_title", "type": "label", "parent_id": "root", "text": "How's your mood", "source_bbox": title_box, "styles": {"text_color": "#FFFFFF", **({"font": font_macros["title"]} if font_macros else {})}},
+        {"id": "mood_hint", "type": "label", "parent_id": "root", "text": "today?", "source_bbox": hint_box, "styles": {"text_color": "#FFFFFF", **({"font": font_macros["hint"]} if font_macros else {})}},
     ]
     mood_boxes = summary.get("key_bboxes", {}).get("mood_buttons", {})
     mood_icons = summary.get("key_bboxes", {}).get("mood_icons", {})
@@ -641,9 +734,15 @@ def _generate_interactive_scene_v2(args: dict[str, Any]) -> dict[str, Any]:
         "display": {"width": width, "height": height, "color_depth": 16},
         "lvgl_version": "v9",
         "assets": [{"symbol": symbol, "source": str(path)} for symbol, path in symbols.items()],
+        "fonts": manifest_fonts,
         "nodes": nodes,
         "events": [{"node_id": "favorite_button", "event_type": "clicked"}, *[{"node_id": f"mood_{key}_button", "event_type": "clicked"} for key in mood_keys]],
-        "metadata": {"template": "interactive_scene", "source_generator": "interactive_scene_auto"},
+        "metadata": {
+            "template": "interactive_scene",
+            "source_generator": "interactive_scene_auto",
+            "font_policy": "manifest_required_when_declared",
+            "native_preview_font_support": "not_available_for_external_lvgl_c_fonts" if manifest_fonts else "default_or_integrator_override",
+        },
     }
     spec_path = out / "ui_spec.json"
     spec_path.write_text(json.dumps(spec, ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="\n")
@@ -655,7 +754,9 @@ def _generate_interactive_scene_v2(args: dict[str, Any]) -> dict[str, Any]:
         "spec_path": str(spec_path),
         "asset_pack_path": str(asset_pack_path),
         "node_count": len(nodes),
-        "warnings": generated.get("summary", {}).get("warnings", []),
+        "font_sources": [font.get("output_source", font["source"]) for font in manifest_fonts],
+        "font_cmake_path": font_cmake_path,
+        "warnings": [*font_warnings, *generated.get("summary", {}).get("warnings", [])],
     })
 
 
