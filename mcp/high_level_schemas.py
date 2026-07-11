@@ -45,6 +45,7 @@ HIGH_LEVEL_SCHEMAS: list[dict[str, Any]] = [
         "inputSchema": {
             "type": "object",
             "properties": {
+                "ui_dir": {"type": "string", "description": "Standard UI package directory; auto-discovers assets/ and fonts/ when manifest.json is absent"},
                 "manifest_path": {"type": "string", "description": "Path to Manifest v2 JSON for multi-page app generation"},
                 "spec_path": {"type": "string", "description": "Path to ui_spec.json (preferred)"},
                 "design_path": {"type": "string", "description": "Path to design screenshot (auto-runs inspect if spec_path omitted)"},

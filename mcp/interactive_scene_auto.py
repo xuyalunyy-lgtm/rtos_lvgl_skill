@@ -599,7 +599,12 @@ def _crop_rect(rect: dict[str, Any], width: int, height: int, *, margin: int = 0
     return x0, y0, x1, y1
 
 
-def _write_preview_crops(output_dir: Path, design_path: Path, analysis: dict[str, Any]) -> dict[str, Any]:
+def _write_preview_crops(
+    output_dir: Path,
+    design_path: Path,
+    analysis: dict[str, Any],
+    crops_dir: Path | None = None,
+) -> dict[str, Any]:
     try:
         from PIL import Image
     except Exception:
@@ -607,7 +612,7 @@ def _write_preview_crops(output_dir: Path, design_path: Path, analysis: dict[str
     try:
         design = Image.open(design_path).convert("RGBA")
         width, height = design.size
-        crops_dir = output_dir / "assets"
+        crops_dir = crops_dir or output_dir / "assets"
         crops_dir.mkdir(parents=True, exist_ok=True)
         saved: dict[str, Any] = {}
 
@@ -651,6 +656,7 @@ def _write_layered_preview(
     asset_aliases: dict[str, str],
     width: int,
     height: int,
+    crops_dir: Path | None = None,
 ) -> str | None:
     try:
         from PIL import Image, ImageOps
@@ -675,7 +681,7 @@ def _write_layered_preview(
                 max(0, int(value.get("h", 0))),
             )
 
-        preview_crops = _write_preview_crops(output_dir, background_path, analysis)
+        preview_crops = _write_preview_crops(output_dir, background_path, analysis, crops_dir)
         for crop_name in ("top_prompt", "interaction_panel", "status_bar"):
             crop = preview_crops.get(crop_name)
             if not isinstance(crop, dict) or not crop.get("path"):
@@ -797,7 +803,10 @@ def generate_interactive_scene_page(args: dict[str, Any]) -> dict[str, Any]:
     design_dir = base.resolve_path(args.get("design_dir", base.ROOT / "ui"))
     output_dir = base.resolve_path(args.get("output_dir", base.ROOT / "artifacts" / "lvgl_ui" / "interactive_scene"))
     output_dir.mkdir(parents=True, exist_ok=True)
-    assets_dir = output_dir / "assets"
+    # Consumers that need a flat handoff directory can explicitly place the
+    # generated/copy-on-output assets beside the C/H files.
+    assets_dir = base.resolve_path(args.get("assets_dir", output_dir / "assets"))
+    assets_dir.mkdir(parents=True, exist_ok=True)
     version = str(args.get("lvgl_version", base.DISPLAY_CONFIG["lvgl"]["version"]))
     base.require_choice("lvgl_version", version, base.LVGL_VERSIONS)
     return_mode = str(args.get("return_mode", "full")).lower()
@@ -969,7 +978,7 @@ def generate_interactive_scene_page(args: dict[str, Any]) -> dict[str, Any]:
     base._write_json(spec_path, spec)
     base._write_json(analysis_report_path, analysis)
     analysis_artifacts = _write_analysis_artifacts(output_dir, design_path, analysis)
-    preview_crops = _write_preview_crops(output_dir, design_path, analysis)
+    preview_crops = _write_preview_crops(output_dir, design_path, analysis, assets_dir)
     layered_preview_path = (
         _write_layered_preview(
             output_dir,
@@ -981,6 +990,7 @@ def generate_interactive_scene_page(args: dict[str, Any]) -> dict[str, Any]:
             asset_aliases=asset_aliases,
             width=width,
             height=height,
+            crops_dir=assets_dir,
         )
         if should_run_layered
         else None

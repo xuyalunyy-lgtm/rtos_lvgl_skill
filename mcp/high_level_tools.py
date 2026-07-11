@@ -92,6 +92,11 @@ def generate_ui(args: dict[str, Any]) -> dict[str, Any]:
     """Generate LVGL C/H code from UI Spec or design analysis."""
     from mcp.lvgl_codegen import write_page_files
 
+    ui_dir = args.get("ui_dir")
+    if ui_dir:
+        from mcp.standard_ui_package import generate_standard_ui_package
+        return generate_standard_ui_package(ui_dir, _safe_output_dir(args.get("output_dir", "artifacts/auto_ui")))
+
     manifest_path = args.get("manifest_path")
     if manifest_path:
         return _generate_app_mvp(manifest_path, args)
