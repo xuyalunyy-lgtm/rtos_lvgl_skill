@@ -129,45 +129,86 @@ def generate_ui(args: dict[str, Any]) -> dict[str, Any]:
 
 def render_ui(args: dict[str, Any]) -> dict[str, Any]:
     """Render LVGL code using server-side preset."""
+    spec_path = args.get("spec_path")
     ui_dir = args.get("ui_dir")
-    if not ui_dir:
-        return _fail(["ui_dir is required"])
+    if not spec_path and not ui_dir:
+        return _fail(["spec_path or ui_dir required"])
 
-    engine = args.get("engine", "python_preview")
+    engine = args.get("engine", "lvgl_simulator")
     preset = args.get("preset", "headless-480x800")
     output_dir = args.get("output_dir", "artifacts/render")
-
-    ui_path = Path(ui_dir)
-    if not ui_path.is_dir():
-        return _fail([f"ui_dir not found: {ui_dir}"])
-
-    if engine == "lvgl_simulator":
-        # Real LVGL rendering — requires build environment
-        return _fail([
-            "lvgl_simulator engine not available in this environment",
-            "Install LVGL test dependencies: python scripts/fetch_lvgl_test_deps.py"
-        ], stage="render", status="environment_unavailable")
-
-    # python_preview: basic C syntax check + placeholder render
-    from mcp.lvgl_compile_gate import validate_directory
-    validation = validate_directory(str(ui_path), "v9")
+    lvgl_version = args.get("lvgl_version", "v9")
 
     out = _safe_output_dir(output_dir)
 
-    # Create placeholder render (not authoritative)
-    placeholder = out / "render.png"
-    if not placeholder.exists():
-        # Create a minimal placeholder PNG
-        _create_placeholder_png(placeholder, 480, 800)
+    if engine == "lvgl_simulator":
+        # Real LVGL rendering via built-in simulator
+        from mcp.lvgl_sim_resolver import resolve_runner, run_simulator
+        from mcp.lvgl_ir.scene_encoder import encode_spec
 
-    return _ok({
-        "stage": "render",
-        "engine": engine,
-        "authoritative": False,
-        "render_path": str(placeholder),
-        "static_validation": validation,
-        "status": "preview_only",
-    })
+        # Resolve built-in runner
+        runner = resolve_runner(lvgl_version)
+        if not runner["ok"]:
+            return _fail([runner.get("error", "Runner not found")], stage="render", status="environment_unavailable")
+
+        # Encode spec to scene.bin
+        if spec_path:
+            spec = json.loads(Path(spec_path).read_text(encoding="utf-8"))
+        else:
+            # Generate minimal spec from ui_dir
+            spec = {"schema_version": "2.0", "nodes": [{"id": "root", "type": "screen"}]}
+
+        scene_bytes = encode_spec(spec)
+        scene_path = out / "scene.bin"
+        scene_path.write_bytes(scene_bytes)
+
+        # Run simulator
+        display = args.get("display", {})
+        width = display.get("width", 480)
+        height = display.get("height", 800)
+
+        result = run_simulator(
+            runner["path"],
+            str(scene_path),
+            str(out),
+            width,
+            height,
+        )
+
+        if not result["ok"]:
+            return _fail([result.get("error", "Simulator failed")], stage="render")
+
+        return _ok({
+            "stage": "render",
+            "engine": engine,
+            "authoritative": True,
+            "render_path": result.get("render_png", str(out / "render.png")),
+            "object_tree_path": result.get("tree", str(out / "object_tree.bin")),
+            "status": "rendered",
+            "platform": runner["platform"],
+            "lvgl_version": lvgl_version,
+        })
+
+    elif engine == "python_preview":
+        # Fast preview using static analysis (not authoritative)
+        from mcp.lvgl_compile_gate import validate_directory
+        validation = validate_directory(str(ui_dir) if ui_dir else ".", "v9")
+
+        placeholder = out / "render.png"
+        if not placeholder.exists():
+            _create_placeholder_png(placeholder, 480, 800)
+
+        return _ok({
+            "stage": "render",
+            "engine": engine,
+            "authoritative": False,
+            "render_path": str(placeholder),
+            "static_validation": validation,
+            "status": "preview_only",
+        })
+
+    else:
+        return _fail([f"Unknown engine: {engine}"])
 
 
 def _create_placeholder_png(path: Path, width: int, height: int):
