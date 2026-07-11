@@ -8,5 +8,12 @@
   "assets": [],
   "fonts": [],
   "total_flash_bytes": 0,
-  "total_ram_bytes": 0
+  "total_ram_bytes": 0,
+  "renderer": "lvgl_simulator",
+  "authoritative": true,
+  "runner": {
+    "platform": "win-x64",
+    "sha256": "2b05812fb96225be2bd60a3a034ee8f02c021c79b2011647e9535e82f1830cb3",
+    "version": "v9"
+  }
 }

@@ -45,7 +45,7 @@ STEPS = [
     GateStep("text encoding", [sys.executable, "scripts/check_text_encoding.py"]),
     GateStep("runtime distribution", [sys.executable, "scripts/check_runtime_distribution.py"]),
     GateStep("link check", [sys.executable, "tools/check_links.py"]),
-    GateStep("lvgl regression", [sys.executable, "scripts/check_lvgl_regression.py"], blocking=False),
+    GateStep("native LVGL regression", [sys.executable, "scripts/check_lvgl_regression.py"]),
 ]
 
 

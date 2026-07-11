@@ -2,6 +2,16 @@
   "schema_version": 1,
   "scene_protocol_version": 1,
   "lvgl_version": "v9.2.2",
-  "note": "Runners are built by CI. See .github/workflows/build-lvgl-simulator.yml",
-  "runners": {}
+  "runners": {
+    "linux-x64/v9": {
+      "file": "linux-x64/lvgl_sim_v9",
+      "sha256": "c94e46f8971e4a992bb0bd7e3b79878901379c1135bc26a5642ce45119686f59",
+      "self_test": true
+    },
+    "win-x64/v9": {
+      "file": "win-x64/lvgl_sim_v9.exe",
+      "sha256": "2b05812fb96225be2bd60a3a034ee8f02c021c79b2011647e9535e82f1830cb3",
+      "self_test": true
+    }
+  }
 }

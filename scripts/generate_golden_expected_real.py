@@ -160,7 +160,7 @@ def generate_page_expected(page_name: str, accept: bool = False) -> dict:
         "runner": result["stages"]["render"]["runner"],
     }
     manifest_path = work_dir / "manifest.json"
-    manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8", newline="\n")
 
     # ── Determine success ──
     all_ok = all(s.get("ok", False) for s in result["stages"].values())
