@@ -35,6 +35,7 @@ SUPPORTED_MCP_PROTOCOL_VERSIONS = {
     "2026-07-28",
 }
 DEFAULT_MCP_PROTOCOL_VERSION = "2025-11-25"
+TRACE_ENV = "FREERTOS_MCP_TRACE_PATH"
 
 WORKFLOWS = {
     "code_review",
@@ -59,6 +60,26 @@ def _env() -> dict[str, str]:
     env.setdefault("PYTHONUTF8", "1")
     env.setdefault("PYTHONIOENCODING", "utf-8")
     return env
+
+
+def _trace(event: str, **fields: Any) -> None:
+    """Append minimal stdio lifecycle diagnostics when explicitly enabled.
+
+    Trace data never enters MCP stdout and deliberately omits request arguments
+    and response contents, which can include user paths or generated artifacts.
+    """
+    raw_path = os.getenv(TRACE_ENV)
+    if not raw_path:
+        return
+    try:
+        path = Path(raw_path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        record = {"event": event, **fields}
+        with path.open("a", encoding="utf-8", newline="\n") as stream:
+            stream.write(json.dumps(record, ensure_ascii=False) + "\n")
+    except OSError:
+        # Tracing must never interfere with the stdio protocol.
+        pass
 
 
 def _jsonable_stdout(stdout: str) -> Any:
@@ -378,6 +399,7 @@ def _call_tool(name: str, args: Any) -> dict[str, Any]:
 def _handle_request(message: dict[str, Any]) -> dict[str, Any] | None:
     method = message.get("method")
     msg_id = message.get("id")
+    _trace("request", method=str(method), has_id=msg_id is not None)
     try:
         if method == "initialize":
             result = {
@@ -414,13 +436,16 @@ def _handle_request(message: dict[str, Any]) -> dict[str, Any] | None:
 
 
 def serve_stdio() -> int:
+    _trace("server_started", pid=os.getpid(), cwd=str(Path.cwd()))
     for line in sys.stdin:
+        _trace("stdin_line", bytes=len(line.encode("utf-8", errors="replace")))
         line = line.strip()
         if not line:
             continue
         try:
             message = json.loads(line)
         except json.JSONDecodeError as exc:
+            _trace("invalid_json")
             response = {"jsonrpc": "2.0", "id": None, "error": {"code": -32700, "message": str(exc)}}
             print(json.dumps(response, ensure_ascii=False), flush=True)
             continue
@@ -435,6 +460,7 @@ def serve_stdio() -> int:
                 if resp is not None:
                     responses.append(resp)
             if responses:
+                _trace("response", batch=True, count=len(responses))
                 print(json.dumps(responses, ensure_ascii=False), flush=True)
             continue
         if not isinstance(message, dict):
@@ -443,6 +469,7 @@ def serve_stdio() -> int:
             continue
         response = _handle_request(message)
         if response is not None:
+            _trace("response", batch=False, bytes=len(json.dumps(response, ensure_ascii=False).encode("utf-8")))
             print(json.dumps(response, ensure_ascii=False), flush=True)
     return 0
 
