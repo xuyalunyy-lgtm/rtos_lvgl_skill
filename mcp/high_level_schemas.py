@@ -48,6 +48,7 @@ HIGH_LEVEL_SCHEMAS: list[dict[str, Any]] = [
                 "spec_path": {"type": "string", "description": "Path to ui_spec.json (preferred)"},
                 "design_path": {"type": "string", "description": "Path to design screenshot (auto-runs inspect if spec_path omitted)"},
                 "cut_dir": {"type": "string", "description": "Cutout assets directory"},
+                "template": {"type": "string", "enum": ["auto", "interactive_scene", "generic"], "default": "auto", "description": "Use interactive_scene when the design has a scene background, pet cutout, and mood assets"},
                 "display": DISPLAY_SCHEMA,
                 "lvgl_version": {"type": "string", "enum": ["v8", "v9"], "default": "v9"},
                 "output_dir": {"type": "string", "default": "artifacts/generated"},

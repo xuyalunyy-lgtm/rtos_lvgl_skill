@@ -95,14 +95,31 @@ def generate_ui(args: dict[str, Any]) -> dict[str, Any]:
     design_path = args.get("design_path")
     lvgl_version = args.get("lvgl_version", "v9")
     output_dir = args.get("output_dir", "artifacts/generated")
+    template = str(args.get("template", "auto"))
+
+    if template not in {"auto", "interactive_scene", "generic"}:
+        return _fail([f"Unknown template: {template}"], stage="generate")
+
+    if not spec_path and design_path and _should_use_interactive_scene(template, args):
+        return _generate_interactive_scene_v2(args)
 
     # If no spec, run inspect first
     if not spec_path and design_path:
-        inspect_result = inspect_design(args)
-        if not inspect_result["ok"]:
-            return _fail(inspect_result["errors"], stage="inspect")
-        # Generate spec from analysis
-        spec = _analysis_to_spec(inspect_result, args)
+        from mcp.lvgl_preflight import preflight
+        from mcp.lvgl_analysis import analyze
+
+        display = args.get("display", {})
+        width = display.get("width", 480)
+        height = display.get("height", 800)
+        preflight = preflight(design_path, width, height, lvgl_version, args.get("cut_dir"))
+        if not preflight.get("ok"):
+            return _fail(preflight.get("errors", ["Design preflight failed"]), stage="preflight")
+        analysis = analyze(design_path, width, height, lvgl_version, args.get("cut_dir"))
+        if not analysis.get("ok"):
+            return _fail(analysis.get("errors", ["Design analysis failed"]), stage="analysis")
+        spec = _analysis_to_spec(analysis["report"], args)
+        if len(spec["nodes"]) <= 1:
+            return _fail(["Analysis did not produce renderable UI nodes; provide a supported template or a UI Spec v2 file"], stage="analysis", status="insufficient_analysis")
     elif spec_path:
         spec_file = Path(spec_path)
         if not spec_file.is_file():
@@ -111,8 +128,12 @@ def generate_ui(args: dict[str, Any]) -> dict[str, Any]:
     else:
         return _fail(["spec_path or design_path required"])
 
+    out = _safe_output_dir(output_dir)
+    spec_path_out = out / "ui_spec.json"
+    spec_path_out.write_text(json.dumps(spec, ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="\n")
+
     # Code generation
-    result = write_page_files(spec, output_dir, lvgl_version)
+    result = write_page_files(spec, str(out), lvgl_version)
     if not result["ok"]:
         return _fail(result["errors"], stage="codegen")
 
@@ -120,6 +141,7 @@ def generate_ui(args: dict[str, Any]) -> dict[str, Any]:
         "stage": "generate",
         "c_path": result.get("c_path"),
         "h_path": result.get("h_path"),
+        "spec_path": str(spec_path_out),
         "node_count": result.get("node_count", 0),
         "warnings": result.get("warnings", []),
     })
@@ -383,9 +405,25 @@ def apply_patch(args: dict[str, Any]) -> dict[str, Any]:
 # ── Internal helpers ──────────────────────────────────────────────
 
 
-def _analysis_to_spec(inspect_result: dict[str, Any], args: dict[str, Any]) -> dict[str, Any]:
+def _analysis_to_spec(report: dict[str, Any], args: dict[str, Any]) -> dict[str, Any]:
     """Convert inspection result to UI Spec v2."""
     display = args.get("display", {})
+    nodes: list[dict[str, Any]] = [{"id": "root", "type": "screen"}]
+    for index, region in enumerate(report.get("detected_regions", [])):
+        if not isinstance(region, dict):
+            continue
+        bbox = region.get("bbox", [])
+        if not isinstance(bbox, list) or len(bbox) != 4 or not all(isinstance(value, int) for value in bbox):
+            continue
+        region_type = str(region.get("type", "container"))
+        node_type = region_type if region_type in {"container", "label", "button", "image", "bar"} else "container"
+        nodes.append({
+            "id": str(region.get("id", f"region_{index}")),
+            "type": node_type,
+            "parent_id": "root",
+            "source_bbox": bbox,
+            "confidence": region.get("confidence", 0.0),
+        })
     return {
         "schema_version": "2.0",
         "page_name": "page",
@@ -394,8 +432,138 @@ def _analysis_to_spec(inspect_result: dict[str, Any], args: dict[str, Any]) -> d
             "height": display.get("height", 800),
         },
         "lvgl_version": args.get("lvgl_version", "v9"),
-        "nodes": [{"id": "root", "type": "screen"}],
+        "nodes": nodes,
     }
+
+
+def _should_use_interactive_scene(template: str, args: dict[str, Any]) -> bool:
+    if template == "interactive_scene":
+        return True
+    if template != "auto":
+        return False
+    cut_dir = args.get("cut_dir")
+    if not cut_dir:
+        return False
+    try:
+        names = {path.stem.lower() for path in Path(str(cut_dir)).iterdir() if path.is_file()}
+    except OSError:
+        return False
+    return "initial_page_pet" in names and {"mood_calmness", "mood_good", "mood_down", "mood_stressed"}.issubset(names)
+
+
+def _scene_bbox(summary: dict[str, Any], name: str, fallback: list[int]) -> list[int]:
+    value = summary.get("key_bboxes", {}).get(name, fallback)
+    if isinstance(value, list) and len(value) == 4 and all(isinstance(item, int) for item in value):
+        return value
+    return fallback
+
+
+def _generate_interactive_scene_v2(args: dict[str, Any]) -> dict[str, Any]:
+    """Adapt the semantic interactive-scene generator to UI Spec v2 + asset.pack."""
+    from mcp.interactive_scene_auto import generate_interactive_scene_page
+    from mcp.lvgl_ir.asset_pack import encode_pack, generate_manifest, pack_asset
+
+    design_path = Path(str(args["design_path"])).resolve()
+    cut_dir = Path(str(args.get("cut_dir") or design_path.parent)).resolve()
+    out = _safe_output_dir(str(args.get("output_dir", "artifacts/generated")))
+    display = args.get("display", {})
+    width = int(display.get("width", 480))
+    height = int(display.get("height", 800))
+    mood_keys = ("calmness", "good", "down", "stressed")
+    mood_paths = {key: cut_dir / f"mood_{key}.png" for key in mood_keys}
+    background = cut_dir / "home_bg.jpg"
+    pet = cut_dir / "initial_page_pet.png"
+    missing = [path.name for path in (background, pet, *mood_paths.values()) if not path.is_file()]
+    if missing:
+        return _fail([f"interactive_scene requires cutouts: {', '.join(missing)}"], stage="assets", status="missing_assets")
+
+    try:
+        generated = generate_interactive_scene_page({
+            "design_dir": str(cut_dir),
+            "design_path": str(design_path),
+            "background_path": str(background),
+            "pet_path": str(pet),
+            "mood_order": list(mood_keys),
+            "mood_paths": {key: str(path) for key, path in mood_paths.items()},
+            "output_dir": str(out),
+            "page_name": "interactive_scene",
+            "width": width,
+            "height": height,
+            "lvgl_version": args.get("lvgl_version", "v9"),
+            "allow_preflight_warnings": True,
+            "return_mode": "compact",
+        })
+    except Exception as exc:
+        return _fail([f"interactive_scene generation failed: {exc}"], stage="generate")
+    if not generated.get("ok"):
+        return _fail(["interactive_scene code generation failed"], stage="generate", details=generated)
+
+    symbols = {
+        "SCENE_BG": background,
+        "SCENE_PET": pet,
+        **{f"MOOD_{key.upper()}": path for key, path in mood_paths.items()},
+    }
+    packed = [pack_asset(path, symbol, "AUTO") for symbol, path in symbols.items()]
+    failures = [asset.get("error", asset.get("symbol", "unknown")) for asset in packed if not asset.get("ok")]
+    if failures:
+        return _fail([f"asset.pack conversion failed: {', '.join(str(item) for item in failures)}"], stage="assets")
+    asset_pack_path = out / "asset.pack"
+    asset_pack_path.write_bytes(encode_pack(packed))
+    generate_manifest(packed, out)
+
+    summary = generated.get("summary", {})
+    pet_box = _scene_bbox(summary, "pet", [95, 123, 305, 428])
+    panel_box = _scene_bbox(summary, "glass_panel", [40, 534, 400, 180])
+    title_box = _scene_bbox(summary, "title", [94, 537, 294, 38])
+    hint_box = _scene_bbox(summary, "hint", [184, 583, 112, 36])
+    favorite_box = _scene_bbox(summary, "favorite", [28, 18, 40, 40])
+    nodes: list[dict[str, Any]] = [
+        {"id": "root", "type": "screen", "styles": {"bg_color": "#718049"}},
+        {"id": "background", "type": "image", "parent_id": "root", "src": "SCENE_BG", "source_bbox": [0, 0, width, height]},
+        {"id": "pet", "type": "image", "parent_id": "root", "src": "SCENE_PET", "source_bbox": pet_box},
+        {"id": "favorite_button", "type": "button", "parent_id": "root", "source_bbox": favorite_box, "styles": {"bg_color": "#FFFFFF", "radius": 20}},
+        {"id": "favorite_icon", "type": "label", "parent_id": "root", "text": "*", "source_bbox": favorite_box, "styles": {"text_color": "#D8A500"}},
+        {"id": "top_prompt", "type": "label", "parent_id": "root", "text": "I am completely\\nforgiven-past,\\npresent, future", "source_bbox": [78, 140, 324, 134], "styles": {"text_color": "#FFFFFF"}},
+        {"id": "mood_panel", "type": "container", "parent_id": "root", "source_bbox": panel_box, "styles": {"bg_color": "#E4E2C7", "bg_opa": 96, "border_color": "#FFFFFF", "border_width": 1, "radius": 28}},
+        {"id": "mood_title", "type": "label", "parent_id": "root", "text": "How's your mood", "source_bbox": title_box, "styles": {"text_color": "#FFFFFF"}},
+        {"id": "mood_hint", "type": "label", "parent_id": "root", "text": "today?", "source_bbox": hint_box, "styles": {"text_color": "#FFFFFF"}},
+    ]
+    mood_boxes = summary.get("key_bboxes", {}).get("mood_buttons", {})
+    mood_icons = summary.get("key_bboxes", {}).get("mood_icons", {})
+    for index, key in enumerate(mood_keys):
+        button_box = mood_boxes.get(key, [64 + index * 94, 636, 70, 70]) if isinstance(mood_boxes, dict) else [64 + index * 94, 636, 70, 70]
+        icon_box = mood_icons.get(key, [80 + index * 94, 652, 37, 37]) if isinstance(mood_icons, dict) else [80 + index * 94, 652, 37, 37]
+        button_id = f"mood_{key}_button"
+        nodes.extend([
+            {"id": button_id, "type": "button", "parent_id": "root", "source_bbox": button_box, "styles": {"bg_color": "#FFFFFF", "radius": 35}},
+            # source_bbox is expressed in screen coordinates, so the icon is
+            # a root-level overlay rather than a button child (which would
+            # apply the button position a second time in LVGL).
+            {"id": f"mood_{key}_icon", "type": "image", "parent_id": "root", "src": f"MOOD_{key.upper()}", "source_bbox": icon_box},
+        ])
+
+    spec = {
+        "schema_version": "2.0",
+        "page_name": "interactive_scene",
+        "display": {"width": width, "height": height, "color_depth": 16},
+        "lvgl_version": "v9",
+        "assets": [{"symbol": symbol, "source": str(path)} for symbol, path in symbols.items()],
+        "nodes": nodes,
+        "events": [{"node_id": "favorite_button", "event_type": "clicked"}, *[{"node_id": f"mood_{key}_button", "event_type": "clicked"} for key in mood_keys]],
+        "metadata": {"template": "interactive_scene", "source_generator": "interactive_scene_auto"},
+    }
+    spec_path = out / "ui_spec.json"
+    spec_path.write_text(json.dumps(spec, ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="\n")
+    return _ok({
+        "stage": "generate",
+        "template": "interactive_scene",
+        "c_path": str(out / "ui_interactive_scene.c"),
+        "h_path": str(out / "ui_interactive_scene.h"),
+        "spec_path": str(spec_path),
+        "asset_pack_path": str(asset_pack_path),
+        "node_count": len(nodes),
+        "warnings": generated.get("summary", {}).get("warnings", []),
+    })
 
 
 # ── Tool registry ─────────────────────────────────────────────────

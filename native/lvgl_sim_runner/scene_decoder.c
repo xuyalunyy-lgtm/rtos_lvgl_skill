@@ -151,7 +151,19 @@ static int execute_command(const scene_cmd_header_t *cmd, const uint8_t *payload
             memcpy(&str_idx, payload, 4);
             const char *text = scene_get_string(NULL, str_idx);
             if (text) {
-                lv_label_set_text(obj, text);
+                if (lv_obj_check_type(obj, &lv_label_class)) {
+                    lv_label_set_text(obj, text);
+                } else if (lv_obj_check_type(obj, &lv_button_class)) {
+                    /* Buttons are containers in LVGL v9; attach a real label
+                     * instead of casting the button itself to lv_label_t. */
+                    lv_obj_t *label = lv_label_create(obj);
+                    if (!label) return -1;
+                    lv_label_set_text(label, text);
+                    lv_obj_center(label);
+                } else {
+                    fprintf(stderr, "ERROR: SET_TEXT target is not a label/button\n");
+                    return -1;
+                }
             }
         }
         return 0;
