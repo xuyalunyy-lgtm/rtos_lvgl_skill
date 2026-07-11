@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "design": {
+    "path": "C:\\Users\\xuyl\\Desktop\\skill\\golden_pages\\dialog_page\\design.png",
+    "sha256": "c26ce702b3b4e8b4657afe6854edfcccc84bc9b6ba8bb16bfb64c1ce9bb334e5",
+    "width": 480,
+    "height": 800,
+    "mode": "RGB",
+    "format": "PNG",
+    "has_alpha": false,
+    "file_size_bytes": 12700,
+    "scale_factor": 1.0
+  },
+  "screen": {
+    "width": 480,
+    "height": 800,
+    "lvgl_version": "v9"
+  },
+  "cuts": {}
+}
