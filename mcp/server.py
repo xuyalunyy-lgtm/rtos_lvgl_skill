@@ -232,7 +232,16 @@ TOOLS = {
     "lookup_sdk": lookup_sdk,
     "run_gate": run_gate,
 }
-TOOLS.update(LVGL_TOOLS)
+
+# Import high-level LVGL tools (6 tools instead of 19)
+try:
+    from high_level_tools import HIGH_LEVEL_TOOLS
+    from high_level_schemas import HIGH_LEVEL_SCHEMAS
+except ImportError:
+    from .high_level_tools import HIGH_LEVEL_TOOLS
+    from .high_level_schemas import HIGH_LEVEL_SCHEMAS
+
+TOOLS.update(HIGH_LEVEL_TOOLS)
 
 TOOL_SCHEMAS: list[dict[str, Any]] = [
     {
@@ -313,7 +322,7 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
         },
     },
 ]
-TOOL_SCHEMAS.extend(LVGL_TOOL_SCHEMAS)
+TOOL_SCHEMAS.extend(HIGH_LEVEL_SCHEMAS)
 TOOL_SCHEMA_BY_NAME = {schema["name"]: schema.get("inputSchema", {}) for schema in TOOL_SCHEMAS}
 
 
