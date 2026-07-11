@@ -219,7 +219,7 @@ static int run_self_test(void) {
     int errors = 0;
 
     fprintf(stderr, "LVGL Simulator v%s self-test\n", SIM_VERSION);
-    fprintf(stderr, "LVGL version: %s\n", LV_VERSION_INFO);
+    fprintf(stderr, "LVGL version: %s\n", LVGL_VERSION_INFO);
     fprintf(stderr, "Display: %dx%d RGB565\n", 480, 800);
 
     /* Initialize LVGL */
@@ -322,7 +322,7 @@ static int run_self_test(void) {
     }
 
     fprintf(stderr, "PASS: Self-test completed\n");
-    fprintf(stdout, "{\"ok\":true,\"version\":\"%s\",\"lvgl\":\"%s\"}\n", SIM_VERSION, LV_VERSION_INFO);
+    fprintf(stdout, "{\"ok\":true,\"version\":\"%s\",\"lvgl\":\"%s\"}\n", SIM_VERSION, LVGL_VERSION_INFO);
     return 0;
 }
 
@@ -336,7 +336,7 @@ int main(int argc, char *argv[]) {
 
     /* Handle --version */
     if (args.version) {
-        fprintf(stdout, "{\"version\":\"%s\",\"lvgl\":\"%s\"}\n", SIM_VERSION, LV_VERSION_INFO);
+        fprintf(stdout, "{\"version\":\"%s\",\"lvgl\":\"%s\"}\n", SIM_VERSION, LVGL_VERSION_INFO);
         return 0;
     }
 
