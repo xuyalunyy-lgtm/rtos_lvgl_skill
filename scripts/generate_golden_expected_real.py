@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Generate real golden expected files using preview renderer.
+"""Generate authoritative golden expected files using the built-in LVGL runner.
 
 Runs the full pipeline for each golden page:
-  design.png → preflight → analysis → UI Spec → codegen → preview render → compare
+   design.png → preflight → analysis → UI Spec → codegen → scene.bin → LVGL render → compare
 
 Usage:
     python scripts/generate_golden_expected_real.py
@@ -28,7 +28,9 @@ def generate_page_expected(page_name: str, accept: bool = False) -> dict:
     from lvgl_codegen import write_page_files
     from lvgl_compile_gate import validate_compile
     from lvgl_compare import compare
-    from lvgl_preview import render_tree_to_png, spec_to_tree, write_object_tree
+    from lvgl_preview import spec_to_tree, write_object_tree
+    from lvgl_ir.scene_encoder import encode_spec
+    from lvgl_sim_resolver import resolve_runner, run_simulator
 
     page_dir = ROOT / "golden_pages" / page_name
     design_path = page_dir / "design.png"
@@ -96,14 +98,34 @@ def generate_page_expected(page_name: str, accept: bool = False) -> dict:
         "warnings": compile_result["warnings"],
     }
 
-    # ── Step 6: Preview Render ──
+    # ── Step 6: Authoritative native render ──
+    runner = resolve_runner(lvgl_version)
+    if not runner.get("ok"):
+        result["stages"]["render"] = {"ok": False, "error": runner.get("error", "Native runner unavailable")}
+        return result
+
+    scene_path = work_dir / "scene.bin"
+    scene_path.write_bytes(encode_spec(spec))
+    native_dir = work_dir / "native_render"
+    native = run_simulator(runner["path"], str(scene_path), str(native_dir), width, height)
+    if not native.get("ok"):
+        result["stages"]["render"] = {"ok": False, "error": native.get("error", native.get("stderr", "Native render failed"))}
+        return result
+
+    png_path = Path(native["render_png"])
+    native_tree_path = Path(native["tree"])
+    shutil.copy2(png_path, work_dir / "render.png")
+    shutil.copy2(native_tree_path, work_dir / "object_tree.bin")
+    # Keep the JSON tree for the existing structural regression comparator.
     tree = spec_to_tree(spec, display_width=width, display_height=height)
-    png_path = render_tree_to_png(tree, work_dir, "render.png", display_width=width, display_height=height)
     tree_path = write_object_tree(tree, work_dir, "object_tree.json")
+    png_path = work_dir / "render.png"
     result["stages"]["render"] = {
         "ok": True,
         "render_path": str(png_path),
-        "tree_path": str(tree_path),
+        "tree_path": str(native_tree_path),
+        "tree_json_path": str(tree_path),
+        "runner": {"platform": runner["platform"], "sha256": runner["sha256"], "version": lvgl_version},
     }
 
     # ── Step 7: Visual Compare (informational only) ──
@@ -113,7 +135,7 @@ def generate_page_expected(page_name: str, accept: bool = False) -> dict:
             "ok": True,  # Compare is informational, not blocking
             "ssim": float(compare_result.get("global_ssim", 0)),
             "changed_ratio": float(compare_result.get("changed_pixel_ratio", 1)),
-            "note": "Preview render vs design - low SSIM expected for synthetic designs",
+            "note": "Authoritative LVGL render vs design; comparison is informational while establishing a baseline",
         }
         # Save visual diff
         diff_path = work_dir / "visual_diff.json"
@@ -133,6 +155,9 @@ def generate_page_expected(page_name: str, accept: bool = False) -> dict:
         "fonts": [],
         "total_flash_bytes": 0,
         "total_ram_bytes": 0,
+        "renderer": "lvgl_simulator",
+        "authoritative": True,
+        "runner": result["stages"]["render"]["runner"],
     }
     manifest_path = work_dir / "manifest.json"
     manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
@@ -151,6 +176,7 @@ def generate_page_expected(page_name: str, accept: bool = False) -> dict:
         for src_name, dst_name in [
             ("ui_spec.json", "ui_spec.json"),
             ("render.png", "render.png"),
+            ("object_tree.bin", "object_tree.bin"),
             ("object_tree.json", "object_tree.json"),
             ("manifest.json", "manifest.json"),
         ]:

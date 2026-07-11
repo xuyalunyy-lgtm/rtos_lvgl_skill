@@ -281,10 +281,22 @@ static int execute_command(const scene_cmd_header_t *cmd, const uint8_t *payload
         return 0;
     }
 
+    case OP_SET_SOURCE_BBOX: {
+        if (cmd->size != 16 || !obj) return -1;
+        int32_t x, y, width, height;
+        memcpy(&x, payload, sizeof(x));
+        memcpy(&y, payload + 4, sizeof(y));
+        memcpy(&width, payload + 8, sizeof(width));
+        memcpy(&height, payload + 12, sizeof(height));
+        if (width <= 0 || height <= 0) return -1;
+        lv_obj_set_pos(obj, x, y);
+        lv_obj_set_size(obj, width, height);
+        return 0;
+    }
+
     case OP_SET_EVENT_CLICKED:
     case OP_SET_EVENT_VALUE_CHANGED:
     case OP_SET_NODE_ID:
-    case OP_SET_SOURCE_BBOX:
     case OP_SET_STYLE_TEXT_FONT_SIZE:
     case OP_SET_PAD:
     case OP_SET_FLEX_ALIGN:
