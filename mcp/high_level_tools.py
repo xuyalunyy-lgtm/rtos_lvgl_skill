@@ -92,6 +92,10 @@ def generate_ui(args: dict[str, Any]) -> dict[str, Any]:
     """Generate LVGL C/H code from UI Spec or design analysis."""
     from mcp.lvgl_codegen import write_page_files
 
+    manifest_path = args.get("manifest_path")
+    if manifest_path:
+        return _generate_app_mvp(manifest_path, args)
+
     spec_path = args.get("spec_path")
     design_path = args.get("design_path")
     lvgl_version = args.get("lvgl_version", "v9")
@@ -517,6 +521,159 @@ def apply_patch(args: dict[str, Any]) -> dict[str, Any]:
 
 
 # ── Internal helpers ──────────────────────────────────────────────
+
+
+def _generate_app_mvp(manifest_path: str, args: dict[str, Any]) -> dict[str, Any]:
+    """Generate multi-page app from Manifest v2.
+
+    Validates the manifest, resolves shared inheritance, then generates
+    per-page code plus app-level Router/Presenter/Model scaffolding.
+    """
+    from mcp.manifest_v2 import load_manifest, validate_manifest, resolve_manifest
+
+    try:
+        manifest = load_manifest(manifest_path)
+    except FileNotFoundError as exc:
+        return _fail([str(exc)], stage="manifest", status="file_not_found")
+    except Exception as exc:
+        return _fail([f"Failed to read manifest: {exc}"], stage="manifest")
+
+    validation = validate_manifest(manifest)
+    if not validation["ok"]:
+        return _fail(
+            validation["errors"],
+            stage="manifest",
+            status="invalid_manifest",
+            warnings=validation.get("warnings", []),
+        )
+
+    if manifest.get("schema_version") != "2.0":
+        return _fail(
+            ["manifest_path requires schema_version '2.0'; use spec_path for single-page v1"],
+            stage="manifest",
+            status="wrong_version",
+        )
+
+    resolved = resolve_manifest(manifest)
+    app_id = resolved["app"]["id"]
+    display = resolved.get("display", {})
+    lvgl_version = args.get("lvgl_version", "v9")
+
+    out = _safe_output_dir(args.get("output_dir", f"artifacts/ui_app/{app_id}"))
+    app_dir = out / "app"
+    app_dir.mkdir(parents=True, exist_ok=True)
+
+    # Write resolved manifest
+    resolved_path = app_dir / "ui_app_manifest_resolved.json"
+    resolved_path.write_text(
+        json.dumps(resolved, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8", newline="\n",
+    )
+
+    page_results: list[dict[str, Any]] = []
+    page_errors: list[str] = []
+
+    # Per-page: generate code using existing single-page pipeline
+    for page in resolved.get("pages", []):
+        page_id = page.get("id", "unknown")
+        page_out = out / "pages" / page_id
+        page_out.mkdir(parents=True, exist_ok=True)
+
+        page_design = page.get("design")
+        if not page_design:
+            page_errors.append(f"Page {page_id!r}: no design specified")
+            page_results.append({"page_id": page_id, "ok": False, "errors": ["no design"]})
+            continue
+
+        # Resolve design path relative to manifest location
+        design_file = Path(manifest_path).parent / page_design
+        if not design_file.is_file():
+            page_errors.append(f"Page {page_id!r}: design not found: {page_design}")
+            page_results.append({"page_id": page_id, "ok": False, "errors": [f"design not found: {page_design}"]})
+            continue
+
+        # Run inspect + generate for each page
+        page_args = {
+            "design_path": str(design_file),
+            "display": display,
+            "lvgl_version": lvgl_version,
+            "output_dir": str(page_out),
+            "template": page.get("template", "auto"),
+        }
+        cut_dir = args.get("cut_dir")
+        if cut_dir:
+            page_args["cut_dir"] = cut_dir
+
+        try:
+            page_result = generate_ui(page_args)
+        except Exception as exc:
+            page_result = {"ok": False, "errors": [f"Page {page_id!r} generation failed: {exc}"]}
+
+        page_result["page_id"] = page_id
+        page_results.append(page_result)
+        if not page_result.get("ok"):
+            page_errors.extend(
+                f"Page {page_id!r}: {e}" for e in page_result.get("errors", [])
+            )
+
+    # Determine overall status
+    all_ok = all(r.get("ok") for r in page_results)
+    status = "verified" if all_ok else "needs_manual_work"
+
+    # Build app-level evidence
+    app_evidence = {
+        "app_id": app_id,
+        "schema_version": "2.0",
+        "status": status,
+        "page_count": len(page_results),
+        "pages_ok": sum(1 for r in page_results if r.get("ok")),
+        "pages_failed": sum(1 for r in page_results if not r.get("ok")),
+        "route_count": len(resolved.get("routes", [])),
+        "model_count": len(resolved.get("models", [])),
+        "page_results": page_results,
+    }
+    evidence_path = out / "app_evidence.json"
+    evidence_path.write_text(
+        json.dumps(app_evidence, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8", newline="\n",
+    )
+
+    # CMake source list placeholder
+    cmake_sources = [f"app/ui_app.c", f"app/ui_router.c"]
+    for page in resolved.get("pages", []):
+        pid = page.get("id", "")
+        cmake_sources.append(f"pages/{pid}/ui_{pid}.c")
+        cmake_sources.append(f"presenters/presenter_{pid}.c")
+    for model in resolved.get("models", []):
+        mname = model.get("name", "")
+        cmake_sources.append(f"models/model_{mname}.c")
+    cmake_path = out / "ui_app_sources.cmake"
+    cmake_lines = [f"# Auto-generated CMake source list for {app_id}", "set(UI_APP_SOURCES"]
+    cmake_lines.extend(f"    \"{s}\"" for s in cmake_sources)
+    cmake_lines.append(")")
+    cmake_path.write_text("\n".join(cmake_lines) + "\n", encoding="utf-8", newline="\n")
+
+    if page_errors:
+        return _fail(
+            page_errors,
+            stage="app_mvp",
+            status=status,
+            app_evidence_path=str(evidence_path),
+            resolved_manifest_path=str(resolved_path),
+            page_results=page_results,
+            warnings=validation.get("warnings", []),
+        )
+
+    return _ok({
+        "stage": "app_mvp",
+        "status": status,
+        "app_id": app_id,
+        "app_evidence_path": str(evidence_path),
+        "resolved_manifest_path": str(resolved_path),
+        "cmake_path": str(cmake_path),
+        "page_results": page_results,
+        "warnings": validation.get("warnings", []),
+    })
 
 
 def _analysis_to_spec(report: dict[str, Any], args: dict[str, Any]) -> dict[str, Any]:

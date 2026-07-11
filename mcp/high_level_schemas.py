@@ -45,6 +45,7 @@ HIGH_LEVEL_SCHEMAS: list[dict[str, Any]] = [
         "inputSchema": {
             "type": "object",
             "properties": {
+                "manifest_path": {"type": "string", "description": "Path to Manifest v2 JSON for multi-page app generation"},
                 "spec_path": {"type": "string", "description": "Path to ui_spec.json (preferred)"},
                 "design_path": {"type": "string", "description": "Path to design screenshot (auto-runs inspect if spec_path omitted)"},
                 "cut_dir": {"type": "string", "description": "Cutout assets directory"},
