@@ -24,6 +24,18 @@ from lvgl_ui import LVGL_TOOL_SCHEMAS, LVGL_TOOLS, RESOURCE_SCHEMAS, RESOURCE_UR
 ROOT = Path(__file__).resolve().parent.parent
 PYTHON = sys.executable
 
+# Codex clients may negotiate any of these MCP revisions.  The server must
+# reply with the version selected for this connection, rather than always
+# advertising the newest version it knows about.
+SUPPORTED_MCP_PROTOCOL_VERSIONS = {
+    "2024-11-05",
+    "2025-03-26",
+    "2025-06-18",
+    "2025-11-25",
+    "2026-07-28",
+}
+DEFAULT_MCP_PROTOCOL_VERSION = "2025-11-25"
+
 WORKFLOWS = {
     "code_review",
     "project_review",
@@ -262,6 +274,15 @@ def _mcp_result(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _negotiate_protocol_version(params: Any) -> str:
+    """Select the MCP revision for one initialized stdio connection."""
+    if isinstance(params, dict):
+        requested = params.get("protocolVersion")
+        if isinstance(requested, str) and requested in SUPPORTED_MCP_PROTOCOL_VERSIONS:
+            return requested
+    return DEFAULT_MCP_PROTOCOL_VERSION
+
+
 def _tool_error(tool: str, code: str, message: str, *, details: list[str] | None = None) -> dict[str, Any]:
     error: dict[str, Any] = {
         "code": code,
@@ -360,9 +381,9 @@ def _handle_request(message: dict[str, Any]) -> dict[str, Any] | None:
     try:
         if method == "initialize":
             result = {
-                "protocolVersion": "2025-11-25",
+                "protocolVersion": _negotiate_protocol_version(message.get("params")),
                 "capabilities": {"tools": {}, "resources": {}},
-                "serverInfo": {"name": "freertos-embedded-architect-mcp", "version": "0.2.0"},
+                "serverInfo": {"name": "freertos-embedded-architect-mcp", "version": "0.2.1"},
             }
         elif method == "ping":
             result = {}
@@ -455,6 +476,16 @@ def run_self_test() -> int:
 
     # 5. Tool count (should be 6 high-level tools only)
     checks.append(("tool_count", len(tool_names) == 6, f"expected 6 tools, got {len(tool_names)}"))
+
+    # 6. MCP initialize must use the client-requested compatible revision.
+    initialize = _handle_request({
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "initialize",
+        "params": {"protocolVersion": "2025-06-18"},
+    })
+    negotiated = initialize.get("result", {}).get("protocolVersion") if isinstance(initialize, dict) else None
+    checks.append(("protocol_version_negotiation", negotiated == "2025-06-18", f"negotiated {negotiated!r}"))
 
     failed = [item for item in checks if not item[1]]
     for name, ok, detail in checks:
