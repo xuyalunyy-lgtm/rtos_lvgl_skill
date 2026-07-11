@@ -46,6 +46,14 @@ typedef struct {
 static node_entry_t g_nodes[SCENE_MAX_NODES];
 static uint32_t g_node_count = 0;
 
+/* Execution evidence is updated while commands are decoded, so these globals
+ * must be declared before execute_command(). */
+#define MAX_OPCODE 128
+static uint8_t g_opcodes_hit[MAX_OPCODE];
+static uint8_t g_opcodes_unsupported[MAX_OPCODE];
+static uint32_t g_asset_requests = 0;
+static uint32_t g_asset_hits = 0;
+
 static lv_obj_t *find_node(uint32_t id) {
     for (uint32_t i = 0; i < g_node_count; i++) {
         if (g_nodes[i].id == id) return g_nodes[i].obj;
@@ -174,11 +182,13 @@ static int execute_command(const scene_cmd_header_t *cmd, const uint8_t *payload
         uint32_t str_idx;
         memcpy(&str_idx, payload, sizeof(str_idx));
         const char *symbol = scene_get_string(NULL, str_idx);
+        g_asset_requests++;
         const lv_image_dsc_t *image = asset_pack_find(assets, symbol);
         if (!symbol || !image) {
             fprintf(stderr, "ERROR: Image asset not found: %s\n", symbol ? symbol : "<invalid>");
             return -1;
         }
+        g_asset_hits++;
         lv_image_set_src(obj, image);
         return 0;
     }
@@ -330,6 +340,31 @@ static int execute_command(const scene_cmd_header_t *cmd, const uint8_t *payload
     }
 }
 
+/* ── Opcode tracking ───────────────────────────────────────────── */
+
+void scene_decoder_reset_tracking(void) {
+    memset(g_opcodes_hit, 0, sizeof(g_opcodes_hit));
+    memset(g_opcodes_unsupported, 0, sizeof(g_opcodes_unsupported));
+    g_asset_requests = 0;
+    g_asset_hits = 0;
+}
+
+uint32_t scene_decoder_get_unsupported(uint16_t *out, uint32_t max_out) {
+    uint32_t count = 0;
+    for (uint16_t i = 0; i < MAX_OPCODE && count < max_out; i++) {
+        if (g_opcodes_unsupported[i]) {
+            out[count++] = i;
+        }
+    }
+    return count;
+}
+
+uint32_t scene_decoder_get_asset_stats(uint32_t *requests, uint32_t *hits) {
+    *requests = g_asset_requests;
+    *hits = g_asset_hits;
+    return 0;
+}
+
 /* ── Main decode function ──────────────────────────────────────── */
 
 int scene_decode_and_execute(const uint8_t *data, size_t size, fb_display_t *display,
@@ -377,6 +412,7 @@ int scene_decode_and_execute(const uint8_t *data, size_t size, fb_display_t *dis
 
     /* Reset node registry */
     g_node_count = 0;
+    scene_decoder_reset_tracking();
 
     /* Execute commands */
     const uint8_t *cmd_data = data + header->command_offset;
@@ -397,6 +433,33 @@ int scene_decode_and_execute(const uint8_t *data, size_t size, fb_display_t *dis
         }
 
         int result = execute_command(cmd, payload, display, assets);
+
+        /* Track opcode usage for capability reporting */
+        if (cmd->opcode < MAX_OPCODE) {
+            switch (cmd->opcode) {
+            case OP_SET_EVENT_CLICKED:
+            case OP_SET_EVENT_VALUE_CHANGED:
+            case OP_SET_NODE_ID:
+            case OP_SET_STYLE_TEXT_FONT_SIZE:
+            case OP_SET_PAD:
+            case OP_SET_FLEX_ALIGN:
+            case OP_CREATE_SLIDER:
+            case OP_CREATE_SWITCH:
+            case OP_CREATE_CHECKBOX:
+            case OP_CREATE_DROPDOWN:
+            case OP_CREATE_SPINNER:
+            case OP_CREATE_ARC:
+            case OP_SET_STYLE_SHADOW_WIDTH:
+            case OP_SET_STYLE_TEXT_ALIGN:
+            case OP_SET_GRID:
+                g_opcodes_unsupported[cmd->opcode] = 1;
+                break;
+            default:
+                g_opcodes_hit[cmd->opcode] = 1;
+                break;
+            }
+        }
+
         if (result != 0) {
             return result;
         }

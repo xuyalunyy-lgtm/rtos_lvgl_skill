@@ -68,6 +68,32 @@ static int mkdir_p(const char *path) {
     return 0;
 }
 
+/* Emit a JSON string without allowing Windows path separators or user-provided
+ * file names to corrupt the runner's stdout/evidence JSON. */
+static void json_write_string(FILE *stream, const char *value) {
+    const unsigned char *cursor = (const unsigned char *)(value ? value : "");
+    fputc('"', stream);
+    for (; *cursor; cursor++) {
+        switch (*cursor) {
+        case '"': fputs("\\\"", stream); break;
+        case '\\': fputs("\\\\", stream); break;
+        case '\b': fputs("\\b", stream); break;
+        case '\f': fputs("\\f", stream); break;
+        case '\n': fputs("\\n", stream); break;
+        case '\r': fputs("\\r", stream); break;
+        case '\t': fputs("\\t", stream); break;
+        default:
+            if (*cursor < 0x20) {
+                fprintf(stream, "\\u%04x", *cursor);
+            } else {
+                fputc(*cursor, stream);
+            }
+            break;
+        }
+    }
+    fputc('"', stream);
+}
+
 /* ── Command line parsing ──────────────────────────────────────── */
 
 typedef struct {
@@ -445,9 +471,70 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
+    /* Gather capability and asset evidence */
+    uint16_t unsupported_opcodes[128];
+    uint32_t n_unsupported = scene_decoder_get_unsupported(unsupported_opcodes, 128);
+    uint32_t asset_requests = 0, asset_hits = 0;
+    scene_decoder_get_asset_stats(&asset_requests, &asset_hits);
+
+    /* Write asset_load_report.json */
+    {
+        char path[MAX_PATH_LEN];
+        snprintf(path, sizeof(path), "%s/asset_load_report.json", args.output_dir);
+        FILE *f = fopen(path, "w");
+        if (f) {
+            fputs("{\"asset_pack\":", f);
+            json_write_string(f, args.asset_path);
+            fprintf(f, ",\"requests\":%u,\"hits\":%u,\"misses\":%u}\n",
+                    asset_requests, asset_hits, asset_requests - asset_hits);
+            fclose(f);
+            fprintf(stderr, "Asset report: %s\n", path);
+        }
+    }
+
+    /* Write renderer_capabilities.json */
+    {
+        char path[MAX_PATH_LEN];
+        snprintf(path, sizeof(path), "%s/renderer_capabilities.json", args.output_dir);
+        FILE *f = fopen(path, "w");
+        if (f) {
+            fprintf(f, "{\"version\":\"%s\",\"lvgl\":\"%s\",\"unsupported_opcodes\":[",
+                    SIM_VERSION, LVGL_VERSION_INFO);
+            for (uint32_t i = 0; i < n_unsupported; i++) {
+                if (i > 0) fprintf(f, ",");
+                fprintf(f, "%u", unsupported_opcodes[i]);
+            }
+            fprintf(f, "]}\n");
+            fclose(f);
+            fprintf(stderr, "Capabilities: %s\n", path);
+        }
+    }
+
+    /* Build unsupported_opcodes JSON string for stdout */
+    char unsupported_json[512] = "[]";
+    if (n_unsupported > 0) {
+        int pos = 1; /* skip opening '[' */
+        unsupported_json[0] = '[';
+        for (uint32_t i = 0; i < n_unsupported && pos < (int)sizeof(unsupported_json) - 10; i++) {
+            if (i > 0) pos += snprintf(unsupported_json + pos, sizeof(unsupported_json) - pos, ",");
+            pos += snprintf(unsupported_json + pos, sizeof(unsupported_json) - pos, "%u", unsupported_opcodes[i]);
+        }
+        if (pos < (int)sizeof(unsupported_json) - 2) {
+            unsupported_json[pos++] = ']';
+            unsupported_json[pos] = '\0';
+        }
+    }
+
     /* Write status JSON to stdout */
-    fprintf(stdout, "{\"ok\":true,\"render\":\"%s\",\"tree\":\"%s\",\"width\":%d,\"height\":%d,\"version\":\"%s\"}\n",
-            ppm_path, tree_path, args.width, args.height, SIM_VERSION);
+    fputs("{\"ok\":true,\"render\":", stdout);
+    json_write_string(stdout, ppm_path);
+    fputs(",\"tree\":", stdout);
+    json_write_string(stdout, tree_path);
+    fputs(",\"width\":", stdout);
+    fprintf(stdout, "%d,\"height\":%d,\"version\":", args.width, args.height);
+    json_write_string(stdout, SIM_VERSION);
+    fprintf(stdout, ",\"unsupported_opcodes\":%s,\"asset_requests\":%u,\"asset_hits\":%u}\n",
+            unsupported_json, asset_requests, asset_hits);
 
     fb_display_destroy(display);
     free(asset_data);

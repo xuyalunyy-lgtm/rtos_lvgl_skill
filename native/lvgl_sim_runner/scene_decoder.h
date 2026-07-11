@@ -123,4 +123,27 @@ int scene_decode_and_execute(const uint8_t *data, size_t size, fb_display_t *dis
  */
 const char *scene_get_string(const uint8_t *data, uint32_t index);
 
+/**
+ * Reset opcode and asset tracking state.
+ */
+void scene_decoder_reset_tracking(void);
+
+/**
+ * Get list of unsupported opcodes that were encountered.
+ *
+ * @param out       Output array for unsupported opcode IDs.
+ * @param max_out   Maximum number of opcodes to write.
+ * @return Number of unsupported opcodes written.
+ */
+uint32_t scene_decoder_get_unsupported(uint16_t *out, uint32_t max_out);
+
+/**
+ * Get asset load statistics.
+ *
+ * @param requests  Output: total image asset requests.
+ * @param hits      Output: successful asset loads.
+ * @return 0 on success.
+ */
+uint32_t scene_decoder_get_asset_stats(uint32_t *requests, uint32_t *hits);
+
 #endif /* SCENE_DECODER_H */

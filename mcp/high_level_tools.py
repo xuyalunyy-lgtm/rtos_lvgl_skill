@@ -263,6 +263,11 @@ def render_ui(args: dict[str, Any]) -> dict[str, Any]:
         if result.get("capability_gap"):
             response["capability_gap"] = True
 
+        if render_status == "capability_gap":
+            return _fail(
+                ["Native runner encountered unsupported scene operations"],
+                **response,
+            )
         return _ok(response)
 
     elif engine == "python_preview":
