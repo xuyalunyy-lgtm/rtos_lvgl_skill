@@ -18,6 +18,10 @@ REQUIRED_GATES = {
     "native_render", "compile", "nodes_nonempty", "not_blank", "assets",
     "fonts", "memory", "flows", "no_capability_gap", "no_design_cheat",
 }
+FINAL_MIN_SCORE = 9000
+FINAL_MIN_GLOBAL_SSIM = 0.90
+FINAL_MIN_CRITICAL_REGION_SSIM = 0.90
+FINAL_MIN_PIXEL_SIMILARITY = 0.90
 
 
 def validate_refine_plan(plan: dict[str, Any]) -> list[str]:
@@ -87,10 +91,40 @@ def evaluate_refinement_run(
 
     _atomic_json(final_dir / "evidence.json", accepted)
     shutil.copy2(accepted_dir / "ui_override.json", final_dir / "ui_override.json")
-    result = {"status": "completed", "best_score": accepted["total_score"], "history": history, "rollback_completed": True}
+    failures = _final_quality_failures(accepted)
+    result = {
+        "status": "completed" if not failures else "manual_required",
+        "reason": None if not failures else "quality_threshold_not_met",
+        "best_score": accepted["total_score"],
+        "best_iteration": int(history[-1]["iteration"]),
+        "max_candidate_iterations": 3,
+        "quality_threshold": {
+            "total_score": FINAL_MIN_SCORE,
+            "global_ssim": FINAL_MIN_GLOBAL_SSIM,
+            "critical_region_ssim": FINAL_MIN_CRITICAL_REGION_SSIM,
+            "pixel_similarity": FINAL_MIN_PIXEL_SIMILARITY,
+        },
+        "quality_failures": failures,
+        "history": history,
+        "rollback_completed": True,
+    }
     _atomic_json(root / "best.json", {"score": accepted["total_score"], "evidence_sha256": _hash_json(accepted)})
     _atomic_json(root / "refine_summary.json", result)
     return result
+
+
+def _final_quality_failures(evidence: dict[str, Any]) -> list[str]:
+    failures: list[str] = []
+    metrics = evidence.get("metrics", {})
+    if int(evidence.get("total_score", 0)) < FINAL_MIN_SCORE:
+        failures.append(f"total_score<{FINAL_MIN_SCORE}")
+    if float(metrics.get("global_ssim", 0.0)) < FINAL_MIN_GLOBAL_SSIM:
+        failures.append(f"global_ssim<{FINAL_MIN_GLOBAL_SSIM:.2f}")
+    if float(metrics.get("critical_region_ssim", 0.0)) < FINAL_MIN_CRITICAL_REGION_SSIM:
+        failures.append(f"critical_region_ssim<{FINAL_MIN_CRITICAL_REGION_SSIM:.2f}")
+    if float(metrics.get("pixel_similarity", 0.0)) < FINAL_MIN_PIXEL_SIMILARITY:
+        failures.append(f"pixel_similarity<{FINAL_MIN_PIXEL_SIMILARITY:.2f}")
+    return failures
 
 
 def _normalise_evidence(raw: dict[str, Any]) -> dict[str, Any]:

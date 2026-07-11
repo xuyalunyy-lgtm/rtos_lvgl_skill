@@ -45,6 +45,13 @@ FORMAT_MAP = {
     "A8": FORMAT_A8,
 }
 
+_LVGL_V9_FORMATS = {
+    "RGB565": ("LV_COLOR_FORMAT_RGB565", 2),
+    "RGB565A8": ("LV_COLOR_FORMAT_RGB565A8", 2),
+    "ARGB8888": ("LV_COLOR_FORMAT_ARGB8888", 4),
+    "A8": ("LV_COLOR_FORMAT_A8", 1),
+}
+
 
 # ── Image conversion ──────────────────────────────────────────────
 
@@ -53,10 +60,16 @@ def _rgb_to_rgb565(r: int, g: int, b: int) -> int:
     return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3)
 
 
+def _pixels(img: Any) -> Any:
+    """Use Pillow's deterministic flat pixel iterator across supported versions."""
+    getter = getattr(img, "get_flattened_data", None)
+    return getter() if getter is not None else img.getdata()
+
+
 def _convert_rgb565(img: Any) -> bytes:
     """Convert image to RGB565 bytes."""
     rgb = img.convert("RGB")
-    pixels = rgb.getdata()
+    pixels = _pixels(rgb)
     out = bytearray()
     for r, g, b in pixels:
         val = _rgb_to_rgb565(r, g, b)
@@ -68,7 +81,7 @@ def _convert_rgb565(img: Any) -> bytes:
 def _convert_rgb565a8(img: Any) -> tuple[bytes, bytes]:
     """Convert image to RGB565 + A8 alpha plane."""
     rgba = img.convert("RGBA")
-    pixels = rgba.getdata()
+    pixels = _pixels(rgba)
     rgb_out = bytearray()
     alpha_out = bytearray()
     for r, g, b, a in pixels:
@@ -82,7 +95,7 @@ def _convert_rgb565a8(img: Any) -> tuple[bytes, bytes]:
 def _convert_argb8888(img: Any) -> bytes:
     """Convert image to ARGB8888 bytes (A-R-G-B order)."""
     rgba = img.convert("RGBA")
-    pixels = rgba.getdata()
+    pixels = _pixels(rgba)
     out = bytearray()
     for r, g, b, a in pixels:
         out.extend((a, r, g, b))
@@ -92,7 +105,7 @@ def _convert_argb8888(img: Any) -> bytes:
 def _convert_a8(img: Any) -> bytes:
     """Extract alpha channel as A8 bytes."""
     rgba = img.convert("RGBA")
-    pixels = rgba.getdata()
+    pixels = _pixels(rgba)
     return bytes(a for _, _, _, a in pixels)
 
 
@@ -285,6 +298,107 @@ def generate_manifest(assets: list[dict[str, Any]], output_dir: Path) -> dict[st
     manifest_path = output_dir / "asset_manifest.json"
     manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
     return manifest
+
+
+def _format_c_bytes(data: bytes, *, columns: int = 12) -> str:
+    """Format raw image bytes deterministically for a generated C array."""
+    return "\n".join(
+        "    " + ", ".join(f"0x{byte:02X}" for byte in data[index:index + columns]) + ","
+        for index in range(0, len(data), columns)
+    )
+
+
+def write_lvgl_v9_c_assets(assets: list[dict[str, Any]], output_dir: str | Path, *, stem: str = "ui_auto_assets") -> dict[str, Any]:
+    """Emit real LVGL v9 image descriptors for packed assets.
+
+    ``asset.pack`` is useful to the native simulator but cannot satisfy a
+    firmware link reference such as ``LV_IMAGE_DECLARE(ui_pet)``.  This writer
+    emits one C translation unit per asset containing the exact same byte
+    order as the pack: RGB pixels followed by the A8 plane for RGB565A8
+    images.  Per-asset units keep compiler memory and incremental builds
+    bounded even for full-screen backgrounds.
+    """
+    root = Path(output_dir)
+    root.mkdir(parents=True, exist_ok=True)
+    valid = [asset for asset in assets if asset.get("ok")]
+    if len(valid) != len(assets):
+        raise ValueError("cannot emit LVGL C assets when asset conversion failed")
+    if not valid:
+        raise ValueError("cannot emit LVGL C assets without assets")
+
+    for asset in valid:
+        symbol = asset.get("symbol")
+        if not isinstance(symbol, str) or not symbol.isidentifier():
+            raise ValueError(f"invalid C asset symbol: {symbol!r}")
+        if asset.get("color_format") not in _LVGL_V9_FORMATS:
+            raise ValueError(f"unsupported LVGL v9 color format: {asset.get('color_format')!r}")
+
+    header_path = root / f"{stem}.h"
+    cmake_path = root / f"{stem}.cmake"
+    guard = "".join(char.upper() if char.isalnum() else "_" for char in stem) + "_H"
+
+    header_path.write_text(
+        f"#ifndef {guard}\n#define {guard}\n\n#include \"lvgl.h\"\n\n"
+        + "\n".join(f"LV_IMAGE_DECLARE({asset['symbol']});" for asset in valid)
+        + f"\n\n#endif /* {guard} */\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+
+    source_paths: list[Path] = []
+    for asset in valid:
+        symbol = str(asset["symbol"])
+        source_path = root / f"{symbol}.c"
+        source_paths.append(source_path)
+        color_format, bytes_per_pixel = _LVGL_V9_FORMATS[str(asset["color_format"])]
+        pixel_data = bytes(asset["pixel_data"])
+        alpha_data = bytes(asset.get("alpha_data", b""))
+        data = pixel_data + alpha_data
+        width, height = int(asset["width"]), int(asset["height"])
+        if not data:
+            raise ValueError(f"asset {symbol} has no pixel data")
+        chunks = [
+            '#include "lvgl.h"',
+            f'#include "{header_path.name}"',
+            "",
+            "#ifndef LV_ATTRIBUTE_MEM_ALIGN",
+            "#define LV_ATTRIBUTE_MEM_ALIGN",
+            "#endif",
+            "#ifndef LV_ATTRIBUTE_LARGE_CONST",
+            "#define LV_ATTRIBUTE_LARGE_CONST",
+            "#endif",
+            "",
+            f"static const LV_ATTRIBUTE_MEM_ALIGN LV_ATTRIBUTE_LARGE_CONST uint8_t {symbol}_map[] = {{",
+            _format_c_bytes(data),
+            "};",
+            f"const lv_image_dsc_t {symbol} = {{",
+            "    .header.magic = LV_IMAGE_HEADER_MAGIC,",
+            f"    .header.cf = {color_format},",
+            "    .header.flags = 0,",
+            f"    .header.w = {width},",
+            f"    .header.h = {height},",
+            f"    .header.stride = {width * bytes_per_pixel},",
+            "    .header.reserved_2 = 0,",
+            f"    .data_size = sizeof({symbol}_map),",
+            f"    .data = {symbol}_map,",
+            "    .reserved = NULL,",
+            "};",
+        ]
+        source_path.write_text("\n".join(chunks) + "\n", encoding="utf-8", newline="\n")
+    cmake_path.write_text(
+        "set(UI_AUTO_ASSET_SOURCES\n"
+        + "".join(f"    \"${{CMAKE_CURRENT_LIST_DIR}}/{path.name}\"\n" for path in source_paths)
+        + ")\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+    return {
+        "header": str(header_path),
+        "sources": [str(path) for path in source_paths],
+        "cmake": str(cmake_path),
+        "symbols": [str(asset["symbol"]) for asset in valid],
+        "total_flash_bytes": sum(int(asset["flash_bytes"]) for asset in valid),
+    }
 
 
 # ── CLI ───────────────────────────────────────────────────────────

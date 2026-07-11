@@ -241,19 +241,8 @@ def preflight(
         status = "passed"
         ok = True
 
-    # ── Generate input manifest ──
-    manifest = {
-        "schema_version": "1.0",
-        "design": metadata.get("design", {}),
-        "screen": metadata.get("screen", {}),
-        "cuts": metadata.get("cuts", {}),
-    }
-    manifest_path = design.parent / "input_manifest.json"
-    try:
-        manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
-        metadata["manifest_path"] = str(manifest_path)
-    except Exception:
-        pass  # Non-critical
+    # Preflight is read-only.  The high-level inspect tool writes the AI asset
+    # intent contract under artifacts/; never write beside the design source.
 
     return {
         "ok": ok,

@@ -301,6 +301,7 @@ def analyze(
     screen_height: int,
     lvgl_version: str = "v9",
     cut_dir: str | None = None,
+    output_dir: str | Path | None = None,
 ) -> dict[str, Any]:
     """Run visual analysis on a design image.
 
@@ -310,6 +311,8 @@ def analyze(
         screen_height: Target screen height.
         lvgl_version: Target LVGL version.
         cut_dir: Optional directory with cutout assets.
+        output_dir: Artifact directory. Defaults beside the design only for
+            legacy direct callers; high-level MCP calls always pass artifacts/.
 
     Returns:
         Analysis report conforming to lvgl_analysis_report_v1.schema.json.
@@ -328,6 +331,8 @@ def analyze(
 
     img = Image.open(design)
     page_name = design.stem
+    artifact_dir = Path(output_dir) if output_dir is not None else design.parent
+    artifact_dir.mkdir(parents=True, exist_ok=True)
 
     # ── Color analysis ──
     colors = _dominant_colors(img)
@@ -355,7 +360,7 @@ def analyze(
             cut_matches = _match_cutouts(img, cut_details)
 
     # ── Generate overlay ──
-    overlay_path = design.parent / "debug_overlay.png"
+    overlay_path = artifact_dir / "debug_overlay.png"
     try:
         _generate_overlay(img, regions, cut_matches, overlay_path)
     except Exception:
@@ -413,7 +418,7 @@ def analyze(
     }
 
     # Save report
-    report_path = design.parent / "analysis_report.json"
+    report_path = artifact_dir / "analysis_report.json"
     report_path.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
 
     return {"ok": True, "report": report, "report_path": str(report_path)}

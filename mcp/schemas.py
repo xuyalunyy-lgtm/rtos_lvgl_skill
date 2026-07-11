@@ -181,7 +181,7 @@ LVGL_TOOL_SCHEMAS: list[dict[str, Any]] = [
     },
     {
         "name": "generate_interactive_scene_page",
-        "description": "Generate the interactive scene LVGL page from a design screenshot and mood cut assets.",
+        "description": "Generate the interactive scene LVGL page from a design reference (analysis only) and supplied mood cut assets. A design image is never a runtime asset and is never cropped.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -220,8 +220,9 @@ LVGL_TOOL_SCHEMAS: list[dict[str, Any]] = [
                 "title_text_macro": {"type": "string", "default": "UI_TEXT_INTERACTIVE_SCENE_TITLE"},
                 "hint_text_macro": {"type": "string", "default": "UI_TEXT_INTERACTIVE_SCENE_HINT"},
                 "auto_analyze": {"type": "boolean", "default": True},
+                "inferred_layout": {"type": "boolean", "default": False, "description": "Allow supplied runtime cutouts without a design reference. Requires skip_preflight=true and produces inferred, not pixel-verified, layout."},
+                "skip_preflight": {"type": "boolean", "default": False},
                 "return_mode": {"type": "string", "enum": ["compact", "full"], "default": "full", "description": "Full preserves the legacy manifest-shaped response; compact returns key bboxes and artifact paths."},
-                "preview_design_reference": {"type": "boolean", "default": False, "description": "Force the design screenshot as preview.html base with transparent interactive hotspots. When false, the background consistency gate can still auto-switch to design-reference mode."},
                 "background_gate_threshold": {"type": "number", "default": 24.0, "description": "Average RGB absolute-delta threshold for blocking layered pixel reconstruction when the clean background differs from the design screenshot."},
                 "lvgl_version": {"type": "string", "enum": sorted(LVGL_VERSIONS), "default": "v9"},
                 "custom_events_enabled": {"type": "boolean", "default": True},
