@@ -14,6 +14,17 @@ import sys
 from pathlib import Path
 from typing import Any
 
+
+def _configure_stdio_utf8() -> None:
+    """Keep MCP stdio JSON-RPC UTF-8 regardless of the Windows code page."""
+    for stream in (sys.stdin, sys.stdout):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if callable(reconfigure):
+            reconfigure(encoding="utf-8", errors="strict")
+
+
+_configure_stdio_utf8()
+
 # Ensure mcp/ directory is on sys.path so lvgl_ui imports regardless of cwd
 _MCP_DIR = str(Path(__file__).resolve().parent)
 if _MCP_DIR not in sys.path:
@@ -399,7 +410,19 @@ def _call_tool(name: str, args: Any) -> dict[str, Any]:
 def _handle_request(message: dict[str, Any]) -> dict[str, Any] | None:
     method = message.get("method")
     msg_id = message.get("id")
-    _trace("request", method=str(method), has_id=msg_id is not None)
+    error = message.get("error")
+    error_code = error.get("code") if isinstance(error, dict) else None
+    error_message = error.get("message") if isinstance(error, dict) else None
+    _trace(
+        "request",
+        method=str(method),
+        has_id=msg_id is not None,
+        keys=sorted(str(key) for key in message),
+        has_result="result" in message,
+        has_error="error" in message,
+        error_code=error_code,
+        error_message=str(error_message)[:500] if error_message is not None else None,
+    )
     try:
         if method == "initialize":
             result = {
