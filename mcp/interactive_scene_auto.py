@@ -789,7 +789,10 @@ def _compact_validation(validation: dict[str, Any]) -> dict[str, Any]:
 
 
 def generate_interactive_scene_page(args: dict[str, Any]) -> dict[str, Any]:
-    import lvgl_ui as base
+    try:
+        from mcp import codegen as base
+    except ImportError:  # Direct script execution compatibility.
+        import codegen as base
 
     design_dir = base.resolve_path(args.get("design_dir", base.ROOT / "ui"))
     output_dir = base.resolve_path(args.get("output_dir", base.ROOT / "artifacts" / "lvgl_ui" / "interactive_scene"))
