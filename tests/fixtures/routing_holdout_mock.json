@@ -1,0 +1,28 @@
+{
+  "meta": {
+    "version": 1,
+    "total": 3,
+    "pass_criteria": {
+      "min_overall_conformance": 0.95,
+      "max_false_auto_routes": 0,
+      "max_false_clarifications": 2
+    }
+  },
+  "samples": [
+    {
+      "id": "h01",
+      "request": "Review this code",
+      "expected_workflow": "code_review"
+    },
+    {
+      "id": "h02",
+      "request": "LVGL page generation",
+      "expected_workflow": "lvgl_page"
+    },
+    {
+      "id": "h03",
+      "request": "What is the weather?",
+      "expected_clarification": true
+    }
+  ]
+}
