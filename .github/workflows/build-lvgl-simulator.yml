@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - 'native/lvgl_sim_runner/**'
+      - 'native/lvgl_ui_testkit/**'
       - 'mcp/lvgl_ir/**'
       - 'mcp/asset_contract.py'
       - 'mcp/high_level_tools.py'
@@ -11,10 +12,17 @@ on:
       - 'mcp/standard_ui_package.py'
       - 'tests/test_asset_contract.py'
       - 'tests/ci_generate_asset_contract_fixture.py'
+      - 'tests/ui_testkit_prepare.py'
+      - 'tests/ui_testkit_evaluate.py'
+      - 'tests/ui_cases/**'
+      - 'ui/assets/**'
+      - 'ui/fonts/**'
+      - 'ui/designdrawing/**'
       - '.github/workflows/build-lvgl-simulator.yml'
   pull_request:
     paths:
       - 'native/lvgl_sim_runner/**'
+      - 'native/lvgl_ui_testkit/**'
       - 'mcp/lvgl_ir/**'
       - 'mcp/asset_contract.py'
       - 'mcp/high_level_tools.py'
@@ -22,6 +30,12 @@ on:
       - 'mcp/standard_ui_package.py'
       - 'tests/test_asset_contract.py'
       - 'tests/ci_generate_asset_contract_fixture.py'
+      - 'tests/ui_testkit_prepare.py'
+      - 'tests/ui_testkit_evaluate.py'
+      - 'tests/ui_cases/**'
+      - 'ui/assets/**'
+      - 'ui/fonts/**'
+      - 'ui/designdrawing/**'
       - '.github/workflows/build-lvgl-simulator.yml'
   workflow_dispatch:
 
@@ -43,7 +57,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Run deterministic asset contract tests
         run: |
-          python -m pip install --disable-pip-version-check pytest Pillow
+          python -m pip install --disable-pip-version-check pytest Pillow numpy
           python -m pytest tests/test_asset_contract.py tests/test_firmware_asset_closure.py -q
 
   build:
@@ -72,7 +86,7 @@ jobs:
       - name: Run scene and asset protocol tests
         shell: bash
         run: |
-          python -m pip install --disable-pip-version-check pytest Pillow
+          python -m pip install --disable-pip-version-check pytest Pillow numpy
           python -m pytest tests/lvgl -q
 
       - name: Generate deterministic asset contract fixture
@@ -243,6 +257,89 @@ jobs:
             artifacts/asset_contract_ci/generated/resource_closure_report.json
             artifacts/asset_contract_ci/generated/asset_compile_evidence.json
             artifacts/asset_contract_ci/native_render/
+
+  ui-testkit:
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            platform: win-x64
+          - os: ubuntu-latest
+            platform: linux-x64
+    runs-on: ${{ matrix.os }}
+    name: Real UI TestKit ${{ matrix.platform }}
+    steps:
+      - name: Checkout skill repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install deterministic evaluation dependencies
+        run: python -m pip install --disable-pip-version-check Pillow numpy
+
+      - name: Generate real interactive-scene page
+        shell: bash
+        run: |
+          python tests/ui_testkit_prepare.py \
+            --case tests/ui_cases/interactive_scene_favorited/case.json \
+            --output artifacts/ui_testkit/generated
+
+      - name: Checkout pinned LVGL
+        uses: actions/checkout@v4
+        with:
+          repository: lvgl/lvgl
+          ref: ${{ env.LVGL_VERSION }}
+          path: lvgl-source
+
+      - name: Configure TestKit
+        shell: bash
+        run: |
+          cmake -S native/lvgl_ui_testkit -B build-ui-testkit \
+            -DLVGL_ROOT="$GITHUB_WORKSPACE/lvgl-source" \
+            -DUI_GENERATED_DIR="$GITHUB_WORKSPACE/artifacts/ui_testkit/generated" \
+            -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build real generated page
+        run: cmake --build build-ui-testkit --config Release
+
+      - name: Run real generated page
+        shell: bash
+        run: |
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            TESTKIT=$(find build-ui-testkit -name lvgl_ui_testkit.exe | head -1)
+          else
+            TESTKIT=build-ui-testkit/lvgl_ui_testkit
+          fi
+          test -n "$TESTKIT"
+          "$TESTKIT" artifacts/ui_testkit/native 480 800 20
+
+      - name: Evaluate native page against design
+        id: evaluate_real_ui
+        continue-on-error: true
+        shell: bash
+        run: |
+          python tests/ui_testkit_evaluate.py \
+            --case tests/ui_cases/interactive_scene_favorited/case.json \
+            --native-dir artifacts/ui_testkit/native \
+            --generated-dir artifacts/ui_testkit/generated
+
+      - name: Upload real UI TestKit evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lvgl-ui-testkit-${{ matrix.platform }}
+          path: |
+            artifacts/ui_testkit/native/
+            artifacts/ui_testkit/build_input_report.json
+            artifacts/ui_testkit/generated/
+
+      - name: Enforce real UI 90 percent gate
+        if: steps.evaluate_real_ui.outcome != 'success'
+        shell: bash
+        run: exit 1
 
   # ── Merge manifests ──────────────────────────────────────────────
   manifest:

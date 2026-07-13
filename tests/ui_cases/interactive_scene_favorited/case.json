@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "id": "interactive_scene_favorited",
+  "ui_dir": "ui",
+  "design": "ui/designdrawing/互动场景（有收藏）.png",
+  "initial_asset_manifest": "tests/ui_cases/interactive_scene_favorited/initial_asset_manifest.json",
+  "page_header": "ui_interactive_scene_auto.h",
+  "create_function": "ui_interactive_scene_auto_create",
+  "destroy_function": "ui_interactive_scene_auto_destroy",
+  "width": 480,
+  "height": 800,
+  "settle_frames": 20,
+  "quality_profile": "mvp_90",
+  "flows_required": false,
+  "memory": {
+    "max_framebuffer_bytes": 768000
+  },
+  "quality_regions": [
+    {"id": "status_bar", "bbox": [286, 0, 194, 64], "critical": true},
+    {"id": "top_prompt", "bbox": [80, 128, 320, 160], "critical": true},
+    {"id": "interaction_panel", "bbox": [40, 505, 400, 225], "critical": true}
+  ]
+}
+
