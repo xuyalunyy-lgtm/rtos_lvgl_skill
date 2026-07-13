@@ -14,10 +14,183 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+
+# ── 路由配置 ──
+
+CROSS_DOMAIN_AMBIGUITY_THRESHOLD = 0.5  # Tuned on 60-sample dev set; see tests/fixtures/routing_sampling.json
+
+# ── 请求分类关键词表（与 SKILL.md 路由表对齐）──
+
+ROUTE_KEYWORDS: dict[str, dict] = {
+    "code_review": {
+        "domain": "review",
+        "keywords": ["review", "audit", "审查", "check", "ISR", "DMA", "cJSON", "代码质量",
+                      "code quality", "static analysis", "lint", "OTA", "安全", "看看代码",
+                      "代码规范", "code review"],
+    },
+    "memory_analysis": {
+        "domain": "review",
+        "keywords": ["memory", "leak", "内存", "堆栈", "heap", "stack overflow",
+                      "memory analysis", "pool", "fragmentation", "堆栈溢出", "内存泄漏"],
+    },
+    "project_review": {
+        "domain": "review",
+        "keywords": ["project review", "项目审查", "workspace review", "全项目", "整个项目",
+                      "整个工程", "project audit", "项目检查"],
+    },
+    "hw_sw_debug": {
+        "domain": "review",
+        "keywords": ["co-debug", "GPIO conflict", "硬件协同", "GPIO", "IO conflict",
+                      "peripheral conflict", "pin mux", "引脚冲突", "pin conflict"],
+    },
+    "crash_debug": {
+        "domain": "debug",
+        "keywords": ["crash", "HardFault", "WDT", "deadlock", "frozen", "死机",
+                      "看门狗", "崩溃", "backtrace", "Guru Meditation", "watchdog",
+                      "stack overflow crash", "exception", "卡在", "卡死", "重启"],
+    },
+    "lvgl_page": {
+        "domain": "generate",
+        "keywords": ["LVGL", "UI", "page", "页面", "设计截图", "design",
+                      "界面", "GUI", "widget"],
+    },
+    "app_manifest": {
+        "domain": "generate",
+        "keywords": ["manifest", "多页", "multi-page", "Router", "Presenter",
+                      "Model", "脚手架", "scaffold", "app architecture", "应用架构",
+                      "多页面"],
+    },
+    "new_module": {
+        "domain": "generate",
+        "keywords": ["new module", "新模块", "task", "任务", "multitask",
+                      "module design", "模块设计", "module", "模块"],
+    },
+    "bring_up": {
+        "domain": "generate",
+        "keywords": ["bring-up", "板级", "最小系统", "peripheral validation",
+                      "board init", "boot", "startup", "外设", "新板", "first boot",
+                      "上电", "串口没输出", "启动流程"],
+    },
+    "sdk_trim": {
+        "domain": "generate",
+        "keywords": ["SDK trim", "裁剪", "裁", "driver prune", "sdk_trim",
+                      "component pruning", "减小体积", "trim", "prune", "flash不够",
+                      "精简", "缩减"],
+    },
+}
+
+
+def classify_request(text: str, cross_domain_threshold: float | None = None) -> dict:
+    """Classify a natural language request into domain + workflow.
+
+    Args:
+        text: the user's first message or request description
+        cross_domain_threshold: override for cross-domain ambiguity threshold
+            (default: CROSS_DOMAIN_AMBIGUITY_THRESHOLD)
+
+    Returns:
+        dict with keys:
+          - domain: "review" | "generate" | "debug"
+          - workflow: workflow ID from WORKFLOWS
+          - routing_reason: short explanation of why this workflow was chosen
+          OR
+          - clarification_required: True + clarification_reason if ambiguous
+    """
+    if cross_domain_threshold is None:
+        cross_domain_threshold = CROSS_DOMAIN_AMBIGUITY_THRESHOLD
+    text_lower = text.lower()
+    scores: dict[str, int] = {}
+    matched_kw: dict[str, list[str]] = {}
+
+    def _kw_match(kw: str, text: str) -> tuple[bool, int]:
+        """Match keyword against text. Returns (matched, weight).
+
+        Multi-word keywords and non-ASCII keywords get weight 3 (phrase match).
+        ASCII single words get weight 1.
+        """
+        kw_lower = kw.lower()
+        is_phrase = " " in kw_lower or not kw_lower.isascii()
+        if len(kw_lower) <= 3 and kw_lower.isascii():
+            if re.search(r'\b' + re.escape(kw_lower) + r'\b', text):
+                return True, 1
+            return False, 0
+        if kw_lower in text:
+            return True, 3 if is_phrase else 1
+        return False, 0
+
+    for wf_id, spec in ROUTE_KEYWORDS.items():
+        score = 0
+        terms = []
+        for kw in spec["keywords"]:
+            hit, weight = _kw_match(kw, text_lower)
+            if hit:
+                score += weight
+                terms.append(kw)
+        if score > 0:
+            scores[wf_id] = score
+            matched_kw[wf_id] = terms
+
+    if not scores:
+        return {
+            "clarification_required": True,
+            "clarification_reason": "No keyword matched. Ask user to clarify: review, generate, or debug?",
+        }
+
+    best_wf = max(scores, key=scores.get)
+    best_score = scores[best_wf]
+
+    # Check for ties (ambiguous)
+    tied = [wf for wf, s in scores.items() if s == best_score]
+    if len(tied) > 1:
+        # If tied workflows share the same domain, pick the more specific one
+        domains = {wf: ROUTE_KEYWORDS[wf]["domain"] for wf in tied}
+        unique_domains = set(domains.values())
+        if len(unique_domains) > 1:
+            return {
+                "clarification_required": True,
+                "clarification_reason": (
+                    f"Ambiguous: matched {', '.join(tied)} with equal score {best_score}. "
+                    f"Ask user which is the primary deliverable."
+                ),
+            }
+
+    # Check for cross-domain ambiguity: if multiple domains matched and
+    # the best score isn't dominant, clarify
+    matched_domains = {ROUTE_KEYWORDS[wf]["domain"] for wf in scores}
+    if len(matched_domains) > 1:
+        # Find the highest-scoring competitor from a different domain
+        cross_competitors = [
+            (wf, s) for wf, s in scores.items()
+            if ROUTE_KEYWORDS[wf]["domain"] != ROUTE_KEYWORDS[best_wf]["domain"]
+        ]
+        if cross_competitors:
+            top_competitor_score = max(s for _, s in cross_competitors)
+            # Only clarify if competitor score exceeds threshold of best score
+            if top_competitor_score >= best_score * cross_domain_threshold:
+                competitors = [
+                    f"{wf}({ROUTE_KEYWORDS[wf]['domain']},score={s})"
+                    for wf, s in cross_competitors if s == top_competitor_score
+                ]
+                return {
+                    "clarification_required": True,
+                    "clarification_reason": (
+                        f"Cross-domain ambiguity: {best_wf}({ROUTE_KEYWORDS[best_wf]['domain']},"
+                        f"score={best_score}) vs {', '.join(competitors)}. "
+                        f"Ask user which is the primary deliverable."
+                    ),
+                }
+
+    return {
+        "domain": ROUTE_KEYWORDS[best_wf]["domain"],
+        "workflow": best_wf,
+        "routing_reason": f"Matched keywords: {', '.join(matched_kw[best_wf])}",
+    }
+
 
 # ── 症状路由表 ──
 
@@ -1062,6 +1235,8 @@ def main() -> int:
     parser.add_argument("--case",
                         choices=list(QUALITY_CASES.keys()),
                         help="Quality case ID with predefined workflow/platform/constraints")
+    parser.add_argument("--classify",
+                        help="Classify a natural language request into domain + workflow")
     parser.add_argument("--symptom-text",
                         help="Symptom text or log excerpt to route")
     parser.add_argument("--symptom-file",
@@ -1081,6 +1256,20 @@ def main() -> int:
 
     if args.self_test:
         return run_self_test()
+
+    if args.classify:
+        result = classify_request(args.classify)
+        if args.json:
+            json.dump(result, sys.stdout, ensure_ascii=False, indent=2)
+            print()
+        else:
+            if result.get("clarification_required"):
+                print(f"Clarification needed: {result['clarification_reason']}")
+            else:
+                print(f"Domain: {result['domain']}")
+                print(f"Workflow: {result['workflow']}")
+                print(f"Reason: {result['routing_reason']}")
+        return 0
 
     if args.symptom_text or args.symptom_file:
         symptom_text = args.symptom_text
