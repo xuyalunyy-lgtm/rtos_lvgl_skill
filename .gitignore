@@ -13,3 +13,6 @@ forward_tests/out/
 artifacts/
 # Reproducible generated UI packages
 generated/
+# Locally installed portable compiler payload (published as a release asset)
+runtime/toolchain/win-x64/
+.tmp_*/

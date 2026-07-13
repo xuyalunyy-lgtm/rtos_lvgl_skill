@@ -21,7 +21,12 @@ from pathlib import Path
 SKILL_ROOT = Path(__file__).resolve().parent.parent
 # Import unified excludes from single source of truth
 sys.path.insert(0, str(SKILL_ROOT / "references"))
-from runtime_excludes import RUNTIME_EXCLUDE_DIRS, RUNTIME_EXCLUDE_ROOT_FILES
+from runtime_excludes import (
+    RUNTIME_EXCLUDE_DIRS,
+    RUNTIME_EXCLUDE_NAME_PATTERNS,
+    RUNTIME_EXCLUDE_RELATIVE_DIRS,
+    RUNTIME_EXCLUDE_ROOT_FILES,
+)
 
 RUNTIME_EXCLUDE_NAMES = RUNTIME_EXCLUDE_DIRS
 RUNTIME_EXCLUDE_FILE_PATTERNS = (
@@ -33,6 +38,19 @@ ROOT_ONLY_EXCLUDE_FILES = RUNTIME_EXCLUDE_ROOT_FILES
 def runtime_ignore(directory: str, names: list[str]) -> set[str]:
     """Ignore maintenance assets while preserving nested runtime indexes."""
     ignored = {name for name in names if name in RUNTIME_EXCLUDE_NAMES}
+    ignored.update(
+        name for name in names
+        if any(fnmatch.fnmatch(name, pattern) for pattern in RUNTIME_EXCLUDE_NAME_PATTERNS)
+    )
+    current = Path(directory).resolve()
+    try:
+        relative_dir = current.relative_to(SKILL_ROOT.resolve())
+    except ValueError:
+        relative_dir = Path(".")
+    ignored.update(
+        name for name in names
+        if (relative_dir / name).as_posix() in RUNTIME_EXCLUDE_RELATIVE_DIRS
+    )
     ignored.update(
         name
         for name in names

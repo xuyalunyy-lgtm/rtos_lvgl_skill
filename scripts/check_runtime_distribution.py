@@ -48,6 +48,7 @@ REQUIRED_RUNTIME_PATHS = {
     "tools/checker_registry.py",
     "examples/README.md",
     "mcp/server.py",
+    "assets/toolchains/win-x64/lvgl-ui-toolchain-win-x64-16.1.0-r1.zip",
 }
 
 LITE_REQUIRED_PATHS = {
@@ -136,6 +137,8 @@ def check_shell_installers(errors: list[str]) -> None:
         "/README.md",
         "/INSTALL.md",
         "/CHANGELOG.md",
+        ".tmp_*",
+        "runtime/toolchain/win-x64",
     )
     for script in SH_INSTALLERS:
         text = script.read_text(encoding="utf-8")
@@ -147,7 +150,7 @@ def check_shell_installers(errors: list[str]) -> None:
 def check_powershell_installers(errors: list[str]) -> None:
     for script in PS_INSTALLERS:
         text = script.read_text(encoding="utf-8")
-        for token in (".github", ".vscode", "freertos-skill-lite", "artifacts", "archive", "$RootOnlyExcludeFiles"):
+        for token in (".github", ".vscode", "freertos-skill-lite", "artifacts", "archive", ".tmp_*", "runtime\\toolchain\\win-x64", "$RootOnlyExcludeFiles"):
             if token not in text:
                 errors.append(f"{rel(script)} missing install boundary token {token}")
         for root_file in sorted(ROOT_ONLY_FORBIDDEN):

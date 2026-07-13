@@ -37,6 +37,14 @@ RUNTIME_EXCLUDE_DIRS: set[str] = {
     ".skill_evidence",
 }
 
+RUNTIME_EXCLUDE_NAME_PATTERNS: tuple[str, ...] = (
+    ".tmp_*",
+)
+
+RUNTIME_EXCLUDE_RELATIVE_DIRS: set[str] = {
+    "runtime/toolchain/win-x64",
+}
+
 # Root-only files excluded from installed skill
 RUNTIME_EXCLUDE_ROOT_FILES: set[str] = {
     "README.md",

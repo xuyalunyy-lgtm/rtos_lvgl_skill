@@ -11,6 +11,8 @@ $ExcludeDirs = @(
     ".git", ".github", ".vscode", "fw-AC79_AIoT_SDK", "bk_idk-release-v2.2.1", "__pycache__",
     ".pytest_cache", "node_modules", "freertos-skill-lite", "archive", "artifacts", "forward_tests"
 )
+$ExcludeDirs += Get-ChildItem -LiteralPath $Source -Directory -Filter ".tmp_*" -ErrorAction SilentlyContinue | ForEach-Object FullName
+$ExcludeDirs += Join-Path $Source "runtime\toolchain\win-x64"
 $RootOnlyExcludeFiles = @("README.md", "INSTALL.md", "CHANGELOG.md")
 
 if (-not (Test-Path (Join-Path $Source "SKILL.md"))) {
