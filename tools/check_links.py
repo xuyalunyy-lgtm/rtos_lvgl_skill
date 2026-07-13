@@ -16,6 +16,10 @@ import re
 import sys
 from pathlib import Path
 
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 SKILL_ROOT = Path(__file__).resolve().parent.parent
 
 # Match markdown links: [text](path) — skip http/https/mailto

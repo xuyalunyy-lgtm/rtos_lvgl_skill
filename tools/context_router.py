@@ -476,7 +476,11 @@ WORKFLOWS = {
     },
     "app_manifest": {
         "file": "workflows/l3_lvgl_page.md",
-        "constraint_shards": ["review", "media", "voice"],
+        "quick_file": "workflows/l3_lvgl_page_quick.md",
+        "quick_refs": ["references/lvgl_design_codegen_quick.md"],
+        "quick_constraint_mode": "embedded",
+        "quick_platform_optional": True,
+        "constraint_shards": ["review"],
         "prompts": ["prompts/lvgl_thread_safety.txt"],
         "description": "多页应用脚手架（manifest 子路径）",
     },
@@ -956,6 +960,16 @@ def run_self_test() -> int:
 
     plan_json = json.dumps(build_load_plan("code_review", "esp32", "freertos"), ensure_ascii=False)
     check("JSON output valid", len(plan_json) > 100)
+
+    # app_manifest should behave like lvgl_page in compact mode
+    plan_manifest = build_load_plan("app_manifest", "esp32", "freertos", budget="compact")
+    plan_lvgl = build_load_plan("lvgl_page", "esp32", "freertos", budget="compact")
+    check("manifest+compact: no error", "error" not in plan_manifest)
+    check("manifest+compact: uses quick workflow", any("quick" in f["path"] for f in plan_manifest["required_files"]))
+    check("manifest+compact: no media shard", not any("constraint_media" in f["path"] for f in plan_manifest["required_files"]))
+    check("manifest+compact: no voice shard", not any("constraint_voice" in f["path"] for f in plan_manifest["required_files"]))
+    check("manifest+compact: same file count as lvgl_page",
+          len(plan_manifest.get("required_files", [])) == len(plan_lvgl.get("required_files", [])))
 
     plan_lvgl_compact = build_load_plan("lvgl_page", "jl", "freertos", budget="compact")
     lvgl_paths = {f["path"] for f in plan_lvgl_compact.get("required_files", [])}

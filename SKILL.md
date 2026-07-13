@@ -11,18 +11,24 @@ description: >-
   board bring-up, memory analysis, peripheral drivers, or firmware review.
 ---
 # FreeRTOS Embedded Architect
-Domain routing — classify the user's first message:
-| Domain | Keywords | First workflow |
-|--------|----------|---------------|
-| review | 审查, review, audit, check, ISR, DMA, cJSON | l2_code_review |
-| generate | LVGL, UI, page, manifest, new module, bring-up, SDK trim | l3_lvgl_page |
-| debug | crash, HardFault, WDT, deadlock, frozen | debug_crash |
+Routing — match the user's first message to ONE workflow:
+| Keywords | Workflow |
+|----------|----------|
+| review, audit, ISR, DMA, cJSON, check, 审查 | l2_code_review |
+| memory, leak, 内存, 堆栈 | l2_memory_analysis |
+| project, workspace, 项目审查 | l2_project_review |
+| co-debug, GPIO conflict, 硬件协同 | hw_sw_cocodebug |
+| LVGL, UI, page, manifest, 多页, 脚手架 | l3_lvgl_page |
+| new module, 新模块, task, 任务 | l3_new_module |
+| bring-up, 板级, 最小系统 | l3_bring_up |
+| SDK trim, 裁剪, driver prune | l3_sdk_trim |
+| crash, HardFault, WDT, deadlock, frozen, 死机 | debug_crash |
 Composite requests: pick the workflow matching the user's primary deliverable first.
 Load supplementary material only when that workflow explicitly requires it.
 If the primary task is unclear, ask one clarifying question before proceeding.
 ---
 ## Review Domain
-**Trigger:** code review / audit / 内存分析 / 硬件协同调试
+**Trigger:** code review / audit / memory analysis / project review / HW-SW co-debug
 **Output:** risk level + verification results + actionable recommendations
 | Workflow | Trigger |
 |----------|---------|
@@ -37,7 +43,7 @@ If the primary task is unclear, ask one clarifying question before proceeding.
 - **禁止:** `mcp/`, `golden_pages/`, `native/`, `runtime/`, `ui/`, `schemas/`
 ---
 ## Generate Domain
-**Trigger:** LVGL page / manifest / 多页应用 / new module / bring-up / SDK trim
+**Trigger:** LVGL page / manifest / new module / bring-up / SDK trim
 **Output:** compilable C/H artifacts + verification evidence + asset dependency list
 | Workflow | Trigger |
 |----------|---------|
