@@ -3,6 +3,8 @@ name: Build portable LVGL toolchain
 on:
   workflow_dispatch:
   push:
+    branches:
+      - main
     tags:
       - 'toolchain-win-x64-*'
     paths:
