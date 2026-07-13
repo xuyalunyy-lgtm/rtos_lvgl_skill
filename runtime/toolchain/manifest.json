@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "description": "Portable MinGW-w64 UCRT64 toolchain for LVGL C compilation",
+  "platforms": {
+    "win-x64": {
+      "version": "14.2.0",
+      "flavor": "ucrt64",
+      "source": "MSYS2 mingw-w64-ucrt-x86_64-toolchain",
+      "total_size_bytes": 0,
+      "licenses": [
+        "licenses/gcc.LICENSE",
+        "licenses/mingw-w64.LICENSE"
+      ],
+      "files": {}
+    },
+    "linux-x64": {
+      "version": "14.2.0",
+      "flavor": "ucrt64",
+      "source": "MSYS2 mingw-w64-ucrt-x86_64-toolchain (cross)",
+      "total_size_bytes": 0,
+      "licenses": [
+        "licenses/gcc.LICENSE",
+        "licenses/mingw-w64.LICENSE"
+      ],
+      "files": {}
+    }
+  }
+}

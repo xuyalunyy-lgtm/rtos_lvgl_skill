@@ -171,6 +171,21 @@ def build_lvgl_regression_sandbox(args: dict[str, Any]) -> dict[str, Any]:
     ninja_bin = str(args.get("ninja_bin") or os.environ.get("NINJA_BIN") or "")
     c_compiler = str(args.get("c_compiler") or os.environ.get("CC") or "")
     cxx_compiler = str(args.get("cxx_compiler") or os.environ.get("CXX") or "")
+
+    # Fallback to bundled toolchain if no compiler found
+    use_bundled = args.get("use_bundled_toolchain", True)
+    if use_bundled and not c_compiler and not toolchain_bin:
+        try:
+            from toolchain_resolver import resolve_toolchain as _resolve_tc
+            _tc = _resolve_tc()
+            if _tc["ok"]:
+                toolchain_bin = _tc["bin_dir"]
+                c_compiler = _tc["gcc"]
+                ninja_bin = _tc["ninja"]
+                if not generator:
+                    generator = "Ninja"
+        except Exception:
+            pass  # bundled toolchain not available, continue with user-provided
     ninja_prefix = ""
     if ninja_bin:
         ninja_path = Path(ninja_bin)
