@@ -253,6 +253,21 @@ generate_ui(ui_dir="ui/", output_dir="artifacts/generated")
 
 系统会自动发现资产、打包、生成互动场景页。
 
+默认使用 `delivery_mode="final_only"` 和 `cleanup_intermediates=true`：资源闭环通过并发布最终目录后，分析报告、`asset.pack`、调试图、编译缓存和其他中间证据会自动删除。最终目录只保留可编译的 C/H、实际使用的图片与字体 C 文件、CMake 清单和 `delivery_manifest.json`。
+
+只有需要排查生成器或保存完整验收证据时才使用：
+
+```text
+generate_ui(
+  ui_dir="ui/",
+  output_dir="artifacts/generated",
+  delivery_mode="full_evidence",
+  cleanup_intermediates=false
+)
+```
+
+编译、渲染和 pytest 缓存统一放在 `.cache/lvgl_ui/`，不属于最终产物，也不得提交。
+
 ##### 状态栏图标尺寸规则（重要）
 
 `assets/icons/system/` 中的 `wifi`、`bluetooth`、`battery` 等 `status_icon` 必须以**原始贴图画布尺寸**生成，不能用设计检测框的宽高再次缩放。

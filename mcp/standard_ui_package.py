@@ -1,6 +1,7 @@
 """Auto-discover a conventional ui/ directory and bind its cutouts."""
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import shutil
@@ -37,6 +38,10 @@ def _fresh_directory(path: Path) -> None:
     path.mkdir(parents=True, exist_ok=True)
 
 
+def _sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
 def _publish_final_delivery(
     delivery: Path,
     evidence: Path,
@@ -71,6 +76,18 @@ def _publish_final_delivery(
         ")\n",
         encoding="utf-8", newline="\n",
     )
+    delivered_files = sorted(path for path in staging.iterdir() if path.is_file())
+    manifest = {
+        "schema_version": 1,
+        "status": "asset_contract_ready",
+        "delivery_mode": "final_only",
+        "files": [
+            {"path": path.name, "sha256": _sha256(path), "bytes": path.stat().st_size}
+            for path in delivered_files
+        ],
+    }
+    manifest_path = staging / "delivery_manifest.json"
+    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8", newline="\n")
     if delivery.exists():
         shutil.rmtree(delivery)
     staging.replace(delivery)
@@ -82,6 +99,7 @@ def _publish_final_delivery(
         "page_c": str(delivery / page_c.name),
         "page_h": str(delivery / page_h.name),
         "cmake": str(delivery / aggregate.name),
+        "manifest": str(delivery / manifest_path.name),
     }
 
 
@@ -92,6 +110,7 @@ def generate_standard_ui_package(
     asset_manifest_path: str | Path | None = None,
     strict_asset_contract: bool = True,
     final_only: bool = True,
+    cleanup_intermediates: bool = True,
 ) -> dict[str, Any]:
     root, delivery = Path(ui_dir).resolve(), Path(output_dir).resolve()
     out = delivery.parent / f".{delivery.name}_evidence" if final_only else delivery
@@ -274,14 +293,19 @@ def generate_standard_ui_package(
             "sources": [str(delivery / Path(path).name) for path in firmware_assets["sources"]],
             "cmake": str(delivery / Path(firmware_assets["cmake"]).name),
         }
+        if cleanup_intermediates:
+            shutil.rmtree(out)
     else:
         delivered_firmware = firmware_assets
+    evidence_removed = bool(final_only and cleanup_intermediates and delivery_result)
     return {
         "ok": closure["ok"], "status": "asset_contract_ready" if contract_mode else "inferred_without_design",
-        "output_dir": str(delivery if final_only else out), "evidence_dir": str(out),
+        "output_dir": str(delivery if final_only else out),
+        "evidence_dir": None if evidence_removed else str(out),
+        "evidence_removed": evidence_removed,
         "c_path": delivery_result["page_c"] if delivery_result else str(c_path),
         "h_path": delivery_result["page_h"] if delivery_result else str(out / "ui_interactive_scene_auto.h"),
-        "asset_pack_path": str(out / "asset.pack"), "asset_manifest": asset_manifest,
+        "asset_pack_path": None if evidence_removed else str(out / "asset.pack"), "asset_manifest": asset_manifest,
         "firmware_assets": delivered_firmware, "resource_closure": closure,
         "symbols": contract["symbols"], "font_sources": contract["font_sources"],
         "delivery": delivery_result, "warnings": result.get("summary", {}).get("warnings", []),

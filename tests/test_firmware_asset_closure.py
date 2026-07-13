@@ -73,4 +73,31 @@ def test_standard_package_trims_cutout_padding_and_fits_v92_images(tmp_path: Pat
     assert (tmp_path / "out" / "20_bold.c").is_file()
     assert (tmp_path / "out" / "14_regular.c").is_file()
     assert not (tmp_path / "out" / "unused.c").exists()
-    assert Path(result["evidence_dir"]).name == ".out_evidence"
+    assert result["evidence_dir"] is None
+    assert result["asset_pack_path"] is None
+    assert result["evidence_removed"] is True
+    assert not (tmp_path / ".out_evidence").exists()
+    assert (tmp_path / "out" / "delivery_manifest.json").is_file()
+
+
+def test_standard_package_can_keep_full_generation_evidence(tmp_path: Path) -> None:
+    root = tmp_path / "ui"
+    background = root / "assets" / "backgrounds" / "scene.png"
+    pet = root / "assets" / "characters" / "pet_idle.png"
+    mood_dir = root / "assets" / "icons" / "mood"
+    font_dir = root / "fonts" / "lvgl"
+    for directory in (background.parent, pet.parent, mood_dir, font_dir):
+        directory.mkdir(parents=True, exist_ok=True)
+    Image.new("RGB", (480, 800), (32, 64, 96)).save(background)
+    Image.new("RGBA", (30, 40), (200, 220, 180, 255)).save(pet)
+    for name in ("calmness", "good", "down", "stressed"):
+        Image.new("RGBA", (37, 37), (255, 255, 255, 255)).save(mood_dir / f"{name}.png")
+    for filename, symbol in (("40_bold.c", "font_40_bold"), ("20_bold.c", "font_20_bold"), ("14_regular.c", "font_14_regular")):
+        (font_dir / filename).write_text(f'const lv_font_t {symbol} = {{0}};\n', encoding="utf-8")
+
+    result = generate_standard_ui_package(root, tmp_path / "out", cleanup_intermediates=False)
+
+    assert result["ok"]
+    assert result["evidence_removed"] is False
+    assert Path(result["evidence_dir"]).is_dir()
+    assert Path(result["asset_pack_path"]).is_file()

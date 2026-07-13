@@ -11,6 +11,8 @@ __pycache__/
 forward_tests/out/
 # Generated gate artifacts
 artifacts/
+# Local compiler/build/test caches. These are reproducible and never shipped.
+.cache/
 # Reproducible generated UI packages
 generated/
 # Locally installed portable compiler payload (published as a release asset)

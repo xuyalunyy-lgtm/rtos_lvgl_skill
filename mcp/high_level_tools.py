@@ -128,6 +128,7 @@ def generate_ui(args: dict[str, Any]) -> dict[str, Any]:
             asset_manifest_path=args.get("asset_manifest_path"),
             strict_asset_contract=bool(args.get("strict_asset_contract", True)),
             final_only=args.get("delivery_mode", "final_only") == "final_only",
+            cleanup_intermediates=bool(args.get("cleanup_intermediates", True)),
         )
 
     manifest_path = args.get("manifest_path")

@@ -44,6 +44,10 @@ def main() -> int:
         "asset_manifest_path": str(manifest_path),
         "strict_asset_contract": True,
         "delivery_mode": "final_only",
+        # Native TestKit consumes the resolution report before its ephemeral
+        # CI workspace is discarded, so this diagnostic path opts out of the
+        # normal final-only cleanup policy.
+        "cleanup_intermediates": False,
         "output_dir": str(output.relative_to(ROOT)),
     })
     if not result.get("ok"):

@@ -72,6 +72,7 @@ HIGH_LEVEL_SCHEMAS: list[dict[str, Any]] = [
                 "asset_manifest_path": {"type": "string", "description": "Initial asset intent manifest produced by inspect_design"},
                 "strict_asset_contract": {"type": "boolean", "default": True, "description": "Reject design-driven generation without a deterministic asset contract"},
                 "delivery_mode": {"type": "string", "enum": ["final_only", "full_evidence"], "default": "final_only", "description": "final_only publishes only compilable C/H, used fonts, assets, and CMake; evidence is isolated outside the delivery directory"},
+                "cleanup_intermediates": {"type": "boolean", "default": True, "description": "With final_only, remove analysis, asset.pack, build, and evidence files after the final delivery is published"},
                 "manifest_path": {"type": "string", "description": "Path to Manifest v2 JSON for multi-page app generation"},
                 "spec_path": {"type": "string", "description": "Path to ui_spec.json (preferred)"},
                 "design_path": {"type": "string", "description": "Path to design screenshot (auto-runs inspect if spec_path omitted)"},

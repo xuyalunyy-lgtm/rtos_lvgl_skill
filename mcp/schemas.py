@@ -81,7 +81,7 @@ REGRESSION_SANDBOX_CONFIG: dict[str, Any] = {
         "access violation",
     ],
     "excluded_template_paths": [".git", ".cache", "build", "bin", "*.obj", "*.log", "temp_*"],
-    "default_cache_dir": "artifacts/lvgl_render_cache",
+    "default_cache_dir": ".cache/lvgl_ui/render",
 }
 
 LVGL_TOOL_SCHEMAS: list[dict[str, Any]] = [
