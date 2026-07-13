@@ -95,8 +95,8 @@ def main() -> int:
         ),
         check_pair(
             "l2_architecture_review_workflow",
-            FULL / "workflows" / "l2_architecture_review.md",
-            LITE / "workflows" / "l2_architecture_review.md",
+            FULL / "archive" / "workflows" / "l2_architecture_review.md",
+            LITE / "archive" / "workflows" / "l2_architecture_review.md",
             ["Architecture Mandatory Checklist", "I/P/O", "FSM", "HAL", "P0:", "P1:", "P2:", "### A."],
         ),
         check_readme(),

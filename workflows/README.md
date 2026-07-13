@@ -6,18 +6,20 @@ Load one workflow first, then only the referenced prompts, references, and platf
 
 | File | Level | Trigger |
 |------|------|---------|
-| [l2_code_review.md](l2_code_review.md) | L2 | code review / audit / checker-guided review |
-| [l2_code_review_lite.md](l2_code_review_lite.md) | L2 | manual Lite-style review checklist |
-| [l2_project_review.md](l2_project_review.md) | L2 | project/workspace review before production |
-| [debug_crash.md](debug_crash.md) | L2-L3 | HardFault / deadlock / WDT / frozen system |
-| [l3_sdk_trim.md](l3_sdk_trim.md) | L3 | SDK trimming / demand-driven driver pruning |
-| [l3_new_module.md](l3_new_module.md) | L3 | new module / multitask MVP design |
-| [hw_sw_cocodebug.md](hw_sw_cocodebug.md) | L2 | hardware-software co-debug / IO planning / GPIO conflict / bring-up |
-| [l3_bring_up.md](l3_bring_up.md) | L3 | board bring-up / minimum system / peripheral validation |
-| [l2_memory_analysis.md](l2_memory_analysis.md) | L2 | memory analysis / baseline / leak and pool investigation |
-| [l3_lvgl_page.md](l3_lvgl_page.md) | L3 | LVGL page generation and MVP integration |
+| [l2_code_review.md](l2_code_review.md) | L2 | code review / audit |
+| [l2_code_review_lite.md](l2_code_review_lite.md) | L2 | lite manual review |
+| [l2_project_review.md](l2_project_review.md) | L2 | project/workspace review |
+| [l2_memory_analysis.md](l2_memory_analysis.md) | L2 | memory analysis / leak |
+| [hw_sw_cocodebug.md](hw_sw_cocodebug.md) | L2 | HW/SW co-debug / GPIO conflict |
+| [debug_crash.md](debug_crash.md) | L2-L3 | HardFault / WDT / deadlock / frozen |
+| [l3_lvgl_page.md](l3_lvgl_page.md) | L3 | LVGL page / manifest generation |
+| [l3_new_module.md](l3_new_module.md) | L3 | new module / multitask MVP |
+| [l3_bring_up.md](l3_bring_up.md) | L3 | board bring-up / peripheral validation |
+| [l3_sdk_trim.md](l3_sdk_trim.md) | L3 | SDK trimming |
 
-Archived maintainer workflows:
+App domain (manifest / multi-page scaffold) is covered by `l3_lvgl_page.md` via MCP `generate_ui(manifest_path=...)`.
+
+Architecture workflows (I/P/O, FSM/HFSM, HAL patterns):
 
 | File | Status |
 |------|--------|

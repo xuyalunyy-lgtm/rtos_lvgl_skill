@@ -474,6 +474,12 @@ WORKFLOWS = {
         "prompts": [],
         "description": "软硬联调",
     },
+    "app_manifest": {
+        "file": "workflows/l3_lvgl_page.md",
+        "constraint_shards": ["review", "media", "voice"],
+        "prompts": ["prompts/lvgl_thread_safety.txt"],
+        "description": "多页应用脚手架（manifest 子路径）",
+    },
 }
 
 # ── 约束分片映射 ──
