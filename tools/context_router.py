@@ -670,6 +670,7 @@ CONSTRAINT_SHARDS = {
     "voice": "references/constraint_voice.md",
     "ota": "references/constraint_ota.md",
     "recover": "references/constraint_recover.md",
+    "bluetooth": "references/constraint_bluetooth_protocol.md",
 }
 
 # ── 约束 ID → 分片映射 ──
@@ -683,7 +684,7 @@ CONSTRAINT_TO_SHARD = {
     "C33": "rtos", "C34": "rtos", "C35": "rtos",
     "C43": "rtos", "C44": "rtos",
     "C18": "platform", "C19": "platform", "C20": "platform", "C21": "platform",
-    "C23": "platform", "C42": "platform", "C45": "platform", "C46": "platform",
+    "C23": "platform", "C42": "platform", "C45": "platform", "C46": "bluetooth",
     "C25": "media", "C26": "media", "C27": "media",
     "C9": "ota", "C22": "ota", "C24": "ota",
     "C37": "recover", "C38": "recover", "C39": "recover",
@@ -1115,7 +1116,7 @@ def run_self_test() -> int:
     check("C3 adds micro-shard", any("micro_C03" in f["path"] for f in plan_c3["required_files"]))
 
     plan_c46 = build_load_plan("code_review", "esp32", "freertos", ["C46"])
-    check("C46 maps to platform shard", any("constraint_platform" in f["path"] for f in plan_c46["required_files"]))
+    check("C46 maps to bluetooth shard", any("constraint_bluetooth" in f["path"] for f in plan_c46["required_files"]))
     check("C46 is covered", "C46" not in plan_c46.get("uncovered_constraints", []))
 
     plan = build_load_plan("crash_debug", "esp32", "freertos")
