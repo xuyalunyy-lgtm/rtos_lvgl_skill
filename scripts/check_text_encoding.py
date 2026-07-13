@@ -30,17 +30,19 @@ MOJIBAKE_MARKERS = (
 )
 
 
-def iter_text_files(root: Path, max_files: int = 500) -> list[Path]:
+def iter_text_files(root: Path, max_files: int = 500) -> tuple[list[Path], bool]:
     files: list[Path] = []
+    truncated = False
     for path in root.rglob("*"):
         if not path.is_file() or path.suffix.lower() not in TEXT_SUFFIXES:
             continue
         if any(part in SKIP_DIRS for part in path.relative_to(root).parts):
             continue
-        files.append(path)
         if len(files) >= max_files:
+            truncated = True
             break
-    return sorted(files)
+        files.append(path)
+    return sorted(files), truncated
 
 
 def check_file(path: Path) -> list[str]:
@@ -57,13 +59,14 @@ def check_file(path: Path) -> list[str]:
     return issues
 
 
-def check_root(root: Path) -> list[str]:
+def check_root(root: Path) -> tuple[list[str], bool]:
     errors: list[str] = []
-    for path in iter_text_files(root):
+    files, truncated = iter_text_files(root)
+    for path in files:
         issues = check_file(path)
         for issue in issues:
             errors.append(f"{path.relative_to(root).as_posix()}: {issue}")
-    return errors
+    return errors, truncated
 
 
 def run_self_test() -> int:
@@ -76,6 +79,8 @@ def run_self_test() -> int:
         good_issues = check_file(good)
         bad_issues = check_file(bad)
         assert not good_issues, good_issues
+        files, truncated = iter_text_files(root, max_files=1)
+        assert len(files) == 1 and truncated
         assert bad_issues and "鈥" in bad_issues[0], bad_issues
     print("[text-encoding:self-test] all fixtures passed")
     return 0
@@ -89,7 +94,10 @@ def main() -> int:
     if args.self_test:
         return run_self_test()
 
-    errors = check_root(args.root.resolve())
+    errors, truncated = check_root(args.root.resolve())
+    if truncated:
+        print("[text-encoding] failed: scan stopped at the configured 500-file safety limit")
+        return 2
     if errors:
         print("[text-encoding] failed:")
         for error in errors:

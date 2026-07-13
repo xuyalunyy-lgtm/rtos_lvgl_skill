@@ -31,6 +31,55 @@ def _write(path: Path, payload: dict[str, Any]) -> None:
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="\n")
 
 
+def _validate_payload(run_id: str, payload: dict[str, Any]) -> None:
+    """Verify the manifest read model against its immutable event chain."""
+    if payload.get("schema_version") != 1 or payload.get("run_id") != run_id:
+        raise ValueError("run manifest identity mismatch")
+    stages = payload.get("stages")
+    if not isinstance(stages, list) or not stages:
+        raise ValueError("run manifest has no stages")
+
+    inputs = payload.get("inputs")
+    if not isinstance(inputs, dict):
+        raise ValueError("run manifest inputs are invalid")
+    design_path = inputs.get("design_path")
+    expected_design_hash = inputs.get("design_sha256")
+    if isinstance(design_path, str) and expected_design_hash:
+        if _hash_file(Path(design_path)) != expected_design_hash:
+            raise ValueError("run design artifact hash mismatch")
+
+    previous_hash: str | None = None
+    for sequence, stage in enumerate(stages, start=1):
+        if not isinstance(stage, dict) or stage.get("sequence") != sequence:
+            raise ValueError("run stage sequence is invalid")
+        event = event_path(run_id, sequence)
+        event_hash = _hash_file(event)
+        if event_hash is None:
+            raise ValueError(f"run event missing: {event.name}")
+        try:
+            event_payload = json.loads(event.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"run event is invalid: {event.name}") from exc
+        expected_event = {
+            "run_id": run_id,
+            "previous_event_sha256": previous_hash,
+            **stage,
+        }
+        if event_payload != expected_event:
+            raise ValueError(f"run event does not match manifest: {event.name}")
+        for artifact in stage.get("artifacts", []):
+            if not isinstance(artifact, dict):
+                raise ValueError("run artifact entry is invalid")
+            expected_hash = artifact.get("sha256")
+            raw_path = artifact.get("path")
+            if expected_hash and (not isinstance(raw_path, str) or _hash_file(Path(raw_path)) != expected_hash):
+                raise ValueError(f"run artifact hash mismatch: {artifact.get('name', 'unknown')}")
+        previous_hash = event_hash
+
+    if payload.get("status") != stages[-1].get("status"):
+        raise ValueError("run status does not match its latest event")
+
+
 def run_dir(run_id: str) -> Path:
     path = (RUNS_ROOT / run_id).resolve()
     if not path.is_relative_to(RUNS_ROOT.resolve()):
@@ -87,8 +136,7 @@ def load_run(run_id: str) -> dict[str, Any]:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
         raise ValueError(f"invalid run manifest for {run_id}: {exc}") from exc
-    if payload.get("run_id") != run_id:
-        raise ValueError("run manifest identity mismatch")
+    _validate_payload(run_id, payload)
     return payload
 
 

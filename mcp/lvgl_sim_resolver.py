@@ -209,33 +209,31 @@ def run_simulator(
     Returns:
         Result dict with render and tree paths.
     """
-    staged_runner = _stage_windows_runner(runner_path, output_dir)
-    executable = str(staged_runner) if staged_runner else runner_path
-    cmd = [
-        executable,
-        "--scene", _path_for_runner(scene_path),
-        "--output", _path_for_runner(output_dir),
-        "--width", str(width),
-        "--height", str(height),
-        "--render-time", str(render_time_ms),
-    ]
-    if asset_pack_path:
-        cmd.extend(["--assets", _path_for_runner(asset_pack_path)])
-    for font_id, font_path in sorted((font_bindings or {}).items()):
-        cmd.extend(["--font", f"{font_id}={_path_for_runner(font_path)}"])
-
+    staged_runner: Path | None = None
+    cmd = [runner_path]
     try:
-        try:
-            proc = subprocess.run(
-                cmd,
-                capture_output=True,
-                encoding="utf-8",
-                errors="replace",
-                timeout=timeout,
-            )
-        finally:
-            if staged_runner:
-                staged_runner.unlink(missing_ok=True)
+        staged_runner = _stage_windows_runner(runner_path, output_dir)
+        executable = str(staged_runner) if staged_runner else runner_path
+        cmd = [
+            executable,
+            "--scene", _path_for_runner(scene_path),
+            "--output", _path_for_runner(output_dir),
+            "--width", str(width),
+            "--height", str(height),
+            "--render-time", str(render_time_ms),
+        ]
+        if asset_pack_path:
+            cmd.extend(["--assets", _path_for_runner(asset_pack_path)])
+        for font_id, font_path in sorted((font_bindings or {}).items()):
+            cmd.extend(["--font", f"{font_id}={_path_for_runner(font_path)}"])
+
+        proc = subprocess.run(
+            cmd,
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=timeout,
+        )
 
         # Parse JSON output from stdout
         result = None
@@ -340,6 +338,12 @@ def run_simulator(
             "error": str(e),
             "command": cmd,
         }
+    finally:
+        if staged_runner:
+            try:
+                staged_runner.unlink(missing_ok=True)
+            except OSError:
+                pass
 
 
 def run_runner_self_test(runner_path: str, timeout: int = 20) -> dict[str, Any]:

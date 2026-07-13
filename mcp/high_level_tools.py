@@ -606,7 +606,7 @@ def compare_ui(args: dict[str, Any]) -> dict[str, Any]:
     try:
         resolved, run_id = _resolve_run_args(args, "compare")
         if run_id:
-            from mcp.lvgl_run import latest_artifact, load_run, stage_artifact
+            from mcp.lvgl_run import latest_artifact, load_run
             run = load_run(run_id)
             inherited = {
                 "actual_path": latest_artifact(run_id, "render_path"),
@@ -689,7 +689,7 @@ def apply_patch(args: dict[str, Any]) -> dict[str, Any]:
 
     if run_id:
         try:
-            from mcp.lvgl_run import latest_artifact, load_run
+            from mcp.lvgl_run import latest_artifact, load_run, stage_artifact
             run = load_run(str(run_id))
             if run.get("status") != "verified":
                 return _fail(

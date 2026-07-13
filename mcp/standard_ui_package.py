@@ -456,6 +456,7 @@ def generate_standard_ui_package(
     preview_warnings: list[str] = []
     font_subset_plan: list[dict[str, Any]] = []
     ttf_subsets_active = False
+    explicit_ttf = bool(font_path)
     try:
         ttf_source = _select_ttf(root, font_path)
     except ValueError as exc:
@@ -476,6 +477,14 @@ def generate_standard_ui_package(
             ttf_subsets_active = True
         elif font_subset_plan:
             preview_warnings.append("TTF subsets were incomplete; retained the package's existing LVGL fonts.")
+            if explicit_ttf:
+                return {
+                    "ok": False,
+                    "status": "font_generation_failed",
+                    "errors": preview_warnings,
+                    "font_source": str(ttf_source),
+                    "font_subset_active": False,
+                }
     c_path = out / "ui_interactive_scene_auto.c"
     source = c_path.read_text(encoding="utf-8")
     # Replace the status approximations with the supplied image cutouts. A
@@ -580,5 +589,8 @@ def generate_standard_ui_package(
         "symbols": contract["symbols"], "font_sources": contract["font_sources"],
         "spec_path": None if evidence_removed else str(render_spec_path),
         "render_validation": render_validation,
-        "delivery": delivery_result, "warnings": result.get("summary", {}).get("warnings", []),
+        "delivery": delivery_result,
+        "warnings": [*result.get("summary", {}).get("warnings", []), *preview_warnings],
+        "font_source": str(ttf_source) if ttf_source else None,
+        "font_subset_active": ttf_subsets_active,
     }

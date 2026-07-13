@@ -10,7 +10,7 @@ from pathlib import Path
 from PIL import Image
 
 from mcp import lvgl_run
-from mcp.high_level_tools import compare_ui, inspect_design, render_ui
+from mcp.high_level_tools import apply_patch, compare_ui, inspect_design, render_ui
 from mcp.lvgl_capabilities import get_capabilities, verification_plan
 
 
@@ -118,6 +118,42 @@ class TestLvglRunLedger(unittest.TestCase):
         # state must not become verified after the failed/preview path.
         result = compare_ui({"run_id": run["run_id"], "actual_path": str(render_path)})
         self.assertNotEqual(result.get("run_status"), "verified")
+
+    def test_tampered_manifest_is_rejected(self) -> None:
+        run = lvgl_run.create_run(
+            design_path=str(self.design),
+            display={"width": 480, "height": 800},
+            lvgl_version="v9",
+            artifacts={},
+        )
+        path = lvgl_run.manifest_path(run["run_id"])
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        payload["status"] = "verified"
+        path.write_text(json.dumps(payload), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "event does not match manifest|status does not match"):
+            lvgl_run.load_run(run["run_id"])
+
+    def test_verified_run_can_apply_without_name_error(self) -> None:
+        generated = Path(self.tempdir.name) / "generated"
+        generated.mkdir()
+        page = generated / "page.c"
+        page.write_text("int page;\n", encoding="utf-8")
+        run = lvgl_run.create_run(
+            design_path=str(self.design),
+            display={"width": 480, "height": 800},
+            lvgl_version="v9",
+            artifacts={},
+        )
+        lvgl_run.record_stage(
+            run["run_id"],
+            stage="generate",
+            status="generated",
+            artifacts={"c_path": str(page), "output_dir": str(generated)},
+        )
+        lvgl_run.record_stage(run["run_id"], stage="compare", status="verified", artifacts={})
+        result = apply_patch({"run_id": run["run_id"], "target_dir": str(Path(self.tempdir.name) / "target")})
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["mode"], "dry_run")
 
 
 if __name__ == "__main__":
