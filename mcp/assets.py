@@ -146,32 +146,35 @@ def read_image_with_system_drawing(path: Path) -> tuple[int, int, list[tuple[int
     path = path.resolve()
     with tempfile.TemporaryDirectory(prefix="lvgl_img_") as tmp:
         raw_path = Path(tmp) / "pixels.rgb"
+        # Pass paths via environment to avoid PowerShell injection
         script = textwrap.dedent(
-            f"""
+            """
             Add-Type -AssemblyName System.Drawing
-            $src = {json.dumps(str(path), ensure_ascii=False)}
-            $raw = {json.dumps(str(raw_path), ensure_ascii=False)}
+            $src = $env:IMG_SRC
+            $raw = $env:IMG_RAW
             $img = [System.Drawing.Bitmap]::FromFile($src)
-            try {{
+            try {
                 $bytes = New-Object byte[] ($img.Width * $img.Height * 3)
                 $idx = 0
-                for ($y = 0; $y -lt $img.Height; $y++) {{
-                    for ($x = 0; $x -lt $img.Width; $x++) {{
+                for ($y = 0; $y -lt $img.Height; $y++) {
+                    for ($x = 0; $x -lt $img.Width; $x++) {
                         $p = $img.GetPixel($x, $y)
                         $bytes[$idx] = $p.R; $idx++
                         $bytes[$idx] = $p.G; $idx++
                         $bytes[$idx] = $p.B; $idx++
-                    }}
-                }}
+                    }
+                }
                 [System.IO.File]::WriteAllBytes($raw, $bytes)
-                @{{width=$img.Width; height=$img.Height}} | ConvertTo-Json -Compress
-            }} finally {{
-                if ($null -ne $img) {{ $img.Dispose() }}
-            }}
+                @{width=$img.Width; height=$img.Height} | ConvertTo-Json -Compress
+            } finally {
+                if ($null -ne $img) { $img.Dispose() }
+            }
             """
         )
+        env = {**os.environ, "IMG_SRC": str(path), "IMG_RAW": str(raw_path)}
         proc = subprocess.run(
             ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script],
+            env=env,
             capture_output=True,
             encoding="utf-8",
             errors="replace",

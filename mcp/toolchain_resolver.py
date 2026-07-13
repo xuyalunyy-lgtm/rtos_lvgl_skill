@@ -267,10 +267,10 @@ def _extract_bundled_archive(archive: Path, platform: str, target: Path) -> None
             if backup.exists() and not target.exists():
                 backup.replace(target)
             raise
-        if backup.exists():
-            shutil.rmtree(backup)
     finally:
+        # Clean up both staging and backup in all exit paths
         shutil.rmtree(staging, ignore_errors=True)
+        shutil.rmtree(backup, ignore_errors=True)
 
 
 def ensure_toolchain(

@@ -42,8 +42,16 @@ def main() -> int:
     destination.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.NamedTemporaryFile(dir=destination.parent, delete=False) as stream:
         temporary = Path(stream.name)
+        try:
+            # Write inside the with block to avoid race between close and copy
+            with open(archive, "rb") as src:
+                shutil.copyfileobj(src, stream)
+            stream.flush()
+            os.fsync(stream.fileno())
+        except Exception:
+            temporary.unlink(missing_ok=True)
+            raise
     try:
-        shutil.copyfile(archive, temporary)
         checksum = sha256_file(temporary)
         temporary.replace(destination)
     finally:

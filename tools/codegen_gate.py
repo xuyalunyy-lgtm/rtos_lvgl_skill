@@ -265,7 +265,8 @@ def run_gate(dir_path: str, manifest_path: str, platform: str = "", strict: bool
         if rtos_model:
             for analyzer_name, module_name, func_name in REQUIRED_ANALYZERS:
                 try:
-                    mod = __import__(module_name)
+                    import importlib
+                    mod = importlib.import_module(module_name)
                     func = getattr(mod, func_name)
                     result = func(rtos_model)
                     analyzer_reports[analyzer_name] = result
