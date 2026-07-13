@@ -1209,6 +1209,42 @@ def run_self_test() -> int:
         has_constraint = any("constraint_" in p or "core_rules" in p for p in paths)
         check(f"{key}: has workflow doc", has_workflow_doc)
         check(f"{key}: has constraint doc", has_constraint)
+
+    # ── classify_request tests ──
+    CLASSIFY_CASES = [
+        # (request, expected_workflow_or_None, expect_clarification)
+        ("Review this ESP32 cJSON code", "code_review", False),
+        ("帮我审查这个代码", "code_review", False),
+        ("Analyze heap fragmentation", "memory_analysis", False),
+        ("内存泄漏问题", "memory_analysis", False),
+        ("Project review before release", "project_review", False),
+        ("GPIO conflict between SPI and I2C", "hw_sw_debug", False),
+        ("ESP32 crash: Guru Meditation Error", "crash_debug", False),
+        ("设备死机看门狗重启", "crash_debug", False),
+        ("Generate an LVGL page from design", "lvgl_page", False),
+        ("根据设计截图生成 LVGL 界面", "lvgl_page", False),
+        ("Generate multi-page app with manifest", "app_manifest", False),
+        ("用 manifest 生成多页应用", "app_manifest", False),
+        ("Create a new sensor module", "new_module", False),
+        ("新建一个 MQTT 模块", "new_module", False),
+        ("Board bring-up for STM32", "bring_up", False),
+        ("新板子验证外设", "bring_up", False),
+        ("Trim unused SDK drivers", "sdk_trim", False),
+        ("裁剪 SDK 只保留 WiFi", "sdk_trim", False),
+        # Clarification cases
+        ("help", None, True),
+        ("帮我看看这个问题", None, True),
+        ("LVGL page crashes with HardFault, need both", None, True),
+    ]
+    for request, expected_wf, expect_clar in CLASSIFY_CASES:
+        result = classify_request(request)
+        is_clar = result.get("clarification_required", False)
+        actual_wf = result.get("workflow") if not is_clar else None
+        if expect_clar:
+            check(f"classify: '{request[:30]}...' → clarification", is_clar)
+        else:
+            check(f"classify: '{request[:30]}...' → {expected_wf}", actual_wf == expected_wf and not is_clar)
+
     print(f"\nSelf-test: {passed} passed, {failed} failed")
     return 0 if failed == 0 else 1
 
