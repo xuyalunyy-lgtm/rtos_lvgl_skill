@@ -11,6 +11,24 @@ from mcp.interactive_scene_auto import generate_interactive_scene_page
 from mcp.lvgl_ir.asset_pack import encode_pack, generate_manifest, list_pack_symbols, pack_asset, write_lvgl_v9_c_assets
 
 _FONT_SYMBOL = re.compile(r"\b(?:const\s+)?lv_font_t\s+([A-Za-z_]\w*)\s*=")
+_STATUS_VISIBLE_DEFAULTS = {
+    "wifi": (297, 20, 31, 23),
+    "bluetooth": (363, 18, 21, 29),
+    "battery": (413, 23, 36, 18),
+}
+
+
+def _status_icon_layout(key: str, path: Path, resolved: dict[str, Any] | None = None) -> tuple[int, int, int, int]:
+    """Keep status icon size equal to its source texture canvas."""
+    from PIL import Image
+
+    with Image.open(path) as image:
+        width, height = image.size
+        alpha_bbox = image.convert("RGBA").getchannel("A").getbbox() or (0, 0, width, height)
+    default = _STATUS_VISIBLE_DEFAULTS.get(key, (0, 0, width, height))
+    estimated = (resolved or {}).get("estimated_bbox") or default
+    visible_x, visible_y = int(estimated[0]), int(estimated[1])
+    return visible_x - int(alpha_bbox[0]), visible_y - int(alpha_bbox[1]), width, height
 
 
 def _fresh_directory(path: Path) -> None:
@@ -128,7 +146,7 @@ def generate_standard_ui_package(
         assets += [(f"icon_{key}", value) for key, value in sorted(systems.items())]
         # Compatibility mode has no design contract, so it remains explicitly
         # inferred and can never become verified.
-        packed = [pack_asset(path, symbol, "AUTO", auto_crop=True) for symbol, path in assets]
+        packed = [pack_asset(path, symbol, "AUTO", auto_crop=not symbol.startswith("icon_")) for symbol, path in assets]
         failures = [item.get("error", item.get("symbol", "unknown")) for item in packed if not item.get("ok")]
         if failures:
             return {"ok": False, "errors": [f"asset packing failed: {', '.join(map(str, failures))}"]}
@@ -195,10 +213,19 @@ def generate_standard_ui_package(
     # Replace the status approximations with the supplied image cutouts. A
     # missing cutout remains dynamic, preserving runtime behaviour.
     snippets = []
-    for key, x, y, w, h in (("wifi", 297, 20, 31, 23), ("bluetooth", 363, 18, 21, 29), ("battery", 413, 23, 36, 18)):
+    resolved_status = {item["symbol"].removeprefix("icon_"): item for item in system_items} if contract_mode else {}
+    for key, path in sorted(systems.items()):
         symbol = f"icon_{key}"
         if any(name == symbol for name, _ in assets):
-            snippets.append(f"    lv_obj_t *system_{key} = lv_image_create(s_page);\n    lv_image_set_src(system_{key}, &{symbol});\n    lv_image_set_inner_align(system_{key}, LV_IMAGE_ALIGN_STRETCH);\n    lv_obj_set_pos(system_{key}, {x}, {y});\n    lv_obj_set_size(system_{key}, {w}, {h});")
+            x, y, w, h = _status_icon_layout(key, path, resolved_status.get(key))
+            snippets.append(
+                f"    lv_obj_t *system_{key} = lv_image_create(s_page);\n"
+                f"    lv_image_set_src(system_{key}, &{symbol});\n"
+                f"    lv_image_set_inner_align(system_{key}, LV_IMAGE_ALIGN_CENTER);\n"
+                f"    /* LVGL_LAYOUT_EXCEPTION: status icon uses its source texture canvas without scaling. */\n"
+                f"    lv_obj_set_pos(system_{key}, {x}, {y});\n"
+                f"    lv_obj_set_size(system_{key}, {w}, {h});"
+            )
     if snippets:
         source = re.sub(r"    lv_obj_t \*favorite =.*?(?=\n    s_top_prompt)", "\n\n".join(snippets), source, count=1, flags=re.DOTALL)
         c_path.write_text(source, encoding="utf-8", newline="\n")

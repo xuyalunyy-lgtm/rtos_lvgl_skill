@@ -93,6 +93,20 @@ def test_unique_wifi_fuzzy_match_and_close_candidates_are_rejected(tmp_path: Pat
     assert len(report["items"][0]["candidates"]) >= 2
 
 
+def test_status_icon_keeps_source_canvas_without_alpha_crop(tmp_path: Path) -> None:
+    root = tmp_path / "ui"
+    icon = root / "assets" / "icons" / "system" / "icon_wifi.png"
+    _rgba(icon, (48, 48), 8)
+    manifest = _manifest(root, [_intent("icon_wifi", "status_icon", "icon_wifi.png")])
+    result = resolve_asset_contract(manifest, package_root=root, asset_root=root / "assets", output_dir=tmp_path / "out")
+    assert result["ok"]
+    resolved = result["resolved_assets"][0]
+    assert resolved["original_size"] == [48, 48]
+    assert resolved["converted_size"] == [48, 48]
+    assert resolved["crop_offset"] == [0, 0]
+    assert resolved["flash_bytes"] == 48 * 48 * 3
+
+
 def test_path_escape_wrong_directory_and_duplicate_source_are_rejected(tmp_path: Path) -> None:
     root = tmp_path / "ui"
     _rgba(root / "assets" / "icons" / "system" / "icon_wifi.png")

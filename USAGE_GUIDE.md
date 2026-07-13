@@ -253,6 +253,58 @@ generate_ui(ui_dir="ui/", output_dir="artifacts/generated")
 
 系统会自动发现资产、打包、生成互动场景页。
 
+##### 状态栏图标尺寸规则（重要）
+
+`assets/icons/system/` 中的 `wifi`、`bluetooth`、`battery` 等 `status_icon` 必须以**原始贴图画布尺寸**生成，不能用设计检测框的宽高再次缩放。
+
+例如三张 PNG 均为 `48×48`，即使实际可见图形只占其中一部分，生成结果也必须满足：
+
+| 项目 | 要求 |
+|------|------|
+| `lv_image_dsc_t.header.w/h` | `48×48`，与原始 PNG 一致 |
+| LVGL 图片对象尺寸 | `48×48`，与描述符一致 |
+| 透明 padding | 必须保留，不执行 Alpha 自动裁边 |
+| 图片对齐 | 使用 `LV_IMAGE_ALIGN_CENTER`，禁止 `LV_IMAGE_ALIGN_STRETCH` |
+| 运行时缩放 | 禁止；状态栏图标按贴图原尺寸显示 |
+
+透明 padding 是贴图定位合同的一部分，也能避免抗锯齿边缘紧贴对象边界后被 LVGL 裁掉。设计分析得到的 `estimated_bbox` 表示**可见图形区域**，只用于回推贴图画布坐标，不能覆盖贴图宽高：
+
+```text
+object_x = estimated_visible_x - alpha_bbox.x0
+object_y = estimated_visible_y - alpha_bbox.y0
+object_w = source_image_width
+object_h = source_image_height
+```
+
+以当前 48×48 系统图标为例：
+
+| 图标 | Alpha 有效区域 | LVGL 画布坐标与尺寸 |
+|------|----------------|---------------------|
+| Wi-Fi | `[8, 12, 42, 37]` | `(289, 8, 48, 48)` |
+| Bluetooth | `[15, 10, 31, 38]` | `(348, 8, 48, 48)` |
+| Battery | `[4, 14, 44, 34]` | `(409, 9, 48, 48)` |
+
+生成代码应采用以下形式：
+
+```c
+lv_obj_t *system_wifi = lv_image_create(page);
+lv_image_set_src(system_wifi, &icon_wifi);
+lv_image_set_inner_align(system_wifi, LV_IMAGE_ALIGN_CENTER);
+/* LVGL_LAYOUT_EXCEPTION: status icon uses its source texture canvas without scaling. */
+lv_obj_set_pos(system_wifi, 289, 8);
+lv_obj_set_size(system_wifi, 48, 48);
+```
+
+禁止生成以下组合：
+
+```c
+/* 错误：描述符已裁边，又被压入更小的设计检测框。 */
+lv_image_set_inner_align(system_wifi, LV_IMAGE_ALIGN_STRETCH);
+lv_obj_set_size(system_wifi, 31, 23);
+```
+
+验收时必须同时核对：原始 PNG 尺寸、resolved manifest 的 `original_size/converted_size/crop_offset`、C 描述符尺寸和 LVGL 对象尺寸。对于 `status_icon`，应满足 `original_size == converted_size == object_size` 且 `crop_offset == [0, 0]`。
+
 #### 2c. 多页应用生成（Manifest v2）
 
 创建 `manifest.json` 定义多页应用：

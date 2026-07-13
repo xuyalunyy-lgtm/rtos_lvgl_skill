@@ -60,7 +60,8 @@ def test_standard_package_trims_cutout_padding_and_fits_v92_images(tmp_path: Pat
     source = (tmp_path / "out" / "ui_interactive_scene_auto.c").read_text(encoding="utf-8")
     manifest = __import__("json").dumps(result["asset_manifest"])
     assert "lv_image_set_inner_align(pet, LV_IMAGE_ALIGN_STRETCH);" in source
-    assert "lv_image_set_inner_align(system_battery, LV_IMAGE_ALIGN_STRETCH);" in source
+    assert "lv_image_set_inner_align(system_battery, LV_IMAGE_ALIGN_CENTER);" in source
+    assert "lv_obj_set_size(system_battery, 48, 48);" in source
     assert '"symbol": "ui_pet"' in manifest
     assert '"width": 26' in manifest
     assert '"height": 33' in manifest

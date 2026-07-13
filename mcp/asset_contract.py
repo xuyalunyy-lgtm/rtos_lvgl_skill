@@ -255,7 +255,11 @@ def _inspect_and_pack(path: Path, intent: dict[str, Any], display: dict[str, Any
     elif asset_type in {"transparent_character", "status_icon", "control_icon"}:
         if not has_alpha_band or not meaningful_alpha:
             return {"ok": False, "reason": "required_effective_alpha_missing", "mode": mode, "alpha_extrema": [alpha_min, alpha_max]}
-        color_format, auto_crop = "RGB565A8", True
+        # Status-bar icons keep their source canvas. Their transparent padding
+        # is part of the placement contract and prevents antialiased edge
+        # pixels from touching the LVGL object's clipping boundary.
+        color_format = "RGB565A8"
+        auto_crop = asset_type != "status_icon"
     else:
         color_format, auto_crop = ("RGB565A8", True) if meaningful_alpha else ("RGB565", False)
     packed = pack_asset(path, str(intent["symbol"]), color_format, auto_crop=auto_crop)
