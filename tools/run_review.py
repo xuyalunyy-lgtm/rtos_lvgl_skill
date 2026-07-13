@@ -26,6 +26,20 @@ TOOLS_DIR = Path(__file__).resolve().parent
 SKILL_ROOT = TOOLS_DIR.parent
 
 
+def _read_skill_version() -> str:
+    """Read version from SKILL.md frontmatter."""
+    import re
+    try:
+        text = (SKILL_ROOT / "SKILL.md").read_text(encoding="utf-8")
+        m = re.search(r"version:\s*(\d+\.\d+\.\d+)", text)
+        return m.group(1) if m else "0.0.0"
+    except OSError:
+        return "0.0.0"
+
+
+SKILL_VERSION = _read_skill_version()
+
+
 def checker_env() -> dict[str, str]:
     """Avoid UnicodeEncodeError from checker emoji output under Windows GBK console."""
     env = os.environ.copy()
@@ -486,7 +500,7 @@ def main() -> int:
                 r["suites"] = list(spec.suites)
 
         report = {
-            "version": "35.0.0",
+            "version": SKILL_VERSION,
             "exit_code": exit_code,
             "files_checked": len(c_files),
             "suites": ["default"],
@@ -640,7 +654,7 @@ def main() -> int:
             issues=ev_issues,
             reproduce_commands=[{"command": repro_cmd, "description": "复现审查"}],
             metadata={
-                "tool_version": "9.0.1",
+                "tool_version": SKILL_VERSION,
                 "files_checked": len(c_files),
                 "exit_code": exit_code,
                 "total_checkers_run": sum(1 for r in (all_results if args.json else []) if not r.get("skipped")),
