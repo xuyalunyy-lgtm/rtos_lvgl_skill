@@ -752,8 +752,14 @@ def main() -> int:
             print("已取消。")
             return 0
 
+        # Safety: validate file path is under project root
+        target = Path(args.file).resolve()
+        if not target.is_relative_to(ROOT.resolve()):
+            print(f"ERROR: 文件路径不在项目根目录内: {args.file}")
+            return 1
+
         # 应用（当前版本：将模板追加到文件末尾作为参考）
-        with open(args.file, "a", encoding="utf-8") as f:
+        with open(target, "a", encoding="utf-8") as f:
             f.write("\n\n/* === auto_fix_engine 补丁参考 === */\n")
             for action in plan.actions:
                 f.write(f"\n/* [{action['risk_level']}] {action['fix_type']}: {action['suggestion']} */\n")

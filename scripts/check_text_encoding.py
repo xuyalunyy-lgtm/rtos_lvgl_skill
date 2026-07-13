@@ -30,7 +30,7 @@ MOJIBAKE_MARKERS = (
 )
 
 
-def iter_text_files(root: Path) -> list[Path]:
+def iter_text_files(root: Path, max_files: int = 500) -> list[Path]:
     files: list[Path] = []
     for path in root.rglob("*"):
         if not path.is_file() or path.suffix.lower() not in TEXT_SUFFIXES:
@@ -38,6 +38,8 @@ def iter_text_files(root: Path) -> list[Path]:
         if any(part in SKIP_DIRS for part in path.relative_to(root).parts):
             continue
         files.append(path)
+        if len(files) >= max_files:
+            break
     return sorted(files)
 
 

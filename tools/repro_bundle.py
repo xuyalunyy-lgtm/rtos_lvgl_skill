@@ -83,19 +83,21 @@ def _collect_platform_profile(platform_name: str) -> dict:
 
 def _collect_config_snapshot(dir_path: str) -> dict:
     """Collect build configuration snapshot."""
+    import itertools
     config = {}
     root = Path(dir_path)
+    max_files = 50  # Limit rglob results to prevent resource exhaustion
 
     # sdkconfig.defaults
     for name in ["sdkconfig.defaults", "sdkconfig", "prj.conf", "Kconfig"]:
-        for p in root.rglob(name):
+        for p in itertools.islice(root.rglob(name), max_files):
             try:
                 config[str(p.relative_to(root))] = p.read_text(encoding="utf-8", errors="replace")[:4096]
             except Exception:
                 pass
 
     # CMakeLists.txt
-    for p in root.rglob("CMakeLists.txt"):
+    for p in itertools.islice(root.rglob("CMakeLists.txt"), max_files):
         try:
             rel = str(p.relative_to(root))
             if len(rel) < 100:  # skip deeply nested
