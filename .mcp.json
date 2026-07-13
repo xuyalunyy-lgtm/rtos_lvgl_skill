@@ -7,6 +7,15 @@
         "PYTHONUTF8": "1",
         "PYTHONIOENCODING": "utf-8"
       }
+    },
+    "mqtt-mcp": {
+      "command": "python",
+      "args": ["mcp/mqtt_server.py"],
+      "env": {
+        "PYTHONUTF8": "1",
+        "PYTHONIOENCODING": "utf-8",
+        "MQTT_ALLOWED_HOSTS": "localhost,127.0.0.1"
+      }
     }
   }
 }
