@@ -31,10 +31,10 @@ RISK_BUDGET = {
     "pure_controller": {"p1": 5, "p2": 10},
 }
 
-def run_cmd(cmd: str, timeout: int = 120) -> dict:
+def run_cmd(cmd: list[str], timeout: int = 120) -> dict:
     try:
         proc = subprocess.run(
-            cmd, shell=True, capture_output=True, encoding="utf-8", errors="replace",
+            cmd, capture_output=True, encoding="utf-8", errors="replace",
             timeout=timeout, cwd=str(ROOT), env={**os.environ, "PYTHONUTF8": "1"},
         )
         return {"exit_code": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr}
@@ -51,7 +51,7 @@ def check_preset(preset: str, tmpdir: Path) -> dict:
     manifest_path = project_dir / "generation_manifest.json"
 
     # 1. Generate
-    r = run_cmd(f'{sys.executable} "{TOOLS / "project_scaffold.py"}" --name {project_name} --preset {preset} --platform esp32 --outdir "{tmpdir / project_name}"')
+    r = run_cmd([sys.executable, str(TOOLS / "project_scaffold.py"), "--name", project_name, "--preset", preset, "--platform", "esp32", "--outdir", str(tmpdir / project_name)])
     if r["exit_code"] != 0:
         return {"preset": preset, "passed": False, "errors": [f"scaffold failed: {r.get('error', r.get('stderr', '')[:200])}"]}
 
@@ -78,7 +78,7 @@ def check_preset(preset: str, tmpdir: Path) -> dict:
             missing_cmds.append(a)
 
     # 5. Run codegen_gate --strict --json
-    r = run_cmd(f'{sys.executable} "{TOOLS / "codegen_gate.py"}" --dir "{project_dir}" --manifest "{manifest_path}" --platform esp32 --strict --json')
+    r = run_cmd([sys.executable, str(TOOLS / "codegen_gate.py"), "--dir", str(project_dir), "--manifest", str(manifest_path), "--platform", "esp32", "--strict", "--json"])
     if r["exit_code"] != 0 and r["exit_code"] != 1:
         return {"preset": preset, "passed": False, "errors": [f"gate abnormal: exit={r['exit_code']}"]}
 

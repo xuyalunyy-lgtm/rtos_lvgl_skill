@@ -34,11 +34,11 @@ def _env() -> dict:
     return env
 
 
-def _run(cmd: str, timeout: int = 120) -> dict:
+def _run(cmd: list[str], timeout: int = 120) -> dict:
     """Run command, return {exit_code, stdout, stderr, error}."""
     try:
         proc = subprocess.run(
-            cmd, shell=True, capture_output=True,
+            cmd, capture_output=True,
             encoding="utf-8", errors="replace",
             timeout=timeout, cwd=str(ROOT), env=_env(),
         )
@@ -60,7 +60,7 @@ def _run(cmd: str, timeout: int = 120) -> dict:
 def test_code_review() -> dict:
     """Test code review: run_review.py --dir examples --json --evidence"""
     evidence_file = OUT_DIR / "review_evidence.json"
-    cmd = f'{sys.executable} "{TOOLS / "run_review.py"}" --dir examples --json --evidence "{evidence_file}"'
+    cmd = [sys.executable, str(TOOLS / "run_review.py"), "--dir", "examples", "--json", "--evidence", str(evidence_file)]
     result = _run(cmd, timeout=300)
 
     checks = []
@@ -93,7 +93,7 @@ def test_code_review() -> dict:
 def test_crash_analysis() -> dict:
     """Test crash analysis: repro_bundle.py --workflow debug_crash"""
     output_file = OUT_DIR / "crash_bundle.json"
-    cmd = f'{sys.executable} "{TOOLS / "repro_bundle.py"}" --workflow debug_crash --dir examples --platform esp32 --output "{output_file}"'
+    cmd = [sys.executable, str(TOOLS / "repro_bundle.py"), "--workflow", "debug_crash", "--dir", "examples", "--platform", "esp32", "--output", str(output_file)]
     result = _run(cmd)
 
     checks = []
@@ -121,7 +121,7 @@ def test_generate_module() -> dict:
     if outdir.exists():
         shutil.rmtree(outdir)
 
-    cmd = f'{sys.executable} "{TOOLS / "module_contract_gen.py"}" --modules audio_player display_mgr --outdir "{outdir}"'
+    cmd = [sys.executable, str(TOOLS / "module_contract_gen.py"), "--modules", "audio_player", "display_mgr", "--outdir", str(outdir)]
     result = _run(cmd)
 
     checks = []
@@ -150,9 +150,9 @@ def test_generate_project() -> dict:
     if outdir.exists():
         shutil.rmtree(outdir)
 
-    cmd = (f'{sys.executable} "{TOOLS / "project_scaffold.py"}" '
-           f'--name test_voice --preset voice-screen --platform esp32 '
-           f'--outdir "{outdir}" --evidence "{evidence_file}"')
+    cmd = [sys.executable, str(TOOLS / "project_scaffold.py"),
+           "--name", "test_voice", "--preset", "voice-screen", "--platform", "esp32",
+           "--outdir", str(outdir), "--evidence", str(evidence_file)]
     result = _run(cmd)
 
     checks = []
@@ -191,9 +191,9 @@ def test_generate_project() -> dict:
 def test_auto_fix_plan() -> dict:
     """Test auto-fix plan: auto_fix_engine.py --plan"""
     evidence_file = OUT_DIR / "fixplan_evidence.json"
-    cmd = (f'{sys.executable} "{TOOLS / "auto_fix_engine.py"}" '
-           f'examples/bad_cjson_leak.c --checker cjson --plan --json '
-           f'--evidence "{evidence_file}"')
+    cmd = [sys.executable, str(TOOLS / "auto_fix_engine.py"),
+           "examples/bad_cjson_leak.c", "--checker", "cjson", "--plan", "--json",
+           "--evidence", str(evidence_file)]
     result = _run(cmd)
 
     checks = []

@@ -89,7 +89,10 @@ def _trace(event: str, **fields: Any) -> None:
     if not raw_path:
         return
     try:
-        path = Path(raw_path)
+        path = Path(raw_path).resolve()
+        # Safety: only write trace under project root
+        if not path.is_relative_to(ROOT.resolve()):
+            return
         path.parent.mkdir(parents=True, exist_ok=True)
         record = {"event": event, **fields}
         with path.open("a", encoding="utf-8", newline="\n") as stream:
