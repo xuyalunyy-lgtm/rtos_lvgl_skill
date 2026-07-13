@@ -1076,9 +1076,9 @@ static void init_styles(void)
     lv_style_init(&s_panel_style);
     lv_style_set_radius(&s_panel_style, {int(panel['radius'])});
     lv_style_set_bg_color(&s_panel_style, lv_color_hex(0xFFFFFF));
-    lv_style_set_bg_opa(&s_panel_style, LV_OPA_24);
+    lv_style_set_bg_opa(&s_panel_style, (lv_opa_t)61);
     lv_style_set_border_color(&s_panel_style, lv_color_hex(0xFFFFFF));
-    lv_style_set_border_opa(&s_panel_style, LV_OPA_32);
+    lv_style_set_border_opa(&s_panel_style, (lv_opa_t)82);
     lv_style_set_border_width(&s_panel_style, 1);
 
     lv_style_init(&s_top_style);

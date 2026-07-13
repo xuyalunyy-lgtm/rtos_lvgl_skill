@@ -456,7 +456,7 @@ def render_runtime_c_support(
                 "        return;",
                 "    }",
                 f"    if (msg->target != NULL && {event_name} != 0U) {{",
-                f"        lv_event_send(msg->target, {event_name}, msg->payload);",
+                f"        lv_obj_send_event(msg->target, {event_name}, msg->payload);",
                 "    }",
                 "    UI_ASYNC_FREE(msg);",
                 "}",

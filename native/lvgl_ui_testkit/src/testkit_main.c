@@ -122,11 +122,10 @@ int main(int argc, char **argv)
         "  \"not_blank\": %s,\n"
         "  \"framebuffer_bytes\": %d\n"
         "}\n",
-        TESTKIT_VERSION, LV_VERSION_INFO, ui_test_page_name(), width, height,
+        TESTKIT_VERSION, LVGL_VERSION_INFO, ui_test_page_name(), width, height,
         settle_frames, screenshot_ok ? "true" : "false", tree_ok ? "true" : "false",
         changed_ratio, not_blank ? "true" : "false", width * height * 2);
     fclose(report);
     fb_display_destroy(display);
     return screenshot_ok && tree_ok && not_blank ? 0 : 6;
 }
-

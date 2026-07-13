@@ -71,7 +71,9 @@
 
 /* Runtime loading of official LVGL .bin fonts for native verification. */
 #define LV_USE_FS_STDIO         1
-#define LV_FS_STDIO_LETTER      '\0'
+#define LV_FS_STDIO_LETTER      'S'
+#define LV_FS_STDIO_PATH        ""
+#define LV_FS_STDIO_CACHE_SIZE  0
 
 /* ── Image decoder ─────────────────────────────────────────────── */
 

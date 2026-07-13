@@ -29,6 +29,15 @@ def test_testkit_compiles_real_page_without_scene_protocol() -> None:
     assert "scene.bin" not in main
 
 
+def test_generated_v9_code_uses_public_event_api_and_valid_opacity() -> None:
+    codegen = (ROOT / "mcp" / "codegen.py").read_text(encoding="utf-8")
+    scene = (ROOT / "mcp" / "interactive_scene_auto.py").read_text(encoding="utf-8")
+    assert "lv_obj_send_event(msg->target" in codegen
+    assert "lv_event_send(msg->target" not in codegen
+    assert "LV_OPA_24" not in scene
+    assert "LV_OPA_32" not in scene
+
+
 def test_90_percent_gate_requires_all_dimensions() -> None:
     passing = {
         "hard_gates_pass": True,
