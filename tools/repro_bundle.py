@@ -106,22 +106,26 @@ def _collect_config_snapshot(dir_path: str) -> dict:
     return config
 
 
-def _run_command(cmd: str, description: str = "") -> dict:
+def _run_command(cmd: str | list[str], description: str = "") -> dict:
     """Run a command and capture output."""
+    import shlex
     try:
+        cmd_parts = shlex.split(cmd) if isinstance(cmd, str) else cmd
         proc = subprocess.run(
-            cmd, shell=True, capture_output=True,
+            cmd_parts, capture_output=True,
             encoding="utf-8", errors="replace", timeout=60,
         )
+        cmd_str = cmd if isinstance(cmd, str) else " ".join(cmd)
         return {
-            "command": cmd,
+            "command": cmd_str,
             "description": description,
             "exit_code": proc.returncode,
             "stdout": proc.stdout[:2048],
             "stderr": proc.stderr[:1024],
         }
     except subprocess.TimeoutExpired:
-        return {"command": cmd, "description": description, "exit_code": -1, "error": "timeout"}
+        cmd_str = cmd if isinstance(cmd, str) else " ".join(cmd)
+        return {"command": cmd_str, "description": description, "exit_code": -1, "error": "timeout"}
     except Exception as e:
         return {"command": cmd, "description": description, "exit_code": -1, "error": str(e)}
 
@@ -175,10 +179,10 @@ def _collect_git_snapshot(dir_path: str) -> dict:
 def _run_checkers(dir_path: str, platform_name: str = "freertos") -> list[dict]:
     """Run default checker suite and collect results."""
     results = []
-    cmd = f'{sys.executable} "{TOOLS_DIR / "run_review.py"}" --dir "{dir_path}" --platform {platform_name} --json'
+    cmd_parts = [sys.executable, str(TOOLS_DIR / "run_review.py"), "--dir", dir_path, "--platform", platform_name, "--json"]
     try:
         proc = subprocess.run(
-            cmd, shell=True, capture_output=True,
+            cmd_parts, capture_output=True,
             encoding="utf-8", errors="replace", timeout=300,
             cwd=str(SKILL_ROOT),
         )

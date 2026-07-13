@@ -612,13 +612,26 @@ def phase_verify(job: JobDef, iteration: int = 0) -> dict:
     if not passed:
         all_passed = False
 
-    # 4. Custom verification commands
+    # 4. Custom verification commands (validate against dangerous patterns)
     for vc in job.verification_commands:
         cmd = vc.get("cmd", "")
         timeout = vc.get("timeout_seconds", 120)
+
+        # Safety: block dangerous command patterns
+        cmd_lower = cmd.lower()
+        blocked = any(re.search(pat, cmd_lower) for pat in DANGEROUS_COMMANDS)
+        if blocked:
+            checks.append({"name": vc.get("description", cmd), "passed": False,
+                           "output": "BLOCKED: command matches dangerous pattern"})
+            all_passed = False
+            continue
+
         try:
+            # Use shell=False with shlex.split for safety
+            import shlex
+            cmd_parts = shlex.split(cmd)
             proc3 = subprocess.run(
-                cmd, shell=True, capture_output=True, encoding="utf-8", errors="replace",
+                cmd_parts, capture_output=True, encoding="utf-8", errors="replace",
                 timeout=timeout, cwd=str(ROOT),
             )
             passed = proc3.returncode == 0
