@@ -1,28 +1,25 @@
 {
-  "schema_version": 1,
-  "description": "Portable MinGW-w64 UCRT64 toolchain for LVGL C compilation",
+  "schema_version": 2,
+  "description": "Private portable C toolchains used lazily by the LVGL MCP",
+  "repository": "xuyalunyy-lgtm/rtos_lvgl_skill",
   "platforms": {
     "win-x64": {
-      "version": "14.2.0",
+      "version": "16.1.0",
+      "package_revision": 1,
       "flavor": "ucrt64",
-      "source": "MSYS2 mingw-w64-ucrt-x86_64-toolchain",
-      "total_size_bytes": 0,
-      "licenses": [
-        "licenses/gcc.LICENSE",
-        "licenses/mingw-w64.LICENSE"
+      "payload_manifest": "toolchain-manifest.json",
+      "release_tag": "toolchain-win-x64-16.1.0-r1",
+      "archive": "lvgl-ui-toolchain-win-x64-16.1.0-r1.zip",
+      "checksum": "lvgl-ui-toolchain-win-x64-16.1.0-r1.zip.sha256",
+      "required_files": [
+        "bin/gcc.exe",
+        "bin/as.exe",
+        "bin/ld.exe",
+        "bin/ar.exe",
+        "bin/ninja.exe"
       ],
-      "files": {}
-    },
-    "linux-x64": {
-      "version": "14.2.0",
-      "flavor": "ucrt64",
-      "source": "MSYS2 mingw-w64-ucrt-x86_64-toolchain (cross)",
-      "total_size_bytes": 0,
-      "licenses": [
-        "licenses/gcc.LICENSE",
-        "licenses/mingw-w64.LICENSE"
-      ],
-      "files": {}
+      "bundled_archive": "assets/toolchains/win-x64/lvgl-ui-toolchain-win-x64-16.1.0-r1.zip",
+      "archive_sha256": "21165dd4c6e8cfcfe80f28fc4481118a451d75522a32ff100d5e809d3492d4a5"
     }
   }
 }

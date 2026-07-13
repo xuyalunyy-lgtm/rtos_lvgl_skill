@@ -171,19 +171,26 @@ def build_lvgl_regression_sandbox(args: dict[str, Any]) -> dict[str, Any]:
     ninja_bin = str(args.get("ninja_bin") or os.environ.get("NINJA_BIN") or "")
     c_compiler = str(args.get("c_compiler") or os.environ.get("CC") or "")
     cxx_compiler = str(args.get("cxx_compiler") or os.environ.get("CXX") or "")
+    toolchain_evidence: dict[str, Any] = {"source": "user_or_system"}
 
     # Fallback to bundled toolchain if no compiler found
     use_bundled = args.get("use_bundled_toolchain", True)
     if use_bundled and not c_compiler and not toolchain_bin:
         try:
-            from toolchain_resolver import resolve_toolchain as _resolve_tc
-            _tc = _resolve_tc()
+            from toolchain_resolver import ensure_toolchain as _ensure_tc
+            _tc = _ensure_tc()
             if _tc["ok"]:
                 toolchain_bin = _tc["bin_dir"]
                 c_compiler = _tc["gcc"]
                 ninja_bin = _tc["ninja"]
                 if not generator:
                     generator = "Ninja"
+                toolchain_evidence = {
+                    "source": "bundled",
+                    "platform": _tc["platform"],
+                    "version": _tc["version"],
+                    "flavor": _tc["flavor"],
+                }
         except Exception:
             pass  # bundled toolchain not available, continue with user-provided
     ninja_prefix = ""
@@ -228,6 +235,7 @@ def build_lvgl_regression_sandbox(args: dict[str, Any]) -> dict[str, Any]:
         "status": status,
         "generator": generator,
         "path_prefix": path_prefix,
+        "toolchain": toolchain_evidence,
         "configure": configured,
         "build": built,
         "artifacts": [str(build_dir)],
@@ -260,6 +268,14 @@ def run_lvgl_regression_sandbox(args: dict[str, Any]) -> dict[str, Any]:
     timeout = int(args.get("timeout_seconds", REGRESSION_SANDBOX_CONFIG["timeout_seconds"]))
     config = _sandbox_config(sandbox_dir)
     toolchain_bin = str(args.get("toolchain_bin") or os.environ.get("MINGW_BIN") or "")
+    if not toolchain_bin and args.get("use_bundled_toolchain", True):
+        try:
+            from toolchain_resolver import ensure_toolchain as _ensure_tc
+            _tc = _ensure_tc()
+            if _tc["ok"]:
+                toolchain_bin = str(_tc["bin_dir"])
+        except Exception:
+            pass
     # SDL2 is optional — null display driver doesn't need SDL2.dll at runtime
     sdl2_bin = str(args.get("sdl2_bin") or config.get("sdl2_bin") or os.environ.get("SDL2_BIN") or "")
     sdl2_dir = Path(str(args.get("sdl2_dir") or config.get("sdl2_dir") or os.environ.get("SDL2_DIR") or ""))

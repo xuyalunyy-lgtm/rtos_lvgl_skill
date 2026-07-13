@@ -23,12 +23,13 @@ from pathlib import Path
 _ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_ROOT / "mcp"))
 
-from toolchain_resolver import compiler_self_test, resolve_toolchain
+from toolchain_resolver import compiler_self_test, ensure_toolchain
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Compiler self-test")
     parser.add_argument("--verbose", "-v", action="store_true")
+    parser.add_argument("--toolchain-dir", help="verify an unpacked payload before installation")
     args = parser.parse_args()
 
     print("=" * 60)
@@ -37,7 +38,7 @@ def main() -> int:
 
     # Step 1: Resolve toolchain
     print("\n[1/3] Resolving toolchain...")
-    tc = resolve_toolchain()
+    tc = ensure_toolchain(toolchain_dir=args.toolchain_dir)
     if not tc["ok"]:
         print(f"  FAIL: {tc['errors']}")
         return 1
@@ -67,7 +68,7 @@ def main() -> int:
 
     # Step 3: Hello World compile + run
     print("\n[3/3] Hello World compile + run...")
-    test_result = compiler_self_test()
+    test_result = compiler_self_test(toolchain_dir=args.toolchain_dir)
     if test_result["ok"]:
         print(f"  Compile: OK")
         print(f"  Run:     OK")
