@@ -61,6 +61,13 @@ static lv_obj_t *find_node(uint32_t id) {
     return NULL;
 }
 
+static node_entry_t *find_node_entry(uint32_t id) {
+    for (uint32_t i = 0; i < g_node_count; i++) {
+        if (g_nodes[i].id == id) return &g_nodes[i];
+    }
+    return NULL;
+}
+
 static void register_node(uint32_t id, lv_obj_t *obj, const char *name) {
     if (g_node_count >= SCENE_MAX_NODES) {
         fprintf(stderr, "WARNING: Max nodes exceeded\n");
@@ -299,6 +306,26 @@ static int execute_command(const scene_cmd_header_t *cmd, const uint8_t *payload
         return 0;
     }
 
+    case OP_SET_EVENT_CLICKED:
+    case OP_SET_EVENT_VALUE_CHANGED:
+        /* The headless runner renders the static initial state only. Preserve
+         * the widget's event capability without pretending to execute the
+         * application callback declared by generated firmware code. */
+        if (obj) lv_obj_add_flag(obj, LV_OBJ_FLAG_CLICKABLE);
+        return 0;
+
+    case OP_SET_NODE_ID: {
+        if (cmd->size != 4) return -1;
+        uint32_t str_idx;
+        memcpy(&str_idx, payload, sizeof(str_idx));
+        const char *name = scene_get_string(NULL, str_idx);
+        node_entry_t *entry = find_node_entry(cmd->node_id);
+        if (entry && name) {
+            snprintf(entry->name, sizeof(entry->name), "%s", name);
+        }
+        return 0;
+    }
+
     case OP_SET_STYLE_WIDTH: {
         if (cmd->size >= 4 && obj) {
             int32_t w;
@@ -330,9 +357,6 @@ static int execute_command(const scene_cmd_header_t *cmd, const uint8_t *payload
         return 0;
     }
 
-    case OP_SET_EVENT_CLICKED:
-    case OP_SET_EVENT_VALUE_CHANGED:
-    case OP_SET_NODE_ID:
     case OP_SET_STYLE_TEXT_FONT_SIZE:
     case OP_SET_PAD:
     case OP_SET_FLEX_ALIGN:
@@ -451,9 +475,6 @@ int scene_decode_and_execute(const uint8_t *data, size_t size, fb_display_t *dis
         /* Track opcode usage for capability reporting */
         if (cmd->opcode < MAX_OPCODE) {
             switch (cmd->opcode) {
-            case OP_SET_EVENT_CLICKED:
-            case OP_SET_EVENT_VALUE_CHANGED:
-            case OP_SET_NODE_ID:
             case OP_SET_STYLE_TEXT_FONT_SIZE:
             case OP_SET_PAD:
             case OP_SET_FLEX_ALIGN:

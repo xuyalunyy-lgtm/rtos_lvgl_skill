@@ -9,8 +9,8 @@
       "self_test": true
     },
     "win-x64/v9": {
-      "file": "win-x64/lvgl_sim_v9.exe",
-      "sha256": "2b05812fb96225be2bd60a3a034ee8f02c021c79b2011647e9535e82f1830cb3",
+      "file": "win-x64/lvgl_sim_v9_fonts.exe",
+      "sha256": "42a0fa8397f1a7ec4a1c3a7ff3a83174524abf1dd38851e194b9e8d94382e7bf",
       "self_test": true
     }
   }

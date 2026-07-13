@@ -7,9 +7,12 @@
 
 #define FONT_REGISTRY_MAX_FONTS 32
 #define FONT_REGISTRY_ID_MAX 32
+#define FONT_REGISTRY_PATH_MAX 1024
 
 typedef struct {
     char id[FONT_REGISTRY_ID_MAX];
+    /* lv_binfont_create retains this filesystem path for glyph reads. */
+    char path[FONT_REGISTRY_PATH_MAX];
     lv_font_t *font;
 } font_registry_entry_t;
 

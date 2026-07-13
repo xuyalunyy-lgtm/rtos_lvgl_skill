@@ -936,6 +936,7 @@ def generate_interactive_scene_page(args: dict[str, Any]) -> dict[str, Any]:
         "asset_aliases": asset_aliases,
         "background_consistency_gate": bg_gate,
         "preview_decision": preview_decision,
+        "copy": {"top": top_text, "title": title_text, "hint": hint_text},
         "custom_events": {"enabled": custom_events_enabled, "server_update_event_name": event_name},
         "state_machine": {"enabled": state_machine_enabled, "states": states},
         "assets": [

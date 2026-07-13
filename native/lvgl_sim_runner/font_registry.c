@@ -18,15 +18,26 @@ int font_registry_load(font_registry_t *registry, const char *binding) {
         if (strlen(registry->entries[i].id) == id_len && strncmp(registry->entries[i].id, binding, id_len) == 0) return -1;
     }
 
-    lv_font_t *font = lv_binfont_create(separator + 1);
+    const char *source_path = separator + 1;
+    font_registry_entry_t *entry = &registry->entries[registry->count];
+    /* lv_binfont_create opens through LVGL's filesystem.  The headless
+     * runner configures the stdio driver under LV_FS_STDIO_LETTER, while MCP
+     * provides ordinary host paths (including C:\\... on Windows). */
+    if (source_path[0] == LV_FS_STDIO_LETTER && source_path[1] == ':') {
+        snprintf(entry->path, sizeof(entry->path), "%s", source_path);
+    } else {
+        snprintf(entry->path, sizeof(entry->path), "%c:%s", LV_FS_STDIO_LETTER, source_path);
+    }
+    if (strlen(entry->path) >= sizeof(entry->path) - 1) return -1;
+    lv_font_t *font = lv_binfont_create(entry->path);
     if (!font) {
-        fprintf(stderr, "ERROR: Failed to load LVGL binary font: %s\n", separator + 1);
+        fprintf(stderr, "ERROR: Failed to load LVGL binary font: %s\n", source_path);
         return -1;
     }
-    font_registry_entry_t *entry = &registry->entries[registry->count++];
     memcpy(entry->id, binding, id_len);
     entry->id[id_len] = '\0';
     entry->font = font;
+    registry->count++;
     return 0;
 }
 

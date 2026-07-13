@@ -43,10 +43,62 @@ def _safe_output_dir(path: str) -> Path:
     return out
 
 
+def _result_artifacts(result: dict[str, Any], output_dir: str | None) -> dict[str, str]:
+    """Extract stable artifact paths from a high-level tool response."""
+    keys = (
+        "analysis_report", "debug_overlay", "initial_asset_manifest", "spec_path", "asset_pack_path",
+        "c_path", "h_path", "render_path", "object_tree_path",
+        "object_tree_json_path", "diff_overlay_path", "app_evidence_path", "evidence_path",
+    )
+    artifacts = {
+        key: str(result[key]) for key in keys
+        if isinstance(result.get(key), str) and result[key]
+    }
+    if output_dir:
+        artifacts["output_dir"] = output_dir
+    return artifacts
+
+
+def _record_run_result(run_id: str | None, stage: str, args: dict[str, Any], result: dict[str, Any], *, success_status: str) -> dict[str, Any]:
+    """Record an MCP stage without changing legacy path-mode responses."""
+    if not run_id:
+        return result
+    from mcp.lvgl_run import manifest_path, record_stage
+
+    status = success_status if result.get("ok") else str(result.get("status") or "failed")
+    if status not in {"inspected", "generated", "rendered", "compared", "verified", "manual_required", "capability_unavailable"}:
+        status = "failed"
+    manifest = record_stage(
+        run_id,
+        stage=stage,
+        status=status,
+        artifacts=_result_artifacts(result, args.get("output_dir")),
+        details={
+            "tool_status": result.get("status"),
+            "ok": bool(result.get("ok")),
+            "authoritative": bool(result.get("authoritative", False)),
+            "engine": result.get("engine"),
+        },
+    )
+    result["run_id"] = run_id
+    result["run_status"] = manifest["status"]
+    result["stage_manifest_path"] = str(manifest_path(run_id))
+    return result
+
+
+def _resolve_run_args(args: dict[str, Any], stage: str) -> tuple[dict[str, Any], str | None]:
+    run_id = args.get("run_id")
+    if not run_id:
+        return dict(args), None
+    from mcp.lvgl_run import resolve_args
+    resolved, _run = resolve_args(str(run_id), args, stage=stage)
+    return resolved, str(run_id)
+
+
 # ── inspect_design ────────────────────────────────────────────────
 
 
-def inspect_design(args: dict[str, Any]) -> dict[str, Any]:
+def _inspect_design_legacy(args: dict[str, Any]) -> dict[str, Any]:
     """Analyze design screenshot. Read-only, no code generation."""
     from mcp.lvgl_preflight import preflight
     from mcp.lvgl_analysis import analyze
@@ -112,10 +164,39 @@ def inspect_design(args: dict[str, Any]) -> dict[str, Any]:
     return _ok({**response, "status": "initial_asset_manifest_ready", "initial_asset_manifest": written["path"]})
 
 
+def inspect_design(args: dict[str, Any]) -> dict[str, Any]:
+    """Analyze a design and create a run ledger for subsequent pipeline calls."""
+    result = _inspect_design_legacy(args)
+    if not result.get("ok"):
+        return result
+    from mcp.lvgl_capabilities import get_capabilities, verification_plan
+    from mcp.lvgl_run import create_run, manifest_path, record_stage
+
+    display = args.get("display") or {"width": 480, "height": 800}
+    lvgl_version = str(args.get("lvgl_version", "v9"))
+    artifacts = _result_artifacts(result, args.get("output_dir", "artifacts/inspect"))
+    run = create_run(
+        design_path=str(args["design_path"]),
+        display=display,
+        lvgl_version=lvgl_version,
+        artifacts=artifacts,
+    )
+    if result.get("status") == "manual_required":
+        run = record_stage(run["run_id"], stage="asset_contract", status="manual_required", artifacts=artifacts)
+    result.update({
+        "run_id": run["run_id"],
+        "run_status": run["status"],
+        "stage_manifest_path": str(manifest_path(run["run_id"])),
+        "capabilities": get_capabilities(lvgl_version),
+        "verification_plan": verification_plan(lvgl_version),
+    })
+    return result
+
+
 # ── generate_ui ───────────────────────────────────────────────────
 
 
-def generate_ui(args: dict[str, Any]) -> dict[str, Any]:
+def _generate_ui_legacy(args: dict[str, Any]) -> dict[str, Any]:
     """Generate LVGL C/H code from UI Spec or design analysis."""
     from mcp.lvgl_codegen import write_page_files
 
@@ -126,6 +207,7 @@ def generate_ui(args: dict[str, Any]) -> dict[str, Any]:
             ui_dir,
             _safe_output_dir(args.get("output_dir", "artifacts/auto_ui")),
             asset_manifest_path=args.get("asset_manifest_path"),
+            font_path=args.get("font_path"),
             strict_asset_contract=bool(args.get("strict_asset_contract", True)),
             final_only=args.get("delivery_mode", "final_only") == "final_only",
             cleanup_intermediates=bool(args.get("cleanup_intermediates", True)),
@@ -242,10 +324,35 @@ def generate_ui(args: dict[str, Any]) -> dict[str, Any]:
     })
 
 
+def generate_ui(args: dict[str, Any]) -> dict[str, Any]:
+    """Generate code, optionally inheriting deterministic inputs from a run."""
+    try:
+        resolved, run_id = _resolve_run_args(args, "generate")
+        if run_id and not resolved.get("asset_manifest_path"):
+            from mcp.lvgl_run import latest_artifact
+            asset_manifest_path = latest_artifact(run_id, "initial_asset_manifest")
+            if asset_manifest_path:
+                resolved["asset_manifest_path"] = asset_manifest_path
+        if run_id and resolved.get("ui_dir") and "delivery_mode" not in args:
+            # A ledger-backed request is expected to continue to native render.
+            # Keep the v2 render spec and asset pack as run evidence.
+            resolved["delivery_mode"] = "full_evidence"
+            resolved["cleanup_intermediates"] = False
+    except ValueError as exc:
+        return _fail([str(exc)], stage="generate", status="invalid_run")
+    result = _generate_ui_legacy(resolved)
+    if result.get("ok"):
+        from mcp.lvgl_capabilities import get_capabilities, verification_plan
+        version = str(resolved.get("lvgl_version", "v9"))
+        result["capabilities"] = get_capabilities(version)
+        result["verification_plan"] = verification_plan(version)
+    return _record_run_result(run_id, "generate", resolved, result, success_status="generated")
+
+
 # ── render_ui ─────────────────────────────────────────────────────
 
 
-def render_ui(args: dict[str, Any]) -> dict[str, Any]:
+def _render_ui_legacy(args: dict[str, Any]) -> dict[str, Any]:
     """Render LVGL code using server-side preset."""
     spec_path = args.get("spec_path")
     if not spec_path:
@@ -337,10 +444,17 @@ def render_ui(args: dict[str, Any]) -> dict[str, Any]:
         if result.get("capability_gap"):
             render_status = "capability_gap"
 
+        metadata = spec.get("metadata", {})
+        limitations = metadata.get("native_render_limitations", []) if isinstance(metadata, dict) else []
+        limitations = [str(item) for item in limitations if isinstance(item, str) and item]
+        authoritative = not limitations
+        if limitations and render_status == "scene_rendered":
+            render_status = "scene_rendered_with_limitations"
+
         response = {
             "stage": "render",
             "engine": engine,
-            "authoritative": True,
+            "authoritative": authoritative,
             "render_path": result.get("render_png", str(out / "render.png")),
             "object_tree_path": result.get("tree", str(out / "object_tree.bin")),
             "object_tree_json_path": result.get("tree_json"),
@@ -348,6 +462,8 @@ def render_ui(args: dict[str, Any]) -> dict[str, Any]:
             "platform": runner["platform"],
             "lvgl_version": lvgl_version,
         }
+        if limitations:
+            response["native_render_limitations"] = limitations
         if font_bindings:
             response["font_evidence"] = {
                 "requested": [
@@ -380,7 +496,10 @@ def render_ui(args: dict[str, Any]) -> dict[str, Any]:
         # Fast preview using static analysis (not authoritative)
         out = _safe_output_dir(output_dir)
         from mcp.lvgl_compile_gate import validate_directory
-        validation_result = validate_directory(str(Path(spec_path).parent) if spec_path else ".", "v9")
+        validation_result = validate_directory(
+            str(Path(spec_path).parent) if spec_path else ".",
+            lvgl_version,
+        )
 
         placeholder = out / "render.png"
         if not placeholder.exists():
@@ -397,6 +516,45 @@ def render_ui(args: dict[str, Any]) -> dict[str, Any]:
 
     else:
         return _fail([f"Unknown engine: {engine}"])
+
+
+def render_ui(args: dict[str, Any]) -> dict[str, Any]:
+    """Render a UI with an explicit capability contract for v8/v9."""
+    try:
+        resolved, run_id = _resolve_run_args(args, "render")
+        if run_id and not resolved.get("spec_path"):
+            from mcp.lvgl_run import latest_artifact
+            spec_path = latest_artifact(run_id, "spec_path")
+            if not spec_path:
+                return _fail(["run_id has no generated ui_spec.json; call generate_ui first"], stage="render", status="missing_stage")
+            resolved["spec_path"] = spec_path
+        if run_id and not resolved.get("asset_pack_path"):
+            from mcp.lvgl_run import latest_artifact
+            asset_pack_path = latest_artifact(run_id, "asset_pack_path")
+            if asset_pack_path:
+                resolved["asset_pack_path"] = asset_pack_path
+    except ValueError as exc:
+        return _fail([str(exc)], stage="render", status="invalid_run")
+
+    from mcp.lvgl_capabilities import get_capabilities, verification_plan
+    version = str(resolved.get("lvgl_version", "v9"))
+    capability = get_capabilities(version)
+    engine = str(resolved.get("engine", "lvgl_simulator"))
+    if engine == "lvgl_simulator" and not capability["native_render"]:
+        result = _fail(
+            [capability["native_render_reason"]],
+            stage="render",
+            status="capability_unavailable",
+            capabilities=capability,
+            verification_plan=verification_plan(version),
+            recommended_engine="python_preview",
+        )
+        return _record_run_result(run_id, "render", resolved, result, success_status="rendered")
+
+    result = _render_ui_legacy(resolved)
+    result["capabilities"] = capability
+    result["verification_plan"] = verification_plan(version)
+    return _record_run_result(run_id, "render", resolved, result, success_status="rendered")
 
 
 def _create_placeholder_png(path: Path, width: int, height: int):
@@ -420,7 +578,7 @@ def _create_placeholder_png(path: Path, width: int, height: int):
 # ── compare_ui ────────────────────────────────────────────────────
 
 
-def compare_ui(args: dict[str, Any]) -> dict[str, Any]:
+def _compare_ui_legacy(args: dict[str, Any]) -> dict[str, Any]:
     """Compare rendered output with design baseline."""
     from mcp.lvgl_compare import compare, suggest_refinements
 
@@ -443,11 +601,44 @@ def compare_ui(args: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
+def compare_ui(args: dict[str, Any]) -> dict[str, Any]:
+    """Compare artifacts from one run, or preserve legacy path-mode usage."""
+    try:
+        resolved, run_id = _resolve_run_args(args, "compare")
+        if run_id:
+            from mcp.lvgl_run import latest_artifact, load_run, stage_artifact
+            run = load_run(run_id)
+            inherited = {
+                "actual_path": latest_artifact(run_id, "render_path"),
+                "baseline_path": run.get("inputs", {}).get("design_path"),
+                "spec_path": latest_artifact(run_id, "spec_path"),
+            }
+            for key, value in inherited.items():
+                if not resolved.get(key) and value:
+                    resolved[key] = value
+    except ValueError as exc:
+        return _fail([str(exc)], stage="compare", status="invalid_run")
+    result = _compare_ui_legacy(resolved)
+    success_status = "compared"
+    if run_id and result.get("status") == "passed":
+        from mcp.lvgl_run import latest_artifact, load_run
+        expected_render = latest_artifact(run_id, "render_path")
+        same_render = expected_render and Path(expected_render).resolve() == Path(str(resolved.get("actual_path", ""))).resolve()
+        run = load_run(run_id)
+        render_stages = [stage for stage in run.get("stages", []) if stage.get("stage") == "render"]
+        authoritative = bool(render_stages and render_stages[-1].get("details", {}).get("authoritative"))
+        if same_render and authoritative:
+            success_status = "verified"
+        else:
+            result["verification_note"] = "Comparison passed, but verification requires the run's own authoritative native render."
+    return _record_run_result(run_id, "compare", resolved, result, success_status=success_status)
+
+
 # ── refine_ui ─────────────────────────────────────────────────────
 
 
-def refine_ui(args: dict[str, Any]) -> dict[str, Any]:
-    """Iterative refinement: generate → render → compare → fix spec."""
+def _refine_ui_legacy(args: dict[str, Any]) -> dict[str, Any]:
+    """Evaluate external native evidence and promote the best candidate."""
     from mcp.lvgl_refine import refine_loop
 
     design_path = args.get("design_path")
@@ -469,18 +660,57 @@ def refine_ui(args: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
+def refine_ui(args: dict[str, Any]) -> dict[str, Any]:
+    """Promote evidence candidates; this tool intentionally does not edit specs."""
+    try:
+        resolved, run_id = _resolve_run_args(args, "refine")
+    except ValueError as exc:
+        return _fail([str(exc)], stage="refine", status="invalid_run")
+    if not resolved.get("design_path"):
+        return _fail(["design_path or run_id required"], stage="refine", status="missing_input")
+    result = _refine_ui_legacy(resolved)
+    status = "verified" if result.get("ok") else str(result.get("status") or "failed")
+    return _record_run_result(run_id, "refine", resolved, result, success_status=status)
+
+
 # ── apply_patch ───────────────────────────────────────────────────
 
 
 def apply_patch(args: dict[str, Any]) -> dict[str, Any]:
     """Write verified files to user project. Default dry-run."""
+    run_id = args.get("run_id")
     source_dir = args.get("source_dir")
     target_dir = args.get("target_dir")
     expected_hashes = args.get("expected_hashes", {})
     mode = args.get("mode", "dry_run")
 
-    if not source_dir or not target_dir:
-        return _fail(["source_dir and target_dir required"])
+    if not target_dir:
+        return _fail(["target_dir required"])
+
+    if run_id:
+        try:
+            from mcp.lvgl_run import latest_artifact, load_run
+            run = load_run(str(run_id))
+            if run.get("status") != "verified":
+                return _fail(
+                    [f"Run status is {run.get('status')!r}, not 'verified'. Only verified runs may apply patches."],
+                    stage="apply",
+                    status=run.get("status"),
+                    run_id=run_id,
+                )
+            c_path = latest_artifact(str(run_id), "c_path")
+            generated_output = stage_artifact(str(run_id), "generate", "output_dir")
+            if not c_path and not generated_output:
+                return _fail(["verified run has no generated output artifact"], stage="apply", status="missing_artifact", run_id=run_id)
+            derived_source = str(Path(c_path).parent) if c_path else str(generated_output)
+            if source_dir and Path(source_dir).resolve() != Path(derived_source).resolve():
+                return _fail(["source_dir conflicts with run_id generated output"], stage="apply", status="invalid_run", run_id=run_id)
+            source_dir = derived_source
+        except ValueError as exc:
+            return _fail([str(exc)], stage="apply", status="invalid_run", run_id=run_id)
+
+    if not source_dir:
+        return _fail(["source_dir or run_id required"])
 
     src = Path(source_dir)
     dst = Path(target_dir)
@@ -530,13 +760,16 @@ def apply_patch(args: dict[str, Any]) -> dict[str, Any]:
             })
 
     if mode == "dry_run":
-        return _ok({
+        response = _ok({
             "stage": "apply",
             "mode": "dry_run",
             "files": files,
             "target_dir": str(dst),
             "message": "Dry run — no files written. Pass mode=replace_generated_files to apply.",
         })
+        if not run_id:
+            response["migration_hint"] = "Prefer run_id from inspect_design; source_dir mode is retained for compatibility."
+        return response
 
     # Atomic write
     dst.mkdir(parents=True, exist_ok=True)
@@ -559,12 +792,15 @@ def apply_patch(args: dict[str, Any]) -> dict[str, Any]:
                     pass
             return _fail([f"Failed to write {f['filename']}: {e}"])
 
-    return _ok({
+    response = _ok({
         "stage": "apply",
         "mode": "replace_generated_files",
         "written": written,
         "target_dir": str(dst),
     })
+    if run_id:
+        response["run_id"] = run_id
+    return response
 
 
 # ── Internal helpers ──────────────────────────────────────────────

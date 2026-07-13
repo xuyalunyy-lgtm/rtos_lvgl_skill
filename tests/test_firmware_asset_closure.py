@@ -1,8 +1,10 @@
+import json
 from pathlib import Path
 
 from PIL import Image, ImageDraw
 
 from mcp.lvgl_ir.asset_pack import write_lvgl_v9_c_assets
+from mcp.lvgl_ir.spec_validator import validate_spec
 from mcp.standard_ui_package import generate_standard_ui_package
 
 
@@ -101,3 +103,8 @@ def test_standard_package_can_keep_full_generation_evidence(tmp_path: Path) -> N
     assert result["evidence_removed"] is False
     assert Path(result["evidence_dir"]).is_dir()
     assert Path(result["asset_pack_path"]).is_file()
+    spec_path = Path(result["spec_path"])
+    spec = json.loads(spec_path.read_text(encoding="utf-8"))
+    assert spec["schema_version"] == "2.0"
+    assert spec["metadata"]["source_spec"] == "interactive-scene.v1"
+    assert validate_spec(spec, asset_pack_path=result["asset_pack_path"])["valid"]

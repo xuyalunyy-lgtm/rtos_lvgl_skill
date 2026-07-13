@@ -64,11 +64,13 @@ HIGH_LEVEL_SCHEMAS: list[dict[str, Any]] = [
     },
     {
         "name": "generate_ui",
-        "description": "Generate LVGL C/H page code from a UI Spec or design analysis. Produces assets, fonts, code, and static validation. Use after inspect_design.",
+        "description": "Generate LVGL C/H page code from a UI Spec or design analysis. Use run_id from inspect_design when available; bare paths remain supported for compatibility.",
         "inputSchema": {
             "type": "object",
             "properties": {
+                "run_id": {"type": "string", "description": "Run identifier returned by inspect_design. Inherits design, display, LVGL version, and default output directory."},
                 "ui_dir": {"type": "string", "description": "Standard UI package directory; auto-discovers assets/ and fonts/ when manifest.json is absent"},
+                "font_path": {"type": "string", "description": "Optional .ttf/.otf source; subsets are generated from analyzed UI text and reused by firmware plus native render"},
                 "asset_manifest_path": {"type": "string", "description": "Initial asset intent manifest produced by inspect_design"},
                 "strict_asset_contract": {"type": "boolean", "default": True, "description": "Reject design-driven generation without a deterministic asset contract"},
                 "delivery_mode": {"type": "string", "enum": ["final_only", "full_evidence"], "default": "final_only", "description": "final_only publishes only compilable C/H, used fonts, assets, and CMake; evidence is isolated outside the delivery directory"},
@@ -87,15 +89,16 @@ HIGH_LEVEL_SCHEMAS: list[dict[str, Any]] = [
     },
     {
         "name": "render_ui",
-        "description": "Render generated LVGL code using a fixed server-side preset. Returns render.png, object tree, and build report. Cannot accept arbitrary executables.",
+        "description": "Render a generated UI using a fixed server-side preset. LVGL v9 has authoritative native rendering; v8 returns a structured capability gap for native rendering and supports only non-authoritative preview.",
         "inputSchema": {
             "type": "object",
             "properties": {
-                "spec_path": {"type": "string", "description": "Path to UI Spec JSON (required)"},
+                "run_id": {"type": "string", "description": "Run identifier returned by inspect_design or generate_ui."},
+                "spec_path": {"type": "string", "description": "Path to UI Spec JSON. Required only when run_id is omitted."},
                 "output_dir": {"type": "string", "default": "artifacts/render"},
                 "asset_pack_path": {"type": "string", "description": "Optional asset.pack whose symbols are referenced by image node src fields"},
                 "engine": {"type": "string", "enum": ["lvgl_simulator", "python_preview"], "default": "lvgl_simulator"},
-                "lvgl_version": {"type": "string", "enum": ["v9"], "default": "v9", "description": "LVGL version (v9 only, v8 not yet supported)"},
+                "lvgl_version": {"type": "string", "enum": ["v8", "v9"], "default": "v9"},
                 "display": {
                     "type": "object",
                     "properties": {
@@ -105,33 +108,33 @@ HIGH_LEVEL_SCHEMAS: list[dict[str, Any]] = [
                 },
                 "preset": {"type": "string", "enum": ["headless-480x800", "headless-320x240"], "default": "headless-480x800"},
             },
-            "required": ["spec_path"],
             "additionalProperties": False,
         },
     },
     {
         "name": "compare_ui",
-        "description": "Compare rendered output with design baseline. Returns SSIM, pixel diff, region diff, text diff, control tree diff, and pass/fail.",
+        "description": "Compare rendered output with a design baseline. With run_id, paths are resolved from the same pipeline run; bare paths remain supported for compatibility.",
         "inputSchema": {
             "type": "object",
             "properties": {
-                "actual_path": {"type": "string", "description": "Path to rendered screenshot"},
-                "baseline_path": {"type": "string", "description": "Path to design screenshot"},
+                "run_id": {"type": "string", "description": "Run identifier with generated render and baseline design."},
+                "actual_path": {"type": "string", "description": "Path to rendered screenshot. Required only when run_id is omitted."},
+                "baseline_path": {"type": "string", "description": "Path to design screenshot. Required only when run_id is omitted."},
                 "spec_path": {"type": "string", "description": "Path to UI Spec for text/tree comparison"},
                 "object_tree_path": {"type": "string", "description": "Path to rendered object tree JSON"},
                 "threshold_profile": {"type": "string", "enum": ["preview_relaxed", "golden_strict", "hardware_tolerant"], "default": "golden_strict"},
             },
-            "required": ["actual_path", "baseline_path"],
             "additionalProperties": False,
         },
     },
     {
         "name": "refine_ui",
-        "description": "Iteratively improve LVGL page by generating → rendering → comparing → fixing spec. Maximum 3 rounds. Returns best result with improvement history.",
+        "description": "Evaluate and monotonically promote externally produced native render evidence. This tool does not automatically edit a UI Spec; it returns the best verified candidate and promotion history.",
         "inputSchema": {
             "type": "object",
             "properties": {
-                "design_path": {"type": "string", "description": "Path to design screenshot"},
+                "run_id": {"type": "string", "description": "Run identifier providing design and LVGL context."},
+                "design_path": {"type": "string", "description": "Path to design screenshot. Required only when run_id is omitted."},
                 "cut_dir": {"type": "string", "description": "Cutout assets directory"},
                 "display": DISPLAY_SCHEMA,
                 "lvgl_version": {"type": "string", "enum": ["v8", "v9"], "default": "v9"},
@@ -140,17 +143,17 @@ HIGH_LEVEL_SCHEMAS: list[dict[str, Any]] = [
                 "baseline_evidence_path": {"type": "string", "description": "Native baseline evidence JSON required for scoring"},
                 "candidate_evidence_paths": {"type": "array", "maxItems": 3, "items": {"type": "string"}, "description": "Native candidate evidence JSON files"},
             },
-            "required": ["design_path"],
             "additionalProperties": False,
         },
     },
     {
         "name": "apply_patch",
-        "description": "Write verified generated files to user project. Only tool with write access. Requires expected SHA256 hashes. Default is dry-run.",
+        "description": "Write verified generated files to user project. Prefer run_id; replace mode accepts only a verified run. Bare source_dir remains supported for compatibility.",
         "inputSchema": {
             "type": "object",
             "properties": {
-                "source_dir": {"type": "string", "description": "Directory with verified generated files"},
+                "run_id": {"type": "string", "description": "Verified pipeline run identifier."},
+                "source_dir": {"type": "string", "description": "Directory with verified generated files. Required only when run_id is omitted."},
                 "target_dir": {"type": "string", "description": "Target directory in user project"},
                 "expected_hashes": {
                     "type": "object",
@@ -159,7 +162,7 @@ HIGH_LEVEL_SCHEMAS: list[dict[str, Any]] = [
                 },
                 "mode": {"type": "string", "enum": ["dry_run", "replace_generated_files"], "default": "dry_run"},
             },
-            "required": ["source_dir", "target_dir"],
+            "required": ["target_dir"],
             "additionalProperties": False,
         },
     },

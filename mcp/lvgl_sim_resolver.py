@@ -12,6 +12,7 @@ import hashlib
 import json
 import os
 import platform
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -61,13 +62,30 @@ def resolve_runner(lvgl_version: str = "v9") -> dict[str, Any]:
             "status": "unsupported_version",
         }
 
+    # A bundled binary is trusted only when it has a matching release manifest.
+    manifest = _load_manifest()
     plat = detect_platform()
-    runner_name = "lvgl_sim_v9"
-    if platform.system().lower() == "windows":
-        runner_name += ".exe"
-
-    runner_path = SIMULATOR_DIR / plat / runner_name
-
+    if not isinstance(manifest, dict) or manifest.get("schema_version") != 1 or manifest.get("scene_protocol_version") != 1:
+        return {
+            "ok": False,
+            "error": "Missing or incompatible simulator manifest",
+            "status": "integrity_check_failed",
+        }
+    entry = manifest.get("runners", {}).get(f"{plat}/{lvgl_version}") if manifest else None
+    if not isinstance(entry, dict):
+        return {
+            "ok": False,
+            "error": f"No manifest entry for {plat}/{lvgl_version}",
+            "status": "integrity_check_failed",
+        }
+    expected = entry.get("sha256")
+    expected_file = entry.get("file")
+    if not isinstance(expected_file, str):
+        return {"ok": False, "error": "Runner manifest file is invalid", "status": "integrity_check_failed"}
+    file_parts = Path(expected_file).parts
+    if len(file_parts) != 2 or file_parts[0] != plat or file_parts[1] in {"", ".", ".."}:
+        return {"ok": False, "error": "Runner manifest file is outside its platform directory", "status": "integrity_check_failed"}
+    runner_path = SIMULATOR_DIR / file_parts[0] / file_parts[1]
     if not runner_path.is_file():
         return {
             "ok": False,
@@ -78,39 +96,11 @@ def resolve_runner(lvgl_version: str = "v9") -> dict[str, Any]:
             "available_platforms": _list_available_platforms(),
         }
 
-    # Compute SHA256
     sha256 = _file_hash(runner_path)
-
-    # A bundled binary is trusted only when it has a matching release manifest.
-    manifest = _load_manifest()
-    if not isinstance(manifest, dict) or manifest.get("schema_version") != 1 or manifest.get("scene_protocol_version") != 1:
-        return {
-            "ok": False,
-            "error": "Missing or incompatible simulator manifest",
-            "status": "integrity_check_failed",
-            "path": str(runner_path),
-        }
-    entry = manifest.get("runners", {}).get(f"{plat}/{lvgl_version}") if manifest else None
-    if not isinstance(entry, dict):
-        return {
-            "ok": False,
-            "error": f"No manifest entry for {plat}/{lvgl_version}",
-            "status": "integrity_check_failed",
-            "path": str(runner_path),
-        }
-    expected = entry.get("sha256")
-    expected_file = entry.get("file")
     if not isinstance(expected, str) or len(expected) != 64 or expected != sha256:
         return {
             "ok": False,
             "error": f"SHA256 mismatch: expected {expected}, got {sha256}",
-            "status": "integrity_check_failed",
-            "path": str(runner_path),
-        }
-    if expected_file != f"{plat}/{runner_name}":
-        return {
-            "ok": False,
-            "error": f"Manifest file mismatch: expected {plat}/{runner_name}, got {expected_file}",
             "status": "integrity_check_failed",
             "path": str(runner_path),
         }
@@ -130,7 +120,7 @@ def _list_available_platforms() -> list[str]:
         return []
     return [
         d.name for d in SIMULATOR_DIR.iterdir()
-        if d.is_dir() and ((d / "lvgl_sim_v9.exe").is_file() or (d / "lvgl_sim_v9").is_file())
+        if d.is_dir() and any(d.glob("lvgl_sim_v9*"))
     ]
 
 
@@ -155,6 +145,43 @@ def _load_manifest() -> dict[str, Any] | None:
 
 
 # ── Runner execution ──────────────────────────────────────────────
+
+
+def _path_for_runner(path: str) -> str:
+    """Return a path the bundled Windows runner can reopen reliably.
+
+    Its filesystem adapters use fixed native path buffers.  Workspace-relative
+    paths avoid corruption seen with long absolute paths for output and binary
+    font files.  The simulator inherits this process's working directory, so
+    use a relative path whenever both locations are on the same drive.
+    """
+    source = Path(path).resolve()
+    try:
+        return os.path.relpath(source, start=Path.cwd())
+    except ValueError:
+        # Different Windows drive: retain the original absolute path and let
+        # the runner report its normal font-load error.
+        return str(source)
+
+
+def _stage_windows_runner(runner_path: str, output_dir: str) -> Path | None:
+    """Stage the Windows runner away from its bundle directory for one run.
+
+    The LVGL Windows binary-font backend is sensitive to its executable
+    directory.  A short-lived sibling copy of the render output avoids that
+    native limitation without weakening the manifest validation performed by
+    ``resolve_runner`` before this function is reached.
+    """
+    if platform.system().lower() != "windows":
+        return None
+    source = Path(runner_path).resolve()
+    target_dir = Path(output_dir).resolve()
+    target_dir.mkdir(parents=True, exist_ok=True)
+    target = target_dir / ".lvgl_sim_runner.exe"
+    if source == target:
+        return None
+    shutil.copy2(source, target)
+    return target
 
 
 def run_simulator(
@@ -182,27 +209,33 @@ def run_simulator(
     Returns:
         Result dict with render and tree paths.
     """
+    staged_runner = _stage_windows_runner(runner_path, output_dir)
+    executable = str(staged_runner) if staged_runner else runner_path
     cmd = [
-        runner_path,
-        "--scene", scene_path,
-        "--output", output_dir,
+        executable,
+        "--scene", _path_for_runner(scene_path),
+        "--output", _path_for_runner(output_dir),
         "--width", str(width),
         "--height", str(height),
         "--render-time", str(render_time_ms),
     ]
     if asset_pack_path:
-        cmd.extend(["--assets", asset_pack_path])
+        cmd.extend(["--assets", _path_for_runner(asset_pack_path)])
     for font_id, font_path in sorted((font_bindings or {}).items()):
-        cmd.extend(["--font", f"{font_id}={font_path}"])
+        cmd.extend(["--font", f"{font_id}={_path_for_runner(font_path)}"])
 
     try:
-        proc = subprocess.run(
-            cmd,
-            capture_output=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=timeout,
-        )
+        try:
+            proc = subprocess.run(
+                cmd,
+                capture_output=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=timeout,
+            )
+        finally:
+            if staged_runner:
+                staged_runner.unlink(missing_ok=True)
 
         # Parse JSON output from stdout
         result = None
