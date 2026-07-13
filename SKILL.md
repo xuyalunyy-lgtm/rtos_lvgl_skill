@@ -18,7 +18,8 @@ Routing — match the user's first message to ONE workflow:
 | memory, leak, 内存, 堆栈 | l2_memory_analysis |
 | project, workspace, 项目审查 | l2_project_review |
 | co-debug, GPIO conflict, 硬件协同 | hw_sw_cocodebug |
-| LVGL, UI, page, manifest, 多页, 脚手架 | l3_lvgl_page |
+| LVGL, UI, page, design, 界面 | l3_lvgl_page |
+| manifest, 多页应用, Router, Presenter, scaffold | l3_lvgl_page (manifest sub-path) |
 | new module, 新模块, task, 任务 | l3_new_module |
 | bring-up, 板级, 最小系统 | l3_bring_up |
 | SDK trim, 裁剪, driver prune | l3_sdk_trim |
