@@ -183,7 +183,8 @@ def list_checkers(as_json: bool = False) -> int:
         print("Default checker pipeline:")
         for spec in DEFAULT_CHECKERS:
             domains = ",".join(spec.domains)
-            print(f"  --skip-{spec.skip_arg:<14} {spec.name:<28} {spec.mode:<8} {domains}")
+            overlaps = f" (overlaps: {', '.join(spec.overlaps)})" if spec.overlaps else ""
+            print(f"  --skip-{spec.skip_arg:<14} {spec.name:<28} {spec.mode:<8} {domains}{overlaps}")
         print("\nSpecial: --skip-stack skips stack_calculator; --scan-secrets / --git-remotes enable C9 scan individually")
     return 0
 
@@ -235,9 +236,20 @@ def run_registered_checkers(args: argparse.Namespace, c_files: list[Path]) -> in
     json_mode = getattr(args, "json", False)
     exit_code = 0
     results: list[dict] = []
+    skip_overlap: set[str] = set()  # checkers to skip due to overlaps
 
     for spec in DEFAULT_CHECKERS:
         if getattr(args, spec.skip_attr):
+            continue
+        # Overlap dedup: if an overlapping checker already found issues, skip this one
+        if spec.name in skip_overlap:
+            if json_mode:
+                results.append({
+                    "checker": spec.name, "script": spec.script,
+                    "domains": spec.domains, "mode": spec.mode,
+                    "files_checked": 0, "issues": 0, "exit_code": 0,
+                    "skipped": True, "skipped_due_to_overlap": True,
+                })
             continue
         if not c_files:
             if not json_mode:
@@ -258,6 +270,10 @@ def run_registered_checkers(args: argparse.Namespace, c_files: list[Path]) -> in
                 checker_exit = max(checker_exit, rc)
                 total_issues += _parse_issue_count(out)
             exit_code = max(exit_code, checker_exit)
+            # Mark overlapping checkers for skip if this one found issues
+            if total_issues > 0 and spec.overlaps:
+                for overlap_name in spec.overlaps:
+                    skip_overlap.add(overlap_name)
             if json_mode:
                 results.append({
                     "checker": spec.name, "script": spec.script,
@@ -268,6 +284,10 @@ def run_registered_checkers(args: argparse.Namespace, c_files: list[Path]) -> in
         elif spec.mode == "batch":
             rc, out = _run_and_capture(spec.name, checker_argv(spec, c_files), quiet=json_mode)
             exit_code = max(exit_code, rc)
+            # Mark overlapping checkers for skip if this one found issues
+            if rc != 0 and spec.overlaps:
+                for overlap_name in spec.overlaps:
+                    skip_overlap.add(overlap_name)
             if json_mode:
                 results.append({
                     "checker": spec.name, "script": spec.script,

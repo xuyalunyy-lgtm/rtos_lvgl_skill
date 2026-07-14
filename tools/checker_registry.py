@@ -268,6 +268,11 @@ SELF_TEST_CASES: tuple[CheckerCase, ...] = (
     CheckerCase("module_boundary_checker.py", "fixtures/bad_module_boundary.c", 1, "module boundary bad"),
     CheckerCase("hotpath_checker.py", "fixtures/good_hotpath.c", 0, "hotpath good"),
     CheckerCase("hotpath_checker.py", "fixtures/bad_hotpath.c", 1, "hotpath bad"),
+    # ── Edge cases: boundary conditions (must not false-positive) ──
+    CheckerCase("cjson_leak_checker.py", "fixtures/edge_cjson_nested.c", 0, "cjson nested+loop good"),
+    CheckerCase("queue_ownership_checker.py", "fixtures/edge_queue_full.c", 0, "queue full handling good"),
+    CheckerCase("isr_safety_checker.py", "fixtures/edge_isr_fromisr.c", 0, "isr fromisr good"),
+    CheckerCase("hotpath_checker.py", "fixtures/edge_hotpath_static.c", 0, "hotpath static alloc good"),
 )
 
 

@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "status": "draft",
+  "status": "confirmed",
   "page_id": "schedule",
   "display": [480, 800],
   "design": "Schedule页.png",
@@ -58,7 +58,7 @@
     {
       "role": "title",
       "source": "fonts/InriaSerif-Bold.ttf",
-      "size": 40
+      "size": 36
     },
     {
       "role": "body",
@@ -87,7 +87,7 @@
     {
       "id": "subtitle",
       "type": "label",
-      "text": "✦ Your gentle rhythm for the day ✦",
+      "text": "Your gentle rhythm for the day",
       "text_macro": "UI_TEXT_SUBTITLE",
       "bbox": [48, 134, 384, 30],
       "font_role": "body",
