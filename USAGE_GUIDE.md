@@ -1,6 +1,6 @@
 # FreeRTOS Embedded Architect — 完整使用说明
 
-> **版本:** v45.0.0 | **更新日期:** 2026-07-11
+> **版本:** v46.0.0 | **更新日期:** 2026-07-14
 
 ---
 
@@ -20,6 +20,7 @@
 | 📦 **多页应用脚手架** | Manifest v2 → Router/Presenter/Model/App 全栈 C 代码 |
 | 🛣️ **上下文路由** | 自然语言症状匹配 → 工作流 + 约束分片 |
 | 🔧 **多平台支持** | ESP32、STM32、JL/AC79、BK7258、Zephyr |
+| 📡 **嵌入式调试** | MQTT 消息调试、串口日志、OTA 固件升级 |
 
 ---
 
@@ -37,6 +38,12 @@ pip install "Pillow>=10,<13" "numpy>=1.26,<3"
 
 # OCR 能力
 pip install "rapidocr-onnxruntime>=1.3,<2"
+
+# MQTT 调试（MQTT MCP）
+pip install "paho-mqtt>=2.0,<3"
+
+# 串口调试（Serial MCP）
+pip install "pyserial>=3.5,<4"
 
 # 测试
 pip install "pytest>=8,<9"
@@ -68,6 +75,21 @@ pip install "ruff>=0.6,<1"
     "freertos-embedded-architect": {
       "command": "python",
       "args": ["mcp/server.py"],
+      "env": { "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8" }
+    },
+    "mqtt-mcp": {
+      "command": "python",
+      "args": ["mcp/mqtt_server.py"],
+      "env": { "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8" }
+    },
+    "ota-mcp": {
+      "command": "python",
+      "args": ["mcp/ota_server.py"],
+      "env": { "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8" }
+    },
+    "serial-mcp": {
+      "command": "python",
+      "args": ["mcp/serial_server.py"],
       "env": { "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8" }
     }
   }
@@ -110,6 +132,18 @@ skill/
 │   ├── interactive_scene_auto.py  # 互动场景页生成
 │   ├── standard_ui_package.py     # 标准 UI 包自动发现
 │   ├── design_asset_policy.py     # 设计图≠运行时资产 策略
+│   ├── mqtt_server.py        # MQTT MCP Server（设备消息调试）
+│   ├── mqtt_client.py        # MQTT 客户端桥接
+│   ├── mqtt_schemas.py       # MQTT 工具 Schema
+│   ├── ota_server.py         # OTA MCP Server（固件升级管理）
+│   ├── ota_firmware.py       # 固件仓库管理
+│   ├── ota_device.py         # 设备注册表
+│   ├── ota_protocol.py       # OTA 协议实现
+│   ├── ota_http.py           # OTA HTTP 服务器
+│   ├── ota_schemas.py        # OTA 工具 Schema
+│   ├── serial_server.py      # Serial MCP Server（串口调试）
+│   ├── serial_client.py      # 串口桥接 + Ring Buffer
+│   ├── serial_schemas.py     # Serial 工具 Schema
 │   └── lvgl_ir/              # 二进制协议层
 │       ├── asset_pack.py     # 资产打包（.pack 二进制）
 │       ├── scene_encoder.py  # 场景编码（scene.bin）
@@ -427,7 +461,79 @@ python scripts/skill_iterate.py --release
 
 ---
 
-## 八、工作流系统
+## 八、嵌入式调试 MCP 工具
+
+除了 LVGL UI 生成工具，项目还提供 3 个嵌入式设备调试 MCP 服务器。
+
+### MQTT MCP（设备消息调试）
+
+连接 MQTT Broker，进行设备消息的发布/订阅/历史查看。
+
+| 工具 | 功能 |
+|------|------|
+| `mqtt_connect` | 连接 MQTT Broker（支持 TLS/认证） |
+| `mqtt_disconnect` | 断开连接 |
+| `mqtt_publish` | 发布消息到主题 |
+| `mqtt_subscribe` | 订阅主题（支持通配符 +/#） |
+| `mqtt_unsubscribe` | 取消订阅 |
+| `mqtt_list_topics` | 列出已订阅主题 |
+| `mqtt_get_messages` | 读取消息历史（Ring Buffer） |
+| `mqtt_clear_messages` | 清空消息历史 |
+
+**使用场景：** 设备日志收集、远程指令下发、传感器数据监控。
+
+### OTA MCP（固件升级管理）
+
+本地固件仓库 + HTTP 服务器 + 设备升级推送。
+
+| 工具 | 功能 |
+|------|------|
+| `ota_start` | 启动 OTA HTTP 服务器 |
+| `ota_stop` | 停止服务器 |
+| `ota_server_status` | 查看服务器状态 |
+| `ota_upload` | 上传固件到仓库 |
+| `ota_list` | 列出固件版本 |
+| `ota_delete` | 删除固件版本 |
+| `ota_info` | 查看固件详情 |
+| `ota_push` | 推送升级通知到指定设备 |
+| `ota_push_all` | 推送到所有在线设备 |
+| `ota_device_status` | 查看设备状态 |
+
+**使用场景：** 固件版本管理、OTA 升级测试、设备状态监控。
+
+### Serial MCP（串口调试）
+
+串口读写 + 本地 Ring Buffer，AI 按需拉取日志（零 token 浪费）。
+
+| 工具 | 功能 |
+|------|------|
+| `serial_list` | 列出可用串口 |
+| `serial_connect` | 连接串口（自动启动后台读取） |
+| `serial_disconnect` | 断开连接 |
+| `serial_write` | 发送数据 |
+| `serial_get_lines` | 取最近 N 行日志 |
+| `serial_search` | 关键词搜索 |
+| `serial_get_stats` | 统计信息 |
+
+**设计原则：** 全量本地存储，AI 按需拉取。持续串口输入不消耗 token。
+
+**使用场景：** 串口日志分析、AT 指令调试、设备启动流程诊断。
+
+### 依赖安装
+
+```bash
+# MQTT MCP 需要 paho-mqtt
+pip install paho-mqtt
+
+# Serial MCP 需要 pyserial
+pip install pyserial
+
+# OTA MCP 无额外依赖（使用 Python 标准库）
+```
+
+---
+
+## 九、工作流系统
 
 项目定义了 10 个工作流，分为两个层级：
 
@@ -454,7 +560,7 @@ python scripts/skill_iterate.py --release
 
 ---
 
-## 九、测试与验证
+## 十、测试与验证
 
 ### 运行测试
 
@@ -491,7 +597,7 @@ pytest tests/test_mvp_integration.py -v
 
 ---
 
-## 十、平台支持
+## 十一、平台支持
 
 | 平台 | 配置文件 | 说明 |
 |------|----------|------|
@@ -505,7 +611,7 @@ pytest tests/test_mvp_integration.py -v
 
 ---
 
-## 十一、安全与策略
+## 十二、安全与策略
 
 ### 设计资产隔离策略
 
@@ -527,7 +633,7 @@ pytest tests/test_mvp_integration.py -v
 
 ---
 
-## 十二、LVGL 页面生成管线详解
+## 十三、LVGL 页面生成管线详解
 
 ### 管线架构
 
@@ -658,7 +764,7 @@ pytest tests/test_mvp_integration.py -v
 
 ---
 
-## 十三、典型使用场景
+## 十四、典型使用场景
 
 ### 场景 1：新项目快速审查
 
@@ -699,9 +805,24 @@ pytest tests/lvgl/test_render_e2e.py -v
 在 AI IDE 中：
 > "帮我裁剪 ESP-IDF SDK，只保留 WiFi + BLE + LVGL 所需组件"
 
+### 场景 8：MQTT 设备调试
+
+在 AI IDE 中：
+> "连接本地 MQTT Broker，订阅 device/# 主题，看看设备发了什么消息"
+
+### 场景 9：串口日志分析
+
+在 AI IDE 中：
+> "连接 COM3 串口（115200），看看设备启动日志有没有错误"
+
+### 场景 10：OTA 固件升级
+
+在 AI IDE 中：
+> "上传 v1.2.0 固件到 ESP32 平台，推送到所有在线设备"
+
 ---
 
-## 十四、配置参考
+## 十五、配置参考
 
 ### 显示器默认配置
 
@@ -755,7 +876,7 @@ DISPLAY_CONFIG = {
 
 ---
 
-## 十五、MCP Server 内部工具
+## 十六、MCP Server 内部工具
 
 除了 6 个高层工具，MCP Server 还提供以下内部工具（供 AI 路由使用）：
 
@@ -779,7 +900,7 @@ DISPLAY_CONFIG = {
 
 ---
 
-## 十六、常见问题
+## 十七、常见问题
 
 **Q: Windows 上出现编码错误？**
 A: 确保设置环境变量 `PYTHONUTF8=1` 和 `PYTHONIOENCODING=utf-8`（`.mcp.json` 已配置）。
@@ -807,7 +928,12 @@ A: 预定义的场景配置（audio_video、low_power_sensor、ota_network、pur
 
 ---
 
-## 十七、版本历史（最近 3 版）
+## 十八、版本历史（最近 3 版）
+
+### v46.0.0
+- 新增 MQTT MCP Server（设备消息调试，8 个工具）
+- 新增 OTA MCP Server（固件升级管理，10 个工具）
+- 新增 Serial MCP Server（串口调试，7 个工具，Ring Buffer 本地存储）
 
 ### v45.0.0
 - 新增设计资产隔离策略（`design_asset_policy.py`）
@@ -829,7 +955,7 @@ A: 预定义的场景配置（audio_video、low_power_sensor、ota_network、pur
 
 ---
 
-## 十八、相关文档索引
+## 十九、相关文档索引
 
 | 文档 | 路径 | 说明 |
 |------|------|------|
