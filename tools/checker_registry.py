@@ -180,6 +180,9 @@ ALL_CHECKERS: tuple[CheckerSpec, ...] = (
     # ── ISR safety (cross-cutting) ──────────────────────────────────────
     CheckerSpec("isr_safety_checker", "isr_safety_checker.py", "isr", "per-file", ("C4",),
                 suites=("default", "all", "realtime"), error_prefix="C4"),
+    # ── C34: Hotpath forbidden ─────────────────────────────────────────
+    CheckerSpec("hotpath_checker", "hotpath_checker.py", "hotpath", "per-file", ("C34",),
+                suites=("default", "all", "realtime"), error_prefix="C34"),
 )
 
 # Default suite = subset that runs in run_review.py without --suite flag
@@ -263,6 +266,8 @@ SELF_TEST_CASES: tuple[CheckerCase, ...] = (
     CheckerCase("board_resource_checker.py", "fixtures/bad_board_resource.c", 1, "board resource bad"),
     CheckerCase("module_boundary_checker.py", "fixtures/good_module_boundary.c", 0, "module boundary good"),
     CheckerCase("module_boundary_checker.py", "fixtures/bad_module_boundary.c", 1, "module boundary bad"),
+    CheckerCase("hotpath_checker.py", "fixtures/good_hotpath.c", 0, "hotpath good"),
+    CheckerCase("hotpath_checker.py", "fixtures/bad_hotpath.c", 1, "hotpath bad"),
 )
 
 

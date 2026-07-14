@@ -3,7 +3,10 @@ name = "freertos-embedded-architect"
 version = "45.0.0"
 description = "FreeRTOS firmware review and LVGL design-to-code tooling"
 requires-python = ">=3.10"
-dependencies = []
+dependencies = [
+    "paho-mqtt>=1.6,<3",
+    "pyserial>=3.5,<4",
+]
 
 [project.optional-dependencies]
 vision = [
