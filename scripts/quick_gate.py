@@ -11,6 +11,7 @@ import hashlib
 import os
 import subprocess
 import sys
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from dataclasses import dataclass
 from pathlib import Path
@@ -38,6 +39,7 @@ STEPS = [
     GateStep("project gate self-test", [sys.executable, "tools/project_gate.py", "--self-test"]),
     GateStep("repro bundle self-test", [sys.executable, "tools/repro_bundle.py", "--self-test"]),
     GateStep("context router self-test", [sys.executable, "tools/context_router.py", "--self-test"]),
+    GateStep("routing table sync", [sys.executable, "scripts/sync_skill_routing.py", "--check"]),
     GateStep("post-install smoke self-test", [sys.executable, "scripts/post_install_smoke.py", "--self-test"]),
     GateStep("skill metadata", [sys.executable, "scripts/check_skill_metadata.py"]),
     GateStep("official skill validator", [sys.executable, "scripts/run_official_skill_validator.py", "."]),
@@ -107,50 +109,72 @@ def _file_fingerprint(path: Path) -> tuple[str, str]:
         return "unreadable", "unreadable"
 
 
-def run_step(index: int, total: int, step: GateStep, *, verbose: bool) -> bool:
-    cmd_text = " ".join(step.cmd)
-    label = f"[{index}/{total}] {step.name}"
-    if not step.blocking:
-        label += " (non-blocking)"
-    print(label)
-    print(f"  {cmd_text}")
+@dataclass
+class StepResult:
+    """Result of a single gate step."""
+    index: int
+    name: str
+    blocking: bool
+    passed: bool
+    returncode: int
+    output: str  # captured stdout + stderr
 
-    if verbose:
-        proc = subprocess.run(step.cmd, cwd=ROOT, env=_env())
-        if proc.returncode == 0:
-            print(f"  PASS {step.name}")
-            return True
-        if not step.blocking:
-            print(f"  WARN {step.name}: exit {proc.returncode} (non-blocking)")
-            return True
-        print(f"  FAIL {step.name}: exit {proc.returncode}")
-        return False
 
-    proc = subprocess.run(
-        step.cmd,
-        cwd=ROOT,
-        env=_env(),
-        capture_output=True,
-        encoding="utf-8",
-        errors="replace",
-    )
+def run_step_capture(index: int, step: GateStep) -> StepResult:
+    """Run a single gate step and capture output. Designed for parallel execution."""
+    try:
+        proc = subprocess.run(
+            step.cmd,
+            cwd=ROOT,
+            env=_env(),
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+    except Exception as exc:
+        return StepResult(
+            index=index, name=step.name, blocking=step.blocking,
+            passed=False, returncode=1, output=str(exc),
+        )
+
+    combined = (proc.stdout or "") + (proc.stderr or "")
     if proc.returncode == 0:
-        print(f"  PASS {step.name}")
-        return True
+        return StepResult(
+            index=index, name=step.name, blocking=step.blocking,
+            passed=True, returncode=0, output=combined,
+        )
 
     if not step.blocking:
-        print(f"  WARN {step.name}: exit {proc.returncode} (non-blocking)")
-        if proc.stdout:
-            for line in proc.stdout.splitlines():
-                print(f"    {line}")
-        if proc.stderr:
-            for line in proc.stderr.splitlines():
-                print(f"    {line}")
-        return True
+        return StepResult(
+            index=index, name=step.name, blocking=step.blocking,
+            passed=True, returncode=proc.returncode, output=combined,
+        )
 
-    print(f"  FAIL {step.name}: exit {proc.returncode}")
-    _print_failure_output(proc)
-    return False
+    return StepResult(
+        index=index, name=step.name, blocking=step.blocking,
+        passed=False, returncode=proc.returncode, output=combined,
+    )
+
+
+def print_step_result(result: StepResult, total: int) -> None:
+    """Print a step result in the original format."""
+    label = f"[{result.index}/{total}] {result.name}"
+    if not result.blocking:
+        label += " (non-blocking)"
+
+    if result.passed and result.returncode == 0:
+        print(f"{label}\n  PASS {result.name}")
+    elif result.passed and not result.blocking:
+        print(f"{label}\n  WARN {result.name}: exit {result.returncode} (non-blocking)")
+        if result.output.strip():
+            for line in result.output.strip().splitlines():
+                print(f"    {line}")
+    else:
+        print(f"{label}\n  FAIL {result.name}: exit {result.returncode}")
+        if result.output.strip():
+            print("  stdout:")
+            for line in result.output.strip().splitlines():
+                print(f"    {line}")
 
 
 def _build_route_quality_step(args: argparse.Namespace, *, strict: bool) -> GateStep:
@@ -190,6 +214,7 @@ def main() -> int:
     parser.add_argument("--quality-max-broad-patterns", type=int)
     parser.add_argument("--quality-max-multi-match-fixtures", type=int)
     parser.add_argument("--strict", action="store_true", help="fail on quality gate warnings (CI-style strict mode)")
+    parser.add_argument("--sequential", action="store_true", help="run steps sequentially (default: parallel)")
     args = parser.parse_args()
 
     policy_fingerprint, policy_mtime = _file_fingerprint(args.quality_policy)
@@ -205,13 +230,37 @@ def main() -> int:
 
     steps = STEPS.copy()
     steps.insert(5, _build_route_quality_step(args, strict=quality_strict))
-
-    failed: list[str] = []
     total = len(steps)
 
-    for index, step in enumerate(steps, start=1):
-        if not run_step(index, total, step, verbose=args.verbose):
-            failed.append(step.name)
+    failed: list[str] = []
+
+    if args.sequential:
+        # Sequential mode: original behavior
+        for index, step in enumerate(steps, start=1):
+            result = run_step_capture(index, step)
+            print_step_result(result, total)
+            if not result.passed:
+                failed.append(result.name)
+    else:
+        # Parallel mode: run all steps concurrently, print results in order
+        print(f"[INFO] Running {total} gate steps in parallel (max_workers=4)")
+        results_by_index: dict[int, StepResult] = {}
+
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            futures = {
+                pool.submit(run_step_capture, index, step): index
+                for index, step in enumerate(steps, start=1)
+            }
+            for future in as_completed(futures):
+                result = future.result()
+                results_by_index[result.index] = result
+
+        # Print results in original order
+        for index in sorted(results_by_index.keys()):
+            result = results_by_index[index]
+            print_step_result(result, total)
+            if not result.passed:
+                failed.append(result.name)
 
     if failed:
         print("\nQuick gate failed:")
