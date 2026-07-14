@@ -63,7 +63,8 @@ uint8_t ui_router_depth(void);
 def generate_router_c(pages: list[dict[str, Any]]) -> str:
     decls = []
     create_cases = []
-    destroy_cases = []
+    destroy_candidate_cases = []
+    destroy_active_cases = []
     state_cases = []
     create_state_cases = []
     refresh_cases = []
@@ -74,15 +75,16 @@ def generate_router_c(pages: list[dict[str, Any]]) -> str:
     for page in pages:
         pid = _safe(page["id"])
         macro = _macro(pid)
-        decls.append(f'#include "ui_page_{pid}.h"')
-        decls.append(f'#include "presenter_{pid}.h"')
-        create_cases.append(f"case UI_PAGE_{macro}: return ui_page_{pid}_create(parent);")
-        destroy_cases.append(f"case UI_PAGE_{macro}: ui_page_{pid}_destroy(root); break;")
+        decls.append(f'#include "../pages/{pid}/ui_page_{pid}.h"')
+        decls.append(f'#include "../presenters/presenter_{pid}.h"')
+        create_cases.append(f"case UI_PAGE_{macro}: candidate = ui_page_{pid}_create(s_root); break;")
+        destroy_candidate_cases.append(f"case UI_PAGE_{macro}: ui_page_{pid}_destroy(candidate); break;")
+        destroy_active_cases.append(f"case UI_PAGE_{macro}: ui_page_{pid}_destroy(s_active); break;")
         state_cases.append(f"case UI_PAGE_{macro}: return ui_page_{pid}_set_state(state) == 0 ? UI_APP_OK : UI_APP_ERR_INVALID_ARG;")
         create_state_cases.append(f"case UI_PAGE_{macro}: state_result = ui_page_{pid}_set_state(state ? state : \"default\"); break;")
         refresh_cases.append(f"case UI_PAGE_{macro}: ui_page_{pid}_refresh(); break;")
         node_cases.append(f"case UI_PAGE_{macro}: return ui_page_{pid}_get_node(node_id);")
-        presenter_enter.append(f"case UI_PAGE_{macro}: presenter_{pid}_on_enter(root); break;")
+        presenter_enter.append(f"case UI_PAGE_{macro}: presenter_{pid}_on_enter(s_active); break;")
         presenter_exit.append(f"case UI_PAGE_{macro}: presenter_{pid}_on_exit(); break;")
     return f'''#include "ui_router.h"
 #include <string.h>
@@ -101,7 +103,7 @@ static lv_obj_t *create_page(ui_page_id_t page, const char *state) {{
     int state_result = 0;
     switch (page) {{ {chr(10).join(create_state_cases)} default: state_result = -1; break; }}
     if (state_result != 0) {{
-        switch (page) {{ {chr(10).join(destroy_cases)} default: break; }}
+        switch (page) {{ {chr(10).join(destroy_candidate_cases)} default: break; }}
         return NULL;
     }}
     return candidate;
@@ -110,7 +112,7 @@ static lv_obj_t *create_page(ui_page_id_t page, const char *state) {{
 static void destroy_active(void) {{
     if (s_active == NULL || s_depth == 0) return;
     switch (s_stack[s_depth - 1].page) {{ {chr(10).join(presenter_exit)} default: break; }}
-    switch (s_stack[s_depth - 1].page) {{ {chr(10).join(destroy_cases)} default: break; }}
+    switch (s_stack[s_depth - 1].page) {{ {chr(10).join(destroy_active_cases)} default: break; }}
     s_active = NULL;
 }}
 
@@ -225,9 +227,9 @@ def generate_presenter_c(page: dict[str, Any], routes: list[dict[str, Any]], mod
         callback = f"on_{pid}_{node}_{_safe(trigger)}"
         callbacks.append(f"static void {callback}(lv_event_t *e) {{ (void)e;\n{chr(10).join(body)}\n}}")
         binds.append(f"    obj = ui_router_get_node(\"{node}\"); if (obj) lv_obj_add_event_cb(obj, {callback}, {event_map[trigger]}, NULL);")
-    includes = "\n".join(f'#include "model_{_safe(m["name"])}.h"' for m in models)
+    includes = "\n".join(f'#include "../models/model_{_safe(m["name"])}.h"' for m in models)
     return f'''#include "presenter_{pid}.h"
-#include "ui_router.h"
+#include "../app/ui_router.h"
 {includes}
 {chr(10).join(callbacks)}
 void presenter_{pid}_bind(lv_obj_t *root) {{ lv_obj_t *obj; (void)root; {chr(10).join(binds)} }}
@@ -253,7 +255,7 @@ void ui_app_drain_posts(void);
 def generate_app_c(entry_page: str, models: list[dict[str, Any]]) -> str:
     inits = "\n".join(f"    model_{_safe(model['name'])}_init();" for model in models)
     resets = "\n".join(f"    model_{_safe(model['name'])}_reset();" for model in models)
-    includes = "\n".join(f'#include "model_{_safe(model["name"])}.h"' for model in models)
+    includes = "\n".join(f'#include "../models/model_{_safe(model["name"])}.h"' for model in models)
     return f'''#include "ui_app.h"
 {includes}
 

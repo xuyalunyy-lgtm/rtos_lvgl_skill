@@ -45,7 +45,7 @@ If the primary task is unclear, ask one clarifying question before proceeding.
 ---
 ## Generate Domain
 **Trigger:** LVGL page / manifest / new module / bring-up / SDK trim
-**Output:** compilable C/H artifacts + verification evidence + asset dependency list
+**Output:** minimal compilable firmware artifacts; verification evidence remains in the internal run ledger
 | Workflow | Trigger |
 |----------|---------|
 | l3_lvgl_page.md | LVGL page / manifest generation |
@@ -53,9 +53,9 @@ If the primary task is unclear, ask one clarifying question before proceeding.
 | l3_bring_up.md | board bring-up |
 | l3_sdk_trim.md | SDK trimming |
 - **必读:** `references/core_rules.md`
-- **LVGL 必读:** `references/lvgl_image_to_code_contract.md`
+- **LVGL 必读:** `references/lvgl_image_to_code_contract.md`, `references/lvgl_interactive_delivery_contract.md`
 - **按需:** `platforms/{platform}.md`, `references/lvgl_*`
-- **工具:** MCP tools (inspect_design, generate_ui, render_ui, compare_ui, refine_ui, apply_patch)
+- **工具:** MCP tools (inspect_design, generate_ui, render_ui, compare_ui, refine_ui, apply_patch). Use high-interaction mode for unresolved visual intent and publish only the minimal final delivery set.
 - **禁止:** `tools/*_checker.py`, `examples/bad_*.c`
 ---
 ## Debug Domain

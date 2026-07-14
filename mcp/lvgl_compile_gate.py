@@ -59,9 +59,72 @@ def _extract_function_decls(code: str) -> set[str]:
     return set(re.findall(r'^\s*(?:void|lv_obj_t\s*\*|int|bool|static)\s+(\w+)\s*\(', code, re.MULTILINE))
 
 
-def _check_brace_balance(code: str) -> dict[str, Any]:
+def _preprocess_for_balance(code: str, lvgl_version: str) -> str:
+    """Keep active LVGL preprocessor branches for structural validation.
+
+    LVGL's font converter emits version-gated initializers where both source
+    branches are individually incomplete.  Counting every branch reports a
+    valid font C file as malformed, so this small evaluator selects the target
+    LVGL branch and treats unknown feature macros as disabled.
+    """
+    macros: dict[str, int] = {
+        "LVGL_VERSION_MAJOR": 9 if lvgl_version == "v9" else 8,
+        "LVGL_VERSION_MINOR": 0,
+    }
+
+    def evaluate(expression: str) -> bool:
+        expression = re.sub(r"LV_VERSION_CHECK\s*\([^)]*\)", "0", expression)
+        expression = re.sub(r"defined\s*\((\w+)\)", lambda match: "1" if match.group(1) in macros else "0", expression)
+        expression = expression.replace("&&", " and ").replace("||", " or ")
+        expression = re.sub(r"!(?!=)", " not ", expression)
+        expression = re.sub(r"\b[A-Za-z_]\w*\b", lambda match: str(macros.get(match.group(0), 0)), expression)
+        if not re.fullmatch(r"(?:\d+|and|or|not|[()<>!=+\-*/%\s])+", expression):
+            return False
+        try:
+            return bool(eval(expression, {"__builtins__": {}}, {}))
+        except (SyntaxError, ValueError, TypeError, ZeroDivisionError):
+            return False
+
+    active = True
+    stack: list[dict[str, bool]] = []
+    kept: list[str] = []
+    for line in code.splitlines(keepends=True):
+        directive = re.match(r"\s*#\s*(\w+)(?:\s+(.*?))?\s*$", line)
+        if not directive:
+            if active:
+                kept.append(line)
+            continue
+
+        command, argument = directive.group(1), (directive.group(2) or "").strip()
+        if command == "define" and active:
+            match = re.match(r"(\w+)(?:\s+([0-9]+))?", argument)
+            if match:
+                macros[match.group(1)] = int(match.group(2) or "1")
+        elif command in {"if", "ifdef", "ifndef"}:
+            condition = (
+                evaluate(argument) if command == "if"
+                else (argument in macros if command == "ifdef" else argument not in macros)
+            )
+            stack.append({"parent": active, "taken": bool(condition)})
+            active = active and bool(condition)
+        elif command == "elif" and stack:
+            frame = stack[-1]
+            condition = evaluate(argument)
+            active = frame["parent"] and not frame["taken"] and condition
+            frame["taken"] = frame["taken"] or condition
+        elif command == "else" and stack:
+            frame = stack[-1]
+            active = frame["parent"] and not frame["taken"]
+            frame["taken"] = True
+        elif command == "endif" and stack:
+            active = stack.pop()["parent"]
+    return "".join(kept)
+
+
+def _check_brace_balance(code: str, lvgl_version: str = "v9") -> dict[str, Any]:
     """Check brace/parenthesis/bracket balance."""
-    # Remove strings and comments
+    # Resolve version branches first, then remove strings and comments.
+    code = _preprocess_for_balance(code, lvgl_version)
     code = re.sub(r'//.*?$', '', code, flags=re.MULTILINE)
     code = re.sub(r'/\*.*?\*/', '', code, flags=re.DOTALL)
     code = re.sub(r'"[^"]*"', '""', code)
@@ -180,7 +243,7 @@ def validate_compile(
     warnings: list[str] = []
 
     # Brace balance
-    balance = _check_brace_balance(c_code)
+    balance = _check_brace_balance(c_code, lvgl_version)
     if not balance["balanced"]:
         errors.append(f"Unbalanced braces: {balance}")
 

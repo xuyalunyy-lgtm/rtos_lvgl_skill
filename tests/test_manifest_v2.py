@@ -102,6 +102,17 @@ class TestSchemaVersion:
         assert result["ok"] is False
         assert any("Unsupported" in e for e in result["errors"])
 
+    def test_resolve_v21_preserves_state_map(self):
+        manifest = {
+            "schema_version": "2.1",
+            "pages": [{
+                "id": "home",
+                "states": {"default": {"design": "designs/home.png"}},
+            }],
+        }
+        resolved = resolve_manifest(manifest)
+        assert resolved["pages"][0]["states"] == manifest["pages"][0]["states"]
+
     def test_not_dict(self):
         result = validate_manifest("not a dict")
         assert result["ok"] is False

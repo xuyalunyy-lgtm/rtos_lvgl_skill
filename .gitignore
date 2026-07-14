@@ -18,3 +18,8 @@ generated/
 # Locally installed portable compiler payload (published as a release asset)
 runtime/toolchain/win-x64/
 .tmp_*/
+
+# Local design inputs and reproducible multi-page validation workspace.
+/ui/INITIAL/
+/ui/multipage/
+/freertos-lvgl-ui/

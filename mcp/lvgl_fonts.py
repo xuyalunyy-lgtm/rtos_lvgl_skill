@@ -119,7 +119,7 @@ def estimate_font_flash(
 def calculate_resource_budget(
     spec: dict[str, Any],
     asset_manifest: dict[str, Any] | None = None,
-    max_flash_bytes: int = 2 * 1024 * 1024,  # 2MB default
+    max_flash_bytes: int = 8 * 1024 * 1024,  # 8MB default
     max_ram_bytes: int = 512 * 1024,  # 512KB default
 ) -> dict[str, Any]:
     """Calculate total resource budget for a page.

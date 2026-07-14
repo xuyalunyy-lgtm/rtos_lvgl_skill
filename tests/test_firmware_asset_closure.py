@@ -79,7 +79,12 @@ def test_standard_package_trims_cutout_padding_and_fits_v92_images(tmp_path: Pat
     assert result["asset_pack_path"] is None
     assert result["evidence_removed"] is True
     assert not (tmp_path / ".out_evidence").exists()
-    assert (tmp_path / "out" / "delivery_manifest.json").is_file()
+    assert not (tmp_path / "out" / "delivery_manifest.json").exists()
+    assert not (tmp_path / "out" / "ui_auto_assets.cmake").exists()
+    assert not (tmp_path / "out" / "ui_auto_fonts.cmake").exists()
+    cmake = (tmp_path / "out" / "ui_generated.cmake").read_text(encoding="utf-8")
+    assert "ui_interactive_scene_auto.c" in cmake
+    assert "40_bold.c" in cmake
 
 
 def test_standard_package_can_keep_full_generation_evidence(tmp_path: Path) -> None:

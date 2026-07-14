@@ -17,7 +17,7 @@ Load one workflow first, then only the referenced prompts, references, and platf
 | [l3_bring_up.md](l3_bring_up.md) | L3 | board bring-up / peripheral validation |
 | [l3_sdk_trim.md](l3_sdk_trim.md) | L3 | SDK trimming |
 
-App domain (manifest / multi-page scaffold) is covered by `l3_lvgl_page.md` via MCP `generate_ui(manifest_path=...)`.
+App domain (manifest / multi-page scaffold) is covered by `l3_lvgl_page.md` via MCP `generate_ui(manifest_path=...)`. Design-driven multi-page work follows `../references/lvgl_interactive_delivery_contract.md`.
 
 Architecture workflows (I/P/O, FSM/HFSM, HAL patterns):
 

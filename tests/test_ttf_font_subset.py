@@ -30,3 +30,15 @@ def test_font_subset_plan_uses_analyzed_text_sizes_and_glyphs() -> None:
     assert plan[0]["glyph_count"] == 4  # A, B, C, and the line break.
     assert plan[1]["text"] == "Hello"
     assert plan[2]["source"] == str(source)
+
+
+def test_font_subset_plan_accepts_role_specific_sources() -> None:
+    scene_spec = {
+        "copy": {"top": "Title", "hint": "Body"},
+        "font_sources": {"top": "fonts/bold.ttf", "hint": "fonts/regular.ttf"},
+    }
+
+    plan = _font_subset_plan(scene_spec, Path("fonts/fallback.ttf"))
+
+    assert plan[0]["source"] == "fonts/bold.ttf"
+    assert plan[1]["source"] == "fonts/regular.ttf"

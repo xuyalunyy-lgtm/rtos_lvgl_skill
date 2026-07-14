@@ -1,7 +1,6 @@
 """Auto-discover a conventional ui/ directory and bind its cutouts."""
 from __future__ import annotations
 
-import hashlib
 import json
 import re
 import shutil
@@ -136,6 +135,7 @@ def _build_render_spec_v2(
 
 _FONT_ROLES = (
     ("top", "top", "top_prompt", 40),
+    ("action", "action", "action", 36),
     ("title", "title", "title", 36),
     ("hint", "hint", "hint", 30),
 )
@@ -164,6 +164,7 @@ def _font_subset_plan(scene_spec: dict[str, Any], source: Path) -> list[dict[str
     copy = scene_spec.get("copy", {}) if isinstance(scene_spec.get("copy"), dict) else {}
     analysis = scene_spec.get("analysis", {}) if isinstance(scene_spec.get("analysis"), dict) else {}
     analysis_text = analysis.get("text", {}) if isinstance(analysis.get("text"), dict) else {}
+    role_sources = scene_spec.get("font_sources", {}) if isinstance(scene_spec.get("font_sources"), dict) else {}
     plan: list[dict[str, Any]] = []
     for role, copy_key, analysis_key, fallback_size in _FONT_ROLES:
         text = str(copy.get(copy_key, ""))
@@ -181,7 +182,7 @@ def _font_subset_plan(scene_spec: dict[str, Any], source: Path) -> list[dict[str
             "size_px": size,
             "text": text,
             "glyph_count": len(set(text)),
-            "source": str(source),
+            "source": str(role_sources.get(role) or source),
         })
     return plan
 
@@ -191,7 +192,7 @@ def _generate_ttf_font_subsets(
     source: Path,
     output_dir: Path,
 ) -> tuple[list[tuple[str, Path]], list[dict[str, str]], list[dict[str, Any]], list[str]]:
-    """Generate firmware C fonts and native `.bin` subsets from one TTF."""
+    """Generate firmware C fonts and native `.bin` subsets with per-role sources."""
     from mcp.assets import find_lv_font_conv, unique_glyph_text
 
     converter = find_lv_font_conv()
@@ -203,12 +204,16 @@ def _generate_ttf_font_subsets(
     warnings: list[str] = []
     for item in plan:
         symbol, size = str(item["symbol"]), int(item["size_px"])
+        item_source = Path(str(item["source"]))
+        if not item_source.is_file():
+            warnings.append(f"TTF font source not found for {symbol}: {item_source}")
+            continue
         glyphs = unique_glyph_text(str(item["text"]))
         c_path = output_dir / f"{symbol}.c"
         bin_path = output_dir / f"{symbol}.bin"
-        common = [converter, "--font", str(source), "--symbols", glyphs, "--size", str(size), "--bpp", "4", "--no-compress"]
+        common = [converter, "--font", str(item_source), "--symbols", glyphs, "--size", str(size), "--bpp", "4", "--no-compress"]
         commands = (
-            ("lvgl", c_path, [*common, "--format", "lvgl", "--lv-font-name", symbol, "-o", str(c_path)]),
+            ("lvgl", c_path, [*common, "--format", "lvgl", "--lv-include", "lvgl.h", "--lv-font-name", symbol, "-o", str(c_path)]),
             ("bin", bin_path, [*common, "--format", "bin", "-o", str(bin_path)]),
         )
         failed = False
@@ -228,7 +233,7 @@ def _generate_ttf_font_subsets(
             bin_path.unlink(missing_ok=True)
             continue
         sources.append((symbol, c_path))
-        previews.append({"symbol": symbol, "preview_bin": str(bin_path), "source": str(source)})
+        previews.append({"symbol": symbol, "preview_bin": str(bin_path), "source": str(item_source)})
     return sources, previews, plan, warnings
 
 
@@ -270,10 +275,6 @@ def _fresh_directory(path: Path) -> None:
     path.mkdir(parents=True, exist_ok=True)
 
 
-def _sha256(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
-
-
 def _publish_final_delivery(
     delivery: Path,
     evidence: Path,
@@ -283,43 +284,28 @@ def _publish_final_delivery(
     firmware_assets: dict[str, Any],
     font_sources: list[tuple[str, Path]],
     font_header: Path,
-    font_cmake: Path,
 ) -> dict[str, Any]:
     """Atomically publish only compilable code and direct dependencies."""
     staging = delivery.parent / f".{delivery.name}_staging"
     _fresh_directory(staging)
+    asset_sources = [Path(path) for path in firmware_assets["sources"]]
+    generated_font_sources = [path for _, path in font_sources]
     required = [
-        page_c, page_h, Path(firmware_assets["header"]), Path(firmware_assets["cmake"]),
-        *[Path(path) for path in firmware_assets["sources"]],
-        *[path for _, path in font_sources], font_header, font_cmake,
+        page_c, page_h, Path(firmware_assets["header"]),
+        *asset_sources, *generated_font_sources, font_header,
     ]
     for source in required:
         if not source.is_file():
             raise FileNotFoundError(f"required delivery dependency missing: {source}")
         shutil.copy2(source, staging / source.name)
     aggregate = staging / "ui_generated.cmake"
+    source_names = [page_c.name, *[path.name for path in asset_sources], *[path.name for path in generated_font_sources]]
     aggregate.write_text(
-        "include(\"${CMAKE_CURRENT_LIST_DIR}/ui_auto_assets.cmake\")\n"
-        "include(\"${CMAKE_CURRENT_LIST_DIR}/ui_auto_fonts.cmake\")\n"
         "set(UI_GENERATED_SOURCES\n"
-        f"    \"${{CMAKE_CURRENT_LIST_DIR}}/{page_c.name}\"\n"
-        "    ${UI_AUTO_ASSET_SOURCES}\n"
-        "    ${UI_AUTO_FONT_SOURCES}\n"
-        ")\n",
+        + "".join(f"    \"${{CMAKE_CURRENT_LIST_DIR}}/{name}\"\n" for name in source_names)
+        + ")\nset(UI_GENERATED_INCLUDE_DIR \"${CMAKE_CURRENT_LIST_DIR}\")\n",
         encoding="utf-8", newline="\n",
     )
-    delivered_files = sorted(path for path in staging.iterdir() if path.is_file())
-    manifest = {
-        "schema_version": 1,
-        "status": "asset_contract_ready",
-        "delivery_mode": "final_only",
-        "files": [
-            {"path": path.name, "sha256": _sha256(path), "bytes": path.stat().st_size}
-            for path in delivered_files
-        ],
-    }
-    manifest_path = staging / "delivery_manifest.json"
-    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8", newline="\n")
     if delivery.exists():
         shutil.rmtree(delivery)
     staging.replace(delivery)
@@ -331,7 +317,6 @@ def _publish_final_delivery(
         "page_c": str(delivery / page_c.name),
         "page_h": str(delivery / page_h.name),
         "cmake": str(delivery / aggregate.name),
-        "manifest": str(delivery / manifest_path.name),
     }
 
 
@@ -564,13 +549,13 @@ def generate_standard_ui_package(
         delivery_result = _publish_final_delivery(
             delivery, out, page_c=c_path, page_h=out / "ui_interactive_scene_auto.h",
             firmware_assets=firmware_assets, font_sources=font_sources,
-            font_header=font_header, font_cmake=font_cmake,
+            font_header=font_header,
         )
         delivered_firmware = {
             **firmware_assets,
             "header": str(delivery / Path(firmware_assets["header"]).name),
             "sources": [str(delivery / Path(path).name) for path in firmware_assets["sources"]],
-            "cmake": str(delivery / Path(firmware_assets["cmake"]).name),
+            "cmake": delivery_result["cmake"],
         }
         if cleanup_intermediates:
             shutil.rmtree(out)

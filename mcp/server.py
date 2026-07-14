@@ -437,7 +437,10 @@ def _handle_request(message: dict[str, Any]) -> dict[str, Any] | None:
             result = {
                 "protocolVersion": _negotiate_protocol_version(message.get("params")),
                 "capabilities": {"tools": {}, "resources": {}},
-                "serverInfo": {"name": "freertos-embedded-architect-mcp", "version": "0.2.1"},
+                "serverInfo": {
+                    "name": os.getenv("LVGL_MCP_SERVER_NAME", "lvgl-ui-mcp"),
+                    "version": os.getenv("LVGL_MCP_SERVER_VERSION", "0.1.0"),
+                },
             }
         elif method == "ping":
             result = {}
@@ -571,7 +574,7 @@ def run_self_test() -> int:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="FreeRTOS Embedded Architect MCP adapter")
+    parser = argparse.ArgumentParser(description="LVGL UI MCP adapter")
     parser.add_argument("--self-test", action="store_true", help="run wrapper self-tests")
     args = parser.parse_args()
     if args.self_test:

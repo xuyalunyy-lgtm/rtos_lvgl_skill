@@ -292,6 +292,17 @@ static int execute_command(const scene_cmd_header_t *cmd, const uint8_t *payload
         return 0;
     }
 
+    case OP_SET_STYLE_TEXT_ALIGN: {
+        if (cmd->size != 4 || !obj) return -1;
+        uint32_t alignment;
+        memcpy(&alignment, payload, sizeof(alignment));
+        lv_text_align_t lv_alignment = LV_TEXT_ALIGN_LEFT;
+        if (alignment == 1) lv_alignment = LV_TEXT_ALIGN_CENTER;
+        else if (alignment == 2) lv_alignment = LV_TEXT_ALIGN_RIGHT;
+        lv_obj_set_style_text_align(obj, lv_alignment, 0);
+        return 0;
+    }
+
     case OP_SET_STYLE_TEXT_FONT: {
         if (cmd->size != 4 || !obj) return -1;
         uint32_t str_idx;
@@ -367,7 +378,6 @@ static int execute_command(const scene_cmd_header_t *cmd, const uint8_t *payload
     case OP_CREATE_SPINNER:
     case OP_CREATE_ARC:
     case OP_SET_STYLE_SHADOW_WIDTH:
-    case OP_SET_STYLE_TEXT_ALIGN:
     case OP_SET_GRID:
         /* Silently ignore unimplemented opcodes for now */
         return 0;
@@ -485,7 +495,6 @@ int scene_decode_and_execute(const uint8_t *data, size_t size, fb_display_t *dis
             case OP_CREATE_SPINNER:
             case OP_CREATE_ARC:
             case OP_SET_STYLE_SHADOW_WIDTH:
-            case OP_SET_STYLE_TEXT_ALIGN:
             case OP_SET_GRID:
                 g_opcodes_unsupported[cmd->opcode] = 1;
                 break;

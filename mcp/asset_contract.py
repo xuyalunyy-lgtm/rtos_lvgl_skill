@@ -107,6 +107,9 @@ def validate_initial_manifest(manifest: Any) -> dict[str, Any]:
         confidence = asset.get("confidence")
         if confidence is not None and (not isinstance(confidence, (int, float)) or not 0 <= confidence <= 1):
             errors.append(f"{prefix}.confidence must be between 0 and 1")
+        preserve_source_canvas = asset.get("preserve_source_canvas")
+        if preserve_source_canvas is not None and not isinstance(preserve_source_canvas, bool):
+            errors.append(f"{prefix}.preserve_source_canvas must be a boolean")
     limits = manifest.get("limits")
     if limits is not None:
         if not isinstance(limits, dict) or not isinstance(limits.get("max_flash_bytes"), int) or limits["max_flash_bytes"] <= 0:
@@ -244,6 +247,7 @@ def _inspect_and_pack(path: Path, intent: dict[str, Any], display: dict[str, Any
         meaningful_alpha = alpha_min < 255
         alpha_bbox = list(alpha.getbbox()) if alpha.getbbox() else None
     asset_type = intent["type"]
+    preserve_source_canvas = bool(intent.get("preserve_source_canvas", False))
     if asset_type == "full_screen_background":
         rotation = int(display.get("rotation", 0))
         expected = [int(display["height"]), int(display["width"])] if rotation in {90, 270} else [int(display["width"]), int(display["height"])]
@@ -259,9 +263,9 @@ def _inspect_and_pack(path: Path, intent: dict[str, Any], display: dict[str, Any
         # is part of the placement contract and prevents antialiased edge
         # pixels from touching the LVGL object's clipping boundary.
         color_format = "RGB565A8"
-        auto_crop = asset_type != "status_icon"
+        auto_crop = asset_type != "status_icon" and not preserve_source_canvas
     else:
-        color_format, auto_crop = ("RGB565A8", True) if meaningful_alpha else ("RGB565", False)
+        color_format, auto_crop = ("RGB565A8", not preserve_source_canvas) if meaningful_alpha else ("RGB565", False)
     packed = pack_asset(path, str(intent["symbol"]), color_format, auto_crop=auto_crop)
     if not packed.get("ok"):
         return packed
@@ -276,6 +280,7 @@ def _inspect_and_pack(path: Path, intent: dict[str, Any], display: dict[str, Any
         "alpha_bbox": alpha_bbox,
         "converted_size": [packed["width"], packed["height"]],
         "crop_offset": [crop[0], crop[1]],
+        "preserve_source_canvas": preserve_source_canvas,
         "format": f"LV_COLOR_FORMAT_{color_format}",
         "stride": packed["width"] * 2,
         "flash_bytes": packed["flash_bytes"],
@@ -352,7 +357,7 @@ def resolve_asset_contract(
             "symbol": intent["symbol"], "type": intent["type"], "source_path": relative,
             "match_method": match["method"], "match_score": match["score"], **physical,
         }
-        for key in ("state", "layer", "estimated_bbox", "confidence"):
+        for key in ("state", "layer", "estimated_bbox", "confidence", "preserve_source_canvas"):
             if key in intent: resolved[key] = intent[key]
         resolved_items.append(resolved)
         packed_assets.append(packed)

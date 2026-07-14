@@ -321,13 +321,14 @@ def resolve_manifest(manifest: dict[str, Any]) -> dict[str, Any]:
         merged_fonts = {**shared_fonts, **page_fonts}
         page["fonts"] = merged_fonts
 
-        # Default state
+        # State containers intentionally differ between v2.0 and v2.1.  Do
+        # not coerce a validated v2.1 state map into the legacy list shape.
         states = page.get("states")
-        if not isinstance(states, list) or len(states) == 0:
-            if resolved.get("schema_version") == "2.1" and not isinstance(states, dict):
+        if resolved.get("schema_version") == "2.1":
+            if not isinstance(states, dict) or not states:
                 page["states"] = {"default": {"design": page.get("design", "")}}
-            else:
-                page["states"] = ["default"]
+        elif not isinstance(states, list) or not states:
+            page["states"] = ["default"]
 
     return resolved
 

@@ -210,6 +210,9 @@ class CommandBuffer:
     def set_style_text_color(self, node_id: int, color: int):
         self._emit(Op.SET_STYLE_TEXT_COLOR, node_id, struct.pack("<I", color))
 
+    def set_style_text_align(self, node_id: int, align: str):
+        self._emit(Op.SET_STYLE_TEXT_ALIGN, node_id, struct.pack("<I", TEXT_ALIGN_MAP.get(align, 0)))
+
     def set_style_text_font(self, node_id: int, font_id: str):
         idx = self.strings.add(font_id)
         self._emit(Op.SET_STYLE_TEXT_FONT, node_id, struct.pack("<I", idx))
@@ -379,6 +382,8 @@ def _encode_styles(cmds: CommandBuffer, node_id: int, styles: dict[str, Any]):
         cmds.set_style_border_color(node_id, _parse_color(styles["border_color"]))
     if "text_color" in styles:
         cmds.set_style_text_color(node_id, _parse_color(styles["text_color"]))
+    if "text_align" in styles:
+        cmds.set_style_text_align(node_id, str(styles["text_align"]))
     font_id = styles.get("font_id", styles.get("font", ""))
     if isinstance(font_id, str) and font_id.strip():
         cmds.set_style_text_font(node_id, font_id.strip().lstrip("&"))

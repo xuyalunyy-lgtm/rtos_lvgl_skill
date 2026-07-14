@@ -49,6 +49,7 @@ def _result_artifacts(result: dict[str, Any], output_dir: str | None) -> dict[st
         "analysis_report", "debug_overlay", "initial_asset_manifest", "spec_path", "asset_pack_path",
         "c_path", "h_path", "render_path", "object_tree_path",
         "object_tree_json_path", "diff_overlay_path", "app_evidence_path", "evidence_path",
+        "clarification_contract", "ui_decisions",
     )
     artifacts = {
         key: str(result[key]) for key in keys
@@ -135,6 +136,30 @@ def _inspect_design_legacy(args: dict[str, Any]) -> dict[str, Any]:
         "questions": report.get("questions", []),
     }
     asset_intents = args.get("asset_intents")
+    from mcp.ui_interaction import build_interaction_contract, load_decisions, write_interaction_artifacts
+    try:
+        decisions = load_decisions(args.get("ui_decisions_path"), args.get("interaction_decisions"))
+        interaction = build_interaction_contract(
+            mode=str(args.get("interaction_mode", "standard")),
+            analysis_questions=report.get("questions", []),
+            asset_intents=asset_intents,
+            decisions=decisions,
+        )
+    except ValueError as exc:
+        return _fail([str(exc)], stage="clarification", status="invalid_input")
+    clarification_path, decisions_path = write_interaction_artifacts(out, interaction, decisions)
+    response.update({
+        "interaction": interaction,
+        "clarification_contract": str(clarification_path),
+        "ui_decisions": str(decisions_path),
+        "questions": interaction["questions"],
+    })
+    if not interaction["ready_for_codegen"]:
+        return _ok({
+            **response,
+            "status": "manual_required",
+            "manual_required": interaction["unresolved_ids"],
+        })
     if asset_intents is None:
         return _ok({**response, "status": "manual_required", "manual_required": ["asset_intents must be supplied by visual analysis before deterministic asset resolution"]})
 
@@ -328,6 +353,14 @@ def generate_ui(args: dict[str, Any]) -> dict[str, Any]:
     """Generate code, optionally inheriting deterministic inputs from a run."""
     try:
         resolved, run_id = _resolve_run_args(args, "generate")
+        if run_id:
+            from mcp.lvgl_run import load_run
+            run = load_run(run_id)
+            if run.get("status") == "manual_required":
+                return _fail(
+                    ["Run has unresolved design decisions. Complete inspect_design clarification before code generation."],
+                    stage="clarification", status="manual_required", run_id=run_id,
+                )
         if run_id and not resolved.get("asset_manifest_path"):
             from mcp.lvgl_run import latest_artifact
             asset_manifest_path = latest_artifact(run_id, "initial_asset_manifest")
@@ -751,7 +784,7 @@ def apply_patch(args: dict[str, Any]) -> dict[str, Any]:
     # Collect files
     files = []
     for f in sorted(src.iterdir()):
-        if f.is_file() and f.suffix in (".c", ".h", ".json"):
+        if f.is_file() and f.suffix.lower() in (".c", ".h", ".cmake"):
             files.append({
                 "filename": f.name,
                 "source": str(f),
@@ -988,6 +1021,7 @@ def _generate_app_mvp(manifest_path: str, args: dict[str, Any]) -> dict[str, Any
                 pass
 
     app_validation = validate_app(resolved, generated_content)
+    app_validation_result = _json_safe_value(app_validation)
     if not all_ok:
         status = "needs_manual_work"
     elif app_validation["status"] != "verified":
@@ -1005,7 +1039,7 @@ def _generate_app_mvp(manifest_path: str, args: dict[str, Any]) -> dict[str, Any
         "route_count": len(resolved.get("routes", [])),
         "model_count": len(resolved.get("models", [])),
         "page_results": page_results,
-        "validation": app_validation,
+        "validation": app_validation_result,
     }
     evidence_path = out / "app_evidence.json"
     evidence_path.write_text(
@@ -1022,7 +1056,7 @@ def _generate_app_mvp(manifest_path: str, args: dict[str, Any]) -> dict[str, Any
             resolved_manifest_path=str(resolved_path),
             page_results=page_results,
             generated_files=generated_files,
-            app_validation=app_validation,
+            app_validation=app_validation_result,
             warnings=validation.get("warnings", []),
         )
 
@@ -1035,7 +1069,7 @@ def _generate_app_mvp(manifest_path: str, args: dict[str, Any]) -> dict[str, Any
         "cmake_path": str(cmake_path),
         "page_results": page_results,
         "generated_files": generated_files,
-        "app_validation": app_validation,
+        "app_validation": app_validation_result,
         "warnings": validation.get("warnings", []),
     })
 
@@ -1085,6 +1119,12 @@ def _generate_app_v21(
                 "template": page.get("template", "auto"),
                 "cut_dir": args.get("cut_dir", str(root)),
                 "page_name": page_id,
+                "screen_tap": True,
+                # Manifest v2.1 has already bound every design state and
+                # declared its resource inventory.  The state image is input
+                # evidence for analysis only; it is never emitted as a
+                # runtime image asset by the generic generator.
+                "strict_asset_contract": False,
             })
             result["state_id"] = state_id
             state_results.append(result)
@@ -1141,6 +1181,7 @@ def _generate_app_v21(
     missing = [path for path in generated_files if not (out / path).is_file()]
     generated_content = {path: (out / path).read_text(encoding="utf-8") for path in generated_files if (out / path).is_file()}
     app_validation = validate_app(resolved, generated_content)
+    app_validation_result = _json_safe_value(app_validation)
     manual_required = [
         "native_app_compile_pending_ci",
         "native_state_render_pending_ci",
@@ -1152,27 +1193,46 @@ def _generate_app_v21(
     evidence = {
         "app_id": app_id, "schema_version": "2.1", "status": status,
         "authoritative": False, "manual_required": manual_required,
-        "page_results": page_results, "validation": app_validation,
+        "page_results": page_results, "validation": app_validation_result,
         "generated_files": generated_files,
         "file_hashes": {path: _file_hash(out / path) for path in generated_files if (out / path).is_file()},
         "next_gate": "native_app_compile_and_flow",
     }
     evidence_path = out / "app_evidence.json"
-    evidence_path.write_text(json.dumps(evidence, ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="\n")
+    evidence_path.write_text(
+        json.dumps(evidence, ensure_ascii=False, indent=2, default=_json_evidence_value) + "\n",
+        encoding="utf-8", newline="\n",
+    )
     if errors:
         return _fail(errors, stage="app_mvp", status=status, app_evidence_path=str(evidence_path), page_results=page_results)
     return _ok({
         "stage": "app_mvp", "status": status, "app_id": app_id,
         "app_evidence_path": str(evidence_path), "cmake_path": str(cmake_path),
         "page_results": page_results, "generated_files": generated_files,
-        "app_validation": app_validation, "warnings": validation.get("warnings", []),
+        "app_validation": app_validation_result, "warnings": validation.get("warnings", []),
     })
+
+
+def _json_evidence_value(value: Any) -> list[Any]:
+    """Encode validator sets deterministically in generated evidence."""
+    if isinstance(value, set):
+        return sorted(value)
+    raise TypeError(f"unsupported evidence value: {type(value).__name__}")
+
+
+def _json_safe_value(value: Any) -> Any:
+    """Normalize tool responses to values that JSON-RPC can serialize."""
+    return json.loads(json.dumps(value, ensure_ascii=False, default=_json_evidence_value))
 
 
 def _analysis_to_spec(report: dict[str, Any], args: dict[str, Any]) -> dict[str, Any]:
     """Convert inspection result to UI Spec v2."""
     display = args.get("display", {})
-    nodes: list[dict[str, Any]] = [{"id": "root", "type": "screen"}]
+    nodes: list[dict[str, Any]] = [{
+        "id": "root",
+        "type": "screen",
+        "full_screen_tap": bool(args.get("screen_tap", False)),
+    }]
     for index, region in enumerate(report.get("detected_regions", [])):
         if not isinstance(region, dict):
             continue

@@ -107,6 +107,47 @@ def test_status_icon_keeps_source_canvas_without_alpha_crop(tmp_path: Path) -> N
     assert resolved["flash_bytes"] == 48 * 48 * 3
 
 
+def test_explicit_source_canvas_contract_preserves_transparent_padding(tmp_path: Path) -> None:
+    root = tmp_path / "ui"
+    pet = root / "assets" / "characters" / "pet_idle.png"
+    _rgba(pet, (20, 30), 2)
+    manifest = _manifest(root, [
+        _intent(
+            "ui_pet",
+            "transparent_character",
+            "pet_idle.png",
+            preserve_source_canvas=True,
+        )
+    ])
+    result = resolve_asset_contract(
+        manifest,
+        package_root=root,
+        asset_root=root / "assets",
+        output_dir=tmp_path / "out",
+    )
+    assert result["ok"]
+    resolved = result["resolved_assets"][0]
+    assert resolved["original_size"] == [20, 30]
+    assert resolved["converted_size"] == [20, 30]
+    assert resolved["crop_offset"] == [0, 0]
+    assert resolved["preserve_source_canvas"] is True
+    assert resolved["flash_bytes"] == 20 * 30 * 3
+
+
+def test_source_canvas_contract_requires_boolean() -> None:
+    manifest = {
+        "schema_version": "1.0", "project": "x", "design_reference": "design.png",
+        "display": {"width": 1, "height": 1, "rotation": 0, "color_format": "RGB565"},
+        "assets": [{
+            "symbol": "ui_pet", "type": "transparent_character", "file_hint": "pet.png",
+            "preserve_source_canvas": "yes",
+        }],
+    }
+    result = validate_initial_manifest(manifest)
+    assert not result["valid"]
+    assert any("preserve_source_canvas must be a boolean" in error for error in result["errors"])
+
+
 def test_path_escape_wrong_directory_and_duplicate_source_are_rejected(tmp_path: Path) -> None:
     root = tmp_path / "ui"
     _rgba(root / "assets" / "icons" / "system" / "icon_wifi.png")

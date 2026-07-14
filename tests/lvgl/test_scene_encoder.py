@@ -151,6 +151,27 @@ class TestEncodeSpec:
         assert Op.SET_STYLE_TEXT_FONT in opcodes
         assert b"font_title\x00" in data[string_offset:string_offset + string_size]
 
+    def test_text_alignment_emits_native_runner_opcode(self):
+        spec = {
+            **self.MINIMAL_SPEC,
+            "nodes": [
+                {"id": "root", "type": "screen"},
+                {"id": "title", "type": "label", "parent_id": "root", "text": "Centered",
+                 "styles": {"text_align": "center"}},
+            ],
+        }
+        data = encode_spec(spec)
+        _string_offset, _string_size, command_offset, command_size = struct.unpack("<IIII", data[12:28])
+        commands = data[command_offset:command_offset + command_size]
+        payloads = []
+        offset = 0
+        while offset + 8 <= len(commands):
+            opcode, size, _node_id = struct.unpack("<HHI", commands[offset:offset + 8])
+            if opcode == Op.SET_STYLE_TEXT_ALIGN:
+                payloads.append(struct.unpack("<I", commands[offset + 8:offset + 12])[0])
+            offset += 8 + size
+        assert payloads == [1]
+
 
 # ── Golden page specs ─────────────────────────────────────────────
 

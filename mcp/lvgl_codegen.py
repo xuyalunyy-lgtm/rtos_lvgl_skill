@@ -191,11 +191,13 @@ def generate_widget_code(
     # Get creator function
     creator = WIDGET_CREATORS.get(node_type, WIDGET_CREATORS["container"]).get(lvgl_version, "lv_obj_create")
 
-    # Create widget
+    # A UI Spec screen is the page's content root, not an independent LVGL
+    # display screen. Attaching it to parent keeps it owned by the Router.
+    lines.append(f"    {var_name} = {creator}({parent_var});")
     if node_type == "screen":
-        lines.append(f"    {var_name} = {creator}(NULL);")
-    else:
-        lines.append(f"    {var_name} = {creator}({parent_var});")
+        lines.append(f"    lv_obj_set_size({var_name}, LV_PCT(100), LV_PCT(100));")
+        if node.get("full_screen_tap"):
+            lines.append(f"    lv_obj_add_flag({var_name}, LV_OBJ_FLAG_CLICKABLE);")
 
     # Set text
     text = node.get("text", "")
@@ -209,14 +211,24 @@ def generate_widget_code(
             escaped = text.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
             lines.append(f'    {TEXT_SETTERS[lvgl_version]}({var_name}, "{escaped}");')
 
-    # Set image source
+    # Set image source.  ``src`` remains the renderer-facing asset key while
+    # ``src_expr`` carries the generated C descriptor (for example
+    # ``&UI_IMG_BG_HOME``).  Never turn a C descriptor into a path macro.
     src = node.get("src", "")
+    src_expr = node.get("src_expr", "")
     src_macro = node.get("src_macro", "")
-    if src and node_type == "image":
-        if src_macro:
+    if node_type == "image":
+        if isinstance(src_expr, str) and re.fullmatch(r"&?[A-Za-z_][A-Za-z0-9_]*", src_expr):
+            lines.append(f"    {IMAGE_SETTERS[lvgl_version]}({var_name}, {src_expr});")
+        elif src and src_macro:
             lines.append(f"    {IMAGE_SETTERS[lvgl_version]}({var_name}, {src_macro});")
-        else:
+        elif src:
             lines.append(f"    {IMAGE_SETTERS[lvgl_version]}({var_name}, \"{src}\");")
+        if node.get("image_fit") == "stretch" and lvgl_version == "v9":
+            # The bbox is the authored target size.  LVGL's default image
+            # alignment keeps the source's native size, so opt in explicitly
+            # for per-page non-uniform card sizing.
+            lines.append(f"    lv_image_set_inner_align({var_name}, LV_IMAGE_ALIGN_STRETCH);")
 
     # Set value for bar/slider
     if "value" in node and node_type in ("bar", "slider"):
@@ -227,6 +239,16 @@ def generate_widget_code(
     # Apply styles
     styles = node.get("styles", {})
     lines.extend(generate_style_code(var_name, styles, lvgl_version))
+
+    # Source bboxes are absolute design coordinates for this generator.  A
+    # page spec that uses them must attach positioned nodes to the screen root
+    # (containers can still use their own relative child geometry explicitly).
+    bbox = node.get("source_bbox")
+    if isinstance(bbox, list) and len(bbox) == 4 and all(isinstance(v, int) for v in bbox):
+        x, y, width, height = bbox
+        if node_type != "screen":
+            lines.append(f"    lv_obj_set_pos({var_name}, {x}, {y});")
+            lines.append(f"    lv_obj_set_size({var_name}, {width}, {height});")
 
     # Apply layout
     layout = node.get("layout", {})
@@ -303,6 +325,14 @@ def generate_page_code(spec: dict[str, Any], lvgl_version: str | None = None) ->
         header = font_bundle.get("header")
         if isinstance(header, str) and re.fullmatch(r"[A-Za-z0-9_.-]+", header):
             includes.append(f'#include "{header}"')
+    asset_bundle = spec.get("asset_bundle", {})
+    if isinstance(asset_bundle, dict):
+        header = asset_bundle.get("header")
+        if isinstance(header, str) and re.fullmatch(r"[A-Za-z0-9_.-]+", header):
+            includes.append(f'#include "{header}"')
+    asset_header = spec.get("asset_header")
+    if isinstance(asset_header, str) and re.fullmatch(r"[A-Za-z0-9_.-]+", asset_header):
+        includes.append(f'#include "{asset_header}"')
     # Add asset includes
     for asset in spec.get("assets", []):
         symbol = asset.get("symbol", "")
@@ -329,7 +359,7 @@ def generate_page_code(spec: dict[str, Any], lvgl_version: str | None = None) ->
     for node in nodes:
         src_macro = node.get("src_macro", "")
         src = node.get("src", "")
-        if src_macro and src:
+        if src_macro and src and not node.get("src_expr"):
             macros.append(f'#ifndef {src_macro}')
             macros.append(f'#define {src_macro} "{src}"')
             macros.append(f'#endif')

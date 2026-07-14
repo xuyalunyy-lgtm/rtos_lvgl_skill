@@ -155,6 +155,23 @@ class TestLvglRunLedger(unittest.TestCase):
         self.assertTrue(result["ok"])
         self.assertEqual(result["mode"], "dry_run")
 
+    def test_apply_selects_only_compile_required_extensions(self) -> None:
+        generated = Path(self.tempdir.name) / "minimal_generated"
+        generated.mkdir()
+        for name in ("page.c", "page.h", "ui_generated.cmake", "run_manifest.json", "preview.png"):
+            (generated / name).write_text(name, encoding="utf-8")
+
+        result = apply_patch({
+            "source_dir": str(generated),
+            "target_dir": str(Path(self.tempdir.name) / "target"),
+        })
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(
+            {item["filename"] for item in result["files"]},
+            {"page.c", "page.h", "ui_generated.cmake"},
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

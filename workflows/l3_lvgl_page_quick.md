@@ -48,6 +48,8 @@ outputs:
 
 ## Hard Rules
 
+- Follow `../references/lvgl_interactive_delivery_contract.md`: persist accepted UI decisions, keep evidence in one run ledger, and publish only compile-required firmware files.
+- Upgrade to high-interaction mode when page/state ownership, asset placement, font usage, or a critical SSIM mismatch is unresolved. Do not generate through unresolved high-impact decisions.
 - `preview.html` is a positioning aid only; do not treat it as visual parity proof.
 - Absolute coordinates are allowed for design reconstruction, but each one needs an `LVGL_LAYOUT_EXCEPTION` comment in generated C.
 - Component detection must be evidence-based: template match, cutout alpha match, residual connected components, or explicit fallback marked in the report.
