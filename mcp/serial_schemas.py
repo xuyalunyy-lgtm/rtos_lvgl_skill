@@ -130,6 +130,52 @@ SERIAL_TOOL_SCHEMAS = [
             "additionalProperties": False,
         },
     },
+    {
+        "name": "serial_watch",
+        "description": "Start/stop/query background log monitoring. When active, automatically detects symptoms (crash, WDT, heap exhaustion, etc.) and generates alerts. Uses the same symptom routes as log_triage.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["start", "stop", "alerts", "status"],
+                    "description": "Action: start monitoring, stop monitoring, get recent alerts, or get status",
+                },
+                "platform": {
+                    "type": "string",
+                    "enum": ["esp32", "stm32", "jl", "bk", "zephyr"],
+                    "default": "esp32",
+                    "description": "Target platform (for symptom matching, only used with 'start')",
+                },
+                "n": {
+                    "type": "integer",
+                    "default": 20,
+                    "minimum": 1,
+                    "maximum": 100,
+                    "description": "Number of recent alerts to return (only used with 'alerts')",
+                },
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "serial_summary",
+        "description": "Analyze recent log buffer and return a health summary: severity counts, detected symptoms, boot events, error samples. No tokens consumed until called.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "n": {
+                    "type": "integer",
+                    "default": 500,
+                    "minimum": 50,
+                    "maximum": 5000,
+                    "description": "Number of recent buffer lines to analyze",
+                },
+            },
+            "additionalProperties": False,
+        },
+    },
 ]
 
 # ── Resource Schemas ──

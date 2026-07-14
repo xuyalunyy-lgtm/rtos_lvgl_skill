@@ -101,6 +101,34 @@ def serial_get_stats(args: dict[str, Any]) -> dict[str, Any]:
     return {"ok": True, **stats}
 
 
+def serial_watch(args: dict[str, Any]) -> dict[str, Any]:
+    """Start/stop/query background symptom watch."""
+    bridge = get_bridge()
+    action = args["action"]
+
+    if action == "start":
+        return bridge.start_watch(
+            platform=args.get("platform", "esp32"),
+            max_alerts=50,
+        )
+    elif action == "stop":
+        return bridge.stop_watch()
+    elif action == "alerts":
+        alerts = bridge.get_watch_alerts(n=args.get("n", 20))
+        return {"ok": True, "count": len(alerts), "alerts": alerts}
+    elif action == "status":
+        status = bridge.get_watch_status()
+        return {"ok": True, **status}
+    else:
+        return {"ok": False, "error": f"Unknown action: {action}"}
+
+
+def serial_summary(args: dict[str, Any]) -> dict[str, Any]:
+    """Analyze buffer and return health summary."""
+    bridge = get_bridge()
+    return bridge.summarize_buffer(n=args.get("n", 500))
+
+
 # ── Tool dispatch ──
 
 TOOLS = {
@@ -111,6 +139,8 @@ TOOLS = {
     "serial_get_lines": serial_get_lines,
     "serial_search": serial_search,
     "serial_get_stats": serial_get_stats,
+    "serial_watch": serial_watch,
+    "serial_summary": serial_summary,
 }
 
 TOOL_SCHEMA_MAP = {s["name"]: s for s in SERIAL_TOOL_SCHEMAS}
@@ -267,7 +297,7 @@ def run_self_test() -> int:
             print(f"  FAIL: {name}")
 
     # Test 1: Schema validation
-    check("has tool schemas", len(SERIAL_TOOL_SCHEMAS) == 7)
+    check("has tool schemas", len(SERIAL_TOOL_SCHEMAS) == 9)
     check("has resource schemas", len(SERIAL_RESOURCE_SCHEMAS) == 3)
     check("all tools registered", set(TOOLS.keys()) == set(TOOL_SCHEMA_MAP.keys()))
 
@@ -346,7 +376,7 @@ def run_self_test() -> int:
     check("initialize works", resp is not None and resp.get("result", {}).get("protocolVersion") == "2025-11-25")
 
     resp = _handle_request({"method": "tools/list", "params": {}, "id": 2})
-    check("tools/list returns 7", resp is not None and len(resp.get("result", {}).get("tools", [])) == 7)
+    check("tools/list returns 9", resp is not None and len(resp.get("result", {}).get("tools", [])) == 9)
 
     resp = _handle_request({"method": "resources/list", "params": {}, "id": 3})
     check("resources/list returns 3", resp is not None and len(resp.get("result", {}).get("resources", [])) == 3)
