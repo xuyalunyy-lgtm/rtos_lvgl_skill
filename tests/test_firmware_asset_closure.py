@@ -5,6 +5,7 @@ from PIL import Image, ImageDraw
 
 from mcp.lvgl_ir.asset_pack import write_lvgl_v9_c_assets
 from mcp.lvgl_ir.spec_validator import validate_spec
+from mcp import standard_ui_package
 from mcp.standard_ui_package import generate_standard_ui_package
 
 
@@ -62,11 +63,15 @@ def test_standard_package_trims_cutout_padding_and_fits_v92_images(tmp_path: Pat
     source = (tmp_path / "out" / "ui_interactive_scene_auto.c").read_text(encoding="utf-8")
     manifest = __import__("json").dumps(result["asset_manifest"])
     assert "lv_image_set_inner_align(pet, LV_IMAGE_ALIGN_STRETCH);" in source
+    assert "lv_image_set_src(panel_blur, UI_IMG_SRC_INTERACTIVE_PANEL_BLUR);" in source
+    assert "lv_obj_set_pos(s_hint, 40," in source
+    assert "lv_obj_set_size(s_hint, 400," in source
     assert "lv_image_set_inner_align(system_battery, LV_IMAGE_ALIGN_CENTER);" in source
     assert "lv_obj_set_size(system_battery, 48, 48);" in source
     assert '"symbol": "ui_pet"' in manifest
     assert '"width": 26' in manifest
     assert '"height": 33' in manifest
+    assert '"symbol": "ui_interaction_panel_blur"' in manifest
     assert not (tmp_path / "out" / "asset_manifest.json").exists()
     assert not (tmp_path / "out" / "resource_closure_report.json").exists()
     assert not (tmp_path / "out" / "asset.pack").exists()
@@ -78,6 +83,8 @@ def test_standard_package_trims_cutout_padding_and_fits_v92_images(tmp_path: Pat
     assert result["evidence_dir"] is None
     assert result["asset_pack_path"] is None
     assert result["evidence_removed"] is True
+    assert result["asset_manifest"]["flash_budget"]["passed"] is True
+    assert result["asset_manifest"]["flash_budget"]["max_bytes"] == 8 * 1024 * 1024
     assert not (tmp_path / ".out_evidence").exists()
     assert not (tmp_path / "out" / "delivery_manifest.json").exists()
     assert not (tmp_path / "out" / "ui_auto_assets.cmake").exists()
@@ -112,4 +119,27 @@ def test_standard_package_can_keep_full_generation_evidence(tmp_path: Path) -> N
     spec = json.loads(spec_path.read_text(encoding="utf-8"))
     assert spec["schema_version"] == "2.0"
     assert spec["metadata"]["source_spec"] == "interactive-scene.v1"
+    assert any(node["id"] == "interaction_panel_blur" for node in spec["nodes"])
+    assert any(asset["symbol"] == "ui_interaction_panel_blur" for asset in spec["assets"])
     assert validate_spec(spec, asset_pack_path=result["asset_pack_path"])["valid"]
+
+
+def test_standard_package_enforces_default_flash_budget_after_derived_assets(tmp_path: Path, monkeypatch) -> None:
+    root = tmp_path / "ui"
+    background = root / "assets" / "backgrounds" / "scene.png"
+    pet = root / "assets" / "characters" / "pet_idle.png"
+    mood_dir = root / "assets" / "icons" / "mood"
+    for directory in (background.parent, pet.parent, mood_dir):
+        directory.mkdir(parents=True, exist_ok=True)
+    Image.new("RGB", (480, 800), (32, 64, 96)).save(background)
+    Image.new("RGBA", (30, 40), (200, 220, 180, 255)).save(pet)
+    for name in ("calmness", "good", "down", "stressed"):
+        Image.new("RGBA", (37, 37), (255, 255, 255, 255)).save(mood_dir / f"{name}.png")
+
+    monkeypatch.setattr(standard_ui_package, "DEFAULT_UI_FLASH_BYTES", 1024)
+    result = generate_standard_ui_package(root, tmp_path / "out")
+
+    assert not result["ok"]
+    assert result["status"] == "manual_required"
+    assert result["flash_budget"]["passed"] is False
+    assert "after derived assets" in result["errors"][0]

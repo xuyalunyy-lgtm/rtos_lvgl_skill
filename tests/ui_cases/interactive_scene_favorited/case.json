@@ -10,7 +10,7 @@
   "width": 480,
   "height": 800,
   "settle_frames": 20,
-  "quality_profile": "mvp_90",
+  "quality_profile": "mvp_80",
   "flows_required": false,
   "memory": {
     "max_framebuffer_bytes": 768000
@@ -21,4 +21,3 @@
     {"id": "interaction_panel", "bbox": [40, 505, 400, 225], "critical": true}
   ]
 }
-

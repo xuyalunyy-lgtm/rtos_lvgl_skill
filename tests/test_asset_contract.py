@@ -6,7 +6,7 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw
 
-from mcp.asset_contract import resolve_asset_contract, validate_initial_manifest
+from mcp.asset_contract import DEFAULT_UI_FLASH_BYTES, resolve_asset_contract, validate_initial_manifest
 from mcp import high_level_tools
 
 
@@ -243,6 +243,8 @@ def test_inspect_design_writes_initial_manifest_only_under_artifacts(tmp_path: P
     assert result["ok"] and result["status"] == "initial_asset_manifest_ready"
     manifest_path = Path(result["initial_asset_manifest"])
     assert manifest_path == tmp_path / "artifacts" / "inspect_fixture" / "initial_asset_manifest.json"
+    generated_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert generated_manifest["limits"]["max_flash_bytes"] == DEFAULT_UI_FLASH_BYTES
     assert not (design.parent / "input_manifest.json").exists()
     assert not (design.parent / "analysis_report.json").exists()
     assert not (design.parent / "debug_overlay.png").exists()

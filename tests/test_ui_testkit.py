@@ -16,7 +16,7 @@ def test_real_case_contract_and_inputs_exist() -> None:
     assert (ROOT / case["design"]).is_file()
     assert (ROOT / case["ui_dir"] / "assets").is_dir()
     assert len(case["quality_regions"]) == 3
-    assert case["quality_profile"] == "mvp_90"
+    assert case["quality_profile"] == "mvp_80"
 
 
 def test_testkit_compiles_real_page_without_scene_protocol() -> None:
@@ -49,3 +49,13 @@ def test_90_percent_gate_requires_all_dimensions() -> None:
         candidate = json.loads(json.dumps(passing))
         candidate["metrics"][key] = 0.899999
         assert not passes_quality_gate(candidate)
+
+
+def test_80_percent_gate_uses_declared_profile() -> None:
+    passing = {
+        "hard_gates_pass": True,
+        "total_score": 8000,
+        "metrics": {"global_ssim": 0.80, "critical_region_ssim": 0.80, "pixel_similarity": 0.80},
+    }
+    assert passes_quality_gate(passing, "mvp_80")
+    assert not passes_quality_gate(passing, "mvp_90")

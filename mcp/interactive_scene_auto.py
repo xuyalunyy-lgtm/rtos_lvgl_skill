@@ -865,9 +865,12 @@ def generate_interactive_scene_page(args: dict[str, Any]) -> dict[str, Any]:
 
     bg_src = str(args.get("background_src", "S:/ui/background1.jpg"))
     pet_src = str(args.get("pet_src", "S:/ui/pet.png"))
+    panel_blur_path_arg = str(args.get("panel_blur_path", "")).strip()
+    panel_blur_src = str(args.get("panel_blur_src", "")).strip()
     mood_src = {key: str(args.get(f"{key}_src") or mood_src_args.get(key) or _mood_default_src(key)) for key in mood_order}
     bg_src_macro = str(args.get("background_src_macro", "UI_IMG_SRC_INTERACTIVE_BG"))
     pet_src_macro = str(args.get("pet_src_macro", "UI_IMG_SRC_INTERACTIVE_PET"))
+    panel_blur_src_macro = str(args.get("panel_blur_src_macro", "UI_IMG_SRC_INTERACTIVE_PANEL_BLUR"))
     mood_src_macro = {key: str(args.get(f"{key}_src_macro") or mood_src_macro_args.get(key) or _mood_default_macro(key)) for key in mood_order}
     asset_header = str(args.get("asset_header", "")).strip()
     top_text = str(args.get("top_text", "I am completely\nforgiven-past,\npresent, and"))
@@ -915,6 +918,11 @@ def generate_interactive_scene_page(args: dict[str, Any]) -> dict[str, Any]:
     top_prompt = dict(analysis["text"].get("top_prompt", {"x": 86, "y": 136, "w": 310, "h": 150, "font": 34}))
     title = dict(analysis["text"]["title"])
     hint = dict(analysis["text"]["hint"])
+    # Detection returns the visible glyph bbox, not a safe label container.
+    # Give centered panel copy the full panel width so the generated font can
+    # use its real advance widths without wrapping into the controls below.
+    hint["x"] = panel["x"]
+    hint["w"] = panel["w"]
     status_bar = dict(analysis.get("status_bar", {}))
     favorite = dict(status_bar.get("favorite", {"x": 259, "y": 30, "w": 27, "h": 4}))
     wifi = dict(status_bar.get("wifi", {"x": 297, "y": 20, "w": 31, "h": 23}))
@@ -942,6 +950,7 @@ def generate_interactive_scene_page(args: dict[str, Any]) -> dict[str, Any]:
         "assets": [
             {"id": "background", "path": str(background_path), "runtime_src": bg_src, "size": [width, height]},
             {"id": "pet", "path": str(pet_path), "runtime_src": pet_src, "pos": [pet["x"], pet["y"]], "size": [pet["w"], pet["h"]]},
+            *([{"id": "interaction_panel_blur", "path": panel_blur_path_arg, "runtime_src": panel_blur_src, "pos": [panel["x"], panel["y"]], "size": [panel["w"], panel["h"]]}] if panel_blur_path_arg and panel_blur_src else []),
             *[{"id": f"mood_{m['id']}", "path": m["asset_path"], "runtime_src": mood_src[m["id"]], "pos": [m["icon"]["x"], m["icon"]["y"]], "size": [m["icon"]["w"], m["icon"]["h"]]} for m in moods],
         ],
         "fonts": {"header": font_header or None, "macro_expressions": font_macro_exprs},
@@ -953,6 +962,7 @@ def generate_interactive_scene_page(args: dict[str, Any]) -> dict[str, Any]:
             {"id": "wifi", "type": "dynamic_status_component", "pos": [wifi["x"], wifi["y"]], "size": [wifi["w"], wifi["h"]], "source": wifi.get("source")},
             {"id": "bluetooth", "type": "dynamic_status_component", "pos": [bluetooth["x"], bluetooth["y"]], "size": [bluetooth["w"], bluetooth["h"]], "source": bluetooth.get("source")},
             {"id": "battery", "type": "dynamic_status_component", "pos": [battery["x"], battery["y"]], "size": [battery["w"], battery["h"]], "source": battery.get("source")},
+            *([{"id": "interaction_panel_blur", "type": "image", "pos": [panel["x"], panel["y"]], "size": [panel["w"], panel["h"]], "source": "derived_runtime_backdrop"}] if panel_blur_path_arg and panel_blur_src else []),
             {"id": "interaction_panel", "type": "container", "pos": [panel["x"], panel["y"]], "size": [panel["w"], panel["h"]], "radius": panel["radius"], "source": panel.get("source")},
             {"id": "title", "type": "label", "pos": [title["x"], title["y"]], "size": [title["w"], title["h"]], "text_macro": title_macro, "source": title.get("source")},
             {"id": "hint", "type": "label", "pos": [hint["x"], hint["y"]], "size": [hint["w"], hint["h"]], "text_macro": hint_macro, "source": hint.get("source")},
@@ -995,6 +1005,21 @@ def generate_interactive_scene_page(args: dict[str, Any]) -> dict[str, Any]:
         for usage, macro in (("top", "UI_FONT_INTERACTIVE_SCENE_TOP"), ("title", "UI_FONT_INTERACTIVE_SCENE_TITLE"), ("hint", "UI_FONT_INTERACTIVE_SCENE_HINT"))
         if usage in font_macro_exprs
     )
+    panel_blur_macro_def = (
+        f"#ifndef {panel_blur_src_macro}\n#define {panel_blur_src_macro} {base.image_source_expr(panel_blur_src)}\n#endif"
+        if panel_blur_path_arg and panel_blur_src else ""
+    )
+    panel_blur_create = (
+        f"""
+    lv_obj_t *panel_blur = {image_create}(s_page);
+    {image_set_src}(panel_blur, {panel_blur_src_macro});
+{image_fit_line("panel_blur")}
+    /* LVGL_LAYOUT_EXCEPTION: pre-rendered backdrop blur uses the analyzed glass-panel bbox. */
+    lv_obj_set_pos(panel_blur, {int(panel['x'])}, {int(panel['y'])});
+    lv_obj_set_size(panel_blur, {int(panel['w'])}, {int(panel['h'])});
+"""
+        if panel_blur_path_arg and panel_blur_src else ""
+    )
 
     c_source = f'''
 #include "ui_{page_name}.h"
@@ -1008,6 +1033,7 @@ def generate_interactive_scene_page(args: dict[str, Any]) -> dict[str, Any]:
 #ifndef {bg_src_macro}
 #define {bg_src_macro} {base.image_source_expr(bg_src)}
 #endif
+{panel_blur_macro_def}
 
 #ifndef {pet_src_macro}
 #define {pet_src_macro} {base.image_source_expr(pet_src)}
@@ -1204,6 +1230,7 @@ lv_obj_t *{create_fn}(lv_obj_t *parent)
     lv_obj_set_pos(pet, {int(pet['x'])}, {int(pet['y'])});
     lv_obj_set_size(pet, {int(pet['w'])}, {int(pet['h'])});
 
+{panel_blur_create}
     s_panel = lv_obj_create(s_page);
     lv_obj_remove_style_all(s_panel);
     lv_obj_add_style(s_panel, &s_panel_style, 0);

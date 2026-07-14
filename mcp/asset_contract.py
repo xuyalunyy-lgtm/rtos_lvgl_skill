@@ -23,6 +23,7 @@ from mcp.lvgl_ir.asset_pack import (
 
 SCHEMA_VERSION = "1.0"
 ALIAS_VERSION = "asset-name-aliases-v1"
+DEFAULT_UI_FLASH_BYTES = 8 * 1024 * 1024
 ASSET_TYPES = {
     "full_screen_background",
     "transparent_character",

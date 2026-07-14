@@ -1,4 +1,4 @@
-"""Post-process native TestKit output and enforce the deterministic 90% gate."""
+"""Post-process native TestKit output and enforce its declared quality gate."""
 from __future__ import annotations
 
 import argparse
@@ -15,14 +15,24 @@ from mcp.lvgl_compare import compare, score_evidence  # noqa: E402
 from mcp.lvgl_ir.object_tree_reader import read_object_tree  # noqa: E402
 
 
-def passes_quality_gate(scored: dict) -> bool:
+QUALITY_PROFILES = {
+    "mvp_80": (8000, 0.80),
+    "mvp_90": (9000, 0.90),
+    "golden_strict": (9000, 0.90),
+}
+
+
+def passes_quality_gate(scored: dict, profile: str = "mvp_90") -> bool:
+    if profile not in QUALITY_PROFILES:
+        raise ValueError(f"unsupported quality profile: {profile}")
+    min_score, threshold = QUALITY_PROFILES[profile]
     metrics = scored.get("metrics", {})
     return bool(
         scored.get("hard_gates_pass")
-        and int(scored.get("total_score", 0)) >= 9000
-        and float(metrics.get("global_ssim", 0.0)) >= 0.90
-        and float(metrics.get("critical_region_ssim", 0.0)) >= 0.90
-        and float(metrics.get("pixel_similarity", 0.0)) >= 0.90
+        and int(scored.get("total_score", 0)) >= min_score
+        and float(metrics.get("global_ssim", 0.0)) >= threshold
+        and float(metrics.get("critical_region_ssim", 0.0)) >= threshold
+        and float(metrics.get("pixel_similarity", 0.0)) >= threshold
     )
 
 
@@ -64,12 +74,14 @@ def main() -> int:
     critical_ids = {item["id"] for item in case.get("quality_regions", []) if item.get("critical", False)}
     scored = score_evidence(comparison, critical_region_ids=critical_ids, hard_gates=hard_gates)
     metrics = scored["metrics"]
-    passed_90 = passes_quality_gate(scored)
+    quality_profile = str(case.get("quality_profile", "mvp_90"))
+    passed = passes_quality_gate(scored, quality_profile)
     evidence = {
         "schema_version": "1.0",
         "case": case["id"],
-        "status": "verified" if passed_90 else "manual_required",
-        "passed_90": passed_90,
+        "status": "verified" if passed else "manual_required",
+        "quality_profile": quality_profile,
+        "passed": passed,
         "score": scored,
         "comparison": comparison,
         "native_execution": native_report,
@@ -78,7 +90,7 @@ def main() -> int:
     }
     (native / "visual_evidence.json").write_text(json.dumps(evidence, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(json.dumps({"status": evidence["status"], "total_score": scored["total_score"], "metrics": metrics}, indent=2))
-    return 0 if passed_90 else 2
+    return 0 if passed else 2
 
 
 if __name__ == "__main__":

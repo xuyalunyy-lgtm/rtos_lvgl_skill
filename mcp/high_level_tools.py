@@ -163,7 +163,7 @@ def _inspect_design_legacy(args: dict[str, Any]) -> dict[str, Any]:
     if asset_intents is None:
         return _ok({**response, "status": "manual_required", "manual_required": ["asset_intents must be supplied by visual analysis before deterministic asset resolution"]})
 
-    from mcp.asset_contract import build_initial_manifest, write_initial_manifest
+    from mcp.asset_contract import DEFAULT_UI_FLASH_BYTES, build_initial_manifest, write_initial_manifest
 
     asset_root_arg = args.get("asset_root") or args.get("cut_dir")
     asset_root = Path(asset_root_arg).resolve() if asset_root_arg else None
@@ -178,10 +178,11 @@ def _inspect_design_legacy(args: dict[str, Any]) -> dict[str, Any]:
     else:
         design_reference = str(design)
         stored_asset_root = str(asset_root) if asset_root else None
+    requested_flash_budget = args.get("asset_flash_budget_bytes")
     manifest = build_initial_manifest(
         project=str(args.get("project") or design.stem), design_reference=design_reference,
         display=display, assets=asset_intents, asset_root=stored_asset_root,
-        max_flash_bytes=args.get("asset_flash_budget_bytes"),
+        max_flash_bytes=DEFAULT_UI_FLASH_BYTES if requested_flash_budget is None else requested_flash_budget,
     )
     written = write_initial_manifest(out / "initial_asset_manifest.json", manifest)
     if not written.get("ok"):

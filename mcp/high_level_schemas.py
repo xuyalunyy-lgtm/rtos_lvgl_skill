@@ -33,7 +33,7 @@ HIGH_LEVEL_SCHEMAS: list[dict[str, Any]] = [
                 "cut_dir": {"type": "string", "description": "Directory containing cutout assets"},
                 "asset_root": {"type": "string", "description": "Physical asset root, normally ui/assets"},
                 "project": {"type": "string", "description": "Stable project identifier used by the Initial Manifest"},
-                "asset_flash_budget_bytes": {"type": "integer", "minimum": 1, "description": "Optional hardware Flash budget for all resolved image assets"},
+                "asset_flash_budget_bytes": {"type": "integer", "minimum": 1, "default": 8388608, "description": "Hardware Flash budget for all resolved and derived UI image assets"},
                 "interaction_mode": {"type": "string", "enum": ["standard", "high"], "default": "standard", "description": "high persists detailed page/asset/font/interaction questions and blocks codegen until all blocking decisions are answered"},
                 "interaction_decisions": {"type": "object", "description": "Answers keyed by clarification question ID", "additionalProperties": True},
                 "ui_decisions_path": {"type": "string", "description": "Previously persisted ui_decisions.json; inline interaction_decisions override stored values"},

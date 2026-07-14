@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from mcp.interactive_scene_auto import generate_interactive_scene_page
+from mcp.asset_contract import DEFAULT_UI_FLASH_BYTES
 from mcp.lvgl_ir.asset_pack import encode_pack, generate_manifest, list_pack_symbols, pack_asset, write_lvgl_v9_c_assets
 
 _FONT_SYMBOL = re.compile(r"\b(?:const\s+)?lv_font_t\s+([A-Za-z_]\w*)\s*=")
@@ -70,6 +71,10 @@ def _build_render_spec_v2(
             "source_bbox": box("top_prompt"),
             "styles": {"text_color": "#FFFFFF", "text_align": "center", "font_id": _runtime_symbol(str(fonts.get("top", "font_40_bold")))},
         },
+    ]
+    if "interaction_panel_blur" in assets and "interaction_panel_blur" in components:
+        nodes.append(image_node("interaction_panel_blur"))
+    nodes.extend([
         {
             "id": "interaction_panel", "type": "container", "parent_id": "root",
             "source_bbox": box("interaction_panel"),
@@ -87,7 +92,7 @@ def _build_render_spec_v2(
             "source_bbox": box("hint"),
             "styles": {"text_color": "#FFFFFF", "text_align": "center", "font_id": _runtime_symbol(str(fonts.get("hint", "font_36_bold")))},
         },
-    ]
+    ])
     events: list[dict[str, str]] = []
     for component in scene_spec["components"]:
         if component["type"] != "mood_button":
@@ -137,7 +142,7 @@ _FONT_ROLES = (
     ("top", "top", "top_prompt", 40),
     ("action", "action", "action", 36),
     ("title", "title", "title", 36),
-    ("hint", "hint", "hint", 30),
+    ("hint", "hint", "hint", 36),
 )
 
 
@@ -173,7 +178,10 @@ def _font_subset_plan(scene_spec: dict[str, Any], source: Path) -> list[dict[str
         measured = analysis_text.get(analysis_key, {})
         raw_size = measured.get("font", fallback_size) if isinstance(measured, dict) else fallback_size
         try:
-            size = max(8, int(round(float(raw_size))))
+            # Detection measures the visible glyph box, while lv_font_conv
+            # expects an em size. Keep the template's role size as the lower
+            # bound so a tight glyph bbox cannot shrink the runtime font.
+            size = max(fallback_size, int(round(float(raw_size))))
         except (TypeError, ValueError):
             size = fallback_size
         plan.append({
@@ -269,6 +277,51 @@ def _status_icon_layout(key: str, path: Path, resolved: dict[str, Any] | None = 
     return visible_x - int(alpha_bbox[0]), visible_y - int(alpha_bbox[1]), width, height
 
 
+def _write_panel_blur_asset(
+    output_dir: Path,
+    background_path: Path,
+    pet_path: Path,
+    scene_spec: dict[str, Any],
+    *,
+    blur_radius: int = 18,
+) -> Path:
+    """Pre-render the frosted panel backdrop from runtime assets only."""
+    from PIL import Image, ImageDraw, ImageFilter
+
+    components = {item["id"]: item for item in scene_spec["components"]}
+    display = scene_spec["display"]
+    width, height = int(display["width"]), int(display["height"])
+    panel = components["interaction_panel"]
+    pet = components["pet"]
+    panel_x, panel_y = (int(value) for value in panel["pos"])
+    panel_w, panel_h = (int(value) for value in panel["size"])
+    pet_x, pet_y = (int(value) for value in pet["pos"])
+    pet_w, pet_h = (int(value) for value in pet["size"])
+
+    with Image.open(background_path) as source:
+        backdrop = source.convert("RGBA")
+        if backdrop.size != (width, height):
+            backdrop = backdrop.resize((width, height), Image.Resampling.LANCZOS)
+    with Image.open(pet_path) as source:
+        pet_layer = source.convert("RGBA")
+        if pet_layer.size != (pet_w, pet_h):
+            pet_layer = pet_layer.resize((pet_w, pet_h), Image.Resampling.LANCZOS)
+    backdrop.alpha_composite(pet_layer, (pet_x, pet_y))
+
+    crop = backdrop.crop((panel_x, panel_y, panel_x + panel_w, panel_y + panel_h))
+    crop = crop.filter(ImageFilter.GaussianBlur(radius=max(0, int(blur_radius))))
+    mask = Image.new("L", crop.size, 0)
+    ImageDraw.Draw(mask).rounded_rectangle(
+        (0, 0, max(0, panel_w - 1), max(0, panel_h - 1)),
+        radius=max(0, int(panel.get("radius", 0))),
+        fill=255,
+    )
+    crop.putalpha(mask)
+    path = output_dir / "interaction_panel_blur.png"
+    crop.save(path)
+    return path
+
+
 def _fresh_directory(path: Path) -> None:
     if path.exists():
         shutil.rmtree(path)
@@ -362,6 +415,7 @@ def generate_standard_ui_package(
         systems = {item["symbol"].removeprefix("icon_"): root / item["source_path"] for item in system_items}
         symbol_by_path = {str(root / item["source_path"]): item["symbol"] for item in resolved}
         initial_contract = json.loads(Path(asset_manifest_path).read_text(encoding="utf-8"))
+        max_flash_bytes = int(initial_contract.get("limits", {}).get("max_flash_bytes", DEFAULT_UI_FLASH_BYTES))
         design_reference = Path(str(initial_contract["design_reference"]))
         design_path = design_reference if design_reference.is_absolute() else root / design_reference
         design_path = design_path.resolve()
@@ -392,6 +446,7 @@ def generate_standard_ui_package(
         firmware_assets = write_lvgl_v9_c_assets(packed, out, stem="ui_auto_assets")
         symbol_by_path = {str(path): symbol for symbol, path in assets}
         design_path = None
+        max_flash_bytes = DEFAULT_UI_FLASH_BYTES
         requested_font_symbols = {"font_40_bold", "font_20_bold", "font_14_regular"}
     header = Path(firmware_assets["header"])
     font_sources: list[tuple[str, Path]] = []
@@ -437,6 +492,27 @@ def generate_standard_ui_package(
         return result
     scene_spec_path = out / "interactive_scene_auto_spec.json"
     scene_spec = json.loads(scene_spec_path.read_text(encoding="utf-8"))
+    panel_blur_path = _write_panel_blur_asset(out, backgrounds[0], characters[0], scene_spec)
+    panel_blur_symbol = "ui_interaction_panel_blur"
+    panel_blur_packed = pack_asset(panel_blur_path, panel_blur_symbol, "RGB565A8", auto_crop=False)
+    if not panel_blur_packed.get("ok"):
+        return {"ok": False, "status": "asset_pack_failed", "errors": [str(panel_blur_packed.get("error", panel_blur_symbol))]}
+    packed = [*packed, panel_blur_packed]
+    assets.append((panel_blur_symbol, panel_blur_path))
+    symbol_by_path[str(panel_blur_path)] = panel_blur_symbol
+    (out / "asset.pack").write_bytes(encode_pack(packed))
+    asset_manifest = generate_manifest(packed, out)
+    firmware_assets = write_lvgl_v9_c_assets(packed, out, stem="ui_auto_assets")
+    header = Path(firmware_assets["header"])
+    args.update({
+        "asset_header": header.name,
+        "panel_blur_path": str(panel_blur_path),
+        "panel_blur_src": f"&{panel_blur_symbol}",
+    })
+    result = generate_interactive_scene_page(args)
+    if not result.get("ok"):
+        return result
+    scene_spec = json.loads(scene_spec_path.read_text(encoding="utf-8"))
     preview_fonts: list[dict[str, str]] = []
     preview_warnings: list[str] = []
     font_subset_plan: list[dict[str, Any]] = []
@@ -470,6 +546,29 @@ def generate_standard_ui_package(
                     "font_source": str(ttf_source),
                     "font_subset_active": False,
                 }
+    image_flash_bytes = sum(int(item.get("flash_bytes", 0)) for item in packed)
+    font_flash_bytes = sum(
+        Path(str(item["preview_bin"])).stat().st_size
+        for item in preview_fonts
+        if item.get("preview_bin") and Path(str(item["preview_bin"])).is_file()
+    )
+    total_flash_bytes = image_flash_bytes + font_flash_bytes
+    flash_budget = {
+        "image_bytes": image_flash_bytes,
+        "font_bytes": font_flash_bytes,
+        "used_bytes": total_flash_bytes,
+        "max_bytes": max_flash_bytes,
+        "passed": total_flash_bytes <= max_flash_bytes,
+    }
+    asset_manifest["flash_budget"] = flash_budget
+    if not flash_budget["passed"]:
+        return {
+            "ok": False,
+            "status": "manual_required",
+            "errors": [f"UI Flash budget exceeded after derived assets: {total_flash_bytes} > {max_flash_bytes}"],
+            "asset_manifest": asset_manifest,
+            "flash_budget": flash_budget,
+        }
     c_path = out / "ui_interactive_scene_auto.c"
     source = c_path.read_text(encoding="utf-8")
     # Replace the status approximations with the supplied image cutouts. A
