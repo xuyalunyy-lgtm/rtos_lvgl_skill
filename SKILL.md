@@ -18,16 +18,18 @@ Match top-down by priority; within the same priority, pick the most keyword hits
 
 | Keywords | Exclude | Priority | Workflow |
 |----------|---------|----------|----------|
-| crash, HardFault, WDT, deadlock, frozen, 死机, 卡死, 卡在, 重启, 看门狗, 崩溃, exception, Guru Meditation | — | 1 | debug_crash |
-| review, audit, ISR, DMA, cJSON, check, 审查, OTA, 看看代码, 代码规范, code review | crash, 死机, 卡死, 卡在, 重启 | 2 | l2_code_review |
-| memory, leak, 内存, 堆栈, heap, stack overflow, 内存泄漏 | crash, 死机, 卡死 | 2 | l2_memory_analysis |
-| project, workspace, 项目审查, 全项目, 整个项目, 整个工程 | crash, 死机 | 2 | l2_project_review |
-| co-debug, GPIO conflict, 硬件协同, GPIO, IO conflict, pin mux, 引脚冲突 | — | 2 | hw_sw_cocodebug |
-| LVGL, UI, page, design, 界面, 设计截图, GUI, widget | crash, 死机, 卡死, frozen, 卡在 | 3 | l3_lvgl_page |
-| manifest, 多页应用, Router, Presenter, scaffold, 多页, multi-page | — | 3 | l3_lvgl_page (manifest sub-path) |
-| new module, 新模块, task, 任务, 模块 | crash, review, 审查, leak, 内存 | 3 | l3_new_module |
-| bring-up, 板级, 最小系统, 外设, 新板, 上电, 启动流程 | — | 3 | l3_bring_up |
-| SDK trim, 裁剪, driver prune, 精简, 缩减 | — | 3 | l3_sdk_trim |
+| Keywords | Exclude | Priority | Workflow |
+|----------|---------|----------|----------|
+| crash, HardFault, WDT, deadlock, frozen, 死机, 看门狗, 崩溃, backtrace, Guru Meditation, watchdog, stack overflow crash, exception, 卡在, 卡死, 重启 | — | 1 | debug_crash |
+| review, audit, 审查, check, ISR, DMA, cJSON, 代码质量, code quality, static analysis, lint, OTA, 安全, 看看代码, 代码规范, code review | crash, 死机, 卡死, 卡在, 重启 | 2 | l2_code_review |
+| co-debug, GPIO conflict, 硬件协同, GPIO, IO conflict, peripheral conflict, pin mux, 引脚冲突, pin conflict | — | 2 | hw_sw_cocodebug |
+| memory, leak, 内存, 堆栈, heap, stack overflow, memory analysis, pool, fragmentation, 堆栈溢出, 内存泄漏 | crash, 死机, 卡死 | 2 | l2_memory_analysis |
+| project review, 项目审查, workspace review, 全项目, 整个项目, 整个工程, project audit, 项目检查 | crash, 死机 | 2 | l2_project_review |
+| manifest, 多页, multi-page, Router, Presenter, Model, 脚手架, scaffold, app architecture, 应用架构, 多页面 | — | 3 | l3_lvgl_page (manifest sub-path) |
+| bring-up, 板级, 最小系统, peripheral validation, board init, boot, startup, 外设, 新板, first boot, 上电, 串口没输出, 启动流程 | — | 3 | l3_bring_up |
+| LVGL, UI, page, 页面, 设计截图, design, 界面, GUI, widget | crash, 死机, 卡死, frozen, 卡在 | 3 | l3_lvgl_page |
+| new module, 新模块, task, 任务, multitask, module design, 模块设计, module, 模块 | crash, review, 审查, leak, 内存 | 3 | l3_new_module |
+| SDK trim, 裁剪, 裁, driver prune, sdk_trim, component pruning, 减小体积, trim, prune, flash不够, 精简, 缩减 | — | 3 | l3_sdk_trim |
 Composite requests: pick the workflow matching the user's primary deliverable first.
 Load supplementary material only when that workflow explicitly requires it.
 If the primary task is unclear, ask one clarifying question before proceeding.

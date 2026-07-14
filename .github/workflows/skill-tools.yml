@@ -109,6 +109,8 @@ jobs:
         run: python tools/check_links.py
       - name: Constraint coverage check
         run: python scripts/check_rule_coverage.py
+      - name: Routing table sync check
+        run: python scripts/sync_skill_routing.py --check
       - name: Golden routing evaluation
         run: python scripts/eval_golden_routing.py
       - name: Routing sampling evaluation
