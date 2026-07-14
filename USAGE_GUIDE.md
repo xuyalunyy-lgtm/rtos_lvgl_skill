@@ -247,6 +247,13 @@ python tools/run_review.py --validate-examples
 # 步骤 1: 分析设计（只读，不生成代码）
 inspect_design(design_path="path/to/design.png", display={"width": 480, "height": 800})
 
+# 可选：填写首次检查生成的 page_input.json 后重新确认
+inspect_design(
+    design_path="path/to/design.png",
+    page_input_path="artifacts/inspect/page_input.json",
+    display={"width": 480, "height": 800},
+)
+
 # 步骤 2: 生成 LVGL C/H 代码
 generate_ui(design_path="path/to/design.png", output_dir="artifacts/generated")
 
@@ -262,6 +269,49 @@ refine_ui(design_path="path/to/design.png")
 # 步骤 6: 写入项目（SHA256 校验）
 apply_patch(source_dir="artifacts/generated", target_dir="src/ui", mode="replace_generated_files")
 ```
+
+首次检查会生成一个便于人工确认的 `page_input.json`。推荐在生成代码前填写它：
+
+```json
+{
+  "schema_version": "1.0",
+  "status": "confirmed",
+  "page_id": "schedule",
+  "display": [480, 800],
+  "design": "schedule.png",
+  "coordinate_space": {
+    "design_width": 480,
+    "design_height": 800,
+    "display_mapping": "1:1"
+  },
+  "bbox_policy": {"include_transparent_padding": true},
+  "assets": [{
+    "symbol": "schedule_card",
+    "type": "decorative_image",
+    "source": "daily_recommendation_02.png",
+    "bbox": [8, 218, 464, 564],
+    "scale": "original",
+    "preserve_canvas": true,
+    "page": "schedule",
+    "state": "default",
+    "layer": "content",
+    "reuse_scope": "page"
+  }],
+  "fonts": [{
+    "role": "title",
+    "source": "InriaSerif-Bold.ttf",
+    "size": 40
+  }],
+  "interactions": {
+    "transition": "none",
+    "targets": [],
+    "persistent_state": []
+  }
+}
+```
+
+`status` 未改为 `confirmed`、bbox 不完整或资产字段缺失时，工具返回
+`manual_required`，不会进入代码生成。
 
 #### 2b. 从标准 UI 包生成（自动发现）
 

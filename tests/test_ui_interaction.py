@@ -68,3 +68,4 @@ def test_inspect_schema_exposes_high_interaction_inputs() -> None:
     assert properties["interaction_mode"]["enum"] == ["standard", "high"]
     assert "interaction_decisions" in properties
     assert "ui_decisions_path" in properties
+    assert "page_input_path" in properties

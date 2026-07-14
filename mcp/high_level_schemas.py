@@ -37,6 +37,7 @@ HIGH_LEVEL_SCHEMAS: list[dict[str, Any]] = [
                 "interaction_mode": {"type": "string", "enum": ["standard", "high"], "default": "standard", "description": "high persists detailed page/asset/font/interaction questions and blocks codegen until all blocking decisions are answered"},
                 "interaction_decisions": {"type": "object", "description": "Answers keyed by clarification question ID", "additionalProperties": True},
                 "ui_decisions_path": {"type": "string", "description": "Previously persisted ui_decisions.json; inline interaction_decisions override stored values"},
+                "page_input_path": {"type": "string", "description": "User-confirmed page_input.json from a previous inspect_design call; converts the editable page contract into asset and interaction decisions"},
                 "asset_intents": {
                     "type": "array",
                     "description": "AI visual intent only. Physical paths, dimensions, formats, hashes, strides, and memory sizes are forbidden.",

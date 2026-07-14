@@ -49,7 +49,7 @@ def _result_artifacts(result: dict[str, Any], output_dir: str | None) -> dict[st
         "analysis_report", "debug_overlay", "initial_asset_manifest", "spec_path", "asset_pack_path",
         "c_path", "h_path", "render_path", "object_tree_path",
         "object_tree_json_path", "diff_overlay_path", "app_evidence_path", "evidence_path",
-        "clarification_contract", "ui_decisions",
+        "clarification_contract", "ui_decisions", "page_input",
     )
     artifacts = {
         key: str(result[key]) for key in keys
@@ -135,10 +135,43 @@ def _inspect_design_legacy(args: dict[str, Any]) -> dict[str, Any]:
         "uncertain_regions": report.get("uncertain_regions", []),
         "questions": report.get("questions", []),
     }
-    asset_intents = args.get("asset_intents")
+    from mcp.page_input import (
+        build_page_input_template,
+        load_page_input,
+        page_input_to_asset_intents,
+        page_input_to_decisions,
+        validate_page_input,
+        write_page_input,
+    )
+    page_input_arg = args.get("page_input_path")
+    page_input_decisions: dict[str, Any] = {}
+    if page_input_arg:
+        try:
+            page_input_payload = load_page_input(page_input_arg)
+        except ValueError as exc:
+            return _fail([str(exc)], stage="page_input", status="invalid_input")
+        page_input_validation = validate_page_input(page_input_payload)
+        response["page_input"] = str(Path(page_input_arg).resolve())
+        if not page_input_validation["ok"]:
+            return _ok({
+                **response,
+                "status": "manual_required",
+                "manual_required": page_input_validation["errors"],
+            })
+        asset_intents = page_input_to_asset_intents(page_input_payload)
+        page_input_decisions = page_input_to_decisions(page_input_payload)
+    else:
+        asset_intents = args.get("asset_intents")
+        page_input_payload = build_page_input_template(
+            design_path=str(Path(design_path).resolve()),
+            display={"width": width, "height": height},
+            asset_intents=asset_intents,
+        )
+        response["page_input"] = write_page_input(out / "page_input.json", page_input_payload)
     from mcp.ui_interaction import build_interaction_contract, load_decisions, write_interaction_artifacts
     try:
-        decisions = load_decisions(args.get("ui_decisions_path"), args.get("interaction_decisions"))
+        decisions = page_input_decisions
+        decisions.update(load_decisions(args.get("ui_decisions_path"), args.get("interaction_decisions")))
         interaction = build_interaction_contract(
             mode=str(args.get("interaction_mode", "standard")),
             analysis_questions=report.get("questions", []),
