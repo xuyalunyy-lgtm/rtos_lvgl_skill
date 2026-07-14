@@ -16,6 +16,7 @@ import os
 import re
 import subprocess
 import sys
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
 if hasattr(sys.stdout, "reconfigure"):
@@ -231,27 +232,119 @@ def _parse_issue_count(output: str) -> int:
     return 0
 
 
+def _run_one_checker(spec: CheckerSpec, c_files: list[Path], tools_dir: str, skill_root: str) -> dict:
+    """Run a single checker in a subprocess. Designed for ProcessPoolExecutor.
+
+    Returns a dict with checker results (exit_code, issues, stdout, stderr).
+    This function is top-level (not a closure) so it can be pickled for multiprocessing.
+    """
+    env = os.environ.copy()
+    env.setdefault("PYTHONIOENCODING", "utf-8")
+    env.setdefault("PYTHONUTF8", "1")
+
+    if spec.mode == "per-file":
+        checker_exit = 0
+        total_issues = 0
+        combined_output = ""
+        for f in c_files:
+            argv = [sys.executable, os.path.join(tools_dir, spec.script), str(f)]
+            try:
+                proc = subprocess.run(
+                    argv, cwd=skill_root, env=env,
+                    capture_output=True, text=True, encoding="utf-8", errors="replace",
+                    timeout=300,
+                )
+            except subprocess.TimeoutExpired:
+                checker_exit = max(checker_exit, 1)
+                continue
+            checker_exit = max(checker_exit, proc.returncode)
+            combined_output += proc.stdout + proc.stderr
+            total_issues += _parse_issue_count(proc.stdout + proc.stderr)
+        return {
+            "checker": spec.name, "script": spec.script,
+            "domains": spec.domains, "mode": spec.mode,
+            "files_checked": len(c_files), "issues": total_issues,
+            "exit_code": checker_exit, "output": combined_output,
+        }
+    elif spec.mode == "batch":
+        argv = [sys.executable, os.path.join(tools_dir, spec.script)]
+        argv.extend(str(f) for f in c_files)
+        try:
+            proc = subprocess.run(
+                argv, cwd=skill_root, env=env,
+                capture_output=True, text=True, encoding="utf-8", errors="replace",
+                timeout=300,
+            )
+        except subprocess.TimeoutExpired:
+            return {
+                "checker": spec.name, "script": spec.script,
+                "domains": spec.domains, "mode": spec.mode,
+                "files_checked": len(c_files), "issues": 0,
+                "exit_code": 1, "output": "",
+            }
+        combined = proc.stdout + proc.stderr
+        return {
+            "checker": spec.name, "script": spec.script,
+            "domains": spec.domains, "mode": spec.mode,
+            "files_checked": len(c_files), "issues": _parse_issue_count(combined),
+            "exit_code": proc.returncode, "output": combined,
+        }
+    else:
+        return {
+            "checker": spec.name, "script": spec.script,
+            "domains": spec.domains, "mode": spec.mode,
+            "files_checked": 0, "issues": 0,
+            "exit_code": 1, "output": f"Unknown checker mode: {spec.mode}",
+        }
+
+
+def _classify_checkers(checkers: tuple[CheckerSpec, ...]) -> tuple[list[CheckerSpec], list[tuple[CheckerSpec, CheckerSpec]]]:
+    """Classify checkers into independent (no overlap) and overlap pairs.
+
+    Returns:
+        (independent_checkers, overlap_pairs)
+        overlap_pairs: list of (primary, secondary) where secondary is skipped if primary finds issues.
+    """
+    overlap_map: dict[str, CheckerSpec] = {}
+    for spec in checkers:
+        if spec.overlaps:
+            overlap_map[spec.name] = spec
+
+    seen_overlap: set[str] = set()
+    overlap_pairs: list[tuple[CheckerSpec, CheckerSpec]] = []
+    overlap_names: set[str] = set()
+
+    for spec in checkers:
+        if spec.name in seen_overlap:
+            continue
+        if spec.overlaps:
+            for target_name in spec.overlaps:
+                if target_name in overlap_map:
+                    overlap_pairs.append((spec, overlap_map[target_name]))
+                    overlap_names.add(spec.name)
+                    overlap_names.add(target_name)
+                    seen_overlap.add(spec.name)
+                    seen_overlap.add(target_name)
+
+    independent = [s for s in checkers if s.name not in overlap_names]
+    return independent, overlap_pairs
+
+
 def run_registered_checkers(args: argparse.Namespace, c_files: list[Path]) -> int | tuple[int, list[dict]]:
-    """Run all registered checkers.  Returns exit_code, or (exit_code, results) in JSON mode."""
+    """Run all registered checkers.  Returns exit_code, or (exit_code, results) in JSON mode.
+
+    Uses ProcessPoolExecutor for independent checkers (no overlap dependencies).
+    Overlap pairs are run sequentially: primary first, skip secondary if primary found issues.
+    """
     json_mode = getattr(args, "json", False)
     exit_code = 0
     results: list[dict] = []
-    skip_overlap: set[str] = set()  # checkers to skip due to overlaps
 
-    for spec in DEFAULT_CHECKERS:
-        if getattr(args, spec.skip_attr):
-            continue
-        # Overlap dedup: if an overlapping checker already found issues, skip this one
-        if spec.name in skip_overlap:
-            if json_mode:
-                results.append({
-                    "checker": spec.name, "script": spec.script,
-                    "domains": spec.domains, "mode": spec.mode,
-                    "files_checked": 0, "issues": 0, "exit_code": 0,
-                    "skipped": True, "skipped_due_to_overlap": True,
-                })
-            continue
-        if not c_files:
+    # Filter by --skip-* flags
+    active_checkers = tuple(s for s in DEFAULT_CHECKERS if not getattr(args, s.skip_attr))
+
+    if not c_files:
+        for spec in active_checkers:
             if not json_mode:
                 print(f"\n[skip] {spec.name}: no .c files")
             if json_mode:
@@ -260,45 +353,101 @@ def run_registered_checkers(args: argparse.Namespace, c_files: list[Path]) -> in
                     "domains": spec.domains, "mode": spec.mode,
                     "files_checked": 0, "issues": 0, "exit_code": 0, "skipped": True,
                 })
-            continue
+        return (exit_code, results) if json_mode else exit_code
 
-        if spec.mode == "per-file":
-            checker_exit = 0
-            total_issues = 0
-            for f in c_files:
-                rc, out = _run_and_capture(spec.name, [sys.executable, str(TOOLS_DIR / spec.script), str(f)], quiet=json_mode)
-                checker_exit = max(checker_exit, rc)
-                total_issues += _parse_issue_count(out)
-            exit_code = max(exit_code, checker_exit)
-            # Mark overlapping checkers for skip if this one found issues
-            if total_issues > 0 and spec.overlaps:
-                for overlap_name in spec.overlaps:
-                    skip_overlap.add(overlap_name)
-            if json_mode:
-                results.append({
-                    "checker": spec.name, "script": spec.script,
-                    "domains": spec.domains, "mode": spec.mode,
-                    "files_checked": len(c_files), "issues": total_issues,
-                    "exit_code": checker_exit,
-                })
-        elif spec.mode == "batch":
-            rc, out = _run_and_capture(spec.name, checker_argv(spec, c_files), quiet=json_mode)
-            exit_code = max(exit_code, rc)
-            # Mark overlapping checkers for skip if this one found issues
-            if rc != 0 and spec.overlaps:
-                for overlap_name in spec.overlaps:
-                    skip_overlap.add(overlap_name)
-            if json_mode:
-                results.append({
-                    "checker": spec.name, "script": spec.script,
-                    "domains": spec.domains, "mode": spec.mode,
-                    "files_checked": len(c_files), "issues": _parse_issue_count(out),
-                    "exit_code": rc,
-                })
+    independent, overlap_pairs = _classify_checkers(active_checkers)
+
+    # ── Phase 1: Run independent checkers in parallel ──
+    checker_map: dict[str, dict] = {}
+    max_workers = min(len(independent), os.cpu_count() or 4)
+
+    if independent and max_workers > 1:
+        with ProcessPoolExecutor(max_workers=max_workers) as pool:
+            futures = {
+                pool.submit(_run_one_checker, spec, c_files, str(TOOLS_DIR), str(SKILL_ROOT)): spec
+                for spec in independent
+            }
+            for future in as_completed(futures):
+                spec = futures[future]
+                try:
+                    result = future.result()
+                except Exception as exc:
+                    result = {
+                        "checker": spec.name, "script": spec.script,
+                        "domains": spec.domains, "mode": spec.mode,
+                        "files_checked": len(c_files), "issues": 0,
+                        "exit_code": 1, "output": str(exc),
+                    }
+                checker_map[spec.name] = result
+                exit_code = max(exit_code, result["exit_code"])
+                if not json_mode and result.get("output"):
+                    print(f"\n{'=' * 60}\n[{spec.name}]\n{'=' * 60}", flush=True)
+                    _safe_print(result["output"])
+    else:
+        # Fallback: run sequentially if few checkers or single core
+        for spec in independent:
+            result = _run_one_checker(spec, c_files, str(TOOLS_DIR), str(SKILL_ROOT))
+            checker_map[spec.name] = result
+            exit_code = max(exit_code, result["exit_code"])
+            if not json_mode and result.get("output"):
+                print(f"\n{'=' * 60}\n[{spec.name}]\n{'=' * 60}", flush=True)
+                _safe_print(result["output"])
+
+    # ── Phase 2: Run overlap pairs sequentially ──
+    skip_overlap: set[str] = set()
+
+    for primary, secondary in overlap_pairs:
+        # Check if primary was already run (could be independent)
+        if primary.name not in checker_map:
+            if primary.name in skip_overlap:
+                checker_map[primary.name] = {
+                    "checker": primary.name, "script": primary.script,
+                    "domains": primary.domains, "mode": primary.mode,
+                    "files_checked": 0, "issues": 0, "exit_code": 0,
+                    "skipped": True, "skipped_due_to_overlap": True,
+                }
+            else:
+                result = _run_one_checker(primary, c_files, str(TOOLS_DIR), str(SKILL_ROOT))
+                checker_map[primary.name] = result
+                exit_code = max(exit_code, result["exit_code"])
+                if not json_mode and result.get("output"):
+                    print(f"\n{'=' * 60}\n[{primary.name}]\n{'=' * 60}", flush=True)
+                    _safe_print(result["output"])
+
+        primary_result = checker_map.get(primary.name, {})
+        primary_issues = primary_result.get("issues", 0)
+
+        # Skip secondary if primary found issues
+        if primary_issues > 0:
+            skip_overlap.add(secondary.name)
+            checker_map[secondary.name] = {
+                "checker": secondary.name, "script": secondary.script,
+                "domains": secondary.domains, "mode": secondary.mode,
+                "files_checked": 0, "issues": 0, "exit_code": 0,
+                "skipped": True, "skipped_due_to_overlap": True,
+            }
+        elif secondary.name not in checker_map:
+            result = _run_one_checker(secondary, c_files, str(TOOLS_DIR), str(SKILL_ROOT))
+            checker_map[secondary.name] = result
+            exit_code = max(exit_code, result["exit_code"])
+            if not json_mode and result.get("output"):
+                print(f"\n{'=' * 60}\n[{secondary.name}]\n{'=' * 60}", flush=True)
+                _safe_print(result["output"])
+
+    # ── Collect results in original order ──
+    for spec in active_checkers:
+        if spec.name in checker_map:
+            result = checker_map[spec.name]
+            # Remove internal output field from JSON results
+            result_clean = {k: v for k, v in result.items() if k != "output"}
+            results.append(result_clean)
         else:
-            if not json_mode:
-                print(f"[warn] Unknown checker mode: {spec.name} mode={spec.mode}")
-            exit_code = max(exit_code, 1)
+            # Checker was not in independent or overlap groups (shouldn't happen)
+            results.append({
+                "checker": spec.name, "script": spec.script,
+                "domains": spec.domains, "mode": spec.mode,
+                "files_checked": 0, "issues": 0, "exit_code": 0, "skipped": True,
+            })
 
     if json_mode:
         return exit_code, results
