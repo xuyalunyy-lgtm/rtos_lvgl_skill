@@ -19,7 +19,7 @@ Skill path: `~/.claude/skills/freertos-embedded-architect/` (see skill repositor
 Implementation/Bug fix: **full authority to modify code**, no step-by-step confirmation needed, until functionality is complete and **build has 0 errors**. Iron rules C1-C8 still apply.
 
 ## LVGL UI Generation
-**Must** use the MCP toolchain (`get_lvgl_theme_skill` -> `convert_image` -> `generate_spec` -> `generate_code` -> `validate`). Bypassing MCP to hand-write LVGL page code is forbidden. See skill `workflows/l3_lvgl_page.md` for details.
+For LVGL work, follow `workflows/l3_lvgl_page.md`, use the target project's build and verification flow, and keep all LVGL updates in the GUI context.
 
 ## Ignore Large Directories
 See `.claudeignore` in the same directory (SDK/build should not enter context).

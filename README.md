@@ -6,7 +6,7 @@ Cursor Agent Skill: FreeRTOS IoT firmware architecture (MVP layering, LVGL threa
 
 需要 Python 3.10+。核心功能（checker、router、review）**零依赖**，仅用标准库。
 LVGL 图片转换和 SDK YAML 解析需要可选依赖：`pip install Pillow PyYAML`。
-详细安装见 [INSTALL.md](INSTALL.md)。
+将本目录作为 skill 安装或复制到你的 skill 目录即可使用。
 
 ### 环境变量（Windows 必设）
 
@@ -52,8 +52,8 @@ python tools/context_router.py --symptom-text "HardFault in audio task" --json
 | 场景 | 入口 | 说明 |
 |------|------|------|
 | CLI / CI | `python tools/run_review.py` | 一键静态审查 |
-| Claude Code / IDE | MCP tools | 通过 `.mcp.json` 自动加载 |
-| LVGL 页面生成 | MCP 优先 | fallback 到 `workflows/l3_lvgl_page.md` |
+| Claude Code / IDE | Skill | 读取 `SKILL.md` 与对应 workflow |
+| LVGL 页面生成 | 目标工程优先 | 遵循 `workflows/l3_lvgl_page.md` |
 | Quick Gate | `python scripts/quick_gate.py` | 发布前全量自测 |
 
 控制平面：[SKILL.md](SKILL.md) · 结构总览：[references/skill_structure.md](references/skill_structure.md)

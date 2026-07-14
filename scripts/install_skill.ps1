@@ -20,7 +20,7 @@ if (-not (Test-Path (Join-Path $Source "SKILL.md"))) {
     exit 1
 }
 
-# MCP server uses only Python stdlib — no external dependency install needed.
+# The skill has no bundled service dependency.
 
 New-Item -ItemType Directory -Force -Path (Split-Path $Dest -Parent) | Out-Null
 if (Test-Path $Dest) {

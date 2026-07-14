@@ -20,8 +20,8 @@ Agent 或维护者在 [archived self_iterate.md](../archive/workflows/self_itera
 
 - **来源：** 用户需求 / LVGL 图片转代码能力建设
 - **平台：** Windows x64 | Linux x64
-- **变更：** 原生 v9 runner、CI runtime 包、asset.pack 协议与 MCP render 闭环。
-- **验证：** MCP self-test ✅ / GitHub Actions win-x64 + linux-x64 编译与渲染 smoke ✅ / 原生 golden 12/12 ✅ / Quick Gate ✅。
+- **变更：** 原生 v9 runner、CI runtime 包、asset.pack 协议与渲染闭环。
+- **验证：** 自测 ✅ / GitHub Actions win-x64 + linux-x64 编译与渲染 smoke ✅ / 原生 golden 12/12 ✅ / Quick Gate ✅。
 - **版本：** 45.0.0
 
 ### 2026-07-08 - v44.0.0 BLE Constraint Additions

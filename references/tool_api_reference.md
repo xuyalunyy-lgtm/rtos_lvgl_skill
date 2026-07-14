@@ -2,7 +2,7 @@
 
 所有工具均为纯 Python stdlib，零外部依赖。用法：`python tools/<name>.py [options]`。
 
-> MCP 工具见 [mcp_tool_reference.md](mcp_tool_reference.md)。
+> 工具说明以各工作流和目标工程的构建文档为准。
 
 ## 入口工具
 

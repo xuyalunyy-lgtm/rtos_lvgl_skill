@@ -13,7 +13,7 @@ if [[ ! -f "${SOURCE}/SKILL.md" ]]; then
   exit 1
 fi
 
-# MCP server uses only Python stdlib — no external dependency install needed.
+# The skill has no bundled service dependency.
 
 mkdir -p "$(dirname "$DEST")"
 rm -rf "$DEST"

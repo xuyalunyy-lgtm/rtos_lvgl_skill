@@ -45,7 +45,7 @@ If the primary task is unclear, ask one clarifying question before proceeding.
 - **必读:** `references/core_rules.md`, `references/constraint_index.md`
 - **按需:** `platforms/{platform}.md`, workflow 指定的 `prompts/{scene}.txt`
 - **工具:** `python tools/run_review.py`, `python tools/context_router.py`
-- **禁止:** `mcp/`, `golden_pages/`, `native/`, `runtime/`, `ui/`, `schemas/`
+- **禁止:** `ui/`, `schemas/`
 ---
 ## Generate Domain
 **Trigger:** LVGL page / manifest / new module / bring-up / SDK trim
@@ -57,9 +57,9 @@ If the primary task is unclear, ask one clarifying question before proceeding.
 | l3_bring_up.md | board bring-up |
 | l3_sdk_trim.md | SDK trimming |
 - **必读:** `references/core_rules.md`
-- **LVGL 必读:** `references/lvgl_image_to_code_contract.md`, `references/lvgl_interactive_delivery_contract.md`
+- **LVGL 必读:** `workflows/l3_lvgl_page.md`
 - **按需:** `platforms/{platform}.md`, `references/lvgl_*`
-- **工具:** MCP tools (inspect_design, generate_ui, render_ui, compare_ui, refine_ui, apply_patch). Use high-interaction mode for unresolved visual intent and publish only the minimal final delivery set.
+- **工具:** 使用目标工程的 LVGL 构建、渲染和测试工具。对未确认的视觉或交互意图先澄清，再交付最小可编译文件集。
 - **禁止:** `tools/*_checker.py`, `examples/bad_*.c`
 ---
 ## Debug Domain
@@ -71,13 +71,13 @@ If the primary task is unclear, ask one clarifying question before proceeding.
 - **必读:** `references/core_rules.md`, `references/log_symptom_routes.json`
 - **按需:** `platforms/{platform}.md`, 症状匹配的 `prompts/{scene}.txt`
 - **工具:** `python tools/log_triage.py`, `python tools/context_router.py`
-- **禁止:** `mcp/`, `golden_pages/`, `native/`, `runtime/`
+- **禁止:** 无额外默认禁读目录。
 ---
 ## Shared Rules (All Domains)
 - Ask for platform when missing; ESP32/STM32/JL/BK are platforms, FreeRTOS/Zephyr are RTOS.
 - Select a workflow before acting; load ONLY files in your domain's Loading Rules.
 - Commit requests: follow `references/git_commit_style.md`, use `type(scope):`.
-- LVGL UI generation must use the MCP toolchain; see `references/lvgl_validation_contract.md`.
+- LVGL UI generation must be implemented and verified in the target project; do not assume a repository-provided generator or simulator is available.
 ## Constraint Shards Index
 Load only the shard(s) referenced by your selected workflow:
 | Shard | Constraints |

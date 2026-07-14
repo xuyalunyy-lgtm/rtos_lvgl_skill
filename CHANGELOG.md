@@ -5,7 +5,7 @@
 ## 45.0.0 - 2026-07-11
 
 v45: 内置 LVGL v9 headless runner 与图片转 LVGL 闭环。
-- MCP 收口为 6 个面向模型的高层工具，并修复 render/apply/self-test 契约。
+- UI 自动化工具链曾收口为 6 个面向模型的高层工具，并修复 render/apply/self-test 契约。
 - 新增 Windows x64 与 Linux x64 runner CI、完整性 manifest 和端到端渲染 smoke test。
 - 新增 asset.pack 协议、RGB565A8 Alpha 支持，以及原生 runner 图片资源加载。
 - 随包提交 Windows x64 与 Linux x64 runner；12 个 golden page 已用原生 renderer 重建为权威基线。

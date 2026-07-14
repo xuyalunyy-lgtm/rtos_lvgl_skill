@@ -670,7 +670,7 @@ WORKFLOWS = {
     "lvgl_page": {
         "file": "workflows/l3_lvgl_page.md",
         "quick_file": "workflows/l3_lvgl_page_quick.md",
-        "quick_refs": ["references/lvgl_design_codegen_quick.md"],
+        "quick_refs": [],
         "quick_constraint_mode": "embedded",
         "quick_platform_optional": True,
         "constraint_shards": ["review", "media", "voice"],
@@ -686,7 +686,7 @@ WORKFLOWS = {
     "app_manifest": {
         "file": "workflows/l3_lvgl_page.md",
         "quick_file": "workflows/l3_lvgl_page_quick.md",
-        "quick_refs": ["references/lvgl_design_codegen_quick.md"],
+        "quick_refs": [],
         "quick_constraint_mode": "embedded",
         "quick_platform_optional": True,
         "constraint_shards": ["review"],
@@ -1184,7 +1184,7 @@ def run_self_test() -> int:
     plan_lvgl_compact = build_load_plan("lvgl_page", "jl", "freertos", budget="compact")
     lvgl_paths = {f["path"] for f in plan_lvgl_compact.get("required_files", [])}
     check("lvgl compact uses quick workflow", "workflows/l3_lvgl_page_quick.md" in lvgl_paths)
-    check("lvgl compact loads quick design codegen reference", "references/lvgl_design_codegen_quick.md" in lvgl_paths)
+    check("lvgl compact has no bundled generator reference", "references/lvgl_design_codegen_quick.md" not in lvgl_paths)
     check("lvgl compact skips full jl platform doc", "platforms/jl.md" not in lvgl_paths)
     check("lvgl compact skips full review/media shards", {"references/constraint_review.md", "references/constraint_media.md"}.isdisjoint(lvgl_paths))
     check("lvgl compact uses embedded constraints", plan_lvgl_compact.get("constraint_doc_mode") == "quick_embedded")
