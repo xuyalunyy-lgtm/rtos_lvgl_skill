@@ -1,25 +1,6 @@
 {
-  "permissions": {
-    "allow": [
-      "Bash(python *)",
-      "Bash(git add *)",
-      "Bash(git commit -m 'feat\\(app-codegen\\): generate Router, Presenter, Model Mock, App scaffolding *)",
-      "Bash(git commit -m 'feat\\(app-validator\\): route graph, code structure, thread boundary, resource dedup *)",
-      "Bash(git commit *)",
-      "mcp__freertos-embedded-architect__inspect_design",
-      "mcp__freertos-embedded-architect__generate_ui",
-      "mcp__freertos-embedded-architect__render_ui",
-      "mcp__freertos-embedded-architect__compare_ui",
-      "mcp__mqtt-mcp__mqtt_list_topics",
-      "mcp__ota-mcp__ota_server_status",
-      "mcp__serial-mcp__serial_list",
-      "mcp__serial-mcp__serial_connect",
-      "mcp__serial-mcp__serial_get_stats",
-      "Bash(git push *)"
-    ]
-  },
   "enabledMcpjsonServers": [
-    "freertos-embedded-architect",
+    "lvgl-ui-mcp",
     "mqtt-mcp",
     "ota-mcp",
     "serial-mcp"

@@ -149,19 +149,19 @@ python tools/stack_calculator.py --describe "WSS TLS cJSON" --platform jl
 | 26 | 编解码格式 | sample rate/channels/bit depth/帧长/stride/codec 生命周期 → [av_codec_format.txt](../prompts/av_codec_format.txt) | 6 |
 | 27 | 时钟漂移 / Jitter | master clock/PTS/jitter 水位/drift 限幅/underrun 补偿 → [av_clock_jitter.txt](../prompts/av_clock_jitter.txt) | 6 |
 | 28 | 媒体 DMA/cache buffer | DMA-capable/clean/invalidate/零拷贝 owner/cache line/遥测 → [av_dma_buffer_lifecycle.txt](../prompts/av_dma_buffer_lifecycle.txt) | 6 |
-| 29 | 模块契约 | 调用上下文/阻塞语义/所有权/生命周期/错误语义/高内聚低耦合边界 → [runtime_efficiency_contracts.txt](../prompts/runtime_efficiency_contracts.txt) | 10 |
-| 30 | 任务/队列拓扑 | task/priority/stack/queue/producer/consumer/backpressure/exit → [runtime_efficiency_contracts.txt](../prompts/runtime_efficiency_contracts.txt) | 5 |
-| 31 | 超时预算 | 有限 timeout/deadline/永久等待例外/timeout 遥测 → [runtime_efficiency_contracts.txt](../prompts/runtime_efficiency_contracts.txt) · `blocking_wait_checker.py` | 5 |
-| 32 | 可观测性优先 | state/last_error/counter/watermark/max time/现场 dump → [runtime_efficiency_contracts.txt](../prompts/runtime_efficiency_contracts.txt) | 5 |
-| 33 | 生命周期对称 | acquire/release 对称、cleanup、可重入 stop/deinit → [runtime_efficiency_contracts.txt](../prompts/runtime_efficiency_contracts.txt) | 5 |
-| 34 | 热路径禁区 | ISR/DMA/flush/frame/control loop 禁阻塞、分配、重日志、重解析 → [runtime_efficiency_contracts.txt](../prompts/runtime_efficiency_contracts.txt) | 5 |
-| 35 | 关键路径预算表 | boot/net/audio/video/UI/OTA/sleep-wake stage budget、timeout、fallback、metric → [runtime_efficiency_contracts.txt](../prompts/runtime_efficiency_contracts.txt) | 5 |
-| 36 | 数据拷贝预算 | 跨 task/跨核/DMA/网络/音视频数据移动、copy count、owner/release、cache 策略 → [runtime_efficiency_contracts.txt](../prompts/runtime_efficiency_contracts.txt) · `efficiency_budget_checker.py` | 5 |
-| 37 | 背压与降级策略 | queue/frame/log/network 满载时 drop/coalesce/overwrite/backpressure/degrade/retry 上限 → [runtime_efficiency_contracts.txt](../prompts/runtime_efficiency_contracts.txt) · `efficiency_budget_checker.py` | 5 |
-| 38 | 故障隔离与自动恢复 | 故障域、recoverable/fatal、retry/backoff、supervisor、降级/安全停机 → [runtime_efficiency_contracts.txt](../prompts/runtime_efficiency_contracts.txt) | 5 |
-| 39 | 配置矩阵约束 | Kconfig/feature/board/SDK 差异矩阵、`#ifdef` 归类、fail fast → [runtime_efficiency_contracts.txt](../prompts/runtime_efficiency_contracts.txt) | 5 |
-| 40 | 一键复现闭环 | build/flash/monitor/log/decode/test 最小复现命令与脱敏日志 → [runtime_efficiency_contracts.txt](../prompts/runtime_efficiency_contracts.txt) | 5 |
-| 41 | 回归样本优先 | 新约束/checker/bugfix 必须沉淀 good/bad 样本并接入自测或 checklist → [runtime_efficiency_contracts.txt](../prompts/runtime_efficiency_contracts.txt) | 5 |
+| 29 | 模块契约 | 调用上下文/阻塞语义/所有权/生命周期/错误语义/高内聚低耦合边界 → [module_contract_topology.txt](../prompts/module_contract_topology.txt) | 10 |
+| 30 | 任务/队列拓扑 | task/priority/stack/queue/producer/consumer/backpressure/exit → [module_contract_topology.txt](../prompts/module_contract_topology.txt) | 5 |
+| 31 | 超时预算 | 有限 timeout/deadline/永久等待例外/timeout 遥测 → [timeout_lifecycle_observability.txt](../prompts/timeout_lifecycle_observability.txt) · `blocking_wait_checker.py` | 5 |
+| 32 | 可观测性优先 | state/last_error/counter/watermark/max time/现场 dump → [timeout_lifecycle_observability.txt](../prompts/timeout_lifecycle_observability.txt) | 5 |
+| 33 | 生命周期对称 | acquire/release 对称、cleanup、可重入 stop/deinit → [timeout_lifecycle_observability.txt](../prompts/timeout_lifecycle_observability.txt) | 5 |
+| 34 | 热路径禁区 | ISR/DMA/flush/frame/control loop 禁阻塞、分配、重日志、重解析 → [hotpath_critical_budget.txt](../prompts/hotpath_critical_budget.txt) | 5 |
+| 35 | 关键路径预算表 | boot/net/audio/video/UI/OTA/sleep-wake stage budget、timeout、fallback、metric → [hotpath_critical_budget.txt](../prompts/hotpath_critical_budget.txt) | 5 |
+| 36 | 数据拷贝预算 | 跨 task/跨核/DMA/网络/音视频数据移动、copy count、owner/release、cache 策略 → [hotpath_critical_budget.txt](../prompts/hotpath_critical_budget.txt) · `efficiency_budget_checker.py` | 5 |
+| 37 | 背压与降级策略 | queue/frame/log/network 满载时 drop/coalesce/overwrite/backpressure/degrade/retry 上限 → [backpressure_recovery_config.txt](../prompts/backpressure_recovery_config.txt) · `efficiency_budget_checker.py` | 5 |
+| 38 | 故障隔离与自动恢复 | 故障域、recoverable/fatal、retry/backoff、supervisor、降级/安全停机 → [backpressure_recovery_config.txt](../prompts/backpressure_recovery_config.txt) | 5 |
+| 39 | 配置矩阵约束 | Kconfig/feature/board/SDK 差异矩阵、`#ifdef` 归类、fail fast → [backpressure_recovery_config.txt](../prompts/backpressure_recovery_config.txt) | 5 |
+| 40 | 一键复现闭环 | build/flash/monitor/log/decode/test 最小复现命令与脱敏日志 → [backpressure_recovery_config.txt](../prompts/backpressure_recovery_config.txt) | 5 |
+| 41 | 回归样本优先 | 新约束/checker/bugfix 必须沉淀 good/bad 样本并接入自测或 checklist → [backpressure_recovery_config.txt](../prompts/backpressure_recovery_config.txt) | 5 |
 | 42 | 板级资源契约 | GPIO/DMA/clock/IRQ/cache/heap/PSRAM owner、冲突检查、power domain → [runtime_efficiency_contracts.txt](../prompts/runtime_efficiency_contracts.txt) | 5 |
 | 43 | 锁预算与优先级反转防护 | 有限等锁、持锁禁阻塞 IO、mutex 优先级继承、lock_order、热路径禁锁 → [runtime_efficiency_contracts.txt](../prompts/runtime_efficiency_contracts.txt) · `lock_budget_checker.py` | 5 |
 | 44 | 临界区/关中断预算 | 短 critical section、关中断禁重活、enter/exit 对称、禁 busy loop、hot path 禁长关中断 → [runtime_efficiency_contracts.txt](../prompts/runtime_efficiency_contracts.txt) · `critical_section_checker.py` | 5 |

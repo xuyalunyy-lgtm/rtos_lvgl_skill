@@ -27,57 +27,77 @@ CROSS_DOMAIN_AMBIGUITY_THRESHOLD = 0.5  # Tuned on 60-sample dev set; see tests/
 # ── 请求分类关键词表（与 SKILL.md 路由表对齐）──
 
 ROUTE_KEYWORDS: dict[str, dict] = {
+    "crash_debug": {
+        "domain": "debug",
+        "priority": 1,
+        "exclude": [],
+        "keywords": ["crash", "HardFault", "WDT", "deadlock", "frozen", "死机",
+                      "看门狗", "崩溃", "backtrace", "Guru Meditation", "watchdog",
+                      "stack overflow crash", "exception", "卡在", "卡死", "重启"],
+    },
     "code_review": {
         "domain": "review",
+        "priority": 2,
+        "exclude": ["crash", "死机", "卡死", "卡在", "重启"],
         "keywords": ["review", "audit", "审查", "check", "ISR", "DMA", "cJSON", "代码质量",
                       "code quality", "static analysis", "lint", "OTA", "安全", "看看代码",
                       "代码规范", "code review"],
     },
     "memory_analysis": {
         "domain": "review",
+        "priority": 2,
+        "exclude": ["crash", "死机", "卡死"],
         "keywords": ["memory", "leak", "内存", "堆栈", "heap", "stack overflow",
                       "memory analysis", "pool", "fragmentation", "堆栈溢出", "内存泄漏"],
     },
     "project_review": {
         "domain": "review",
+        "priority": 2,
+        "exclude": ["crash", "死机"],
         "keywords": ["project review", "项目审查", "workspace review", "全项目", "整个项目",
                       "整个工程", "project audit", "项目检查"],
     },
     "hw_sw_debug": {
         "domain": "review",
+        "priority": 2,
+        "exclude": [],
         "keywords": ["co-debug", "GPIO conflict", "硬件协同", "GPIO", "IO conflict",
                       "peripheral conflict", "pin mux", "引脚冲突", "pin conflict"],
     },
-    "crash_debug": {
-        "domain": "debug",
-        "keywords": ["crash", "HardFault", "WDT", "deadlock", "frozen", "死机",
-                      "看门狗", "崩溃", "backtrace", "Guru Meditation", "watchdog",
-                      "stack overflow crash", "exception", "卡在", "卡死", "重启"],
-    },
     "lvgl_page": {
         "domain": "generate",
+        "priority": 3,
+        "exclude": ["crash", "死机", "卡死", "frozen", "卡在"],
         "keywords": ["LVGL", "UI", "page", "页面", "设计截图", "design",
                       "界面", "GUI", "widget"],
     },
     "app_manifest": {
         "domain": "generate",
+        "priority": 3,
+        "exclude": [],
         "keywords": ["manifest", "多页", "multi-page", "Router", "Presenter",
                       "Model", "脚手架", "scaffold", "app architecture", "应用架构",
                       "多页面"],
     },
     "new_module": {
         "domain": "generate",
+        "priority": 3,
+        "exclude": ["crash", "review", "审查", "leak", "内存"],
         "keywords": ["new module", "新模块", "task", "任务", "multitask",
                       "module design", "模块设计", "module", "模块"],
     },
     "bring_up": {
         "domain": "generate",
+        "priority": 3,
+        "exclude": [],
         "keywords": ["bring-up", "板级", "最小系统", "peripheral validation",
                       "board init", "boot", "startup", "外设", "新板", "first boot",
                       "上电", "串口没输出", "启动流程"],
     },
     "sdk_trim": {
         "domain": "generate",
+        "priority": 3,
+        "exclude": [],
         "keywords": ["SDK trim", "裁剪", "裁", "driver prune", "sdk_trim",
                       "component pruning", "减小体积", "trim", "prune", "flash不够",
                       "精简", "缩减"],
@@ -126,12 +146,24 @@ def classify_request(text: str, cross_domain_threshold: float | None = None) -> 
     for wf_id, spec in ROUTE_KEYWORDS.items():
         score = 0
         terms = []
+        # Check exclude: if user text matches any exclude keyword, skip this route
+        excluded = False
+        for ex in spec.get("exclude", []):
+            if ex.lower() in text_lower:
+                excluded = True
+                break
+        if excluded:
+            continue
+
         for kw in spec["keywords"]:
             hit, weight = _kw_match(kw, text_lower)
             if hit:
                 score += weight
                 terms.append(kw)
         if score > 0:
+            # Apply priority multiplier: priority 1 gets 3x, priority 2 gets 2x, priority 3 gets 1x
+            priority = spec.get("priority", 3)
+            score *= (4 - priority)
             scores[wf_id] = score
             matched_kw[wf_id] = terms
 
@@ -598,7 +630,9 @@ WORKFLOWS = {
     "project_review": {
         "file": "workflows/l2_project_review.md",
         "constraint_shards": ["review", "platform"],
-        "prompts": ["prompts/runtime_efficiency_contracts.txt"],
+        "prompts": ["prompts/module_contract_topology.txt", "prompts/timeout_lifecycle_observability.txt",
+                     "prompts/hotpath_critical_budget.txt", "prompts/backpressure_recovery_config.txt",
+                     "prompts/runtime_efficiency_contracts.txt"],
         "description": "项目审查",
     },
     "crash_debug": {
@@ -622,7 +656,9 @@ WORKFLOWS = {
     "new_module": {
         "file": "workflows/l3_new_module.md",
         "constraint_shards": ["rtos", "review"],
-        "prompts": ["prompts/runtime_efficiency_contracts.txt"],
+        "prompts": ["prompts/module_contract_topology.txt", "prompts/timeout_lifecycle_observability.txt",
+                     "prompts/hotpath_critical_budget.txt", "prompts/backpressure_recovery_config.txt",
+                     "prompts/runtime_efficiency_contracts.txt"],
         "description": "新模块",
     },
     "bring_up": {
@@ -1232,10 +1268,15 @@ def run_self_test() -> int:
         ("新板子验证外设", "bring_up", False),
         ("Trim unused SDK drivers", "sdk_trim", False),
         ("裁剪 SDK 只保留 WiFi", "sdk_trim", False),
+        # Priority/exclude: crash keywords override generate routes
+        ("UI 卡死重启", "crash_debug", False),
+        ("页面死机了", "crash_debug", False),
+        ("task 内存泄漏", "memory_analysis", False),
+        ("OTA 代码审查", "code_review", False),
         # Clarification cases
         ("help", None, True),
         ("帮我看看这个问题", None, True),
-        ("LVGL page crashes with HardFault, need both", None, True),
+        ("LVGL page crashes with HardFault, need both", "crash_debug", False),
     ]
     for request, expected_wf, expect_clar in CLASSIFY_CASES:
         result = classify_request(request)

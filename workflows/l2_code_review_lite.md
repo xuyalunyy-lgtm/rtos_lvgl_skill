@@ -21,7 +21,7 @@
 | 无界等待 | `portMAX_DELAY` / `WAIT_FOREVER` 默认使用 | 假死 / stop 卡住 |
 | 热路径重活 | callback 内 malloc/printf/JSON/TLS | 实时尖峰 / WDT |
 
-按需读 scene prompt（仅相关 1–2 个）；模块契约、拓扑、超时、可观测、生命周期、热路径、关键路径预算、数据拷贝、背压降级、故障恢复、配置矩阵、复现闭环、回归样本、板级资源问题读 [runtime_efficiency_contracts.txt](../prompts/runtime_efficiency_contracts.txt)。
+按需读 scene prompt（仅相关 1–2 个）；模块契约/拓扑读 [module_contract_topology.txt](../prompts/module_contract_topology.txt)、超时/可观测/生命周期读 [timeout_lifecycle_observability.txt](../prompts/timeout_lifecycle_observability.txt)、热路径/关键路径/数据拷贝读 [hotpath_critical_budget.txt](../prompts/hotpath_critical_budget.txt)、背压降级/故障恢复/配置矩阵/复现闭环/回归样本读 [backpressure_recovery_config.txt](../prompts/backpressure_recovery_config.txt)、板级资源/锁预算/临界区/传感器集成读 [runtime_efficiency_contracts.txt](../prompts/runtime_efficiency_contracts.txt)。
 
 ## Step 3 — 人工审查
 

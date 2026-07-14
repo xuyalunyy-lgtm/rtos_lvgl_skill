@@ -107,6 +107,25 @@ def test_status_icon_keeps_source_canvas_without_alpha_crop(tmp_path: Path) -> N
     assert resolved["flash_bytes"] == 48 * 48 * 3
 
 
+def test_explicit_flat_icon_names_are_type_compatible(tmp_path: Path) -> None:
+    root = tmp_path / "ui"
+    _rgba(root / "assets" / "icon_back.png", (48, 48), 8)
+    _rgba(root / "assets" / "icon_battery.png", (48, 48), 8)
+    manifest = _manifest(root, [
+        _intent("icon_back", "control_icon", "icon_back.png", preserve_source_canvas=True),
+        _intent("icon_battery", "status_icon", "icon_battery.png", preserve_source_canvas=True),
+    ])
+    result = resolve_asset_contract(
+        manifest,
+        package_root=root,
+        asset_root=root / "assets",
+        output_dir=tmp_path / "out",
+    )
+    assert result["ok"]
+    assert [item["match_method"] for item in result["resolved_assets"]] == ["exact_relative_path", "exact_relative_path"]
+    assert all(item["crop_offset"] == [0, 0] for item in result["resolved_assets"])
+
+
 def test_explicit_source_canvas_contract_preserves_transparent_padding(tmp_path: Path) -> None:
     root = tmp_path / "ui"
     pet = root / "assets" / "characters" / "pet_idle.png"

@@ -362,7 +362,7 @@ def fix_lifecycle(violations: list, filepath: str) -> list[dict]:
                     "        return ESP_OK;\n"
                     "    }"
                 ),
-                "reference": "prompts/runtime_efficiency_contracts.txt",
+                "reference": "prompts/module_contract_topology.txt",
             })
     return fixes
 

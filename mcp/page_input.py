@@ -16,6 +16,13 @@ ASSET_TYPES = {
     "state_image",
 }
 SCALE_POLICIES = {"original", "contain", "stretch", "code_drawn"}
+ELEMENT_TYPES = {"container", "label", "button", "bar", "slider", "switch", "checkbox", "dropdown", "roller", "spinner", "arc"}
+STYLE_COLOR_FIELDS = {"bg_color", "border_color", "text_color"}
+STYLE_INTEGER_FIELDS = {
+    "bg_opa", "border_width", "radius", "shadow_width",
+    "pad_top", "pad_bottom", "pad_left", "pad_right", "width", "height",
+}
+STYLE_FIELDS = STYLE_COLOR_FIELDS | STYLE_INTEGER_FIELDS | {"text_align"}
 
 
 def _page_id(design_path: str) -> str:
@@ -36,6 +43,31 @@ def _bbox(value: Any) -> list[int] | None:
     ):
         return list(value)
     return None
+
+
+def _asset_node_id(symbol: str) -> str:
+    value = re.sub(r"_+", "_", re.sub(r"[^A-Za-z0-9_]+", "_", symbol)).strip("_").lower()
+    return f"asset_{value}"
+
+
+def _validate_styles(styles: Any, label: str, errors: list[str]) -> None:
+    if not isinstance(styles, dict):
+        errors.append(f"{label} must be an object")
+        return
+    unsupported = sorted(set(styles) - STYLE_FIELDS)
+    if unsupported:
+        errors.append(f"{label} has unsupported fields: {', '.join(unsupported)}")
+    for field in STYLE_COLOR_FIELDS.intersection(styles):
+        if not isinstance(styles[field], str) or not re.fullmatch(r"#[0-9A-Fa-f]{6}", styles[field]):
+            errors.append(f"{label}.{field} must be #RRGGBB")
+    for field in STYLE_INTEGER_FIELDS.intersection(styles):
+        value = styles[field]
+        if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+            errors.append(f"{label}.{field} must be a non-negative integer")
+        elif field == "bg_opa" and value > 255:
+            errors.append(f"{label}.bg_opa must be between 0 and 255")
+    if "text_align" in styles and styles["text_align"] not in {"left", "center", "right"}:
+        errors.append(f"{label}.text_align must be left, center, or right")
 
 
 def build_page_input_template(
@@ -63,7 +95,7 @@ def build_page_input_template(
             "page": page_id,
             "state": str(item.get("state") or "default"),
             "layer": str(item.get("layer") or "content"),
-            "reuse_scope": "page",
+            "reuse_scope": "shared" if item.get("allow_shared_source") else "page",
         })
     return {
         "schema_version": "1.0",
@@ -77,8 +109,10 @@ def build_page_input_template(
             "display_mapping": "1:1",
         },
         "bbox_policy": {"include_transparent_padding": True},
+        "screen": {"bg_color": "#FFFFFF", "full_screen_tap": False},
         "assets": assets,
         "fonts": [],
+        "elements": [],
         "interactions": {
             "transition": "none",
             "targets": [],
@@ -146,22 +180,28 @@ def validate_page_input(payload: dict[str, Any]) -> dict[str, Any]:
         errors.append("bbox_policy.include_transparent_padding must be boolean")
 
     assets = payload.get("assets")
+    asset_node_ids: set[str] = set()
     if not isinstance(assets, list) or not assets:
         errors.append("assets must contain at least one confirmed asset")
     else:
         seen: set[str] = set()
+        portable_seen: set[str] = set()
         for index, asset in enumerate(assets):
             label = f"assets[{index}]"
             if not isinstance(asset, dict):
                 errors.append(f"{label} must be an object")
                 continue
             symbol = asset.get("symbol")
-            if not isinstance(symbol, str) or not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", symbol):
+            if not isinstance(symbol, str) or not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", symbol) or len(symbol) > 31:
                 errors.append(f"{label}.symbol must be a C identifier")
             elif symbol in seen:
                 errors.append(f"{label}.symbol is duplicated")
+            elif symbol.casefold() in portable_seen:
+                errors.append(f"{label}.symbol collides on case-insensitive filesystems")
             else:
                 seen.add(symbol)
+                portable_seen.add(symbol.casefold())
+                asset_node_ids.add(_asset_node_id(symbol))
             if asset.get("type") not in ASSET_TYPES:
                 errors.append(f"{label}.type is invalid")
             if not isinstance(asset.get("source"), str) or not asset["source"].strip():
@@ -177,6 +217,7 @@ def validate_page_input(payload: dict[str, Any]) -> dict[str, Any]:
                     errors.append(f"{label}.{field} must be non-empty")
 
     fonts = payload.get("fonts")
+    font_roles: set[str] = set()
     if not isinstance(fonts, list):
         errors.append("fonts must be an array")
     else:
@@ -185,13 +226,86 @@ def validate_page_input(payload: dict[str, Any]) -> dict[str, Any]:
             if not isinstance(font, dict):
                 errors.append(f"{label} must be an object")
                 continue
-            if not isinstance(font.get("role"), str) or not font["role"].strip():
-                errors.append(f"{label}.role must be non-empty")
+            if not isinstance(font.get("role"), str) or not re.fullmatch(r"[a-z][a-z0-9_]*", font["role"]):
+                errors.append(f"{label}.role must be snake_case")
+            elif font["role"] in font_roles:
+                errors.append(f"{label}.role is duplicated")
+            else:
+                font_roles.add(font["role"])
             if not isinstance(font.get("source"), str) or not font["source"].strip():
                 errors.append(f"{label}.source must be non-empty")
             size = font.get("size")
             if size is not None and (not isinstance(size, int) or isinstance(size, bool) or size <= 0):
                 errors.append(f"{label}.size must be a positive integer or null")
+
+    screen = payload.get("screen", {})
+    if not isinstance(screen, dict):
+        errors.append("screen must be an object")
+    else:
+        bg_color = screen.get("bg_color", "#FFFFFF")
+        if not isinstance(bg_color, str) or not re.fullmatch(r"#[0-9A-Fa-f]{6}", bg_color):
+            errors.append("screen.bg_color must be #RRGGBB")
+        if not isinstance(screen.get("full_screen_tap", False), bool):
+            errors.append("screen.full_screen_tap must be boolean")
+
+    elements = payload.get("elements")
+    if not isinstance(elements, list):
+        errors.append("elements must be an array")
+    else:
+        element_ids: set[str] = set()
+        for index, element in enumerate(elements):
+            label = f"elements[{index}]"
+            if not isinstance(element, dict):
+                errors.append(f"{label} must be an object")
+                continue
+            element_id = element.get("id")
+            if not isinstance(element_id, str) or not re.fullmatch(r"[a-z][a-z0-9_]*", element_id):
+                errors.append(f"{label}.id must be snake_case")
+            elif element_id in element_ids:
+                errors.append(f"{label}.id is duplicated")
+            elif element_id == "root" or element_id in asset_node_ids:
+                errors.append(f"{label}.id collides with a generated node")
+            else:
+                element_ids.add(element_id)
+            if element.get("type") not in ELEMENT_TYPES:
+                errors.append(f"{label}.type is invalid")
+            if _bbox(element.get("bbox")) is None:
+                errors.append(f"{label}.bbox must be [x, y, width, height]")
+            if element.get("type") in {"label", "button"} and not isinstance(element.get("text"), str):
+                errors.append(f"{label}.text must be a string")
+            _validate_styles(element.get("styles", {}), f"{label}.styles", errors)
+            font_role = element.get("font_role")
+            if font_role is not None and font_role not in font_roles:
+                errors.append(f"{label}.font_role references an unknown font role")
+            parent_id = element.get("parent_id", "root")
+            if not isinstance(parent_id, str) or not re.fullmatch(r"[a-z][a-z0-9_]*", parent_id):
+                errors.append(f"{label}.parent_id must be snake_case")
+            text_macro = element.get("text_macro")
+            if text_macro is not None and (not isinstance(text_macro, str) or not re.fullmatch(r"[A-Z_][A-Z0-9_]*", text_macro)):
+                errors.append(f"{label}.text_macro must be an uppercase C identifier")
+            for field in ("value", "range_min", "range_max"):
+                value = element.get(field)
+                if value is not None and (not isinstance(value, int) or isinstance(value, bool)):
+                    errors.append(f"{label}.{field} must be an integer")
+            layout = element.get("layout")
+            if layout is not None:
+                if not isinstance(layout, dict):
+                    errors.append(f"{label}.layout must be an object")
+                else:
+                    if layout.get("mode", "flex-column") not in {"flex-column", "flex-row", "grid"}:
+                        errors.append(f"{label}.layout.mode is invalid")
+                    if "gap" in layout and (not isinstance(layout["gap"], int) or isinstance(layout["gap"], bool) or layout["gap"] < 0):
+                        errors.append(f"{label}.layout.gap must be a non-negative integer")
+                    if layout.get("flex_justify", "start") not in {"start", "center", "end", "space-between", "space-around"}:
+                        errors.append(f"{label}.layout.flex_justify is invalid")
+        valid_node_ids = {"root", *asset_node_ids, *element_ids}
+        for index, element in enumerate(elements):
+            if isinstance(element, dict) and isinstance(element.get("parent_id", "root"), str):
+                parent_id = element.get("parent_id", "root")
+                if parent_id not in valid_node_ids:
+                    errors.append(f"elements[{index}].parent_id references an unknown node")
+        if fonts and not elements:
+            errors.append("elements must declare the text nodes that use confirmed fonts")
 
     interactions = payload.get("interactions")
     if not isinstance(interactions, dict):
@@ -247,3 +361,77 @@ def page_input_to_decisions(payload: dict[str, Any]) -> dict[str, Any]:
             "reuse_scope": asset["reuse_scope"],
         }
     return decisions
+
+
+def page_input_to_spec(
+    payload: dict[str, Any],
+    *,
+    asset_header: str,
+    font_header: str | None,
+    font_symbols: dict[str, str],
+) -> dict[str, Any]:
+    """Convert a confirmed page contract into UI Spec v2 without re-analysis."""
+    width, height = payload["display"]
+    screen = payload.get("screen", {})
+    nodes: list[dict[str, Any]] = [{
+        "id": "root",
+        "type": "screen",
+        "full_screen_tap": bool(screen.get("full_screen_tap", False)),
+        "styles": {
+            "bg_color": screen.get("bg_color", "#FFFFFF"),
+            "bg_opa": 255,
+            "border_width": 0,
+            "pad_top": 0,
+            "pad_bottom": 0,
+            "pad_left": 0,
+            "pad_right": 0,
+        },
+    }]
+    for asset in payload["assets"]:
+        node = {
+            "id": _asset_node_id(asset["symbol"]),
+            "type": "image",
+            "parent_id": "root",
+            "src": asset["symbol"],
+            "src_expr": f"&{asset['symbol']}",
+            "source_bbox": list(asset["bbox"]),
+            "layout_exception_reason": f"user-confirmed full-canvas bbox for {asset['symbol']}",
+        }
+        if asset["scale"] == "stretch":
+            node["image_fit"] = "stretch"
+        nodes.append(node)
+    for element in payload.get("elements", []):
+        styles = dict(element.get("styles", {}))
+        font_role = element.get("font_role")
+        if font_role:
+            styles["font"] = f"&{font_symbols[font_role]}"
+            styles["font_role"] = font_role
+            styles["font_id"] = font_symbols[font_role]
+        node = {
+            "id": element["id"],
+            "type": element["type"],
+            "parent_id": element.get("parent_id", "root"),
+            "source_bbox": list(element["bbox"]),
+            "layout_exception_reason": element.get("layout_exception_reason", "user-confirmed page_input bbox"),
+            "styles": styles,
+        }
+        for key in ("text", "text_macro", "value", "range_min", "range_max", "layout"):
+            if key in element:
+                node[key] = element[key]
+        nodes.append(node)
+    spec: dict[str, Any] = {
+        "schema_version": "2.0",
+        "page_name": payload["page_id"],
+        "display": {"width": width, "height": height},
+        "lvgl_version": "v9",
+        "nodes": nodes,
+        "assets": [],
+        "asset_bundle": {"header": asset_header},
+    }
+    if font_header:
+        spec["fonts"] = [
+            {"symbol": symbol, "role": role}
+            for role, symbol in font_symbols.items()
+        ]
+        spec["font_bundle"] = {"header": font_header}
+    return spec

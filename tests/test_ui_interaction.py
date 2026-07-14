@@ -69,3 +69,10 @@ def test_inspect_schema_exposes_high_interaction_inputs() -> None:
     assert "interaction_decisions" in properties
     assert "ui_decisions_path" in properties
     assert "page_input_path" in properties
+
+
+def test_generate_schema_exposes_page_input_generation_inputs() -> None:
+    schema = next(item for item in HIGH_LEVEL_SCHEMAS if item["name"] == "generate_ui")
+    properties = schema["inputSchema"]["properties"]
+    assert "page_input_path" in properties
+    assert properties["asset_flash_budget_bytes"]["default"] == 8 * 1024 * 1024

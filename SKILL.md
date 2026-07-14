@@ -11,19 +11,23 @@ description: >-
   board bring-up, memory analysis, peripheral drivers, or firmware review.
 ---
 # FreeRTOS Embedded Architect
-Routing — match the user's first message to ONE workflow:
-| Keywords | Workflow |
-|----------|----------|
-| review, audit, ISR, DMA, cJSON, check, 审查 | l2_code_review |
-| memory, leak, 内存, 堆栈 | l2_memory_analysis |
-| project, workspace, 项目审查 | l2_project_review |
-| co-debug, GPIO conflict, 硬件协同 | hw_sw_cocodebug |
-| LVGL, UI, page, design, 界面 | l3_lvgl_page |
-| manifest, 多页应用, Router, Presenter, scaffold | l3_lvgl_page (manifest sub-path) |
-| new module, 新模块, task, 任务 | l3_new_module |
-| bring-up, 板级, 最小系统 | l3_bring_up |
-| SDK trim, 裁剪, driver prune | l3_sdk_trim |
-| crash, HardFault, WDT, deadlock, frozen, 死机 | debug_crash |
+Routing — match the user's first message to ONE workflow.
+Priority: 1 = highest (debug/safety), 2 = high (review), 3 = normal (generate).
+Exclude: if user input contains both Keywords and Exclude, skip that route.
+Match top-down by priority; within the same priority, pick the most keyword hits.
+
+| Keywords | Exclude | Priority | Workflow |
+|----------|---------|----------|----------|
+| crash, HardFault, WDT, deadlock, frozen, 死机, 卡死, 卡在, 重启, 看门狗, 崩溃, exception, Guru Meditation | — | 1 | debug_crash |
+| review, audit, ISR, DMA, cJSON, check, 审查, OTA, 看看代码, 代码规范, code review | crash, 死机, 卡死, 卡在, 重启 | 2 | l2_code_review |
+| memory, leak, 内存, 堆栈, heap, stack overflow, 内存泄漏 | crash, 死机, 卡死 | 2 | l2_memory_analysis |
+| project, workspace, 项目审查, 全项目, 整个项目, 整个工程 | crash, 死机 | 2 | l2_project_review |
+| co-debug, GPIO conflict, 硬件协同, GPIO, IO conflict, pin mux, 引脚冲突 | — | 2 | hw_sw_cocodebug |
+| LVGL, UI, page, design, 界面, 设计截图, GUI, widget | crash, 死机, 卡死, frozen, 卡在 | 3 | l3_lvgl_page |
+| manifest, 多页应用, Router, Presenter, scaffold, 多页, multi-page | — | 3 | l3_lvgl_page (manifest sub-path) |
+| new module, 新模块, task, 任务, 模块 | crash, review, 审查, leak, 内存 | 3 | l3_new_module |
+| bring-up, 板级, 最小系统, 外设, 新板, 上电, 启动流程 | — | 3 | l3_bring_up |
+| SDK trim, 裁剪, driver prune, 精简, 缩减 | — | 3 | l3_sdk_trim |
 Composite requests: pick the workflow matching the user's primary deliverable first.
 Load supplementary material only when that workflow explicitly requires it.
 If the primary task is unclear, ask one clarifying question before proceeding.

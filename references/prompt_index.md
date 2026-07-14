@@ -73,7 +73,11 @@
 
 | Prompt | 典型场景 |
 |--------|----------|
-| [runtime_efficiency_contracts](../prompts/runtime_efficiency_contracts.txt) | 模块契约/task 拓扑/timeout budget/热路径 |
+| [module_contract_topology](../prompts/module_contract_topology.txt) | 模块契约/task 拓扑 |
+| [timeout_lifecycle_observability](../prompts/timeout_lifecycle_observability.txt) | 超时预算/可观测/生命周期 |
+| [hotpath_critical_budget](../prompts/hotpath_critical_budget.txt) | 热路径/关键路径/数据拷贝 |
+| [backpressure_recovery_config](../prompts/backpressure_recovery_config.txt) | 背压降级/故障恢复/配置矩阵 |
+| [runtime_efficiency_contracts](../prompts/runtime_efficiency_contracts.txt) | 板级资源/锁预算/临界区/传感器集成 |
 
 ## RTOS 平台
 

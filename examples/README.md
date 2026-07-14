@@ -94,7 +94,7 @@ Deep details -> [av_dma_buffer_lifecycle.txt](../prompts/av_dma_buffer_lifecycle
 | ❌ | [bad_god_module.c](bad_god_module.c) | C29.6, C29.9 | `module_boundary_checker.py` |
 | ❌ | [bad_cross_layer_dependency.c](bad_cross_layer_dependency.c) | C29.7, C29.8 | `module_boundary_checker.py` |
 
-细节 → [runtime_efficiency_contracts.txt](../prompts/runtime_efficiency_contracts.txt)
+细节 → [module_contract_topology.txt](../prompts/module_contract_topology.txt)
 
 ## C31 — 超时预算
 
@@ -103,7 +103,7 @@ Deep details -> [av_dma_buffer_lifecycle.txt](../prompts/av_dma_buffer_lifecycle
 | ❌ | [bad_timeout_budget.c](../tools/fixtures/bad_timeout_budget.c) | C31.1, C31.2, C31.3 | `blocking_wait_checker.py` |
 | ✅ | [good_timeout_budget.c](../tools/fixtures/good_timeout_budget.c) 有限 timeout + socket deadline + 返回值处理 | C31.1–C31.3 | `blocking_wait_checker.py` |
 
-深细节 → [runtime_efficiency_contracts.txt](../prompts/runtime_efficiency_contracts.txt)
+深细节 → [timeout_lifecycle_observability.txt](../prompts/timeout_lifecycle_observability.txt)
 
 ## C36/C37 — 数据拷贝预算 / 背压与降级
 
@@ -112,7 +112,7 @@ Deep details -> [av_dma_buffer_lifecycle.txt](../prompts/av_dma_buffer_lifecycle
 | ❌ | [bad_efficiency_budget.c](../tools/fixtures/bad_efficiency_budget.c) | C36.2, C36.5, C37.2, C37.4 | `efficiency_budget_checker.py` |
 | ✅ | [good_efficiency_budget.c](../tools/fixtures/good_efficiency_budget.c) descriptor 入队 + 有限 timeout + drop 计数 | C36.2, C36.3, C37.2 | `efficiency_budget_checker.py` |
 
-深细节 → [runtime_efficiency_contracts.txt](../prompts/runtime_efficiency_contracts.txt)
+深细节 → [hotpath_critical_budget.txt](../prompts/hotpath_critical_budget.txt) / [backpressure_recovery_config.txt](../prompts/backpressure_recovery_config.txt)
 
 ## C8 — 启动 / WDT / 阻塞
 

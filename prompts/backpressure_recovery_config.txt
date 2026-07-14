@@ -1,0 +1,79 @@
+<!-- 来源: runtime_efficiency_contracts.txt 拆分 -->
+<!-- 约束: C37, C38, C39, C40, C41 -->
+
+# 背压降级、故障恢复与配置管理专精提示词
+
+> 约束 ID：C37.1-C41.5 → [constraint_detail.md](../references/constraint_detail.md)
+
+## 适用场景
+
+队列满/网络差/帧堆积排查、故障不可恢复定位、配置矩阵散落整理、现场复现与回归样本管理。
+
+---
+
+## C37 — 背压与降级策略
+所有高频 producer、网络收包、音视频帧、传感器采样、日志、UI 事件队列都必须有背压策略。
+
+可选策略必须写明触发条件：
+- drop-oldest / drop-newest / coalesce / overwrite
+- 降采样 / 降帧率 / 降码率 / 暂停非关键任务
+- bounded retry / circuit breaker / graceful degradation
+
+禁止满队列后无限等待，禁止只扩队列深度而不说明 RAM 与延迟代价。
+
+---
+
+## C38 — 故障隔离与自动恢复
+关键模块必须定义故障域、恢复动作和重试上限。
+
+必须声明：
+- task / driver / protocol / cloud / UI 的故障边界
+- recoverable 与 fatal 错误分类
+- retry backoff、最大重试次数、熔断时间
+- supervisor/watchdog/health counter 如何发现卡死
+- 恢复失败后的降级模式或安全停机动作
+
+---
+
+## C39 — 配置矩阵约束
+Kconfig、feature flag、板级差异、SDK 差异、外设选择必须收敛为配置矩阵。
+
+必须声明：
+- feature -> dependency -> resource -> default -> test mode
+- 每个 `#ifdef` 属于 platform / board / feature / debug 哪一类
+- 禁止业务逻辑中散落未命名 feature macro
+- 配置变化必须同步 bring-up checklist 与回归样本
+
+---
+
+## C40 — 一键复现闭环
+每个复杂问题、bring-up 路径或新模块必须留下可复现命令。
+
+最少包含：
+- build / flash / monitor / log capture
+- crash decode / core dump decode / symbol path
+- 最小配置、测试入口、预期输出
+- 失败日志保存位置和脱敏规则
+
+目标是让下一个工程师无需重新问"怎么跑起来"。
+
+---
+
+## C41 — 回归样本优先
+新约束、新 checker、新 bugfix 必须优先沉淀 good/bad 样本或最小复现片段。
+
+必须满足：
+- bad 样本能稳定触发问题或审查项
+- good 样本展示推荐修复模式
+- 样本不绑定具体产品业务，不包含密钥、客户名、私有路径
+- checker 或人工 checklist 明确引用样本
+
+---
+
+## Agent Checklist
+
+- [ ] C37 队列/帧/日志/网络是否有背压与降级策略？
+- [ ] C38 故障域、retry/backoff、supervisor 与安全降级是否明确？
+- [ ] C39 Kconfig/feature/board/SDK 差异是否收敛为配置矩阵？
+- [ ] C40 build/flash/log/decode/test 是否可一键复现？
+- [ ] C41 新约束或 bugfix 是否有 good/bad 回归样本？

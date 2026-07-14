@@ -285,6 +285,7 @@ apply_patch(source_dir="artifacts/generated", target_dir="src/ui", mode="replace
     "display_mapping": "1:1"
   },
   "bbox_policy": {"include_transparent_padding": true},
+  "screen": {"bg_color": "#FFFFFF", "full_screen_tap": false},
   "assets": [{
     "symbol": "schedule_card",
     "type": "decorative_image",
@@ -302,6 +303,14 @@ apply_patch(source_dir="artifacts/generated", target_dir="src/ui", mode="replace
     "source": "InriaSerif-Bold.ttf",
     "size": 40
   }],
+  "elements": [{
+    "id": "page_title",
+    "type": "label",
+    "text": "Schedule",
+    "bbox": [0, 73, 480, 52],
+    "font_role": "title",
+    "styles": {"text_color": "#6B5137", "text_align": "center"}
+  }],
   "interactions": {
     "transition": "none",
     "targets": [],
@@ -309,6 +318,21 @@ apply_patch(source_dir="artifacts/generated", target_dir="src/ui", mode="replace
   }
 }
 ```
+
+确认后直接从该文件生成。`assets` 数组顺序即从后到前的绘制顺序，所有 bbox
+都会原样写入 UI Spec v2，不会再次执行视觉分析：
+
+```text
+generate_ui(
+  page_input_path="ui/page_input.json",
+  cut_dir="ui/assets",
+  output_dir="artifacts/generated/schedule"
+)
+```
+
+默认 `final_only` 仅交付页面 C/H、图片与字体 C、头文件和
+`ui_generated.cmake`。需要渲染或 SSIM 排查时，使用
+`delivery_mode="full_evidence"` 保留 UI Spec 和 asset pack。
 
 `status` 未改为 `confirmed`、bbox 不完整或资产字段缺失时，工具返回
 `manual_required`，不会进入代码生成。

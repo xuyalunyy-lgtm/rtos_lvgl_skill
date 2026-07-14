@@ -85,7 +85,7 @@ Boundary rules:
 | 音视频管线 | [av_pipeline_sync.txt](../prompts/av_pipeline_sync.txt) + [av_codec_format.txt](../prompts/av_codec_format.txt) + [av_clock_jitter.txt](../prompts/av_clock_jitter.txt) + [av_dma_buffer_lifecycle.txt](../prompts/av_dma_buffer_lifecycle.txt) + [audio_dma_pingpong.txt](../prompts/audio_dma_pingpong.txt) | [good_av_pipeline_sync.c](../examples/good_av_pipeline_sync.c) + [good_media_format_contract.c](../examples/good_media_format_contract.c) + [good_av_clock_jitter.c](../examples/good_av_clock_jitter.c) + [good_av_dma_buffer_lifecycle.c](../examples/good_av_dma_buffer_lifecycle.c) |
 | JSON | [cjson_safe_parse.txt](../prompts/cjson_safe_parse.txt) | [good_wss_json_parse.c](../examples/good_wss_json_parse.c) |
 | Presenter | [memory_ownership.txt](../prompts/memory_ownership.txt) | [good_presenter_consumer.c](../examples/good_presenter_consumer.c) |
-| 多任务/通用模块效率 | [runtime_efficiency_contracts.txt](../prompts/runtime_efficiency_contracts.txt) | — |
+| 多任务/通用模块效率 | [module_contract_topology.txt](../prompts/module_contract_topology.txt) + [timeout_lifecycle_observability.txt](../prompts/timeout_lifecycle_observability.txt) + [hotpath_critical_budget.txt](../prompts/hotpath_critical_budget.txt) + [backpressure_recovery_config.txt](../prompts/backpressure_recovery_config.txt) + [runtime_efficiency_contracts.txt](../prompts/runtime_efficiency_contracts.txt) | — |
 
 ## Step 3 — 代码生成与落地（自主实施）
 

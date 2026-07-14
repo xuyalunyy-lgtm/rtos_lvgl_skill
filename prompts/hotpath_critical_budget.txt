@@ -1,0 +1,71 @@
+<!-- 来源: runtime_efficiency_contracts.txt 拆分 -->
+<!-- 约束: C34, C35, C36 -->
+
+# 热路径、关键路径与数据拷贝预算专精提示词
+
+> 约束 ID：C34.1-C36.5 → [constraint_detail.md](../references/constraint_detail.md)
+
+## 适用场景
+
+实时性尖峰/周期性卡顿排查、启动/联网/音视频超时定位、跨 task/DMA 数据移动优化。
+
+---
+
+## C34 — 热路径禁区
+
+以下上下文属于 hot path：
+
+- ISR / DMA callback / HAL complete callback
+- LVGL flush / timer callback
+- audio/video frame process / encode / decode / render
+- 控制环、采样循环、网络收包回调
+
+hot path 禁止：
+
+- 动态分配/释放：`malloc/free/pvPortMalloc/vPortFree`
+- 重日志：`printf/LOG_*` 高频打印
+- 阻塞等待：`portMAX_DELAY`、无界 socket/TLS/file IO
+- 重型解析/创建：cJSON parse、codec create/open、TLS handshake
+- 直接跨层调用：UI/网络/文件系统/业务状态机重活
+
+正确做法：只 `notify/enqueue/set flag/increment counter`，重活放到普通 task。
+
+---
+
+## C35 — 关键路径预算表
+任何启动、联网、音频、视频、UI、OTA、低功耗唤醒等关键路径，都必须先给预算表，再实现。
+
+| Path | Stage | Budget | Timeout | Fallback | Metric |
+|------|-------|--------|---------|----------|--------|
+| boot | mount fs | 120ms | 300ms | factory defaults | `boot_fs_max_ms` |
+| audio | capture -> encode | 10ms/frame | 15ms | drop frame | `audio_encode_max_us` |
+
+必须声明：
+- 每个阶段的 owner、最大耗时、超时处理、降级策略
+- 串行阶段是否可并行化，禁止无证据地在关键路径做长 IO
+- 阶段 max time 与 timeout/drop/retry counter
+
+---
+
+## C36 — 数据拷贝预算
+跨 task、跨核、DMA、网络、音视频 frame、LVGL draw buffer 等路径，必须声明数据移动策略。
+
+优先级：
+1. descriptor/index/handle 传递
+2. bounded one-copy
+3. 明确允许的 deep copy
+
+禁止：
+- 默认传大结构体进 Queue
+- 每帧 malloc + memcpy + free
+- DMA buffer 未说明 cache clean/invalidate 与 ownership transfer
+
+必须给出 `copy_count`、buffer owner、release 方和满池策略。
+
+---
+
+## Agent Checklist
+
+- [ ] C34 hot path 是否只做轻量事件投递和计数？
+- [ ] C35 关键路径是否有 stage/budget/timeout/fallback/metric 表？
+- [ ] C36 数据移动是否声明 copy count、owner、release 和 DMA cache 策略？

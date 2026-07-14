@@ -255,9 +255,214 @@ def inspect_design(args: dict[str, Any]) -> dict[str, Any]:
 # ── generate_ui ───────────────────────────────────────────────────
 
 
+def _generate_page_input_ui(args: dict[str, Any]) -> dict[str, Any]:
+    """Generate a deterministic page directly from a confirmed page_input.json."""
+    from mcp.asset_contract import build_initial_manifest, resolve_asset_contract, write_initial_manifest
+    from mcp.assets import generate_font_glyph
+    from mcp.lvgl_codegen import safe_c_identifier, write_page_files
+    from mcp.lvgl_ir.spec_validator import validate_spec
+    from mcp.page_input import load_page_input, page_input_to_asset_intents, page_input_to_spec, validate_page_input
+
+    page_input_path = Path(str(args["page_input_path"])).resolve()
+    try:
+        payload = load_page_input(page_input_path)
+    except ValueError as exc:
+        return _fail([str(exc)], stage="page_input", status="invalid_input")
+    validation = validate_page_input(payload)
+    if not validation["ok"]:
+        return _fail(validation["errors"], stage="page_input", status="manual_required")
+    unsupported_scales = sorted({asset["scale"] for asset in payload["assets"]} - {"original", "stretch"})
+    if unsupported_scales:
+        return _fail(
+            [f"page_input generation does not yet support asset scale modes: {', '.join(unsupported_scales)}"],
+            stage="page_input",
+            status="manual_required",
+        )
+
+    lvgl_version = str(args.get("lvgl_version", "v9"))
+    if lvgl_version != "v9":
+        return _fail(["page_input generation currently requires LVGL v9"], stage="page_input", status="capability_unavailable")
+    if args.get("display"):
+        width, height = payload["display"]
+        supplied = args["display"]
+        if supplied.get("width", width) != width or supplied.get("height", height) != height:
+            return _fail(["display conflicts with page_input.display"], stage="page_input", status="invalid_input")
+
+    raw_design = Path(str(payload["design"]))
+    design = raw_design.resolve() if raw_design.is_absolute() else (page_input_path.parent / raw_design).resolve()
+    if not design.is_file():
+        return _fail([f"page_input design not found: {payload['design']}"], stage="page_input", status="file_not_found")
+    asset_root = Path(str(args.get("cut_dir") or design.parent)).resolve()
+    if not asset_root.is_dir():
+        return _fail(["cut_dir must be an existing directory"], stage="assets", status="invalid_input")
+    try:
+        package_root = Path(os.path.commonpath((design.parent, asset_root))).resolve()
+    except ValueError:
+        return _fail(["design and cut_dir must belong to the same UI package"], stage="assets", status="invalid_input")
+    if package_root == package_root.parent:
+        return _fail(["design and cut_dir must belong to the same UI package"], stage="assets", status="invalid_input")
+
+    out = _safe_output_dir(str(args.get("output_dir", f"artifacts/generated/{payload['page_id']}")))
+    display = {
+        "width": int(payload["display"][0]),
+        "height": int(payload["display"][1]),
+        "rotation": 0,
+        "color_format": "RGB565",
+    }
+    try:
+        design_reference = design.relative_to(package_root).as_posix()
+    except ValueError:
+        design_reference = str(design)
+    initial_manifest = build_initial_manifest(
+        project=str(payload["page_id"]),
+        design_reference=design_reference,
+        display=display,
+        assets=page_input_to_asset_intents(payload),
+        asset_root=asset_root.relative_to(package_root).as_posix() or ".",
+        max_flash_bytes=int(args.get("asset_flash_budget_bytes", 8 * 1024 * 1024)),
+    )
+    initial_path = out / "initial_asset_manifest.json"
+    written = write_initial_manifest(initial_path, initial_manifest)
+    if not written.get("ok"):
+        return _fail(written.get("errors", ["invalid page input asset contract"]), stage="assets", status="invalid_asset_contract")
+    resolution = resolve_asset_contract(
+        initial_path,
+        package_root=package_root,
+        asset_root=asset_root,
+        output_dir=out,
+    )
+    if not resolution.get("ok"):
+        return _fail(
+            resolution.get("errors", ["page input asset resolution failed"]),
+            stage="assets",
+            status=str(resolution.get("status", "manual_required")),
+            resolution_report=resolution.get("resolution_report"),
+        )
+
+    role_text: dict[str, str] = {}
+    for element in payload.get("elements", []):
+        role = element.get("font_role")
+        if role and isinstance(element.get("text"), str):
+            role_text[role] = role_text.get(role, "") + element["text"]
+    font_symbols: dict[str, str] = {}
+    font_sources: list[Path] = []
+    font_warnings: list[str] = []
+    for font in payload.get("fonts", []):
+        role = str(font["role"])
+        if role not in role_text:
+            font_warnings.append(f"unused font role skipped: {role}")
+            continue
+        if font.get("size") is None:
+            return _fail([f"font role {role!r} requires a confirmed size before generation"], stage="fonts", status="manual_required")
+        source_value = Path(str(font["source"]))
+        source = source_value.resolve() if source_value.is_absolute() else (package_root / source_value).resolve()
+        if not source.is_file() or not source.is_relative_to(package_root):
+            return _fail([f"font role {role!r} source is missing or outside the page package"], stage="fonts", status="font_config_invalid")
+        symbol = f"ui_font_{safe_c_identifier(payload['page_id'])}_{safe_c_identifier(role)}_{int(font['size'])}"
+        generated_font = generate_font_glyph({
+            "font_path": str(source),
+            "text": role_text[role],
+            "size": int(font["size"]),
+            "bpp": 4,
+            "font_name": symbol,
+            "output_dir": str(out),
+        })
+        if not generated_font.get("ok"):
+            return _fail([f"font generation failed for role {role!r}: {generated_font.get('message', 'unknown error')}"], stage="fonts", status="font_generation_failed")
+        c_path = out / f"{symbol}.c"
+        if not c_path.is_file():
+            return _fail([f"font generation did not emit {c_path.name}"], stage="fonts", status="font_generation_failed")
+        font_symbols[role] = symbol
+        font_sources.append(c_path)
+
+    font_header_name: str | None = None
+    if font_symbols:
+        safe_page = safe_c_identifier(payload["page_id"])
+        macro_page = safe_page.upper()
+        font_header = out / f"ui_{safe_page}_fonts.h"
+        declarations = "\n".join(f"LV_FONT_DECLARE({symbol});" for symbol in font_symbols.values())
+        font_header.write_text(
+            f"#ifndef UI_{macro_page}_FONTS_H\n#define UI_{macro_page}_FONTS_H\n\n#include \"lvgl.h\"\n\n"
+            f"{declarations}\n\n#endif /* UI_{macro_page}_FONTS_H */\n",
+            encoding="utf-8",
+            newline="\n",
+        )
+        font_header_name = font_header.name
+
+    firmware_assets = resolution["firmware_assets"]
+    asset_header_name = Path(firmware_assets["header"]).name
+    spec = page_input_to_spec(
+        payload,
+        asset_header=asset_header_name,
+        font_header=font_header_name,
+        font_symbols=font_symbols,
+    )
+    spec_validation = validate_spec(
+        spec,
+        asset_pack_path=resolution["asset_pack_path"],
+        display=display,
+        expected_lvgl_version=lvgl_version,
+    )
+    if not spec_validation["valid"]:
+        return _fail(spec_validation["errors"], stage="generate", status="invalid_input", validation=spec_validation)
+    spec_path = out / "ui_spec.json"
+    spec_path.write_text(json.dumps(spec, ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="\n")
+    page_result = write_page_files(spec, out, lvgl_version)
+    if not page_result.get("ok"):
+        return _fail(page_result.get("errors", ["page code generation failed"]), stage="codegen")
+
+    source_paths = [Path(page_result["c_path"]), *(Path(path) for path in firmware_assets["sources"]), *font_sources]
+    cmake_path = out / "ui_generated.cmake"
+    cmake_path.write_text(
+        "set(UI_GENERATED_SOURCES\n"
+        + "".join(f'    "${{CMAKE_CURRENT_LIST_DIR}}/{path.name}"\n' for path in source_paths)
+        + ")\nset(UI_GENERATED_INCLUDE_DIR \"${CMAKE_CURRENT_LIST_DIR}\")\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+
+    full_evidence = args.get("delivery_mode", "final_only") == "full_evidence"
+    if not full_evidence:
+        cleanup = [
+            initial_path,
+            spec_path,
+            Path(resolution["asset_pack_path"]),
+            Path(resolution["resolved_manifest"]),
+            Path(resolution["resolution_report"]),
+            Path(resolution["resource_closure_report"]),
+            Path(firmware_assets["cmake"]),
+            out / "ui_font_placeholder.h",
+        ]
+        cleanup.extend(out.glob("*_manifest.json"))
+        cleanup.extend(out / f"{symbol}.h" for symbol in font_symbols.values())
+        for path in cleanup:
+            path.unlink(missing_ok=True)
+
+    return _ok({
+        "stage": "generate",
+        "status": "generated",
+        "page_input": str(page_input_path),
+        "c_path": page_result.get("c_path"),
+        "h_path": page_result.get("h_path"),
+        "cmake_path": str(cmake_path),
+        "spec_path": str(spec_path) if full_evidence else "",
+        "asset_pack_path": str(resolution["asset_pack_path"]) if full_evidence else "",
+        "node_count": len(spec["nodes"]),
+        "asset_count": len(payload["assets"]),
+        "font_count": len(font_sources),
+        "asset_flash_bytes": firmware_assets["total_flash_bytes"],
+        "resource_closure": resolution["resource_closure"],
+        "warnings": [*font_warnings, *page_result.get("warnings", []), *spec_validation.get("warnings", [])],
+        "validation": spec_validation,
+    })
+
+
 def _generate_ui_legacy(args: dict[str, Any]) -> dict[str, Any]:
     """Generate LVGL C/H code from UI Spec or design analysis."""
     from mcp.lvgl_codegen import write_page_files
+
+    if args.get("page_input_path"):
+        return _generate_page_input_ui(args)
 
     ui_dir = args.get("ui_dir")
     if ui_dir:
@@ -395,12 +600,17 @@ def generate_ui(args: dict[str, Any]) -> dict[str, Any]:
                     ["Run has unresolved design decisions. Complete inspect_design clarification before code generation."],
                     stage="clarification", status="manual_required", run_id=run_id,
                 )
-        if run_id and not resolved.get("asset_manifest_path"):
+        if run_id and not resolved.get("page_input_path"):
+            from mcp.lvgl_run import latest_artifact
+            page_input_path = latest_artifact(run_id, "page_input")
+            if page_input_path:
+                resolved["page_input_path"] = page_input_path
+        if run_id and not resolved.get("asset_manifest_path") and not resolved.get("page_input_path"):
             from mcp.lvgl_run import latest_artifact
             asset_manifest_path = latest_artifact(run_id, "initial_asset_manifest")
             if asset_manifest_path:
                 resolved["asset_manifest_path"] = asset_manifest_path
-        if run_id and resolved.get("ui_dir") and "delivery_mode" not in args:
+        if run_id and (resolved.get("ui_dir") or resolved.get("page_input_path")) and "delivery_mode" not in args:
             # A ledger-backed request is expected to continue to native render.
             # Keep the v2 render spec and asset pack as run evidence.
             resolved["delivery_mode"] = "full_evidence"

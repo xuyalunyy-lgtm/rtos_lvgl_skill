@@ -1,0 +1,4486 @@
+{
+  "schema_version": "1.0",
+  "page_name": "Schedule页",
+  "screen": {
+    "width": 480,
+    "height": 800,
+    "lvgl_version": "v9",
+    "color_depth": 16
+  },
+  "detected_regions": [
+    {
+      "id": "region_0",
+      "type": "container",
+      "bbox": [
+        0,
+        0,
+        58,
+        98
+      ],
+      "confidence": 0.9,
+      "evidence": [
+        "edge_cluster"
+      ]
+    },
+    {
+      "id": "region_1",
+      "type": "container",
+      "bbox": [
+        118,
+        0,
+        58,
+        98
+      ],
+      "confidence": 0.9,
+      "evidence": [
+        "edge_cluster"
+      ]
+    },
+    {
+      "id": "region_2",
+      "type": "container",
+      "bbox": [
+        177,
+        0,
+        58,
+        98
+      ],
+      "confidence": 0.9,
+      "evidence": [
+        "edge_cluster"
+      ]
+    },
+    {
+      "id": "region_3",
+      "type": "container",
+      "bbox": [
+        236,
+        0,
+        58,
+        98
+      ],
+      "confidence": 0.9,
+      "evidence": [
+        "edge_cluster"
+      ]
+    },
+    {
+      "id": "region_4",
+      "type": "container",
+      "bbox": [
+        295,
+        0,
+        58,
+        98
+      ],
+      "confidence": 0.9,
+      "evidence": [
+        "edge_cluster"
+      ]
+    },
+    {
+      "id": "region_5",
+      "type": "container",
+      "bbox": [
+        354,
+        0,
+        58,
+        42
+      ],
+      "confidence": 0.9,
+      "evidence": [
+        "edge_cluster"
+      ]
+    },
+    {
+      "id": "region_6",
+      "type": "container",
+      "bbox": [
+        413,
+        0,
+        58,
+        42
+      ],
+      "confidence": 0.9,
+      "evidence": [
+        "edge_cluster"
+      ]
+    },
+    {
+      "id": "region_7",
+      "type": "container",
+      "bbox": [
+        472,
+        0,
+        7,
+        98
+      ],
+      "confidence": 0.9,
+      "evidence": [
+        "edge_cluster"
+      ]
+    },
+    {
+      "id": "region_8",
+      "type": "container",
+      "bbox": [
+        0,
+        99,
+        58,
+        98
+      ],
+      "confidence": 0.9,
+      "evidence": [
+        "edge_cluster"
+      ]
+    },
+    {
+      "id": "region_9",
+      "type": "container",
+      "bbox": [
+        59,
+        136,
+        58,
+        60
+      ],
+      "confidence": 0.9,
+      "evidence": [
+        "edge_cluster"
+      ]
+    },
+    {
+      "id": "region_10",
+      "type": "container",
+      "bbox": [
+        118,
+        99,
+        58,
+        96
+      ],
+      "confidence": 0.9,
+      "evidence": [
+        "edge_cluster"
+      ]
+    },
+    {
+      "id": "region_11",
+      "type": "container",
+      "bbox": [
+        177,
+        99,
+        58,
+        97
+      ],
+      "confidence": 0.9,
+      "evidence": [
+        "edge_cluster"
+      ]
+    },
+    {
+      "id": "region_12",
+      "type": "container",
+      "bbox": [
+        236,
+        99,
+        58,
+        97
+      ],
+      "confidence": 0.9,
+      "evidence": [
+        "edge_cluster"
+      ]
+    },
+    {
+      "id": "region_13",
+      "type": "container",
+      "bbox": [
+        295,
+        99,
+        58,
+        97
+      ],
+      "confidence": 0.9,
+      "evidence": [
+        "edge_cluster"
+      ]
+    },
+    {
+      "id": "region_14",
+      "type": "container",
+      "bbox": [
+        354,
+        136,
+        58,
+        60
+      ],
+      "confidence": 0.9,
+      "evidence": [
+        "edge_cluster"
+      ]
+    },
+    {
+      "id": "region_15",
+      "type": "container",
+      "bbox": [
+        413,
+        175,
+        58,
+        21
+      ],
+      "confidence": 0.9,
+      "evidence": [
+        "edge_cluster"
+      ]
+    },
+    {
+      "id": "region_16",
+      "type": "container",
+      "bbox": [
+        472,
+        99,
+        7,
+        98
+      ],
+      "confidence": 0.9,
+      "evidence": [
+        "edge_cluster"
+      ]
+    },
+    {
+      "id": "region_17",
+      "type": "container",
+      "bbox": [
+        0,
+        198,
+        58,
+        98
+      ],
+      "confidence": 0.9,
+      "evidence": [
+        "edge_cluster"
+      ]
+    },
+    {
+      "id": "region_18",
+      "type": "container",
+      "bbox": [
+        59,
+        201,
+        58,
+        95
+      ],
+      "confidence": 0.9,
+      "evidence": [
+        "edge_cluster"
+      ]
+    },
+    {
+      "id": "region_19",
+      "type": "container",
+      "bbox": [
+        118,
+        201,
+        58,
+        95
+      ],
+      "confidence": 0.9,
+      "evidence": [
+        "edge_cluster"
+      ]
+    },
+    {
+      "id": "region_20",
+      "type": "container",
+      "bbox": [
+        177,
+        201,
+        58,
+        32
+      ],
+      "confidence": 0.9,
+      "evidence": [
+        "edge_cluster"
+      ]
+    },
+    {
+      "id": "region_21",
+      "type": "container",
+      "bbox": [
+        236,
+        201,
+        58,
+        32
+      ],
+      "confidence": 0.9,
+      "evidence": [
+        "edge_cluster"
+      ]
+    },
+    {
+      "id": "region_22",
+      "type": "container",
+      "bbox": [
+        295,
+        201,
+        58,
+        32
+      ],
+      "confidence": 0.9,
+      "evidence": [
+        "edge_cluster"
+      ]
+    },
+    {
+      "id": "region_23",
+      "type": "container",
+      "bbox": [
+        354,
+        201,
+        58,
+        32
+      ],
+      "confidence": 0.9,
+      "evidence": [
+        "edge_cluster"
+      ]
+    },
+    {
+      "id": "region_24",
+      "type": "container",
+      "bbox": [
+        413,
+        201,
+        58,
+        95
+      ],
+      "confidence": 0.9,
+      "evidence": [
+        "edge_cluster"
+      ]
+    },
+    {
+      "id": "region_25",
+      "type": "container",
+      "bbox": [
+        472,
+        198,
+        7,
+        98
+      ],
+      "confidence": 0.9,
+      "evidence": [
+        "edge_cluster"
+      ]
+    },
+    {
+      "id": "region_26",
+      "type": "container",
+      "bbox": [
+        0,
+        297,
+        58,
+        98
+      ],
+      "confidence": 0.9,
+      "evidence": [
+        "edge_cluster"
+      ]
+    },
+    {
+      "id": "region_27",
+      "type": "container",
+      "bbox": [
+        59,
+        297,
+        58,
+        92
+      ],
+      "confidence": 0.9,
+      "evidence": [
+        "edge_cluster"
+      ]
+    },
+    {
+      "id": "region_28",
+      "type": "container",
+      "bbox": [
+        118,
+        297,
+        57,
+        92
+      ],
+      "confidence": 0.9,
+      "evidence": [
+        "edge_cluster"
+      ]
+    },
+    {
+      "id": "region_29",
+      "type": "container",
+      "bbox": [
+        177,
+        348,
+        58,
+        42
+      ],
+      "confidence": 0.9,
+      "evidence": [
+        "edge_cluster"
+      ]
+    },
+    {
+      "id": "region_30",
+      "type": "container",
+      "bbox": [
+        236,
+        367,
+        47,
+        23
+      ],
+      "confidence": 0.9,
+      "evidence": [
+        "edge_cluster"
+      ]
+    },
+    {
+      "id": "region_31",
+      "type": "container",
+      "bbox": [
+        418,
+        297,
+        53,
+        98
+      ],
+      "confidence": 0.9,
+      "evidence": [
+        "edge_cluster"
+      ]
+    },
+    {
+      "id": "region_32",
+      "type": "container",
+      "bbox": [
+        472,
+        297,
+        7,
+        98
+      ],
+      "confidence": 0.9,
+      "evidence": [
+        "edge_cluster"
+      ]
+    },
+    {
+      "id": "region_33",
+      "type": "container",
+      "bbox": [
+        0,
+        396,
+        58,
+        98
+      ],
+      "confidence": 0.9,
+      "evidence": [
+        "edge_cluster"
+      ]
+    },
+    {
+      "id": "region_34",
+      "type": "container",
+      "bbox": [
+        59,
+        409,
+        58,
+        85
+      ],
+      "confidence": 0.9,
+      "evidence": [
+        "edge_cluster"
+      ]
+    },
+    {
+      "id": "region_35",
+      "type": "container",
+      "bbox": [
+        118,
+        409,
+        58,
+        84
+      ],
+      "confidence": 0.9,
+      "evidence": [
+        "edge_cluster"
+      ]
+    },
+    {
+      "id": "region_36",
+      "type": "container",
+      "bbox": [
+        177,
+        409,
+        58,
+        37
+      ],
+      "confidence": 0.9,
+      "evidence": [
+        "edge_cluster"
+      ]
+    },
+    {
+      "id": "region_37",
+      "type": "container",
+      "bbox": [
+        319,
+        411,
+        21,
+        34
+      ],
+      "confidence": 0.79,
+      "evidence": [
+        "edge_cluster"
+      ]
+    },
+    {
+      "id": "region_38",
+      "type": "container",
+      "bbox": [
+        361,
+        436,
+        51,
+        58
+      ],
+      "confidence": 0.9,
+      "evidence": [
+        "edge_cluster"
+      ]
+    },
+    {
+      "id": "region_39",
+      "type": "container",
+      "bbox": [
+        413,
+        396,
+        58,
+        98
+      ],
+      "confidence": 0.9,
+      "evidence": [
+        "edge_cluster"
+      ]
+    },
+    {
+      "id": "region_40",
+      "type": "container",
+      "bbox": [
+        472,
+        396,
+        7,
+        98
+      ],
+      "confidence": 0.9,
+      "evidence": [
+        "edge_cluster"
+      ]
+    },
+    {
+      "id": "region_41",
+      "type": "container",
+      "bbox": [
+        0,
+        495,
+        58,
+        98
+      ],
+      "confidence": 0.9,
+      "evidence": [
+        "edge_cluster"
+      ]
+    },
+    {
+      "id": "region_42",
+      "type": "container",
+      "bbox": [
+        59,
+        495,
+        58,
+        98
+      ],
+      "confidence": 0.9,
+      "evidence": [
+        "edge_cluster"
+      ]
+    },
+    {
+      "id": "region_43",
+      "type": "container",
+      "bbox": [
+        118,
+        495,
+        39,
+        57
+      ],
+      "confidence": 0.9,
+      "evidence": [
+        "edge_cluster"
+      ]
+    },
+    {
+      "id": "region_44",
+      "type": "container",
+      "bbox": [
+        297,
+        506,
+        56,
+        87
+      ],
+      "confidence": 0.9,
+      "evidence": [
+        "edge_cluster"
+      ]
+    },
+    {
+      "id": "region_45",
+      "type": "container",
+      "bbox": [
+        354,
+        495,
+        58,
+        98
+      ],
+      "confidence": 0.9,
+      "evidence": [
+        "edge_cluster"
+      ]
+    },
+    {
+      "id": "region_46",
+      "type": "container",
+      "bbox": [
+        413,
+        495,
+        58,
+        98
+      ],
+      "confidence": 0.9,
+      "evidence": [
+        "edge_cluster"
+      ]
+    },
+    {
+      "id": "region_47",
+      "type": "container",
+      "bbox": [
+        472,
+        495,
+        7,
+        98
+      ],
+      "confidence": 0.9,
+      "evidence": [
+        "edge_cluster"
+      ]
+    },
+    {
+      "id": "region_48",
+      "type": "container",
+      "bbox": [
+        0,
+        594,
+        58,
+        98
+      ],
+      "confidence": 0.9,
+      "evidence": [
+        "edge_cluster"
+      ]
+    },
+    {
+      "id": "region_49",
+      "type": "container",
+      "bbox": [
+        59,
+        595,
+        48,
+        97
+      ],
+      "confidence": 0.9,
+      "evidence": [
+        "edge_cluster"
+      ]
+    },
+    {
+      "id": "region_50",
+      "type": "container",
+      "bbox": [
+        304,
+        594,
+        49,
+        96
+      ],
+      "confidence": 0.9,
+      "evidence": [
+        "edge_cluster"
+      ]
+    },
+    {
+      "id": "region_51",
+      "type": "container",
+      "bbox": [
+        354,
+        594,
+        58,
+        98
+      ],
+      "confidence": 0.9,
+      "evidence": [
+        "edge_cluster"
+      ]
+    },
+    {
+      "id": "region_52",
+      "type": "container",
+      "bbox": [
+        413,
+        594,
+        58,
+        98
+      ],
+      "confidence": 0.9,
+      "evidence": [
+        "edge_cluster"
+      ]
+    },
+    {
+      "id": "region_53",
+      "type": "container",
+      "bbox": [
+        472,
+        594,
+        7,
+        98
+      ],
+      "confidence": 0.9,
+      "evidence": [
+        "edge_cluster"
+      ]
+    },
+    {
+      "id": "region_54",
+      "type": "container",
+      "bbox": [
+        0,
+        693,
+        58,
+        98
+      ],
+      "confidence": 0.9,
+      "evidence": [
+        "edge_cluster"
+      ]
+    },
+    {
+      "id": "region_55",
+      "type": "container",
+      "bbox": [
+        59,
+        693,
+        58,
+        41
+      ],
+      "confidence": 0.9,
+      "evidence": [
+        "edge_cluster"
+      ]
+    },
+    {
+      "id": "region_56",
+      "type": "container",
+      "bbox": [
+        118,
+        695,
+        58,
+        39
+      ],
+      "confidence": 0.9,
+      "evidence": [
+        "edge_cluster"
+      ]
+    },
+    {
+      "id": "region_57",
+      "type": "container",
+      "bbox": [
+        177,
+        734,
+        58,
+        34
+      ],
+      "confidence": 0.9,
+      "evidence": [
+        "edge_cluster"
+      ]
+    },
+    {
+      "id": "region_58",
+      "type": "container",
+      "bbox": [
+        236,
+        734,
+        58,
+        34
+      ],
+      "confidence": 0.9,
+      "evidence": [
+        "edge_cluster"
+      ]
+    },
+    {
+      "id": "region_59",
+      "type": "container",
+      "bbox": [
+        295,
+        704,
+        58,
+        30
+      ],
+      "confidence": 0.9,
+      "evidence": [
+        "edge_cluster"
+      ]
+    },
+    {
+      "id": "region_60",
+      "type": "container",
+      "bbox": [
+        354,
+        693,
+        58,
+        41
+      ],
+      "confidence": 0.9,
+      "evidence": [
+        "edge_cluster"
+      ]
+    },
+    {
+      "id": "region_61",
+      "type": "container",
+      "bbox": [
+        413,
+        693,
+        58,
+        41
+      ],
+      "confidence": 0.9,
+      "evidence": [
+        "edge_cluster"
+      ]
+    },
+    {
+      "id": "region_62",
+      "type": "container",
+      "bbox": [
+        472,
+        693,
+        7,
+        98
+      ],
+      "confidence": 0.9,
+      "evidence": [
+        "edge_cluster"
+      ]
+    },
+    {
+      "id": "region_63",
+      "type": "label",
+      "bbox": [
+        82,
+        140,
+        315,
+        11
+      ],
+      "confidence": 0.6,
+      "evidence": [
+        "horizontal_activity"
+      ]
+    },
+    {
+      "id": "region_64",
+      "type": "label",
+      "bbox": [
+        0,
+        371,
+        479,
+        18
+      ],
+      "confidence": 0.6,
+      "evidence": [
+        "horizontal_activity"
+      ]
+    },
+    {
+      "id": "region_65",
+      "type": "label",
+      "bbox": [
+        0,
+        417,
+        479,
+        18
+      ],
+      "confidence": 0.6,
+      "evidence": [
+        "horizontal_activity"
+      ]
+    }
+  ],
+  "detected_text": [],
+  "color_palette": [
+    {
+      "hex": "#e0e0e0",
+      "ratio": 0.339,
+      "role": "background"
+    },
+    {
+      "hex": "#606040",
+      "ratio": 0.187,
+      "role": "primary"
+    },
+    {
+      "hex": "#604040",
+      "ratio": 0.064,
+      "role": "text"
+    },
+    {
+      "hex": "#606060",
+      "ratio": 0.056,
+      "role": "primary"
+    },
+    {
+      "hex": "#404040",
+      "ratio": 0.054,
+      "role": "text"
+    },
+    {
+      "hex": "#e0e0c0",
+      "ratio": 0.053,
+      "role": "primary"
+    },
+    {
+      "hex": "#202000",
+      "ratio": 0.032,
+      "role": "text"
+    },
+    {
+      "hex": "#202020",
+      "ratio": 0.029,
+      "role": "text"
+    }
+  ],
+  "layout_candidates": [
+    {
+      "region_ids": [
+        "region_0",
+        "region_1"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 60
+    },
+    {
+      "region_ids": [
+        "region_0",
+        "region_2"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 119
+    },
+    {
+      "region_ids": [
+        "region_0",
+        "region_3"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 178
+    },
+    {
+      "region_ids": [
+        "region_0",
+        "region_4"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 237
+    },
+    {
+      "region_ids": [
+        "region_0",
+        "region_5"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 296
+    },
+    {
+      "region_ids": [
+        "region_0",
+        "region_6"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 355
+    },
+    {
+      "region_ids": [
+        "region_0",
+        "region_7"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 414
+    },
+    {
+      "region_ids": [
+        "region_0",
+        "region_8"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_0",
+        "region_17"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 100
+    },
+    {
+      "region_ids": [
+        "region_0",
+        "region_26"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 199
+    },
+    {
+      "region_ids": [
+        "region_0",
+        "region_33"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 298
+    },
+    {
+      "region_ids": [
+        "region_0",
+        "region_41"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 397
+    },
+    {
+      "region_ids": [
+        "region_0",
+        "region_48"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 496
+    },
+    {
+      "region_ids": [
+        "region_0",
+        "region_54"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 595
+    },
+    {
+      "region_ids": [
+        "region_0",
+        "region_64"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 273
+    },
+    {
+      "region_ids": [
+        "region_0",
+        "region_65"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 319
+    },
+    {
+      "region_ids": [
+        "region_1",
+        "region_2"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_1",
+        "region_3"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 60
+    },
+    {
+      "region_ids": [
+        "region_1",
+        "region_4"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 119
+    },
+    {
+      "region_ids": [
+        "region_1",
+        "region_5"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 178
+    },
+    {
+      "region_ids": [
+        "region_1",
+        "region_6"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 237
+    },
+    {
+      "region_ids": [
+        "region_1",
+        "region_7"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 296
+    },
+    {
+      "region_ids": [
+        "region_1",
+        "region_10"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_1",
+        "region_19"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 103
+    },
+    {
+      "region_ids": [
+        "region_1",
+        "region_28"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 199
+    },
+    {
+      "region_ids": [
+        "region_1",
+        "region_35"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 311
+    },
+    {
+      "region_ids": [
+        "region_1",
+        "region_43"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 397
+    },
+    {
+      "region_ids": [
+        "region_1",
+        "region_56"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 597
+    },
+    {
+      "region_ids": [
+        "region_2",
+        "region_3"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_2",
+        "region_4"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 60
+    },
+    {
+      "region_ids": [
+        "region_2",
+        "region_5"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 119
+    },
+    {
+      "region_ids": [
+        "region_2",
+        "region_6"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 178
+    },
+    {
+      "region_ids": [
+        "region_2",
+        "region_7"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 237
+    },
+    {
+      "region_ids": [
+        "region_2",
+        "region_11"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_2",
+        "region_20"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 103
+    },
+    {
+      "region_ids": [
+        "region_2",
+        "region_29"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 250
+    },
+    {
+      "region_ids": [
+        "region_2",
+        "region_36"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 311
+    },
+    {
+      "region_ids": [
+        "region_2",
+        "region_57"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 636
+    },
+    {
+      "region_ids": [
+        "region_3",
+        "region_4"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_3",
+        "region_5"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 60
+    },
+    {
+      "region_ids": [
+        "region_3",
+        "region_6"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 119
+    },
+    {
+      "region_ids": [
+        "region_3",
+        "region_7"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 178
+    },
+    {
+      "region_ids": [
+        "region_3",
+        "region_12"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_3",
+        "region_21"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 103
+    },
+    {
+      "region_ids": [
+        "region_3",
+        "region_30"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 269
+    },
+    {
+      "region_ids": [
+        "region_3",
+        "region_58"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 636
+    },
+    {
+      "region_ids": [
+        "region_4",
+        "region_5"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_4",
+        "region_6"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 60
+    },
+    {
+      "region_ids": [
+        "region_4",
+        "region_7"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 119
+    },
+    {
+      "region_ids": [
+        "region_4",
+        "region_13"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_4",
+        "region_22"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 103
+    },
+    {
+      "region_ids": [
+        "region_4",
+        "region_44"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 408
+    },
+    {
+      "region_ids": [
+        "region_4",
+        "region_50"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 496
+    },
+    {
+      "region_ids": [
+        "region_4",
+        "region_59"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 606
+    },
+    {
+      "region_ids": [
+        "region_5",
+        "region_6"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_5",
+        "region_7"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 60
+    },
+    {
+      "region_ids": [
+        "region_5",
+        "region_14"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 94
+    },
+    {
+      "region_ids": [
+        "region_5",
+        "region_23"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 159
+    },
+    {
+      "region_ids": [
+        "region_5",
+        "region_38"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 394
+    },
+    {
+      "region_ids": [
+        "region_5",
+        "region_45"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 453
+    },
+    {
+      "region_ids": [
+        "region_5",
+        "region_51"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 552
+    },
+    {
+      "region_ids": [
+        "region_5",
+        "region_60"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 651
+    },
+    {
+      "region_ids": [
+        "region_6",
+        "region_7"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_6",
+        "region_15"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 133
+    },
+    {
+      "region_ids": [
+        "region_6",
+        "region_24"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 159
+    },
+    {
+      "region_ids": [
+        "region_6",
+        "region_31"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 255
+    },
+    {
+      "region_ids": [
+        "region_6",
+        "region_39"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 354
+    },
+    {
+      "region_ids": [
+        "region_6",
+        "region_46"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 453
+    },
+    {
+      "region_ids": [
+        "region_6",
+        "region_52"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 552
+    },
+    {
+      "region_ids": [
+        "region_6",
+        "region_61"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 651
+    },
+    {
+      "region_ids": [
+        "region_7",
+        "region_16"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_7",
+        "region_25"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 100
+    },
+    {
+      "region_ids": [
+        "region_7",
+        "region_32"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 199
+    },
+    {
+      "region_ids": [
+        "region_7",
+        "region_40"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 298
+    },
+    {
+      "region_ids": [
+        "region_7",
+        "region_47"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 397
+    },
+    {
+      "region_ids": [
+        "region_7",
+        "region_53"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 496
+    },
+    {
+      "region_ids": [
+        "region_7",
+        "region_62"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 595
+    },
+    {
+      "region_ids": [
+        "region_8",
+        "region_10"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 60
+    },
+    {
+      "region_ids": [
+        "region_8",
+        "region_11"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 119
+    },
+    {
+      "region_ids": [
+        "region_8",
+        "region_12"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 178
+    },
+    {
+      "region_ids": [
+        "region_8",
+        "region_13"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 237
+    },
+    {
+      "region_ids": [
+        "region_8",
+        "region_16"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 414
+    },
+    {
+      "region_ids": [
+        "region_8",
+        "region_17"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_8",
+        "region_26"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 100
+    },
+    {
+      "region_ids": [
+        "region_8",
+        "region_33"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 199
+    },
+    {
+      "region_ids": [
+        "region_8",
+        "region_41"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 298
+    },
+    {
+      "region_ids": [
+        "region_8",
+        "region_48"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 397
+    },
+    {
+      "region_ids": [
+        "region_8",
+        "region_54"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 496
+    },
+    {
+      "region_ids": [
+        "region_8",
+        "region_64"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 174
+    },
+    {
+      "region_ids": [
+        "region_8",
+        "region_65"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 220
+    },
+    {
+      "region_ids": [
+        "region_9",
+        "region_14"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 237
+    },
+    {
+      "region_ids": [
+        "region_9",
+        "region_18"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 5
+    },
+    {
+      "region_ids": [
+        "region_9",
+        "region_27"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 101
+    },
+    {
+      "region_ids": [
+        "region_9",
+        "region_34"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 213
+    },
+    {
+      "region_ids": [
+        "region_9",
+        "region_42"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 299
+    },
+    {
+      "region_ids": [
+        "region_9",
+        "region_49"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 399
+    },
+    {
+      "region_ids": [
+        "region_9",
+        "region_55"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 497
+    },
+    {
+      "region_ids": [
+        "region_9",
+        "region_63"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 35
+    },
+    {
+      "region_ids": [
+        "region_10",
+        "region_11"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_10",
+        "region_12"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 60
+    },
+    {
+      "region_ids": [
+        "region_10",
+        "region_13"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 119
+    },
+    {
+      "region_ids": [
+        "region_10",
+        "region_16"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 296
+    },
+    {
+      "region_ids": [
+        "region_10",
+        "region_19"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 6
+    },
+    {
+      "region_ids": [
+        "region_10",
+        "region_28"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 102
+    },
+    {
+      "region_ids": [
+        "region_10",
+        "region_35"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 214
+    },
+    {
+      "region_ids": [
+        "region_10",
+        "region_43"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 300
+    },
+    {
+      "region_ids": [
+        "region_10",
+        "region_56"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 500
+    },
+    {
+      "region_ids": [
+        "region_11",
+        "region_12"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_11",
+        "region_13"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 60
+    },
+    {
+      "region_ids": [
+        "region_11",
+        "region_16"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 237
+    },
+    {
+      "region_ids": [
+        "region_11",
+        "region_20"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 5
+    },
+    {
+      "region_ids": [
+        "region_11",
+        "region_29"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 152
+    },
+    {
+      "region_ids": [
+        "region_11",
+        "region_36"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 213
+    },
+    {
+      "region_ids": [
+        "region_11",
+        "region_57"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 538
+    },
+    {
+      "region_ids": [
+        "region_12",
+        "region_13"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_12",
+        "region_16"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 178
+    },
+    {
+      "region_ids": [
+        "region_12",
+        "region_21"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 5
+    },
+    {
+      "region_ids": [
+        "region_12",
+        "region_30"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 171
+    },
+    {
+      "region_ids": [
+        "region_12",
+        "region_58"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 538
+    },
+    {
+      "region_ids": [
+        "region_13",
+        "region_16"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 119
+    },
+    {
+      "region_ids": [
+        "region_13",
+        "region_22"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 5
+    },
+    {
+      "region_ids": [
+        "region_13",
+        "region_44"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 310
+    },
+    {
+      "region_ids": [
+        "region_13",
+        "region_50"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 398
+    },
+    {
+      "region_ids": [
+        "region_13",
+        "region_59"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 508
+    },
+    {
+      "region_ids": [
+        "region_14",
+        "region_23"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 5
+    },
+    {
+      "region_ids": [
+        "region_14",
+        "region_38"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 240
+    },
+    {
+      "region_ids": [
+        "region_14",
+        "region_45"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 299
+    },
+    {
+      "region_ids": [
+        "region_14",
+        "region_51"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 398
+    },
+    {
+      "region_ids": [
+        "region_14",
+        "region_60"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 497
+    },
+    {
+      "region_ids": [
+        "region_14",
+        "region_63"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 330
+    },
+    {
+      "region_ids": [
+        "region_15",
+        "region_24"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 5
+    },
+    {
+      "region_ids": [
+        "region_15",
+        "region_31"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 101
+    },
+    {
+      "region_ids": [
+        "region_15",
+        "region_39"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 200
+    },
+    {
+      "region_ids": [
+        "region_15",
+        "region_46"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 299
+    },
+    {
+      "region_ids": [
+        "region_15",
+        "region_52"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 398
+    },
+    {
+      "region_ids": [
+        "region_15",
+        "region_61"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 497
+    },
+    {
+      "region_ids": [
+        "region_16",
+        "region_25"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_16",
+        "region_32"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 100
+    },
+    {
+      "region_ids": [
+        "region_16",
+        "region_40"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 199
+    },
+    {
+      "region_ids": [
+        "region_16",
+        "region_47"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 298
+    },
+    {
+      "region_ids": [
+        "region_16",
+        "region_53"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 397
+    },
+    {
+      "region_ids": [
+        "region_16",
+        "region_62"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 496
+    },
+    {
+      "region_ids": [
+        "region_17",
+        "region_18"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_17",
+        "region_19"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 60
+    },
+    {
+      "region_ids": [
+        "region_17",
+        "region_20"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 119
+    },
+    {
+      "region_ids": [
+        "region_17",
+        "region_21"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 178
+    },
+    {
+      "region_ids": [
+        "region_17",
+        "region_22"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 237
+    },
+    {
+      "region_ids": [
+        "region_17",
+        "region_23"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 296
+    },
+    {
+      "region_ids": [
+        "region_17",
+        "region_24"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 355
+    },
+    {
+      "region_ids": [
+        "region_17",
+        "region_25"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 414
+    },
+    {
+      "region_ids": [
+        "region_17",
+        "region_26"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_17",
+        "region_33"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 100
+    },
+    {
+      "region_ids": [
+        "region_17",
+        "region_41"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 199
+    },
+    {
+      "region_ids": [
+        "region_17",
+        "region_48"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 298
+    },
+    {
+      "region_ids": [
+        "region_17",
+        "region_54"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 397
+    },
+    {
+      "region_ids": [
+        "region_17",
+        "region_64"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 75
+    },
+    {
+      "region_ids": [
+        "region_17",
+        "region_65"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 121
+    },
+    {
+      "region_ids": [
+        "region_18",
+        "region_19"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_18",
+        "region_20"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 60
+    },
+    {
+      "region_ids": [
+        "region_18",
+        "region_21"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 119
+    },
+    {
+      "region_ids": [
+        "region_18",
+        "region_22"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 178
+    },
+    {
+      "region_ids": [
+        "region_18",
+        "region_23"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 237
+    },
+    {
+      "region_ids": [
+        "region_18",
+        "region_24"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 296
+    },
+    {
+      "region_ids": [
+        "region_18",
+        "region_25"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 355
+    },
+    {
+      "region_ids": [
+        "region_18",
+        "region_27"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_18",
+        "region_34"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 113
+    },
+    {
+      "region_ids": [
+        "region_18",
+        "region_42"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 199
+    },
+    {
+      "region_ids": [
+        "region_18",
+        "region_49"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 299
+    },
+    {
+      "region_ids": [
+        "region_18",
+        "region_55"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 397
+    },
+    {
+      "region_ids": [
+        "region_19",
+        "region_20"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_19",
+        "region_21"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 60
+    },
+    {
+      "region_ids": [
+        "region_19",
+        "region_22"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 119
+    },
+    {
+      "region_ids": [
+        "region_19",
+        "region_23"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 178
+    },
+    {
+      "region_ids": [
+        "region_19",
+        "region_24"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 237
+    },
+    {
+      "region_ids": [
+        "region_19",
+        "region_25"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 296
+    },
+    {
+      "region_ids": [
+        "region_19",
+        "region_28"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_19",
+        "region_35"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 113
+    },
+    {
+      "region_ids": [
+        "region_19",
+        "region_43"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 199
+    },
+    {
+      "region_ids": [
+        "region_19",
+        "region_56"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 399
+    },
+    {
+      "region_ids": [
+        "region_20",
+        "region_21"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_20",
+        "region_22"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 60
+    },
+    {
+      "region_ids": [
+        "region_20",
+        "region_23"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 119
+    },
+    {
+      "region_ids": [
+        "region_20",
+        "region_24"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 178
+    },
+    {
+      "region_ids": [
+        "region_20",
+        "region_25"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 237
+    },
+    {
+      "region_ids": [
+        "region_20",
+        "region_29"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 115
+    },
+    {
+      "region_ids": [
+        "region_20",
+        "region_36"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 176
+    },
+    {
+      "region_ids": [
+        "region_20",
+        "region_57"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 501
+    },
+    {
+      "region_ids": [
+        "region_21",
+        "region_22"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_21",
+        "region_23"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 60
+    },
+    {
+      "region_ids": [
+        "region_21",
+        "region_24"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 119
+    },
+    {
+      "region_ids": [
+        "region_21",
+        "region_25"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 178
+    },
+    {
+      "region_ids": [
+        "region_21",
+        "region_30"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 134
+    },
+    {
+      "region_ids": [
+        "region_21",
+        "region_58"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 501
+    },
+    {
+      "region_ids": [
+        "region_22",
+        "region_23"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_22",
+        "region_24"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 60
+    },
+    {
+      "region_ids": [
+        "region_22",
+        "region_25"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 119
+    },
+    {
+      "region_ids": [
+        "region_22",
+        "region_44"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 273
+    },
+    {
+      "region_ids": [
+        "region_22",
+        "region_50"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 361
+    },
+    {
+      "region_ids": [
+        "region_22",
+        "region_59"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 471
+    },
+    {
+      "region_ids": [
+        "region_23",
+        "region_24"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_23",
+        "region_25"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 60
+    },
+    {
+      "region_ids": [
+        "region_23",
+        "region_38"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 203
+    },
+    {
+      "region_ids": [
+        "region_23",
+        "region_45"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 262
+    },
+    {
+      "region_ids": [
+        "region_23",
+        "region_51"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 361
+    },
+    {
+      "region_ids": [
+        "region_23",
+        "region_60"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 460
+    },
+    {
+      "region_ids": [
+        "region_24",
+        "region_25"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_24",
+        "region_31"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_24",
+        "region_39"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 100
+    },
+    {
+      "region_ids": [
+        "region_24",
+        "region_46"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 199
+    },
+    {
+      "region_ids": [
+        "region_24",
+        "region_52"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 298
+    },
+    {
+      "region_ids": [
+        "region_24",
+        "region_61"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 397
+    },
+    {
+      "region_ids": [
+        "region_25",
+        "region_32"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_25",
+        "region_40"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 100
+    },
+    {
+      "region_ids": [
+        "region_25",
+        "region_47"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 199
+    },
+    {
+      "region_ids": [
+        "region_25",
+        "region_53"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 298
+    },
+    {
+      "region_ids": [
+        "region_25",
+        "region_62"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 397
+    },
+    {
+      "region_ids": [
+        "region_26",
+        "region_27"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_26",
+        "region_28"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 60
+    },
+    {
+      "region_ids": [
+        "region_26",
+        "region_31"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 360
+    },
+    {
+      "region_ids": [
+        "region_26",
+        "region_32"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 414
+    },
+    {
+      "region_ids": [
+        "region_26",
+        "region_33"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_26",
+        "region_41"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 100
+    },
+    {
+      "region_ids": [
+        "region_26",
+        "region_48"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 199
+    },
+    {
+      "region_ids": [
+        "region_26",
+        "region_54"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 298
+    },
+    {
+      "region_ids": [
+        "region_26",
+        "region_64"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 24
+    },
+    {
+      "region_ids": [
+        "region_26",
+        "region_65"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 22
+    },
+    {
+      "region_ids": [
+        "region_27",
+        "region_28"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_27",
+        "region_31"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 301
+    },
+    {
+      "region_ids": [
+        "region_27",
+        "region_32"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 355
+    },
+    {
+      "region_ids": [
+        "region_27",
+        "region_34"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 20
+    },
+    {
+      "region_ids": [
+        "region_27",
+        "region_42"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 106
+    },
+    {
+      "region_ids": [
+        "region_27",
+        "region_49"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 206
+    },
+    {
+      "region_ids": [
+        "region_27",
+        "region_55"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 304
+    },
+    {
+      "region_ids": [
+        "region_28",
+        "region_31"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 243
+    },
+    {
+      "region_ids": [
+        "region_28",
+        "region_32"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 297
+    },
+    {
+      "region_ids": [
+        "region_28",
+        "region_35"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 20
+    },
+    {
+      "region_ids": [
+        "region_28",
+        "region_43"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 106
+    },
+    {
+      "region_ids": [
+        "region_28",
+        "region_56"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 306
+    },
+    {
+      "region_ids": [
+        "region_29",
+        "region_30"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_29",
+        "region_36"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 19
+    },
+    {
+      "region_ids": [
+        "region_29",
+        "region_57"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 344
+    },
+    {
+      "region_ids": [
+        "region_30",
+        "region_58"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 344
+    },
+    {
+      "region_ids": [
+        "region_30",
+        "region_64"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 283
+    },
+    {
+      "region_ids": [
+        "region_31",
+        "region_32"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_31",
+        "region_39"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_31",
+        "region_46"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 100
+    },
+    {
+      "region_ids": [
+        "region_31",
+        "region_52"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 199
+    },
+    {
+      "region_ids": [
+        "region_31",
+        "region_61"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 298
+    },
+    {
+      "region_ids": [
+        "region_32",
+        "region_40"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_32",
+        "region_47"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 100
+    },
+    {
+      "region_ids": [
+        "region_32",
+        "region_53"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 199
+    },
+    {
+      "region_ids": [
+        "region_32",
+        "region_62"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 298
+    },
+    {
+      "region_ids": [
+        "region_33",
+        "region_34"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_33",
+        "region_35"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 60
+    },
+    {
+      "region_ids": [
+        "region_33",
+        "region_36"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 119
+    },
+    {
+      "region_ids": [
+        "region_33",
+        "region_37"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 261
+    },
+    {
+      "region_ids": [
+        "region_33",
+        "region_39"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 355
+    },
+    {
+      "region_ids": [
+        "region_33",
+        "region_40"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 414
+    },
+    {
+      "region_ids": [
+        "region_33",
+        "region_41"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_33",
+        "region_48"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 100
+    },
+    {
+      "region_ids": [
+        "region_33",
+        "region_54"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 199
+    },
+    {
+      "region_ids": [
+        "region_33",
+        "region_64"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 123
+    },
+    {
+      "region_ids": [
+        "region_33",
+        "region_65"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 77
+    },
+    {
+      "region_ids": [
+        "region_34",
+        "region_35"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_34",
+        "region_36"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 60
+    },
+    {
+      "region_ids": [
+        "region_34",
+        "region_37"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 202
+    },
+    {
+      "region_ids": [
+        "region_34",
+        "region_39"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 296
+    },
+    {
+      "region_ids": [
+        "region_34",
+        "region_40"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 355
+    },
+    {
+      "region_ids": [
+        "region_34",
+        "region_42"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_34",
+        "region_49"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 101
+    },
+    {
+      "region_ids": [
+        "region_34",
+        "region_55"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 199
+    },
+    {
+      "region_ids": [
+        "region_34",
+        "region_65"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 117
+    },
+    {
+      "region_ids": [
+        "region_35",
+        "region_36"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_35",
+        "region_37"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 143
+    },
+    {
+      "region_ids": [
+        "region_35",
+        "region_39"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 237
+    },
+    {
+      "region_ids": [
+        "region_35",
+        "region_40"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 296
+    },
+    {
+      "region_ids": [
+        "region_35",
+        "region_43"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 2
+    },
+    {
+      "region_ids": [
+        "region_35",
+        "region_56"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 202
+    },
+    {
+      "region_ids": [
+        "region_35",
+        "region_65"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 176
+    },
+    {
+      "region_ids": [
+        "region_36",
+        "region_37"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 84
+    },
+    {
+      "region_ids": [
+        "region_36",
+        "region_39"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 178
+    },
+    {
+      "region_ids": [
+        "region_36",
+        "region_40"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 237
+    },
+    {
+      "region_ids": [
+        "region_36",
+        "region_57"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 288
+    },
+    {
+      "region_ids": [
+        "region_36",
+        "region_65"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 235
+    },
+    {
+      "region_ids": [
+        "region_37",
+        "region_39"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 73
+    },
+    {
+      "region_ids": [
+        "region_37",
+        "region_40"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 132
+    },
+    {
+      "region_ids": [
+        "region_37",
+        "region_50"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 149
+    },
+    {
+      "region_ids": [
+        "region_37",
+        "region_65"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 340
+    },
+    {
+      "region_ids": [
+        "region_38",
+        "region_45"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_38",
+        "region_51"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 100
+    },
+    {
+      "region_ids": [
+        "region_38",
+        "region_60"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 199
+    },
+    {
+      "region_ids": [
+        "region_38",
+        "region_65"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 412
+    },
+    {
+      "region_ids": [
+        "region_39",
+        "region_40"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_39",
+        "region_46"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_39",
+        "region_52"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 100
+    },
+    {
+      "region_ids": [
+        "region_39",
+        "region_61"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 199
+    },
+    {
+      "region_ids": [
+        "region_40",
+        "region_47"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_40",
+        "region_53"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 100
+    },
+    {
+      "region_ids": [
+        "region_40",
+        "region_62"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 199
+    },
+    {
+      "region_ids": [
+        "region_41",
+        "region_42"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_41",
+        "region_43"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 60
+    },
+    {
+      "region_ids": [
+        "region_41",
+        "region_44"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 239
+    },
+    {
+      "region_ids": [
+        "region_41",
+        "region_45"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 296
+    },
+    {
+      "region_ids": [
+        "region_41",
+        "region_46"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 355
+    },
+    {
+      "region_ids": [
+        "region_41",
+        "region_47"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 414
+    },
+    {
+      "region_ids": [
+        "region_41",
+        "region_48"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_41",
+        "region_54"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 100
+    },
+    {
+      "region_ids": [
+        "region_41",
+        "region_64"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 222
+    },
+    {
+      "region_ids": [
+        "region_41",
+        "region_65"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 176
+    },
+    {
+      "region_ids": [
+        "region_42",
+        "region_43"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_42",
+        "region_44"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 180
+    },
+    {
+      "region_ids": [
+        "region_42",
+        "region_45"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 237
+    },
+    {
+      "region_ids": [
+        "region_42",
+        "region_46"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 296
+    },
+    {
+      "region_ids": [
+        "region_42",
+        "region_47"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 355
+    },
+    {
+      "region_ids": [
+        "region_42",
+        "region_49"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 2
+    },
+    {
+      "region_ids": [
+        "region_42",
+        "region_55"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 100
+    },
+    {
+      "region_ids": [
+        "region_43",
+        "region_44"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 140
+    },
+    {
+      "region_ids": [
+        "region_43",
+        "region_45"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 197
+    },
+    {
+      "region_ids": [
+        "region_43",
+        "region_46"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 256
+    },
+    {
+      "region_ids": [
+        "region_43",
+        "region_47"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 315
+    },
+    {
+      "region_ids": [
+        "region_43",
+        "region_56"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 143
+    },
+    {
+      "region_ids": [
+        "region_44",
+        "region_45"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_44",
+        "region_46"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 60
+    },
+    {
+      "region_ids": [
+        "region_44",
+        "region_47"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 119
+    },
+    {
+      "region_ids": [
+        "region_44",
+        "region_50"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_44",
+        "region_59"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 111
+    },
+    {
+      "region_ids": [
+        "region_45",
+        "region_46"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_45",
+        "region_47"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 60
+    },
+    {
+      "region_ids": [
+        "region_45",
+        "region_51"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_45",
+        "region_60"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 100
+    },
+    {
+      "region_ids": [
+        "region_46",
+        "region_47"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_46",
+        "region_52"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_46",
+        "region_61"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 100
+    },
+    {
+      "region_ids": [
+        "region_47",
+        "region_53"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_47",
+        "region_62"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 100
+    },
+    {
+      "region_ids": [
+        "region_48",
+        "region_49"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_48",
+        "region_50"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 246
+    },
+    {
+      "region_ids": [
+        "region_48",
+        "region_51"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 296
+    },
+    {
+      "region_ids": [
+        "region_48",
+        "region_52"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 355
+    },
+    {
+      "region_ids": [
+        "region_48",
+        "region_53"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 414
+    },
+    {
+      "region_ids": [
+        "region_48",
+        "region_54"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_48",
+        "region_64"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 321
+    },
+    {
+      "region_ids": [
+        "region_48",
+        "region_65"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 275
+    },
+    {
+      "region_ids": [
+        "region_49",
+        "region_50"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 197
+    },
+    {
+      "region_ids": [
+        "region_49",
+        "region_51"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 247
+    },
+    {
+      "region_ids": [
+        "region_49",
+        "region_52"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 306
+    },
+    {
+      "region_ids": [
+        "region_49",
+        "region_53"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 365
+    },
+    {
+      "region_ids": [
+        "region_49",
+        "region_55"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_50",
+        "region_51"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_50",
+        "region_52"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 60
+    },
+    {
+      "region_ids": [
+        "region_50",
+        "region_53"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 119
+    },
+    {
+      "region_ids": [
+        "region_50",
+        "region_59"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 14
+    },
+    {
+      "region_ids": [
+        "region_51",
+        "region_52"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_51",
+        "region_53"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 60
+    },
+    {
+      "region_ids": [
+        "region_51",
+        "region_60"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_52",
+        "region_53"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_52",
+        "region_61"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_53",
+        "region_62"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_54",
+        "region_55"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_54",
+        "region_56"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 60
+    },
+    {
+      "region_ids": [
+        "region_54",
+        "region_59"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 237
+    },
+    {
+      "region_ids": [
+        "region_54",
+        "region_60"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 296
+    },
+    {
+      "region_ids": [
+        "region_54",
+        "region_61"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 355
+    },
+    {
+      "region_ids": [
+        "region_54",
+        "region_62"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 414
+    },
+    {
+      "region_ids": [
+        "region_54",
+        "region_64"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 420
+    },
+    {
+      "region_ids": [
+        "region_54",
+        "region_65"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 374
+    },
+    {
+      "region_ids": [
+        "region_55",
+        "region_56"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_55",
+        "region_59"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 178
+    },
+    {
+      "region_ids": [
+        "region_55",
+        "region_60"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 237
+    },
+    {
+      "region_ids": [
+        "region_55",
+        "region_61"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 296
+    },
+    {
+      "region_ids": [
+        "region_55",
+        "region_62"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 355
+    },
+    {
+      "region_ids": [
+        "region_56",
+        "region_59"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 119
+    },
+    {
+      "region_ids": [
+        "region_56",
+        "region_60"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 178
+    },
+    {
+      "region_ids": [
+        "region_56",
+        "region_61"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 237
+    },
+    {
+      "region_ids": [
+        "region_56",
+        "region_62"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 296
+    },
+    {
+      "region_ids": [
+        "region_57",
+        "region_58"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_59",
+        "region_60"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_59",
+        "region_61"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 60
+    },
+    {
+      "region_ids": [
+        "region_59",
+        "region_62"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 119
+    },
+    {
+      "region_ids": [
+        "region_60",
+        "region_61"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_60",
+        "region_62"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 60
+    },
+    {
+      "region_ids": [
+        "region_61",
+        "region_62"
+      ],
+      "mode": "flex-row",
+      "confidence": 0.7,
+      "gap_estimate": 1
+    },
+    {
+      "region_ids": [
+        "region_64",
+        "region_65"
+      ],
+      "mode": "flex-column",
+      "confidence": 0.7,
+      "gap_estimate": 28
+    }
+  ],
+  "cutout_matches": [
+    {
+      "cutout_path": "C:\\Users\\xuyl\\Desktop\\skill\\ui\\daily_recommendation_02.png",
+      "bbox": [
+        8,
+        218,
+        464,
+        564
+      ],
+      "confidence": 0.927,
+      "status": "used_cutout",
+      "improvement_score": 0.427
+    },
+    {
+      "cutout_path": "C:\\Users\\xuyl\\Desktop\\skill\\ui\\daily_recommendation_03.png",
+      "bbox": [
+        8,
+        218,
+        464,
+        564
+      ],
+      "confidence": 0.854,
+      "status": "used_cutout",
+      "improvement_score": 0.354
+    },
+    {
+      "cutout_path": "C:\\Users\\xuyl\\Desktop\\skill\\ui\\icon_back.png",
+      "bbox": [
+        392,
+        564,
+        48,
+        48
+      ],
+      "confidence": 0.843,
+      "status": "used_cutout",
+      "improvement_score": 0.343
+    },
+    {
+      "cutout_path": "C:\\Users\\xuyl\\Desktop\\skill\\ui\\Schedule页.png",
+      "bbox": [
+        0,
+        0,
+        480,
+        800
+      ],
+      "confidence": 1.0,
+      "status": "used_cutout",
+      "improvement_score": 0.5
+    }
+  ],
+  "confidence": 0.885,
+  "uncertain_regions": [],
+  "questions": [],
+  "overlay_path": "C:\\Users\\xuyl\\Desktop\\skill\\ui\\debug_overlay.png",
+  "metadata": {
+    "image_width": 480,
+    "image_height": 800
+  }
+}

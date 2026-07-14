@@ -7,6 +7,9 @@ bk_idk-release-v2.2.1/
 # Python
 __pycache__/
 *.py[cod]
+.pytest_cache/
+# Local agent session state
+.agents/
 # Generated forward-test output
 forward_tests/out/
 # Generated gate artifacts

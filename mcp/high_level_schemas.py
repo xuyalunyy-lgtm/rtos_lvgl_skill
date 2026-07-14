@@ -81,6 +81,8 @@ HIGH_LEVEL_SCHEMAS: list[dict[str, Any]] = [
                 "delivery_mode": {"type": "string", "enum": ["final_only", "full_evidence"], "default": "final_only", "description": "final_only publishes only compilable C/H, used fonts, assets, and CMake; evidence is isolated outside the delivery directory"},
                 "cleanup_intermediates": {"type": "boolean", "default": True, "description": "With final_only, remove analysis, asset.pack, build, and evidence files after the final delivery is published"},
                 "manifest_path": {"type": "string", "description": "Path to Manifest v2 JSON for multi-page app generation"},
+                "page_input_path": {"type": "string", "description": "Confirmed page_input.json; resolves assets, generates declared font subsets, converts elements to UI Spec v2, and emits a compilable page"},
+                "asset_flash_budget_bytes": {"type": "integer", "minimum": 1, "default": 8388608, "description": "Flash budget for image assets generated from page_input.json"},
                 "spec_path": {"type": "string", "description": "Path to ui_spec.json (preferred)"},
                 "design_path": {"type": "string", "description": "Path to design screenshot (auto-runs inspect if spec_path omitted)"},
                 "cut_dir": {"type": "string", "description": "Cutout assets directory"},

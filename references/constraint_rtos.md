@@ -72,7 +72,7 @@
 
 | ID | 约束 | 严重度 | 验证 | 正例 | 反例 |
 |----|------|--------|------|------|------|
-| C29.1 | 模块公开 API 必须声明可调用上下文：task / ISR / timer callback / LVGL thread；ISR 可调用路径必须单独命名或注释 | P0 | 人工 | [runtime_efficiency_contracts.txt](../prompts/runtime_efficiency_contracts.txt) | API 文档未说明上下文 |
+| C29.1 | 模块公开 API 必须声明可调用上下文：task / ISR / timer callback / LVGL thread；ISR 可调用路径必须单独命名或注释 | P0 | 人工 | [module_contract_topology.txt](../prompts/module_contract_topology.txt) | API 文档未说明上下文 |
 | C29.2 | 模块 API 必须声明阻塞语义、最大等待时间、是否可重入；默认不得假设调用者知道内部等待点 | P0 | 人工 + `blocking_wait_checker.py` | 同上 | `module_read()` 内部无限等 Queue |
 | C29.3 | 模块必须声明入参、出参、Queue payload、callback user_data 的所有权与释放方 | P1 | 人工 | 同上 | callback 传裸指针但未说明生命周期 |
 | C29.4 | 模块必须声明 `init/start/stop/deinit` 合法顺序、重复调用行为和半初始化清理策略 | P1 | 人工 | 同上 | `stop()` 未说明 init 失败后能否调用 |
@@ -98,7 +98,7 @@
 
 | ID | 约束 | 严重度 | 验证 | 正例 | 反例 |
 |----|------|--------|------|------|------|
-| C30.1 | 多任务模块必须输出 task、priority、stack、queue、producer、consumer、timeout、backpressure、exit 的拓扑表 | P0 | 人工 | [runtime_efficiency_contracts.txt](../prompts/runtime_efficiency_contracts.txt) | 只给散落 `xTaskCreate` [TASK_CREATE] |
+| C30.1 | 多任务模块必须输出 task、priority、stack、queue、producer、consumer、timeout、backpressure、exit 的拓扑表 | P0 | 人工 | [module_contract_topology.txt](../prompts/module_contract_topology.txt) | 只给散落 `xTaskCreate` [TASK_CREATE] |
 | C30.2 | 每条 Queue 必须声明元素类型、payload 所有权、生产者和消费者；跨核/跨线程路径须注明边界 | P0 | 人工 | 同上 | 只看到 `xQueueCreate(8, sizeof(void*))` [QUEUE_CREATE] |
 | C30.3 | 每条 Queue 必须声明深度、发送/接收 timeout 和满队列策略：drop-oldest/drop-newest/backpressure/overwrite | P1 | 人工 | 同上 | 满队列时无限等 |
 | C30.4 | 每个 task 必须有退出条件、stop flag 或通知路径；禁止只能通过 reboot 终止 | P1 | 人工 | 同上 | while(1) 无退出和状态 |
@@ -138,7 +138,7 @@
 
 | ID | 约束 | 严重度 | 验证 | 正例 | 反例 |
 |----|------|--------|------|------|------|
-| C32.1 | 关键模块必须暴露 `state`、`last_error`、`last_error_line` 或等价字段 | P1 | 人工 | [runtime_efficiency_contracts.txt](../prompts/runtime_efficiency_contracts.txt) | 只打自然语言日志 |
+| C32.1 | 关键模块必须暴露 `state`、`last_error`、`last_error_line` 或等价字段 | P1 | 人工 | [timeout_lifecycle_observability.txt](../prompts/timeout_lifecycle_observability.txt) | 只打自然语言日志 |
 | C32.2 | 关键链路必须计数 timeout/drop/retry/reconnect/overflow/underrun 等现场指标 | P1 | 人工 | 同上 | 只有平均成功率 |
 | C32.3 | 任务必须可采集 stack high-water、queue high-water、heap free/min/largest 等资源水位 | P1 | 人工 + `stack_calculator.py` | 同上 | 只看总 free heap |
 | C32.4 | init/connect/handshake/decode/render/flush 等阶段必须保留 max time 或最近耗时 | P2 | 人工 | 同上 | 性能尖峰不可定位 |
@@ -158,7 +158,7 @@
 
 | ID | 约束 | 严重度 | 验证 | 正例 | 反例 |
 |----|------|--------|------|------|------|
-| C33.1 | `init/open/start/enable/power_on/clock_enable/dma_start` 必须有对应 `stop/disable/close/deinit/power_off/clock_disable/dma_stop` | P0 | 人工 | [runtime_efficiency_contracts.txt](../prompts/runtime_efficiency_contracts.txt) | init 后无 deinit |
+| C33.1 | `init/open/start/enable/power_on/clock_enable/dma_start` 必须有对应 `stop/disable/close/deinit/power_off/clock_disable/dma_stop` | P0 | 人工 | [timeout_lifecycle_observability.txt](../prompts/timeout_lifecycle_observability.txt) | init 后无 deinit |
 | C33.2 | `alloc/create/register/attach/subscribe` 必须有对应 `free/delete/unregister/detach/unsubscribe` | P0 | 人工 | 同上 | 注册回调后 never unregister |
 | C33.3 | 多资源函数必须统一 `cleanup:`；异常路径和正常路径复用同一批 release helper | P1 | 人工 | [error_handling.txt](../prompts/error_handling.txt) | early return 泄漏 socket/timer |
 | C33.4 | `stop/deinit` 必须可重入，并能处理半初始化状态；重复调用不得崩溃 | P1 | 人工 | [peripheral_shutdown_safety.txt](../prompts/peripheral_shutdown_safety.txt) | deinit 未判空直接 free |

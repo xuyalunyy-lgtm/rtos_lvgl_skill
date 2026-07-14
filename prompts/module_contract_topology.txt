@@ -1,0 +1,80 @@
+<!-- 来源: runtime_efficiency_contracts.txt 拆分 -->
+<!-- 约束: C29, C30 -->
+
+# 模块契约与任务拓扑专精提示词
+
+> 约束 ID：C29.1-C30.1 → [constraint_detail.md](../references/constraint_detail.md)
+
+## 适用场景
+
+新增模块、工程 review、架构 review、多人维护项目接手。
+
+---
+
+## C29 — 模块契约（Module Contract）
+
+每个非平凡模块必须在 `.h` 或模块头注释声明：
+
+- 线程上下文：哪些 API 可从 task / ISR / timer callback / LVGL thread 调用
+- 阻塞语义：是否阻塞、最大等待时间、是否可重入
+- 所有权：入参/出参/回调/Queue payload 由谁 alloc/free/release
+- 生命周期：`init -> start -> stop -> deinit` 的合法顺序
+- 错误语义：返回码、可恢复错误、不可恢复错误
+
+```c
+/* module_contract:
+ * context: task only; ISR must use sensor_notify_from_isr()
+ * blocking: read <= 20ms; stop <= 50ms
+ * ownership: caller owns config; module owns handle after init
+ * lifecycle: init -> start -> stop -> deinit
+ * errors: DEVICE_ERR_TIMEOUT is recoverable
+ */
+```
+
+### C29.6-C29.10 - Module boundary contract
+
+Every non-trivial module must keep one primary reason to change. Declare the
+boundary in the `.h` file or module header before implementation:
+
+```c
+/* module_boundary:
+ * responsibility: collect sensor samples and publish normalized events
+ * public_api: sensor_init, sensor_start, sensor_stop, sensor_get_status
+ * dependencies: i2c_bus, app_event_bus
+ * forbidden_dependencies: lvgl, network_wss, storage_nvs
+ * events_in: SENSOR_CMD_START, SENSOR_CMD_STOP
+ * events_out: SENSOR_EVT_SAMPLE_READY, SENSOR_EVT_FAULT
+ * owned_resources: i2c0, sensor_task, sensor_queue
+ */
+```
+
+Rules:
+- Keep cohesion high: one module owns one business capability or hardware resource family.
+- Keep coupling low: cross-module communication goes through public API, queue/event, or callback contracts.
+- Do not include another module only to reach into its private structs or globals.
+- Do not share writable global context across modules; pass handles, descriptors, or events.
+- Declare forbidden dependencies when a lower layer must never call a higher layer, such as driver -> UI or network -> LVGL.
+
+---
+
+## C30 — 任务/队列拓扑表
+
+工程级 review 或新增多任务模块时，先输出拓扑表，再写实现。
+
+| Task | Priority | Stack | Queue | Producers | Consumers | Timeout | Backpressure | Exit |
+|------|----------|-------|-------|-----------|-----------|---------|--------------|------|
+| `sensor_task` | high-2 | 3072 | `sensor_q:8` | ISR, timer | fusion | 20ms | drop-oldest + count | stop flag |
+
+必须说明：
+
+- 每条 Queue 的元素类型、payload 所有权和满队列策略
+- 每个 task 的退出条件，禁止只能 reboot 才退出
+- 高频 producer 的背压策略，禁止无限扩容
+
+---
+
+## Agent Checklist
+
+- [ ] C29 模块头是否声明 context/blocking/ownership/lifecycle/error？
+- [ ] C29 模块边界是否高内聚低耦合，forbidden_dependencies 是否声明？
+- [ ] C30 task/queue 拓扑是否能解释 producer/consumer/timeout/backpressure/exit？

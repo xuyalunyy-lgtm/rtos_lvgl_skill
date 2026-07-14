@@ -169,14 +169,15 @@ def _normalized_stem(value: str) -> str:
 
 def _directory_matches(asset_type: str, relative: Path) -> bool:
     parts = tuple(part.lower() for part in relative.parts[:-1])
+    flat_named_icon = not parts and relative.stem.lower().startswith("icon_")
     if asset_type == "full_screen_background":
         return "backgrounds" in parts
     if asset_type == "transparent_character":
         return "characters" in parts
     if asset_type == "status_icon":
-        return "icons" in parts and "system" in parts
+        return ("icons" in parts and "system" in parts) or flat_named_icon
     if asset_type == "control_icon":
-        return "icons" in parts
+        return "icons" in parts or flat_named_icon
     return True
 
 
