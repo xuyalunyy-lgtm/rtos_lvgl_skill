@@ -195,7 +195,14 @@ def generate_widget_code(
     # display screen. Attaching it to parent keeps it owned by the Router.
     lines.append(f"    {var_name} = {creator}({parent_var});")
     if node_type == "screen":
+        # LVGL objects carry theme border, padding, and scrolling by default.
+        # UI Spec coordinates address the full display canvas, so normalize the
+        # content root before applying the authored screen styles below.
+        lines.append(f"    lv_obj_remove_style_all({var_name});")
         lines.append(f"    lv_obj_set_size({var_name}, LV_PCT(100), LV_PCT(100));")
+        lines.append("    /* LVGL_LAYOUT_EXCEPTION: UI Spec screen origin is the display canvas origin. */")
+        lines.append(f"    lv_obj_set_pos({var_name}, 0, 0);")
+        lines.append(f"    lv_obj_clear_flag({var_name}, LV_OBJ_FLAG_SCROLLABLE);")
         if node.get("full_screen_tap"):
             lines.append(f"    lv_obj_add_flag({var_name}, LV_OBJ_FLAG_CLICKABLE);")
 
@@ -247,6 +254,9 @@ def generate_widget_code(
     if isinstance(bbox, list) and len(bbox) == 4 and all(isinstance(v, int) for v in bbox):
         x, y, width, height = bbox
         if node_type != "screen":
+            reason = str(node.get("layout_exception_reason", "authored design-coordinate reconstruction"))
+            reason = reason.replace("*/", "").replace("\r", " ").replace("\n", " ").strip()
+            lines.append(f"    /* LVGL_LAYOUT_EXCEPTION: {reason or 'authored design-coordinate reconstruction'}. */")
             lines.append(f"    lv_obj_set_pos({var_name}, {x}, {y});")
             lines.append(f"    lv_obj_set_size({var_name}, {width}, {height});")
 
@@ -351,7 +361,7 @@ def generate_page_code(spec: dict[str, Any], lvgl_version: str | None = None) ->
         text_macro = node.get("text_macro", "")
         text = node.get("text", "")
         if text_macro and text:
-            escaped = text.replace("\\", "\\\\").replace('"', '\\"')
+            escaped = text.replace("\\", "\\\\").replace('"', '\\"').replace("\r", "").replace("\n", "\\n")
             macros.append(f'#ifndef {text_macro}')
             macros.append(f'#define {text_macro} "{escaped}"')
             macros.append(f'#endif')
@@ -385,7 +395,11 @@ def generate_page_code(spec: dict[str, Any], lvgl_version: str | None = None) ->
     create_lines.append(f"lv_obj_t *{func_name}_create(lv_obj_t *parent)")
     create_lines.append("{")
     create_lines.append(f"    lv_obj_t *root = lv_obj_create(parent);")
+    create_lines.append("    lv_obj_remove_style_all(root);")
     create_lines.append(f"    lv_obj_set_size(root, {spec.get('display', {}).get('width', 480)}, {spec.get('display', {}).get('height', 800)});")
+    create_lines.append("    /* LVGL_LAYOUT_EXCEPTION: generated page origin is the display canvas origin. */")
+    create_lines.append("    lv_obj_set_pos(root, 0, 0);")
+    create_lines.append("    lv_obj_clear_flag(root, LV_OBJ_FLAG_SCROLLABLE);")
     create_lines.append("")
 
     # Generate widgets in tree order
