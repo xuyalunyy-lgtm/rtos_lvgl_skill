@@ -1,6 +1,19 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(pip list *)",
+      "Bash(findstr -i \"paho mqtt serial\")",
+      "Bash(python *)",
+      "mcp__serial-mcp__serial_list",
+      "mcp__serial-mcp__serial_get_stats",
+      "mcp__mqtt-mcp__mqtt_list_topics",
+      "mcp__ota-mcp__ota_list",
+      "mcp__serial-mcp__serial_connect",
+      "mcp__serial-mcp__serial_disconnect",
+      "mcp__serial-mcp__serial_get_lines"
+    ]
+  },
   "enabledMcpjsonServers": [
-    "lvgl-ui-mcp",
     "mqtt-mcp",
     "ota-mcp",
     "serial-mcp"
