@@ -22,10 +22,183 @@ import re
 import threading
 import time
 from collections import deque
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+# ── Log configuration ──
+
+DEFAULT_LOG_MAX_SIZE = int(os.environ.get("SERIAL_LOG_MAX_SIZE", 5 * 1024 * 1024))  # 5 MB
+DEFAULT_LOG_MAX_FILES = int(os.environ.get("SERIAL_LOG_MAX_FILES", 10))
+
+
+def _configured_redact_patterns() -> list[re.Pattern]:
+    """Load redaction patterns from SERIAL_REDACT_PATTERNS env var."""
+    raw = os.environ.get("SERIAL_REDACT_PATTERNS", "").strip()
+    if not raw:
+        # Default redaction: Wi-Fi passwords, common token formats
+        defaults = [
+            r"(?i)(?:password|passwd|pwd)\s*[=:]\s*\S+",
+            r"(?i)(?:token|secret|api[_-]?key)\s*[=:]\s*\S+",
+            r"(?i)(?:ssid)\s*[=:]\s*\S+",
+            r"(?i)CWJAP\s*=\s*\"[^\"]*\",\"[^\"]*\"",  # AT+CWJAP="ssid","password"
+        ]
+        patterns = []
+        for d in defaults:
+            try:
+                patterns.append(re.compile(d))
+            except re.error:
+                pass
+        return patterns
+    patterns = []
+    for part in raw.split(","):
+        part = part.strip()
+        if part:
+            try:
+                patterns.append(re.compile(part))
+            except re.error:
+                logger.warning("Invalid redact pattern ignored: %s", part)
+    return patterns
+
+
+REDACT_PATTERNS = _configured_redact_patterns()
+
+
+def _apply_redaction(text: str) -> str:
+    """Apply redaction patterns to text, replacing matches with [REDACTED]."""
+    for pattern in REDACT_PATTERNS:
+        text = pattern.sub("[REDACTED]", text)
+    return text
+
+
+class RotatingLogWriter:
+    """Size-based rotating log writer with metadata headers and bookmarks."""
+
+    def __init__(
+        self,
+        directory: Path,
+        port: str,
+        *,
+        max_size: int = DEFAULT_LOG_MAX_SIZE,
+        max_files: int = DEFAULT_LOG_MAX_FILES,
+    ):
+        self._dir = directory
+        self._port = port
+        self._max_size = max_size
+        self._max_files = max_files
+        self._current_file: Path | None = None
+        self._stream = None
+        self._bytes_written = 0
+        self._file_index = 0
+        self._session_start = datetime.now(timezone.utc)
+        self._metadata: dict[str, Any] = {}
+        self._lock = threading.Lock()
+
+    def open(self, metadata: dict[str, Any] | None = None) -> Path:
+        """Open the first log file and write session metadata header."""
+        self._dir.mkdir(parents=True, exist_ok=True)
+        self._metadata = metadata or {}
+        self._file_index = 0
+        return self._rotate()
+
+    def write(self, direction: str, raw: str) -> None:
+        """Write a log line with redaction and rotation."""
+        with self._lock:
+            if self._stream is None:
+                return
+            redacted = _apply_redaction(raw)
+            timestamp = datetime.now(timezone.utc).isoformat()
+            line = f"{timestamp} [{direction.upper()}] {redacted}\n"
+            encoded = line.encode("utf-8")
+
+            # Rotate if this write would exceed the limit
+            if self._bytes_written + len(encoded) > self._max_size:
+                self._rotate()
+                # Re-encode after rotation
+                encoded = line.encode("utf-8")
+
+            self._stream.write(encoded)
+            self._stream.flush()
+            self._bytes_written += len(encoded)
+
+    def bookmark(self, label: str) -> None:
+        """Write a bookmark marker to the log."""
+        with self._lock:
+            if self._stream is None:
+                return
+            ts = datetime.now(timezone.utc).isoformat()
+            line = f"\n--- BOOKMARK [{ts}]: {label} ---\n\n"
+            encoded = line.encode("utf-8")
+            self._stream.write(encoded)
+            self._stream.flush()
+            self._bytes_written += len(encoded)
+
+    def close(self) -> None:
+        """Close the current log stream."""
+        with self._lock:
+            if self._stream is not None:
+                self._stream.close()
+                self._stream = None
+
+    @property
+    def current_path(self) -> Path | None:
+        return self._current_file
+
+    def _rotate(self) -> Path:
+        """Rotate to a new log file. Must be called with lock held."""
+        if self._stream is not None:
+            self._stream.close()
+
+        safe_port = re.sub(r"[^A-Za-z0-9_.-]+", "_", self._port).strip("._") or "serial"
+        ts = self._session_start.strftime("%Y%m%dT%H%M%S")
+
+        if self._file_index == 0:
+            filename = f"{safe_port}_{ts}.log"
+        else:
+            filename = f"{safe_port}_{ts}.{self._file_index}.log"
+
+        self._current_file = self._dir / filename
+        self._stream = self._current_file.open("wb")
+        self._bytes_written = 0
+        self._file_index += 1
+
+        # Write metadata header
+        self._write_header()
+
+        # Enforce max_files: clean up old logs if needed
+        self._cleanup_old_files()
+
+        return self._current_file
+
+    def _write_header(self) -> None:
+        """Write session metadata header to the current log stream."""
+        if self._stream is None:
+            return
+        header_lines = [
+            f"# session_start: {self._session_start.isoformat()}",
+            f"# port: {self._port}",
+        ]
+        for key, value in self._metadata.items():
+            header_lines.append(f"# {key}: {value}")
+        header_lines.append("")
+        header = "\n".join(header_lines) + "\n"
+        encoded = header.encode("utf-8")
+        self._stream.write(encoded)
+        self._bytes_written += len(encoded)
+
+    def _cleanup_old_files(self) -> None:
+        """Remove oldest log files if exceeding max_files."""
+        safe_port = re.sub(r"[^A-Za-z0-9_.-]+", "_", self._port).strip("._") or "serial"
+        pattern = f"{safe_port}_*.log"
+        existing = sorted(self._dir.glob(pattern), key=lambda f: f.stat().st_mtime)
+        while len(existing) > self._max_files:
+            oldest = existing.pop(0)
+            try:
+                oldest.unlink()
+            except OSError:
+                pass
 
 # ── Symptom routes for intelligent watch ──
 
@@ -172,17 +345,44 @@ DEFAULT_MAX_LINES = 50000
 DEFAULT_BAUDRATE = 115200
 DEFAULT_TIMEOUT = 1.0  # serial read timeout in seconds
 
-ALLOWED_PORTS = [
-    p.strip()
-    for p in os.environ.get("SERIAL_ALLOWED_PORTS", "*").split(",")
-    if p.strip()
-]
+def _configured_ports() -> tuple[str, ...]:
+    """Return the explicit serial-port allowlist, defaulting to deny all."""
+    ports = tuple(
+        p.strip()
+        for p in os.environ.get("SERIAL_ALLOWED_PORTS", "").split(",")
+        if p.strip()
+    )
+    if "*" in ports:
+        logger.warning("SERIAL_ALLOWED_PORTS='*' is ignored; configure explicit ports instead")
+        return ()
+    return ports
+
+
+def _configured_log_dir() -> Path | None:
+    """Resolve the optional log directory relative to the skill root."""
+    value = os.environ.get("SERIAL_LOG_DIR", "").strip()
+    if not value:
+        return None
+    candidate = Path(value).expanduser()
+    if not candidate.is_absolute():
+        candidate = ROOT / candidate
+    return candidate.resolve()
+
+
+ALLOWED_PORTS = _configured_ports()
+DEFAULT_LOG_DIR = _configured_log_dir()
 
 
 class SerialBridge:
     """Thread-safe serial port client with ring buffer log storage."""
 
-    def __init__(self, max_lines: int = DEFAULT_MAX_LINES):
+    def __init__(
+        self,
+        max_lines: int = DEFAULT_MAX_LINES,
+        *,
+        allowed_ports: tuple[str, ...] | None = None,
+        log_dir: Path | None = None,
+    ):
         self._serial = None
         self._port: str = ""
         self._baudrate: int = 0
@@ -195,6 +395,10 @@ class SerialBridge:
         self._connect_time: float = 0
         self._rx_count: int = 0
         self._tx_count: int = 0
+        self._allowed_ports = ALLOWED_PORTS if allowed_ports is None else tuple(allowed_ports)
+        self._log_dir = DEFAULT_LOG_DIR if log_dir is None else Path(log_dir).resolve()
+        self._log_path: Path | None = None
+        self._log_writer: RotatingLogWriter | None = None
 
         # Watch state
         self._watch_active = False
@@ -205,24 +409,39 @@ class SerialBridge:
         self._watch_start_ts: float = 0
         self._watch_lines_scanned: int = 0
 
+        # Device identity (populated on connect)
+        self._device_identity: dict[str, Any] = {}
+
     # ── Port Discovery ──
 
     @staticmethod
     def list_ports() -> list[dict[str, Any]]:
-        """List available serial ports.
+        """List available serial ports with USB identity.
 
         Returns:
-            List of {port, description, hwid}
+            List of {port, description, hwid, vid, pid, serial_number, manufacturer, product}
         """
         try:
             from serial.tools import list_ports as lp
             ports = []
             for p in lp.comports():
-                ports.append({
+                info: dict[str, Any] = {
                     "port": p.device,
                     "description": p.description,
                     "hwid": p.hwid,
-                })
+                }
+                # Extract USB identity if available (platform-dependent)
+                if hasattr(p, "vid") and p.vid is not None:
+                    info["vid"] = f"0x{p.vid:04x}"
+                if hasattr(p, "pid") and p.pid is not None:
+                    info["pid"] = f"0x{p.pid:04x}"
+                if hasattr(p, "serial_number") and p.serial_number:
+                    info["serial_number"] = p.serial_number
+                if hasattr(p, "manufacturer") and p.manufacturer:
+                    info["manufacturer"] = p.manufacturer
+                if hasattr(p, "product") and p.product:
+                    info["product"] = p.product
+                ports.append(info)
             return ports
         except ImportError:
             return []
@@ -250,7 +469,14 @@ class SerialBridge:
             {"ok": bool, "port": str, "baudrate": int, "error": str|None}
         """
         if not self._is_port_allowed(port):
-            return {"ok": False, "error": f"Port '{port}' not in allowed list: {ALLOWED_PORTS}"}
+            allowed = ", ".join(self._allowed_ports) or "(none)"
+            return {
+                "ok": False,
+                "error": (
+                    f"Port '{port}' is not explicitly allowed. "
+                    f"Set SERIAL_ALLOWED_PORTS to the intended port; configured: {allowed}"
+                ),
+            }
 
         # Disconnect if already connected
         if self._connected:
@@ -278,6 +504,8 @@ class SerialBridge:
             self._connect_time = time.time()
             self._rx_count = 0
             self._tx_count = 0
+            self._device_identity = self._probe_device_identity(port)
+            self._open_log_file(port)
 
             # Start background reader thread
             self._stop_event.clear()
@@ -291,9 +519,15 @@ class SerialBridge:
                 "bytesize": bytesize,
                 "parity": parity,
                 "stopbits": stopbits,
+                "log_path": str(self._log_path) if self._log_path else None,
             }
 
         except Exception as e:
+            self._close_log_file()
+            if self._serial and self._serial.is_open:
+                self._serial.close()
+            self._serial = None
+            self._connected = False
             return {"ok": False, "error": str(e)}
 
     def disconnect(self) -> dict[str, Any]:
@@ -309,6 +543,7 @@ class SerialBridge:
                 self._serial.close()
             self._connected = False
             self._serial = None
+            self._close_log_file()
             return {"ok": True, "message": f"Disconnected from {self._port}"}
         except Exception as e:
             return {"ok": False, "error": str(e)}
@@ -335,13 +570,7 @@ class SerialBridge:
             self._serial.flush()
             self._tx_count += 1
 
-            # Record TX in buffer
-            with self._lock:
-                self._buffer.append({
-                    "ts": time.time(),
-                    "raw": payload,
-                    "direction": "tx",
-                })
+            self._record_line(payload, "tx")
 
             return {"ok": True, "bytes_sent": len(payload_bytes)}
         except Exception as e:
@@ -388,7 +617,7 @@ class SerialBridge:
         """Connection status."""
         with self._lock:
             buf_size = len(self._buffer)
-        return {
+        result: dict[str, Any] = {
             "connected": self._connected,
             "port": self._port if self._connected else None,
             "baudrate": self._baudrate if self._connected else None,
@@ -397,7 +626,13 @@ class SerialBridge:
             "rx_count": self._rx_count,
             "tx_count": self._tx_count,
             "uptime_seconds": round(time.time() - self._connect_time, 1) if self._connected else 0,
+            "log_enabled": self._log_dir is not None,
+            "log_path": str(self._log_path) if self._log_path else None,
+            "log_rotating": self._log_writer is not None,
         }
+        if self._connected and self._device_identity:
+            result["device"] = self._device_identity
+        return result
 
     def get_stats(self) -> dict[str, Any]:
         """Get buffer statistics."""
@@ -430,10 +665,156 @@ class SerialBridge:
     # ── Internal ──
 
     def _is_port_allowed(self, port: str) -> bool:
-        """Check if port is in allowlist."""
-        if "*" in ALLOWED_PORTS:
-            return True
-        return port in ALLOWED_PORTS
+        """Check if port is in allowlist. Supports port name, vid:pid, or serial:XXXX."""
+        if not self._allowed_ports:
+            return False
+        for entry in self._allowed_ports:
+            if entry == port:
+                return True
+            # Identity-based matching: probe the port and compare
+            if entry.startswith("vid:") or entry.startswith("serial:"):
+                identity = self._probe_device_identity(port)
+                if self._allowlist_entry_matches(entry, identity):
+                    return True
+        return False
+
+    @staticmethod
+    def _normalize_hex(value: str) -> str:
+        """Normalize hex value: strip 0x prefix, lowercase."""
+        v = value.strip().lower()
+        if v.startswith("0x"):
+            v = v[2:]
+        return v
+
+    @classmethod
+    def _allowlist_entry_matches(cls, entry: str, identity: dict[str, Any]) -> bool:
+        """Check if an allowlist entry matches a device identity.
+
+        Supports formats:
+            vid:XXXX pid:YYYY  — match USB VID and PID
+            serial:XXXX        — match serial number
+        """
+        if entry.startswith("serial:"):
+            target_serial = entry.split(":", 1)[1].strip()
+            return identity.get("serial_number") == target_serial
+        if entry.startswith("vid:"):
+            parts = entry.split()
+            target_vid = parts[0].split(":", 1)[1].strip()
+            target_pid = ""
+            if len(parts) > 1 and parts[1].startswith("pid:"):
+                target_pid = parts[1].split(":", 1)[1].strip()
+            if cls._normalize_hex(target_vid) != cls._normalize_hex(identity.get("vid", "")):
+                return False
+            if target_pid and cls._normalize_hex(target_pid) != cls._normalize_hex(identity.get("pid", "")):
+                return False
+            return bool(target_vid)
+        return False
+
+    @staticmethod
+    def _probe_device_identity(port: str) -> dict[str, Any]:
+        """Probe USB device identity for a port."""
+        identity: dict[str, Any] = {}
+        try:
+            from serial.tools import list_ports as lp
+            for p in lp.comports():
+                if p.device == port:
+                    if p.vid is not None:
+                        identity["vid"] = f"0x{p.vid:04x}"
+                    if p.pid is not None:
+                        identity["pid"] = f"0x{p.pid:04x}"
+                    if p.serial_number:
+                        identity["serial_number"] = p.serial_number
+                    if p.manufacturer:
+                        identity["manufacturer"] = p.manufacturer
+                    if p.product:
+                        identity["product"] = p.product
+                    break
+        except (ImportError, Exception):
+            pass
+        return identity
+
+    def check_device_present(self) -> dict[str, Any]:
+        """Check if the previously connected device is still present.
+
+        Compares stored device identity (VID/PID/serial) against current port list.
+        If the same device appears on a different port, reports reconnection.
+
+        Returns:
+            {"present": bool, "reconnected": bool, "new_port": str|None, "identity": dict}
+        """
+        if not self._device_identity:
+            return {"present": False, "reconnected": False, "new_port": None, "identity": {}}
+
+        target_vid = self._device_identity.get("vid")
+        target_pid = self._device_identity.get("pid")
+        target_serial = self._device_identity.get("serial_number")
+
+        current_ports = self.list_ports()
+
+        # Look for exact match on same port
+        for p in current_ports:
+            if p["port"] == self._port:
+                if self._identity_matches(p):
+                    return {
+                        "present": True,
+                        "reconnected": False,
+                        "new_port": None,
+                        "identity": self._device_identity,
+                    }
+
+        # Device not on original port — check if it reappeared elsewhere
+        for p in current_ports:
+            if self._identity_matches(p):
+                return {
+                    "present": True,
+                    "reconnected": True,
+                    "new_port": p["port"],
+                    "identity": self._device_identity,
+                }
+
+        return {
+            "present": False,
+            "reconnected": False,
+            "new_port": None,
+            "identity": self._device_identity,
+        }
+
+    def _identity_matches(self, port_info: dict[str, Any]) -> bool:
+        """Check if a port's USB identity matches the stored device identity."""
+        target = self._device_identity
+        # Match by serial number (most reliable) if available
+        if target.get("serial_number") and port_info.get("serial_number"):
+            return target["serial_number"] == port_info["serial_number"]
+        # Fall back to VID:PID match
+        if target.get("vid") and target.get("pid"):
+            return target["vid"] == port_info.get("vid") and target["pid"] == port_info.get("pid")
+        return False
+
+    def _open_log_file(self, port: str) -> None:
+        """Create a rotating session log with metadata header."""
+        if self._log_dir is None:
+            return
+        metadata: dict[str, Any] = {}
+        if self._baudrate:
+            metadata["baudrate"] = self._baudrate
+        if self._device_identity:
+            for k, v in self._device_identity.items():
+                metadata[f"device_{k}"] = v
+        writer = RotatingLogWriter(self._log_dir, port)
+        self._log_path = writer.open(metadata=metadata)
+        self._log_writer = writer
+
+    def _close_log_file(self) -> None:
+        if self._log_writer is not None:
+            self._log_writer.close()
+        self._log_writer = None
+
+    def _record_line(self, raw: str, direction: str) -> None:
+        entry = {"ts": time.time(), "raw": raw, "direction": direction}
+        with self._lock:
+            self._buffer.append(entry)
+        if self._log_writer is not None:
+            self._log_writer.write(direction, raw)
 
     def _read_loop(self):
         """Background thread: continuously read serial data into buffer."""
@@ -445,12 +826,7 @@ class SerialBridge:
                 if data:
                     line = data.decode("utf-8", errors="replace").rstrip("\r\n")
                     if line:
-                        with self._lock:
-                            self._buffer.append({
-                                "ts": time.time(),
-                                "raw": line,
-                                "direction": "rx",
-                            })
+                        self._record_line(line, "rx")
                         self._rx_count += 1
             except Exception as e:
                 if not self._stop_event.is_set():
@@ -655,6 +1031,214 @@ class SerialBridge:
                 if self._watch_active:
                     logger.warning("Watch loop error: %s", e)
                 time.sleep(0.5)
+
+    # ── Bookmarks & Export ──
+
+    def bookmark(self, label: str) -> dict[str, Any]:
+        """Mark a moment in the log with a labeled bookmark.
+
+        Args:
+            label: Human-readable bookmark label
+
+        Returns:
+            {"ok": bool, "label": str, "timestamp": str}
+        """
+        if not self._connected:
+            return {"ok": False, "error": "Not connected"}
+        if not self._log_writer:
+            return {"ok": False, "error": "No log file configured"}
+
+        self._log_writer.bookmark(label)
+        ts = datetime.now(timezone.utc).isoformat()
+
+        # Also add to ring buffer for search
+        with self._lock:
+            self._buffer.append({
+                "ts": time.time(),
+                "raw": f"--- BOOKMARK: {label} ---",
+                "direction": "bookmark",
+            })
+
+        return {"ok": True, "label": label, "timestamp": ts}
+
+    def export_bundle(
+        self,
+        *,
+        output_dir: Path | None = None,
+        context_lines: int = 200,
+        include_alerts: bool = True,
+    ) -> dict[str, Any]:
+        """Export a minimal reproduction bundle for debugging.
+
+        Collects: log snippet, serial config, device identity, watch alerts, summary.
+
+        Args:
+            output_dir: Directory to write bundle (defaults to log dir)
+            context_lines: Number of recent buffer lines to include
+            include_alerts: Whether to include watch alerts
+
+        Returns:
+            {"ok": bool, "path": str, "contents": dict}
+        """
+        out_dir = output_dir or self._log_dir
+        if out_dir is None:
+            return {"ok": False, "error": "No log directory configured"}
+
+        out_dir.mkdir(parents=True, exist_ok=True)
+        ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
+
+        # Collect data
+        with self._lock:
+            recent_lines = list(self._buffer)[-context_lines:]
+
+        bundle: dict[str, Any] = {
+            "export_time": datetime.now(timezone.utc).isoformat(),
+            "config": {
+                "port": self._port,
+                "baudrate": self._baudrate,
+                "max_lines": self._max_lines,
+            },
+            "device_identity": self._device_identity,
+            "status": self.status,
+            "recent_lines": [
+                {
+                    "ts": l.get("ts", 0),
+                    "direction": l.get("direction", ""),
+                    "raw": _apply_redaction(l.get("raw", "")),
+                }
+                for l in recent_lines
+            ],
+        }
+
+        if include_alerts:
+            bundle["watch_alerts"] = self.get_watch_alerts(n=50)
+
+        # Write bundle
+        bundle_path = out_dir / f"bundle_{ts}.json"
+        try:
+            bundle_path.write_text(
+                json.dumps(bundle, ensure_ascii=False, indent=2, default=str),
+                encoding="utf-8",
+            )
+            return {"ok": True, "path": str(bundle_path), "contents": bundle}
+        except OSError as e:
+            return {"ok": False, "error": str(e)}
+
+    # ── Request/Response ──
+
+    def request(
+        self,
+        command: str,
+        expect: str,
+        timeout: float = 5.0,
+        newline: str = "\r\n",
+        context_lines: int = 5,
+    ) -> dict[str, Any]:
+        """Send a command and wait for a matching response.
+
+        Args:
+            command: Command string to send
+            expect: Regex pattern to match against RX lines
+            timeout: Max seconds to wait for match (0.1–30.0)
+            newline: Newline suffix appended to command
+            context_lines: Number of RX lines before/after match to include
+
+        Returns:
+            On match: {"ok": True, "matched_line", "match_groups", "context", "elapsed_ms"}
+            On timeout: {"ok": False, "error": "timeout", "recent_rx", "elapsed_ms"}
+        """
+        # Pre-compile the expect pattern (validate before sending anything)
+        try:
+            pattern = re.compile(expect)
+        except re.error as e:
+            return {"ok": False, "error": f"Invalid regex: {e}"}
+
+        if not self._connected or not self._serial:
+            return {"ok": False, "error": "Not connected"}
+
+        timeout = max(0.1, min(30.0, timeout))
+
+        # Record current buffer position so we only scan new entries
+        with self._lock:
+            start_idx = len(self._buffer)
+
+        # Send the command
+        write_result = self.write(command, newline=newline)
+        if not write_result.get("ok"):
+            return {"ok": False, "error": f"Write failed: {write_result.get('error')}"}
+
+        # Poll for matching RX line
+        deadline = time.time() + timeout
+        matched_entry = None
+
+        while time.time() < deadline:
+            with self._lock:
+                current_len = len(self._buffer)
+                if current_len > start_idx:
+                    new_entries = list(self._buffer)[start_idx:current_len]
+                    start_idx = current_len
+                else:
+                    new_entries = []
+
+            for entry in new_entries:
+                if entry["direction"] == "rx":
+                    if pattern.search(entry["raw"]):
+                        matched_entry = entry
+                        break
+
+            if matched_entry:
+                break
+
+            # Brief sleep to avoid busy-waiting (match reader thread cadence)
+            time.sleep(0.02)
+
+        elapsed_ms = round((time.time() - (deadline - timeout)) * 1000)
+
+        if matched_entry:
+            # Gather context: RX lines before/after the match in the buffer
+            with self._lock:
+                all_lines = list(self._buffer)
+
+            rx_lines = [l for l in all_lines if l["direction"] == "rx"]
+            match_ts = matched_entry["ts"]
+
+            # Find the match position in the RX-only list
+            match_pos = None
+            for i, line in enumerate(rx_lines):
+                if line["ts"] == match_ts and line["raw"] == matched_entry["raw"]:
+                    match_pos = i
+                    break
+
+            context = []
+            if match_pos is not None:
+                ctx_start = max(0, match_pos - context_lines)
+                ctx_end = min(len(rx_lines), match_pos + context_lines + 1)
+                context = [l["raw"] for l in rx_lines[ctx_start:ctx_end]]
+
+            # Extract regex groups
+            m = pattern.search(matched_entry["raw"])
+            match_groups = list(m.groups()) if m and m.groups() else []
+
+            return {
+                "ok": True,
+                "matched_line": matched_entry["raw"],
+                "match_groups": match_groups,
+                "context": context,
+                "elapsed_ms": elapsed_ms,
+            }
+        else:
+            # Timeout — return recent RX lines for diagnostics
+            with self._lock:
+                recent_rx = [l["raw"] for l in list(self._buffer) if l["direction"] == "rx"][-20:]
+
+            return {
+                "ok": False,
+                "error": "timeout",
+                "timeout_sec": timeout,
+                "command_sent": command,
+                "recent_rx": recent_rx,
+                "elapsed_ms": elapsed_ms,
+            }
 
     def shutdown(self):
         """Clean shutdown."""

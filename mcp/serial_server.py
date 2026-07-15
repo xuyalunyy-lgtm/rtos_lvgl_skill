@@ -9,7 +9,8 @@ Usage:
     python mcp/serial_server.py --self-test  # Run self-test
 
 Environment:
-    SERIAL_ALLOWED_PORTS  — comma-separated allowed ports (default: * = all)
+    SERIAL_ALLOWED_PORTS  — required comma-separated allowlist, e.g. COM3,COM5
+    SERIAL_LOG_DIR        — optional directory for persistent RX/TX session logs
 """
 from __future__ import annotations
 
@@ -65,6 +66,18 @@ def serial_disconnect(args: dict[str, Any]) -> dict[str, Any]:
     return bridge.disconnect()
 
 
+def serial_request(args: dict[str, Any]) -> dict[str, Any]:
+    """Send a command and wait for a matching response."""
+    bridge = get_bridge()
+    return bridge.request(
+        command=args["command"],
+        expect=args["expect"],
+        timeout=args.get("timeout", 5.0),
+        newline=args.get("newline", "\r\n"),
+        context_lines=args.get("context_lines", 5),
+    )
+
+
 def serial_write(args: dict[str, Any]) -> dict[str, Any]:
     """Send data to serial port."""
     bridge = get_bridge()
@@ -101,6 +114,12 @@ def serial_get_stats(args: dict[str, Any]) -> dict[str, Any]:
     return {"ok": True, **stats}
 
 
+def serial_check_device(args: dict[str, Any]) -> dict[str, Any]:
+    """Check if the previously connected device is still present."""
+    bridge = get_bridge()
+    return bridge.check_device_present()
+
+
 def serial_watch(args: dict[str, Any]) -> dict[str, Any]:
     """Start/stop/query background symptom watch."""
     bridge = get_bridge()
@@ -129,6 +148,21 @@ def serial_summary(args: dict[str, Any]) -> dict[str, Any]:
     return bridge.summarize_buffer(n=args.get("n", 500))
 
 
+def serial_bookmark(args: dict[str, Any]) -> dict[str, Any]:
+    """Mark a moment in the log with a labeled bookmark."""
+    bridge = get_bridge()
+    return bridge.bookmark(label=args["label"])
+
+
+def serial_export_bundle(args: dict[str, Any]) -> dict[str, Any]:
+    """Export a minimal reproduction bundle."""
+    bridge = get_bridge()
+    return bridge.export_bundle(
+        context_lines=args.get("context_lines", 200),
+        include_alerts=args.get("include_alerts", True),
+    )
+
+
 # ── Tool dispatch ──
 
 TOOLS = {
@@ -136,10 +170,14 @@ TOOLS = {
     "serial_connect": serial_connect,
     "serial_disconnect": serial_disconnect,
     "serial_write": serial_write,
+    "serial_request": serial_request,
     "serial_get_lines": serial_get_lines,
     "serial_search": serial_search,
+    "serial_check_device": serial_check_device,
     "serial_get_stats": serial_get_stats,
     "serial_watch": serial_watch,
+    "serial_bookmark": serial_bookmark,
+    "serial_export_bundle": serial_export_bundle,
     "serial_summary": serial_summary,
 }
 
@@ -297,7 +335,7 @@ def run_self_test() -> int:
             print(f"  FAIL: {name}")
 
     # Test 1: Schema validation
-    check("has tool schemas", len(SERIAL_TOOL_SCHEMAS) == 9)
+    check("has tool schemas", bool(SERIAL_TOOL_SCHEMAS))
     check("has resource schemas", len(SERIAL_RESOURCE_SCHEMAS) == 3)
     check("all tools registered", set(TOOLS.keys()) == set(TOOL_SCHEMA_MAP.keys()))
 
@@ -365,18 +403,114 @@ def run_self_test() -> int:
     check("status has buffer_size", "buffer_size" in status)
     check("status buffer_size correct", status["buffer_size"] == 5)
 
-    # Test 9: Port allowlist
-    check("* allows all ports", bridge._is_port_allowed("COM99"))
-    bridge2 = SerialBridge()
-    bridge2._port = "test"
-    # Default SERIAL_ALLOWED_PORTS is *, so all allowed
+    # Test 9: serial_request on disconnected bridge returns error
+    req_result = bridge.request("AT+RST", "ready", timeout=0.5)
+    check("request while disconnected returns error", req_result.get("ok") is False)
+
+    # Test 9b: serial_request with invalid regex returns error (works even disconnected)
+    req_result2 = bridge.request("AT+RST", "(?P<incomplete", timeout=0.5)
+    check("request invalid regex returns error", req_result2.get("ok") is False and "Invalid regex" in req_result2.get("error", ""))
+
+    # Test 9c: serial_request timeout returns recent_rx
+    req_bridge = SerialBridge(max_lines=100)
+    req_bridge._buffer.append({"ts": 1.0, "raw": "some log line", "direction": "rx"})
+    req_bridge._buffer.append({"ts": 2.0, "raw": "another line", "direction": "rx"})
+    # Simulate connected state for timeout test
+    req_bridge._connected = True
+    req_bridge._serial = None  # Will cause write failure
+    req_result3 = req_bridge.request("AT", "OK", timeout=0.2)
+    check("request with no serial returns write error", req_result3.get("ok") is False)
+    req_bridge.shutdown()
+
+    # Test 9d: check_device_present with no identity returns not present
+    check_result = bridge.check_device_present()
+    check("check_device with no identity returns not present", check_result.get("present") is False)
+
+    # Test 9e: _allowlist_entry_matches with serial
+    identity = {"serial_number": "ABC123", "vid": "0x1a86", "pid": "0x7523"}
+    check("allowlist serial match", SerialBridge._allowlist_entry_matches("serial:ABC123", identity))
+    check("allowlist serial no match", not SerialBridge._allowlist_entry_matches("serial:XYZ", identity))
+
+    # Test 9f: _allowlist_entry_matches with vid:pid
+    check("allowlist vid:pid match", SerialBridge._allowlist_entry_matches("vid:1a86 pid:7523", identity))
+    check("allowlist vid only match", SerialBridge._allowlist_entry_matches("vid:1a86", identity))
+    check("allowlist vid:pid no match", not SerialBridge._allowlist_entry_matches("vid:1a86 pid:9999", identity))
+    check("allowlist vid no match", not SerialBridge._allowlist_entry_matches("vid:0000", identity))
+
+    # Test 9g: Default-deny and explicit allowlist.
+    check("default denies unconfigured port", not bridge._is_port_allowed("COM99"))
+    allowed_bridge = SerialBridge(allowed_ports=("COM7",))
+    check("explicit allowlist permits configured port", allowed_bridge._is_port_allowed("COM7"))
+    check("explicit allowlist blocks other port", not allowed_bridge._is_port_allowed("COM8"))
+
+    # Test 10: Configured log directory stores an RX/TX session record.
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmpdir:
+        log_bridge = SerialBridge(log_dir=Path(tmpdir))
+        log_bridge._open_log_file("COM7")
+        log_bridge._record_line("boot complete", "rx")
+        log_path = log_bridge._log_path
+        log_bridge._close_log_file()
+        check("log path created", log_path is not None and log_path.is_file())
+        log_content = log_path.read_text(encoding="utf-8") if log_path else ""
+        check("log record persisted", log_path is not None and "[RX] boot complete" in log_content)
+        check("log has metadata header", "port: COM7" in log_content)
+
+    # Test 10b: Redaction masks sensitive data.
+    with tempfile.TemporaryDirectory() as tmpdir:
+        redact_bridge = SerialBridge(log_dir=Path(tmpdir))
+        redact_bridge._open_log_file("COM8")
+        redact_bridge._record_line("AT+CWJAP=\"MyWifi\",\"secret123\"", "tx")
+        redact_bridge._record_line("token=abc123xyz", "tx")
+        redact_bridge._close_log_file()
+        redact_path = redact_bridge._log_path
+        redact_content = redact_path.read_text(encoding="utf-8") if redact_path else ""
+        check("redaction masks password", "secret123" not in redact_content)
+        check("redaction masks token", "abc123xyz" not in redact_content)
+        check("redaction has marker", "[REDACTED]" in redact_content)
+
+    # Test 10c: Bookmark writes to log and buffer.
+    with tempfile.TemporaryDirectory() as tmpdir:
+        bm_bridge = SerialBridge(log_dir=Path(tmpdir))
+        bm_bridge._connected = True
+        bm_bridge._open_log_file("COM9")
+        bm_result = bm_bridge.bookmark("test-start")
+        check("bookmark returns ok", bm_result.get("ok") is True)
+        bm_bridge._close_log_file()
+        bm_content = bm_bridge._log_path.read_text(encoding="utf-8") if bm_bridge._log_path else ""
+        check("bookmark in log", "BOOKMARK" in bm_content and "test-start" in bm_content)
+        bm_lines = bm_bridge.get_lines(n=1, direction="bookmark")
+        check("bookmark in buffer", len(bm_lines) == 1)
+
+    # Test 10d: Export bundle creates JSON file.
+    with tempfile.TemporaryDirectory() as tmpdir:
+        export_bridge = SerialBridge(log_dir=Path(tmpdir))
+        export_bridge._buffer.append({"ts": 1.0, "raw": "line1", "direction": "rx"})
+        export_result = export_bridge.export_bundle(context_lines=10)
+        check("export bundle ok", export_result.get("ok") is True)
+        bundle_path = export_result.get("path", "")
+        check("export bundle file exists", Path(bundle_path).is_file() if bundle_path else False)
+
+    # Test 10e: RotatingLogWriter respects max_size.
+    with tempfile.TemporaryDirectory() as tmpdir:
+        from serial_client import RotatingLogWriter
+        writer = RotatingLogWriter(Path(tmpdir), "COM10", max_size=200, max_files=3)
+        writer.open()
+        for i in range(50):
+            writer.write("rx", f"test line {i} with some padding data")
+        writer.close()
+        log_files = sorted(Path(tmpdir).glob("COM10_*.log"))
+        check("rotation creates multiple files", len(log_files) > 1)
 
     # Test 10: JSON-RPC handler
     resp = _handle_request({"method": "initialize", "params": {"protocolVersion": "2025-11-25"}, "id": 1})
     check("initialize works", resp is not None and resp.get("result", {}).get("protocolVersion") == "2025-11-25")
 
     resp = _handle_request({"method": "tools/list", "params": {}, "id": 2})
-    check("tools/list returns 9", resp is not None and len(resp.get("result", {}).get("tools", [])) == 9)
+    check(
+        "tools/list returns every schema",
+        resp is not None and len(resp.get("result", {}).get("tools", [])) == len(SERIAL_TOOL_SCHEMAS),
+    )
 
     resp = _handle_request({"method": "resources/list", "params": {}, "id": 3})
     check("resources/list returns 3", resp is not None and len(resp.get("result", {}).get("resources", [])) == 3)

@@ -3,21 +3,18 @@ name: freertos-embedded-architect
 metadata:
   version: 45.0.0
 description: >-
-  FreeRTOS/IoT firmware architect: MVP code review, LVGL UI generation,
-  crash debugging, OTA safety, SDK trimming, module contracts, task topology,
-  DMA/ISR safety, A/V sync, clock jitter, zero-copy buffers, cJSON leak prevention,
-  WSS/mbedTLS, sensor integration, lock budget, priority inversion, critical sections.
-  Multi-platform (ESP32/STM32/JL/BK/Zephyr). Use when working on embedded C, RTOS tasks,
-  board bring-up, memory analysis, peripheral drivers, or firmware review.
+  FreeRTOS/IoT 固件架构师：代码审查、LVGL UI 生成、崩溃调试、OTA 安全、SDK 裁剪、
+  模块契约、任务拓扑、DMA/ISR 安全、音视频同步、时钟抖动、零拷贝缓冲区、cJSON 泄漏防护、
+  WSS/mbedTLS、传感器集成、锁预算、优先级反转、临界区。多平台（ESP32/STM32/JL/BK/Zephyr）。
+  Use when working on embedded C, RTOS tasks, board bring-up, memory analysis, peripheral drivers, or firmware review.
 ---
 # FreeRTOS Embedded Architect
-Routing — match the user's first message to ONE workflow.
-Priority: 1 = highest (debug/safety), 2 = high (review), 3 = normal (generate).
-Exclude: if user input contains both Keywords and Exclude, skip that route.
-Match top-down by priority; within the same priority, pick the most keyword hits.
 
-| Keywords | Exclude | Priority | Workflow |
-|----------|---------|----------|----------|
+路由规则：将用户的第一条消息匹配到**一个**工作流。
+优先级：1 = 最高（调试/安全），2 = 高（审查），3 = 正常（生成）。
+排除：如果输入同时包含 Keywords 和 Exclude，跳过该路由。
+按优先级从高到低匹配；同一优先级内，取关键字命中最多的。
+
 | Keywords | Exclude | Priority | Workflow |
 |----------|---------|----------|----------|
 | crash, HardFault, WDT, deadlock, frozen, 死机, 看门狗, 崩溃, backtrace, Guru Meditation, watchdog, stack overflow crash, exception, 卡在, 卡死, 重启 | — | 1 | debug_crash |
@@ -30,9 +27,9 @@ Match top-down by priority; within the same priority, pick the most keyword hits
 | LVGL, UI, page, 页面, 设计截图, design, 界面, GUI, widget | crash, 死机, 卡死, frozen, 卡在 | 3 | l3_lvgl_page |
 | new module, 新模块, task, 任务, multitask, module design, 模块设计, module, 模块 | crash, review, 审查, leak, 内存 | 3 | l3_new_module |
 | SDK trim, 裁剪, 裁, driver prune, sdk_trim, component pruning, 减小体积, trim, prune, flash不够, 精简, 缩减 | — | 3 | l3_sdk_trim |
-Composite requests: pick the workflow matching the user's primary deliverable first.
-Load supplementary material only when that workflow explicitly requires it.
-If the primary task is unclear, ask one clarifying question before proceeding.
+组合请求：优先匹配用户主要交付物对应的工作流。
+仅在该工作流明确需要时才加载补充材料。
+如果主要任务不明确，先问一个澄清问题再继续。
 ---
 ## Review Domain
 **Trigger:** code review / audit / memory analysis / project review / HW-SW co-debug
@@ -75,13 +72,13 @@ If the primary task is unclear, ask one clarifying question before proceeding.
 - **工具:** `python tools/log_triage.py`, `python tools/context_router.py`
 - **禁止:** 无额外默认禁读目录。
 ---
-## Shared Rules (All Domains)
-- Ask for platform when missing; ESP32/STM32/JL/BK are platforms, FreeRTOS/Zephyr are RTOS.
-- Select a workflow before acting; load ONLY files in your domain's Loading Rules.
-- Commit requests: follow `references/git_commit_style.md`, use `type(scope):`.
-- LVGL UI generation must be implemented and verified in the target project; do not assume a repository-provided generator or simulator is available.
-## Constraint Shards Index
-Load only the shard(s) referenced by your selected workflow:
+## 共享规则（所有域）
+- 缺少平台信息时先询问；ESP32/STM32/JL/BK 是平台，FreeRTOS/Zephyr 是 RTOS。
+- 先选定工作流再行动；只加载你所在域的 Loading Rules 中列出的文件。
+- 提交请求：遵循 `references/git_commit_style.md`，使用 `type(scope):` 格式。
+- LVGL UI 生成必须在目标工程中实现和验证；不要假设仓库提供了生成器或模拟器。
+## 约束分片索引
+只加载你选定工作流引用的分片：
 | Shard | Constraints |
 |-------|-------------|
 | constraint_review.md | C1-C6, C11-C16 |

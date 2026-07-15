@@ -12,7 +12,7 @@ SERIAL_TOOL_SCHEMAS = [
     },
     {
         "name": "serial_connect",
-        "description": "Connect to a serial port. Starts background reading into local ring buffer.",
+        "description": "Connect to an explicitly allowlisted serial port. Starts background reading into a local ring buffer and, when SERIAL_LOG_DIR is configured, a persistent session log.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -78,6 +78,44 @@ SERIAL_TOOL_SCHEMAS = [
         },
     },
     {
+        "name": "serial_request",
+        "description": "Send a command and wait for a matching response. Returns matched line with context, or timeout with recent RX history. More reliable than manual write+poll.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "command": {
+                    "type": "string",
+                    "description": "Command to send (e.g., 'AT+RST', 'AT+GMR')",
+                },
+                "expect": {
+                    "type": "string",
+                    "description": "Regex pattern to match in RX lines (e.g., 'ready', 'OK', 'ERROR')",
+                },
+                "timeout": {
+                    "type": "number",
+                    "default": 5.0,
+                    "minimum": 0.1,
+                    "maximum": 30.0,
+                    "description": "Max seconds to wait for match",
+                },
+                "newline": {
+                    "type": "string",
+                    "default": "\r\n",
+                    "description": "Newline suffix appended to command",
+                },
+                "context_lines": {
+                    "type": "integer",
+                    "default": 5,
+                    "minimum": 0,
+                    "maximum": 20,
+                    "description": "Number of RX lines before/after match to include in context",
+                },
+            },
+            "required": ["command", "expect"],
+            "additionalProperties": False,
+        },
+    },
+    {
         "name": "serial_get_lines",
         "description": "Read lines from the local ring buffer. Data is stored locally and only returned when this tool is called — no tokens consumed until you ask.",
         "inputSchema": {
@@ -122,6 +160,15 @@ SERIAL_TOOL_SCHEMAS = [
         },
     },
     {
+        "name": "serial_check_device",
+        "description": "Check if the previously connected device is still present. Detects USB reconnection on a different port by comparing VID/PID/serial number.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": False,
+        },
+    },
+    {
         "name": "serial_get_stats",
         "description": "Get ring buffer statistics: total lines, rx/tx counts, time range.",
         "inputSchema": {
@@ -156,6 +203,43 @@ SERIAL_TOOL_SCHEMAS = [
                 },
             },
             "required": ["action"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "serial_bookmark",
+        "description": "Mark a moment in the log with a labeled bookmark. Useful for marking test start, critical events, etc.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "label": {
+                    "type": "string",
+                    "description": "Human-readable bookmark label (e.g., 'wifi-connect-test', 'ota-start')",
+                },
+            },
+            "required": ["label"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "serial_export_bundle",
+        "description": "Export a minimal reproduction bundle: recent log lines, serial config, device identity, watch alerts. Useful for filing bug reports.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "context_lines": {
+                    "type": "integer",
+                    "default": 200,
+                    "minimum": 10,
+                    "maximum": 5000,
+                    "description": "Number of recent buffer lines to include",
+                },
+                "include_alerts": {
+                    "type": "boolean",
+                    "default": True,
+                    "description": "Whether to include watch alerts in the bundle",
+                },
+            },
             "additionalProperties": False,
         },
     },
