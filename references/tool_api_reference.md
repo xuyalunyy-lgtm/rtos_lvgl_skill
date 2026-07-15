@@ -186,13 +186,12 @@ python scripts/quick_gate.py
 python scripts/quick_gate.py --strict
 ```
 
-依次运行 15 项检查：self-test、example 验证、log triage、text encoding、runtime distribution、link check、LVGL regression 等。
+运行当前仓库中真实存在的发布检查：review fixture、日志路由、安装边界、MCP 自测、项目 Doctor、单元测试和链接/编码检查。输出会显示实际检查项数；所有项均为阻塞项。
 
 ### skill_iterate.py — Skill 迭代检查
 
 ```bash
 python scripts/skill_iterate.py --check
-python scripts/skill_iterate.py --check --strict-release
 ```
 
 ### check_skill_metadata.py — 元数据验证
@@ -249,7 +248,25 @@ quick_gate.py
 ├── check_skill_metadata.py
 ├── check_text_encoding.py
 ├── check_runtime_distribution.py
+├── check_release_contract.py
+├── project_doctor.py --self-test
+├── unittest tests/
+├── mqtt_server.py / ota_server.py / serial_server.py --self-test
 ├── check_links.py
-├── check_lvgl_regression.py
 └── run_review.py --self-test
 ```
+
+### project_doctor.py
+
+项目诊断与 manifest 生成统一入口。默认离线、只读；不会写文件或触发编译。
+
+```bash
+python tools/project_doctor.py <project>
+python tools/project_doctor.py <project> --write-manifest
+python tools/project_doctor.py <project> --manifest <path>
+python tools/project_doctor.py <project> --verify-build
+```
+
+当前内置 ESP-IDF 与 Zephyr 解析器：ESP-IDF 从 `sdkconfig` 提取 `CONFIG_IDF_TARGET`，Zephyr 从 `build/zephyr/.config` 或项目配置提取 `CONFIG_BOARD`。因此同一 SDK 家族的新芯片通常无需更新工具；只有新增 SDK 家族时才需要增加解析器。
+
+`--verify-build` 是显式副作用操作：ESP-IDF 执行 `idf.py build`；Zephyr 仅在已识别板型时执行 `west build -b <board> .`。构建产物会记录在输出的 `project_manifest` 中。
