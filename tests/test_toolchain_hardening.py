@@ -14,7 +14,10 @@ sys.path.insert(0, str(ROOT / "scripts"))
 sys.path.insert(0, str(ROOT / "tools"))
 
 import quick_gate
+import constraint_lookup
 import review_history
+import review_report
+import review_watch
 import run_review
 from checker_io import filter_inactive_kconfig_blocks
 from checker_registry import ALL_CHECKERS
@@ -40,6 +43,81 @@ class QuickGateHardeningTests(unittest.TestCase):
 
 
 class RunReviewProtocolTests(unittest.TestCase):
+    def test_constraint_lookup_links_rules_checkers_and_platform_notes(self) -> None:
+        result = constraint_lookup.lookup("C15", "zephyr")
+        self.assertTrue(any(rule["id"] == "C15.1" for rule in result["rules"]))
+        self.assertTrue(any(checker["name"] == "priority_checker" for checker in result["checkers"]))
+        self.assertIn("zephyr", result["platform_differences"])
+
+    def test_review_report_escapes_html_and_writes_both_formats(self) -> None:
+        report = {
+            "exit_code": 1,
+            "files_checked": 1,
+            "total_issues": 1,
+            "review_context": {"platform": "zephyr"},
+            "checkers": [{
+                "checker": "fixture", "domains": ["C15"], "files_checked": 1, "issues": 1,
+                "findings": [{"id": "C15.1", "severity": "P1", "file": "main.c:4", "issue": "<unsafe>"}],
+            }],
+        }
+        markdown = review_report.render_markdown(report)
+        html = review_report.render_html(report)
+        self.assertIn("# Embedded Review Report", markdown)
+        self.assertIn("&lt;unsafe&gt;", html)
+        with tempfile.TemporaryDirectory() as directory:
+            markdown_path = review_report.write_report(report, Path(directory) / "review.md", "markdown")
+            html_path = review_report.write_report(report, Path(directory) / "review.html", "html")
+            self.assertEqual(markdown_path.read_text(encoding="utf-8"), markdown)
+            self.assertEqual(html_path.read_text(encoding="utf-8"), html)
+
+    def test_watch_removes_directory_argument_for_incremental_review(self) -> None:
+        arguments = ["--dir", "src", "--platform", "esp32", "--skip-stack"]
+        self.assertEqual(
+            review_watch.without_directory_args(arguments),
+            ["--platform", "esp32", "--skip-stack"],
+        )
+
+    def test_watch_reruns_only_saved_source_file(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "main.c"
+            initial = {source: (1, 8)}
+            changed = {source: (2, 9)}
+            with patch.object(sys, "argv", [
+                "review_watch.py", "--root", str(root), "--",
+                "--dir", str(root), "--platform", "esp32", "--skip-stack",
+            ]):
+                with patch.object(review_watch, "run_review", return_value=0) as run:
+                    with patch.object(review_watch, "snapshot", side_effect=[initial, changed]):
+                        with patch.object(review_watch.time, "sleep", side_effect=[None, KeyboardInterrupt()]):
+                            self.assertEqual(review_watch.main(), 0)
+            self.assertEqual(
+                run.call_args_list[0].args[0],
+                ["--dir", str(root), "--platform", "esp32", "--skip-stack"],
+            )
+            self.assertEqual(
+                run.call_args_list[1].args[0],
+                [str(source), "--platform", "esp32", "--skip-stack"],
+            )
+
+    def test_run_review_writes_markdown_and_html_reports(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            markdown_path = Path(directory) / "review.md"
+            html_path = Path(directory) / "review.html"
+            completed = subprocess.run(
+                [
+                    sys.executable, str(ROOT / "tools" / "run_review.py"),
+                    str(ROOT / "tools" / "fixtures" / "good_rtos_abstraction.c"),
+                    "--platform", "freertos", "--skip-stack", "--no-history",
+                    "--markdown", str(markdown_path), "--html", str(html_path),
+                ],
+                capture_output=True, text=True, encoding="utf-8", errors="replace",
+            )
+            self.assertEqual(completed.returncode, 0, completed.stderr)
+            self.assertIn("[report]", completed.stdout)
+            self.assertIn("Embedded Review Report", markdown_path.read_text(encoding="utf-8"))
+            self.assertIn("<html", html_path.read_text(encoding="utf-8"))
+
     def test_review_history_reports_baseline_then_improvement(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             first = {"total_issues": 4}

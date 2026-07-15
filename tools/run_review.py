@@ -664,6 +664,34 @@ def run_registered_checkers(args: argparse.Namespace, c_files: list[Path]) -> in
     return exit_code
 
 
+def _launch_watch(args: argparse.Namespace) -> int:
+    """Delegate polling to the standalone watcher without recursive flags."""
+    forwarded: list[str] = []
+    raw = sys.argv[1:]
+    index = 0
+    while index < len(raw):
+        token = raw[index]
+        if token == "--watch":
+            index += 1
+            continue
+        if token in {"--watch-interval"}:
+            index += 2
+            continue
+        if token.startswith("--watch-interval=") or token == "--watch-once":
+            index += 1
+            continue
+        forwarded.append(token)
+        index += 1
+    command = [
+        sys.executable, str(TOOLS_DIR / "review_watch.py"), "--root", args.dir,
+        "--interval", str(args.watch_interval),
+    ]
+    if args.watch_once:
+        command.append("--once")
+    command.extend(["--", *forwarded])
+    return subprocess.run(command, cwd=SKILL_ROOT).returncode
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="FreeRTOS Skill one-click static review")
     parser.add_argument("files", nargs="*", help="Files to review (.c)")
@@ -720,6 +748,11 @@ def main() -> int:
         action="store_true",
         help="输出 JSON 格式摘要（CI 集成 / 机器可读）",
     )
+    parser.add_argument("--markdown", metavar="FILE", help="将结构化审查结果写为 Markdown 报告")
+    parser.add_argument("--html", metavar="FILE", help="将结构化审查结果写为独立 HTML 报告")
+    parser.add_argument("--watch", action="store_true", help="监控 --dir 下 C/C++ 保存并增量重跑相关 checker")
+    parser.add_argument("--watch-interval", type=float, default=0.75, help="--watch 轮询秒数（默认 0.75）")
+    parser.add_argument("--watch-once", action="store_true", help="配合 --watch 只执行首轮全量审查（便于 IDE/CI 验证）")
     parser.add_argument(
         "--build-system",
         help="由 project_doctor 传入的构建系统上下文（例如 esp-idf、west、cmake）",
@@ -793,6 +826,20 @@ def main() -> int:
         help="FixPlan 输出详细程度：summary（默认）只输出摘要，full 输出完整 template/diff",
     )
     args = parser.parse_args()
+    emit_json = args.json
+
+    if args.watch:
+        if not args.dir or args.files or args.changed_only or args.dry_run:
+            parser.error("--watch requires --dir and cannot be combined with files, --changed-only, or --dry-run")
+        if args.watch_interval <= 0:
+            parser.error("--watch-interval must be positive")
+        return _launch_watch(args)
+    if (args.markdown or args.html) and (args.self_test or args.validate_examples or args.list_checkers or args.dry_run):
+        parser.error("--markdown/--html require an executed review, not a meta command or --dry-run")
+    # Report rendering consumes the same structured data as --json.  Preserve
+    # normal text stdout when only a file report was requested.
+    if args.markdown or args.html:
+        args.json = True
 
     try:
         args.kconfig_values = configure_kconfig_values(args.config)
@@ -1054,8 +1101,25 @@ def main() -> int:
                 append_review_history(report, args.history_dir)
             except OSError as exc:
                 print(f"[warn] review history was not saved: {exc}", file=sys.stderr)
-        json.dump(report, sys.stdout, ensure_ascii=False, indent=2)
-        print()
+        output_paths: list[Path] = []
+        if args.markdown or args.html:
+            from review_report import write_report
+            try:
+                if args.markdown:
+                    output_paths.append(write_report(report, args.markdown, "markdown"))
+                if args.html:
+                    output_paths.append(write_report(report, args.html, "html"))
+            except OSError as exc:
+                print(f"[error] report output failed: {exc}", file=sys.stderr)
+                return 1
+        if emit_json:
+            json.dump(report, sys.stdout, ensure_ascii=False, indent=2)
+            print()
+        elif output_paths:
+            outcome = "通过" if exit_code == 0 else "存在告警/失败"
+            print(f"Summary: {outcome}; files={len(c_files)} issues={report['total_issues']}")
+            for output_path in output_paths:
+                print(f"[report] {output_path}")
     else:
         print(f"\n{'=' * 60}")
         if exit_code == 0:

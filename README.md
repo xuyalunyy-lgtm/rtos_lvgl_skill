@@ -2,6 +2,8 @@
 
 FreeRTOS/IoT 固件架构技能：代码审查、LVGL UI 生成、崩溃调试、OTA 安全、SDK 裁剪、模块契约、任务拓扑、DMA/ISR 安全、音视频同步、MCP 串口调试。约束系统 C1-C45（45 个约束域，248 条规则）。
 
+第一次使用请从 [onboard.md](onboard.md) 开始。
+
 ---
 
 ## 5 分钟上手
@@ -112,6 +114,8 @@ python tools/serial_mqtt_e2e.py --port COM3 --broker 192.168.1.20 --topic device
 | 场景 | 入口 | 说明 |
 |------|------|------|
 | CLI / CI 审查 | `python tools/run_review.py` | 一键静态审查 |
+| 约束查询 | `python tools/constraint_lookup.py C15` | 规则、checker、样例与平台差异 |
+| 实时审查 | `python tools/run_review.py --dir ./src --watch` | 保存文件后增量重跑 |
 | Claude Code / IDE | Skill | 读取 `SKILL.md` 与对应 workflow |
 | 项目初检 | `python tools/project_doctor.py <project>` | 识别 SDK/RTOS/构建系统，生成可选项目清单 |
 | 崩溃闭环 | `python tools/diagnostic_loop.py --log ... --dir ...` | 分诊、定向审查、修复建议与复核 |
@@ -164,6 +168,15 @@ python tools/run_review.py --from-symptom-plan plan.json --dir ./src
 
 # 预览审查计划（不执行 checker）
 python tools/run_review.py --from-symptom-plan plan.json --dir ./src --dry-run
+
+# 生成易读报告（同时可加 --json 输出机器可读摘要）
+python tools/run_review.py --dir ./src --platform esp32 --markdown artifacts/review.md --html artifacts/review.html
+
+# 实时审查；首次全量，随后仅检查保存的 C/C++ 文件
+python tools/run_review.py --dir ./src --platform esp32 --watch
+
+# 快速查询约束、关联 checker、fixture 与平台差异
+python tools/constraint_lookup.py C15 --platform zephyr
 
 # 只审查本次 Git 变更的 C/C++ 文件（CI 指定基线）
 python tools/run_review.py --changed-only --changed-base origin/main
