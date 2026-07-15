@@ -47,8 +47,12 @@ STEPS = [
     GateStep("text encoding", [sys.executable, "scripts/check_text_encoding.py"]),
     GateStep("runtime distribution", [sys.executable, "scripts/check_runtime_distribution.py"]),
     GateStep("link check", [sys.executable, "tools/check_links.py"]),
-    GateStep("native LVGL regression", [sys.executable, "scripts/check_lvgl_regression.py"]),
-    GateStep("multi-page MVP", [sys.executable, "-m", "pytest", "tests/test_manifest_v2.py", "tests/test_app_codegen.py", "tests/test_app_validator.py", "tests/test_mvp_integration.py", "-v"]),
+    GateStep("release contract", [sys.executable, "scripts/check_release_contract.py"]),
+    GateStep("project doctor", [sys.executable, "tools/project_doctor.py", "--self-test"]),
+    GateStep("unit tests", [sys.executable, "-m", "unittest", "discover", "-s", "tests", "-v"]),
+    GateStep("mqtt MCP", [sys.executable, "mcp/mqtt_server.py", "--self-test"]),
+    GateStep("ota MCP", [sys.executable, "mcp/ota_server.py", "--self-test"]),
+    GateStep("serial MCP", [sys.executable, "mcp/serial_server.py", "--self-test"]),
 ]
 
 

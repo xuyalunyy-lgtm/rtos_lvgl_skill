@@ -8,8 +8,9 @@ param(
 )
 
 $ExcludeDirs = @(
-    ".git", ".github", ".vscode", "fw-AC79_AIoT_SDK", "bk_idk-release-v2.2.1", "__pycache__",
-    ".pytest_cache", "node_modules", "freertos-skill-lite", "archive", "artifacts", "forward_tests"
+    ".git", ".github", ".vscode", ".claude", ".codex", "fw-AC79_AIoT_SDK", "bk_idk-release-v2.2.1", "__pycache__",
+    ".mypy_cache", ".pytest_cache", "node_modules", "freertos-skill-lite", "archive", "artifacts", "forward_tests", "out",
+    ".skill_metrics", ".skill_evidence"
 )
 $ExcludeDirs += Get-ChildItem -LiteralPath $Source -Directory -Filter ".tmp_*" -ErrorAction SilentlyContinue | ForEach-Object FullName
 $ExcludeDirs += Join-Path $Source "runtime\toolchain\win-x64"

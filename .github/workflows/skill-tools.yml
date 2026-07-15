@@ -1,261 +1,50 @@
-name: Skill Tools
+name: Skill Quality
 
 on:
-  schedule:
-    - cron: '0 6 * * 1'  # Weekly Monday 06:00 UTC
-  workflow_dispatch:
-    inputs:
-      run_e2e:
-        description: 'Run real Agent E2E evaluation'
-        required: false
-        default: 'false'
-        type: boolean
   push:
-    paths:
-      - 'tools/**'
-      - 'scripts/**'
-      - 'examples/**'
-      - 'mcp/**'
-      - 'agents/**'
-      - 'platforms/**'
-      - 'golden_pages/**'
-      - 'schemas/**'
-      - 'SKILL.md'
-      - 'scripts/skill_lite_body.md'
-      - 'workflows/**'
-      - 'references/**'
-      - 'tests/fixtures/routing_*.json'
-      - '.github/workflows/skill-tools.yml'
+    paths-ignore:
+      - 'archive/**'
+      - 'artifacts/**'
   pull_request:
-    paths:
-      - 'tools/**'
-      - 'scripts/**'
-      - 'examples/**'
-      - 'mcp/**'
-      - 'agents/**'
-      - 'platforms/**'
-      - 'golden_pages/**'
-      - 'schemas/**'
-      - 'SKILL.md'
-      - 'scripts/skill_lite_body.md'
-      - 'workflows/**'
-      - 'references/**'
-      - 'tests/fixtures/routing_*.json'
-      - '.github/workflows/skill-tools.yml'
+    paths-ignore:
+      - 'archive/**'
+      - 'artifacts/**'
+  workflow_dispatch:
 
 jobs:
-  # ── Core tests: Linux + Python 3.10 ──
-  core-tests:
-    runs-on: ubuntu-latest
+  quality-gate:
+    name: Quality gate (${{ matrix.os }}, Python ${{ matrix.python-version }})
+    runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
-        python-version: ['3.10', '3.11', '3.12']
+        os: [ubuntu-latest, windows-latest]
+        python-version: ['3.10', '3.12']
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Checker fixtures self-test
-        run: python tools/run_review.py --self-test
-      - name: Examples iron-rule constraints
-        run: python tools/run_review.py --validate-examples
-      - name: Secret scan fixtures
-        run: |
-          python tools/secret_scan_checker.py tools/fixtures/good_config_secrets
-          python tools/secret_scan_checker.py tools/fixtures/bad_config_secrets && exit 1 || exit 0
-      - name: Schema guardrail unit tests
-        run: python -m unittest discover -s scripts -p "test_quality_schema_guardrails.py"
-      - name: Symptom route/quality self-tests
-        run: |
-          python scripts/check_log_symptom_routes.py --self-test
-          python scripts/check_log_symptom_quality_gate.py --self-test
-      - name: Skill iteration loop (check + dry-run sync)
+      - name: Install MCP dependencies
+        run: python -m pip install "paho-mqtt>=1.6,<3" "pyserial>=3.5,<4"
+      - name: Run truthful local gate
+        run: python scripts/quick_gate.py --strict
+      - name: Run iteration contract
         run: python scripts/skill_iterate.py --check --skip-self-test
 
-  # ── MCP tests: Linux + Python 3.11 ──
-  mcp-tests:
+  mcp-protocol:
+    name: MCP protocol self-tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: MCP server ping test
-        run: echo '{"jsonrpc":"2.0","id":1,"method":"ping"}' | python mcp/server.py
-      - name: MCP server initialize test
-        run: echo '{"jsonrpc":"2.0","id":2,"method":"initialize","params":{}}' | python mcp/server.py
-      - name: MCP unknown method error test
-        run: |
-          result=$(echo '{"jsonrpc":"2.0","id":3,"method":"unknown"}' | python mcp/server.py)
-          echo "$result" | python -c "import sys,json; d=json.load(sys.stdin); assert d.get('error',{}).get('code') == -32601"
-      - name: MCP batch request test
-        run: |
-          result=$(echo '[{"jsonrpc":"2.0","id":1,"method":"ping"},{"jsonrpc":"2.0","id":2,"method":"ping"}]' | python mcp/server.py)
-          echo "$result" | python -c "import sys,json; d=json.load(sys.stdin); assert len(d) == 2"
-
-  # ── Metadata and boundary tests ──
-  metadata-tests:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-      - name: Skill metadata validation
-        run: python scripts/check_skill_metadata.py
-      - name: Runtime distribution boundary check
-        run: python scripts/check_runtime_distribution.py
-      - name: Link validation
-        run: python tools/check_links.py
-      - name: Constraint coverage check
-        run: python scripts/check_rule_coverage.py
-      - name: Routing table sync check
-        run: python scripts/sync_skill_routing.py --check
-      - name: Golden routing evaluation
-        run: python scripts/eval_golden_routing.py
-      - name: Routing sampling evaluation
-        run: python scripts/eval_routing_sampling.py
-      - name: Threshold scan consistency check
-        run: python scripts/eval_routing_sampling.py --threshold-scan --json | python -c "import sys,json; d=json.load(sys.stdin); assert d['validation']['scan_matches_config'], 'Threshold mismatch'"
-
-  # ── Windows tests ──
-  windows-tests:
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-      - name: Set UTF-8 environment
-        run: |
-          echo "PYTHONUTF8=1" >> $env:GITHUB_ENV
-          echo "PYTHONIOENCODING=utf-8" >> $env:GITHUB_ENV
-      - name: Checker fixtures self-test
-        run: python tools/run_review.py --self-test
-      - name: Skill metadata validation
-        run: python scripts/check_skill_metadata.py
-      - name: Link validation
-        run: python tools/check_links.py
-      - name: Golden routing evaluation
-        run: python scripts/eval_golden_routing.py
-      - name: Routing sampling evaluation
-        run: python scripts/eval_routing_sampling.py
-      - name: MCP server ping test
-        run: echo '{"jsonrpc":"2.0","id":1,"method":"ping"}' | python mcp/server.py
-
-  # ── LVGL pipeline tests ──
-  lvgl-tests:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-      - name: Install Pillow for LVGL tests
-        run: pip install Pillow numpy
-      - name: Golden page design uniqueness
-        run: |
-          cd golden_pages
-          python -c "
-          import hashlib, glob
-          hashes = set()
-          for f in sorted(glob.glob('*/design.png')):
-              h = hashlib.sha256(open(f,'rb').read()).hexdigest()
-              assert h not in hashes, f'Duplicate hash: {f}'
-              hashes.add(h)
-          print(f'All {len(hashes)} design images unique')
-          "
-      - name: LVGL preflight test
-        run: python mcp/lvgl_preflight.py --design golden_pages/loading_page/design.png --width 480 --height 800
-      - name: LVGL analysis test
-        run: python mcp/lvgl_analysis.py --design golden_pages/loading_page/design.png --width 480 --height 800
-      - name: LVGL codegen test
-        run: |
-          python -c "
-          import json
-          from mcp.lvgl_codegen import generate_page_code
-          spec = {
-              'schema_version': '2.0',
-              'page_name': 'test',
-              'display': {'width': 480, 'height': 800},
-              'lvgl_version': 'v9',
-              'nodes': [{'id': 'root', 'type': 'screen'}, {'id': 'label', 'type': 'label', 'parent_id': 'root', 'text': 'Hello'}]
-          }
-          result = generate_page_code(spec)
-          assert result['ok'], f'Codegen failed: {result[\"errors\"]}'
-          print(f'Codegen OK: {result[\"node_count\"]} nodes')
-          "
-      - name: LVGL compile gate test
-        run: |
-          python -c "
-          from mcp.lvgl_codegen import generate_page_code
-          from mcp.lvgl_compile_gate import validate_compile
-          spec = {
-              'schema_version': '2.0',
-              'page_name': 'test',
-              'display': {'width': 480, 'height': 800},
-              'lvgl_version': 'v9',
-              'nodes': [{'id': 'root', 'type': 'screen'}, {'id': 'label', 'type': 'label', 'parent_id': 'root', 'text': 'Hello'}]
-          }
-          codegen = generate_page_code(spec)
-          result = validate_compile(codegen['c_code'], codegen['h_code'], 'v9')
-          assert result['ok'], f'Compile gate failed: {result[\"errors\"]}'
-          print('Compile gate PASS')
-          "
-
-  # ── Forward tests ──
-  forward-tests:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-      - name: Run forward tests
-        run: python scripts/skill_forward_eval.py
-        continue-on-error: true  # Non-blocking until stable
-
-  # ── Release candidate gate (holdout + Agent E2E) ──
-  release-candidate:
-    runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || startsWith(github.ref, 'refs/tags/v')
-    continue-on-error: true  # Non-blocking
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-      - name: Create artifacts directory
-        run: mkdir -p artifacts
-      - name: Routing holdout evaluation
-        env:
-          ROUTING_HOLDOUT_JSON: ${{ secrets.ROUTING_HOLDOUT_JSON }}
-        run: |
-          if [ -z "$ROUTING_HOLDOUT_JSON" ]; then
-            echo "SKIP: ROUTING_HOLDOUT_JSON secret not set"
-          else
-            python scripts/eval_routing_holdout.py --json > artifacts/holdout_report.json
-            python scripts/eval_routing_holdout.py
-          fi
-      - name: Agent E2E (mock mode)
-        run: |
-          python scripts/run_agent_e2e.py --mock --json > artifacts/agent_e2e_report.json
-          python scripts/validate_agent_e2e.py --evaluate artifacts/agent_e2e_report.json
-      - name: Agent E2E (real agent)
-        if: ${{ inputs.run_e2e || github.event_name == 'schedule' }}
-        env:
-          E2E_AGENT_COMMAND: ${{ secrets.E2E_AGENT_COMMAND }}
-        run: |
-          if [ -z "$E2E_AGENT_COMMAND" ]; then
-            echo "SKIP: E2E_AGENT_COMMAND secret not set"
-          else
-            python scripts/run_agent_e2e.py --json > artifacts/agent_e2e_report.json
-            python scripts/validate_agent_e2e.py --evaluate artifacts/agent_e2e_report.json
-          fi
-      - name: Upload artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: release-candidate-reports
-          path: artifacts/
-          retention-days: 30
+      - name: Install MCP dependencies
+        run: python -m pip install "paho-mqtt>=1.6,<3" "pyserial>=3.5,<4"
+      - name: MQTT MCP
+        run: python mcp/mqtt_server.py --self-test
+      - name: OTA MCP
+        run: python mcp/ota_server.py --self-test
+      - name: Serial MCP
+        run: python mcp/serial_server.py --self-test

@@ -1,74 +1,34 @@
-# FreeRTOS Skill PR Review Workflow
-#
-# 在 PR 触发时自动运行 run_review.py + constraint_inference.py + commit_audit.py
-#
-# 用法：
-#   1. 将此文件复制到你的项目的 .github/workflows/
-#   2. 根据项目结构调整 paths 过滤器
-#   3. PR 提交时自动触发
-
-name: FreeRTOS Code Review
+name: FreeRTOS Project Review Template
 
 on:
-  pull_request:
-    paths:
-      - 'src/**'
-      - 'main/**'
-      - 'components/**'
-      - '*.c'
-      - '*.h'
+  workflow_dispatch:
+    inputs:
+      skill_repository:
+        description: 'Git repository containing this Skill'
+        required: true
+        type: string
+      source_directory:
+        description: 'Firmware source directory to review'
+        default: '.'
+        required: true
+        type: string
 
 jobs:
   freertos-review:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout firmware project
         uses: actions/checkout@v4
-
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-
-      - name: Install FreeRTOS Skill
-        run: |
-          # 从 skill 仓库安装（替换为你的 skill 仓库地址）
-          git clone https://github.com/your-org/freertos-skill.git /tmp/skill
-          export SKILL_DIR=/tmp/skill
-          echo "SKILL_DIR=$SKILL_DIR" >> $GITHUB_ENV
-
-      - name: Run Static Analysis
-        run: |
-          python $SKILL_DIR/tools/run_review.py --dir . --json > review_results.json || true
-          echo "### Static Analysis Results" >> $GITHUB_STEP_SUMMARY
-          if [ -s review_results.json ]; then
-            cat review_results.json >> $GITHUB_STEP_SUMMARY
-          else
-            echo "No violations found" >> $GITHUB_STEP_SUMMARY
-          fi
-
-      - name: Run Constraint Inference
-        run: |
-          # 获取变更文件列表
-          CHANGED_FILES=$(git diff --name-only origin/main...HEAD | grep -E '\.(c|h)$' || true)
-          if [ -n "$CHANGED_FILES" ]; then
-            python $SKILL_DIR/tools/constraint_inference.py --changed-files $CHANGED_FILES --json > inference_results.json || true
-            echo "### Constraint Inference" >> $GITHUB_STEP_SUMMARY
-            cat inference_results.json >> $GITHUB_STEP_SUMMARY
-          fi
-
-      - name: Run Commit Audit
-        run: |
-          python $SKILL_DIR/scripts/commit_audit.py --max-log 5 > audit_results.txt || true
-          echo "### Commit Audit" >> $GITHUB_STEP_SUMMARY
-          cat audit_results.txt >> $GITHUB_STEP_SUMMARY
-
-      - name: Upload Results
-        if: always()
+      - name: Checkout Skill
+        run: git clone --depth 1 "${{ inputs.skill_repository }}" /tmp/freertos-skill
+      - name: Run static review
+        run: python /tmp/freertos-skill/tools/run_review.py --dir "${{ inputs.source_directory }}" --json > review_results.json || test $? -eq 1
+      - name: Upload review report
         uses: actions/upload-artifact@v4
         with:
           name: freertos-review-results
-          path: |
-            review_results.json
-            inference_results.json
-            audit_results.txt
+          path: review_results.json

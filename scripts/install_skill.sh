@@ -23,9 +23,12 @@ rsync -a \
   --exclude '.git' \
   --exclude '.github' \
   --exclude '.vscode' \
+  --exclude '.claude' \
+  --exclude '.codex' \
   --exclude 'fw-AC79_AIoT_SDK' \
   --exclude 'bk_idk-release-v2.2.1' \
   --exclude '__pycache__' \
+  --exclude '.mypy_cache' \
   --exclude '*.pyc' \
   --exclude '.pytest_cache' \
   --exclude '.tmp_*' \
@@ -35,6 +38,9 @@ rsync -a \
   --exclude 'archive' \
   --exclude 'artifacts' \
   --exclude 'forward_tests' \
+  --exclude 'out' \
+  --exclude '.skill_metrics' \
+  --exclude '.skill_evidence' \
   --exclude '/README.md' \
   --exclude '/INSTALL.md' \
   --exclude '/CHANGELOG.md' \
