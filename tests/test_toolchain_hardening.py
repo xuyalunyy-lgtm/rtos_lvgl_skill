@@ -41,6 +41,59 @@ class QuickGateHardeningTests(unittest.TestCase):
         self.assertIn("Timed out", result.output)
         self.assertGreaterEqual(result.duration_seconds, 0.0)
 
+    def test_strict_coverage_threshold_and_registry_gate(self) -> None:
+        coverage = subprocess.run(
+            [sys.executable, str(ROOT / "scripts" / "check_rule_coverage.py"), "--strict"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+        registry = subprocess.run(
+            [sys.executable, str(ROOT / "scripts" / "check_checker_registry.py"), "--strict"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+        limited = subprocess.run(
+            [sys.executable, str(ROOT / "scripts" / "check_rule_coverage.py"), "--strict", "--max-partial", "0"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+        self.assertEqual(coverage.returncode, 0, coverage.stderr)
+        self.assertEqual(registry.returncode, 0, registry.stdout)
+        self.assertEqual(limited.returncode, 1)
+        self.assertIn("coverage threshold exceeded", limited.stderr)
+
+    def test_all_suite_json_handles_json_contract_checkers_without_json_inputs(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            plan = Path(directory) / "plan.json"
+            plan.write_text(
+                json.dumps({"checker_targets": ["sdk_trim_checker", "repro_contract_checker"]}),
+                encoding="utf-8",
+            )
+            completed = subprocess.run(
+                [
+                    sys.executable, str(ROOT / "tools" / "run_review.py"),
+                    str(ROOT / "tools" / "fixtures" / "good_rtos_abstraction.c"),
+                    "--from-symptom-plan", str(plan), "--json", "--skip-stack", "--no-history",
+                ],
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+            )
+        report = json.loads(completed.stdout)
+        contract_results = [
+            item for item in report["checkers"]
+            if item["checker"] in {"sdk_trim_checker", "repro_contract_checker"}
+        ]
+        self.assertEqual(len(contract_results), 2)
+        self.assertTrue(all(item["files_checked"] == 0 and item["exit_code"] == 0 for item in contract_results))
+
 
 class RunReviewProtocolTests(unittest.TestCase):
     def test_constraint_lookup_links_rules_checkers_and_platform_notes(self) -> None:

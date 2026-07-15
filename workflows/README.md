@@ -50,6 +50,8 @@
 
 ## 架构同步检查
 
+架构设计与审查入口必须覆盖 I/P/O、FSM/HFSM 和 HAL 边界；详见归档的 `l2_architecture_review.md`。
+
 ```bash
 python scripts/check_architecture_sync.py
 ```

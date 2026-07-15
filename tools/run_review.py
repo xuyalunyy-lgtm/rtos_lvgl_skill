@@ -195,7 +195,7 @@ def run_checker_case(case: CheckerCase, base_dir: Path) -> bool:
         print(f"[FAIL] Missing test file: {path}")
         return False
 
-    rc = run_checker(case.script, [str(path)], dict(case.environment))
+    rc = run_checker(case.script, [str(path), *case.arguments], dict(case.environment))
     ok = rc == case.expected
     status = "PASS" if ok else "FAIL"
     print(f"[{status}] {case.label}: {case.script} {path.name} -> exit {rc} (expected {case.expected})")
@@ -390,7 +390,7 @@ def _run_one_checker(spec: CheckerSpec, c_files: list[Path], tools_dir: str, ski
         return {
             "checker": spec.name, "script": spec.script,
             "domains": spec.domains, "mode": spec.mode,
-            "files_checked": len(c_files), "issues": payload["violations"],
+            "files_checked": payload["files_checked"], "issues": payload["violations"],
             "findings": payload["issues"], "exit_code": rc,
             "output": _format_checker_payload(payload),
         }

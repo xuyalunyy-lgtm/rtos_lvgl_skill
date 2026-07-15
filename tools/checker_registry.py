@@ -56,6 +56,7 @@ class CheckerCase:
     expected: int
     label: str
     environment: tuple[tuple[str, str], ...] = ()
+    arguments: tuple[str, ...] = ()
 
 
 ALL_CHECKERS: tuple[CheckerSpec, ...] = (
@@ -81,6 +82,9 @@ ALL_CHECKERS: tuple[CheckerSpec, ...] = (
     # ── C5: Test macros ─────────────────────────────────────────────────
     CheckerSpec("test_macro_checker", "test_macro_checker.py", "test-macro", "batch", ("C5",),
                 suites=("default", "all"), error_prefix="C5"),
+    # ── C6: SDK trimming decision record ───────────────────────────────
+    CheckerSpec("sdk_trim_checker", "sdk_trim_checker.py", "sdk-trim", "batch", ("C6",),
+                note="Validates auditable SDK trim decision manifests", suites=("all",), error_prefix="C6"),
     # ── C7: Stack allocation ────────────────────────────────────────────
     CheckerSpec("stack_alloc_checker", "stack_alloc_checker.py", "stack-alloc", "batch", ("C7.3",),
                 suites=("default", "all"), error_prefix="C7"),
@@ -182,6 +186,9 @@ ALL_CHECKERS: tuple[CheckerSpec, ...] = (
     # ── C39: Config matrix ──────────────────────────────────────────────
     CheckerSpec("config_matrix_checker", "config_matrix_checker.py", "config-matrix", "batch", ("C39",),
                 suites=("default", "all"), error_prefix="C39"),
+    # ── C40: One-command reproduction contract ─────────────────────────
+    CheckerSpec("repro_contract_checker", "repro_contract_checker.py", "repro-contract", "batch", ("C40",),
+                note="Validates reproducible build/flash/monitor and crash decode manifests", suites=("all",), error_prefix="C40"),
     # ── C42: Board resource ─────────────────────────────────────────────
     CheckerSpec("board_resource_checker", "board_resource_checker.py", "board-resource", "batch", ("C42",),
                 suites=("default", "all"), error_prefix="C42"),
@@ -242,12 +249,18 @@ SELF_TEST_CASES: tuple[CheckerCase, ...] = (
     # ── fixtures/ 目录 ──────────────────────────────────────────────────
     CheckerCase("cjson_leak_checker.py", "fixtures/good_cjson.c", 0, "cjson good"),
     CheckerCase("cjson_leak_checker.py", "fixtures/bad_cjson.c", 1, "cjson bad"),
+    CheckerCase("cjson_ast_checker.py", "fixtures/good_cjson_ast.c", 0, "cjson AST good"),
+    CheckerCase("cjson_ast_checker.py", "fixtures/bad_cjson.c", 1, "cjson AST bad"),
     CheckerCase("isr_safety_checker.py", "fixtures/good_isr.c", 0, "isr good"),
     CheckerCase("isr_safety_checker.py", "fixtures/bad_isr.c", 1, "isr bad"),
     CheckerCase("lvgl_thread_checker.py", "fixtures/ui_view_good.c", 0, "lvgl good"),
     CheckerCase("lvgl_thread_checker.py", "fixtures/network_wss_bad.c", 1, "lvgl bad"),
     CheckerCase("queue_ownership_checker.py", "fixtures/good_queue_heap.c", 0, "queue good"),
     CheckerCase("queue_ownership_checker.py", "fixtures/bad_queue_stack.c", 1, "queue bad"),
+    CheckerCase("queue_ast_checker.py", "fixtures/good_queue_heap.c", 0, "queue AST good"),
+    CheckerCase("queue_ast_checker.py", "fixtures/bad_queue_stack.c", 1, "queue AST bad"),
+    CheckerCase("sdk_trim_checker.py", "fixtures/good_C6_sdk_trim.json", 0, "SDK trim manifest good"),
+    CheckerCase("sdk_trim_checker.py", "fixtures/bad_C6_sdk_trim.json", 1, "SDK trim manifest bad"),
     CheckerCase("blocking_wait_checker.py", "fixtures/good_timeout_budget.c", 0, "timeout good"),
     CheckerCase("blocking_wait_checker.py", "fixtures/bad_timeout_budget.c", 1, "timeout bad"),
     CheckerCase("efficiency_budget_checker.py", "fixtures/good_efficiency_budget.c", 0, "efficiency good"),
@@ -282,6 +295,31 @@ SELF_TEST_CASES: tuple[CheckerCase, ...] = (
     CheckerCase("boot_sequence_checker.py", "fixtures/bad_boot_sequence.c", 1, "boot bad"),
     CheckerCase("stack_alloc_checker.py", "fixtures/good_stack_alloc.c", 0, "stack alloc good"),
     CheckerCase("stack_alloc_checker.py", "fixtures/bad_stack_alloc.c", 1, "stack alloc bad"),
+    CheckerCase("voice_sequence_checker.py", "../examples/good_voice_prompt_uplink.c", 0, "voice sequence good"),
+    CheckerCase("voice_sequence_checker.py", "../examples/bad_prompt_no_detach.c", 1, "voice sequence bad"),
+    CheckerCase("peripheral_driver_checker.py", "../examples/good_gpio_config.c", 0, "peripheral driver good"),
+    CheckerCase("peripheral_driver_checker.py", "../examples/bad_gpio_no_config.c", 1, "peripheral driver bad"),
+    CheckerCase("flash_nvs_checker.py", "fixtures/good_flash_nvs.c", 0, "flash NVS good"),
+    CheckerCase("flash_nvs_checker.py", "../examples/bad_nvs_no_commit.c", 1, "flash NVS bad"),
+    CheckerCase("network_resilience_checker.py", "../examples/good_reconnect_backoff.c", 0, "network resilience good"),
+    CheckerCase("network_resilience_checker.py", "../examples/bad_reconnect_no_backoff.c", 1, "network resilience bad"),
+    CheckerCase("low_power_checker.py", "fixtures/good_low_power.c", 0, "low power good"),
+    CheckerCase("low_power_checker.py", "../examples/bad_sleep_no_save.c", 1, "low power bad"),
+    CheckerCase("display_driver_checker.py", "../examples/good_display_init.c", 0, "display driver good"),
+    CheckerCase("display_driver_checker.py", "../examples/bad_display_no_init.c", 1, "display driver bad"),
+    CheckerCase("av_pipeline_checker.py", "../examples/good_av_pipeline_sync.c", 0, "A/V pipeline good"),
+    CheckerCase("av_pipeline_checker.py", "../examples/bad_av_pipeline_blocking.c", 1, "A/V pipeline bad"),
+    CheckerCase("media_format_checker.py", "../examples/good_media_format_contract.c", 0, "media format good"),
+    CheckerCase("media_format_checker.py", "../examples/bad_media_format_mismatch.c", 1, "media format bad"),
+    CheckerCase("av_clock_jitter_checker.py", "../examples/good_av_clock_jitter.c", 0, "A/V clock good"),
+    CheckerCase("av_clock_jitter_checker.py", "../examples/bad_av_clock_jitter.c", 1, "A/V clock bad"),
+    CheckerCase("av_dma_buffer_checker.py", "../examples/good_av_dma_buffer_lifecycle.c", 0, "A/V DMA good"),
+    CheckerCase("av_dma_buffer_checker.py", "../examples/bad_av_dma_buffer_lifecycle.c", 1, "A/V DMA bad"),
+    CheckerCase("repro_contract_checker.py", "fixtures/good_C40_repro_contract.json", 0, "repro contract good"),
+    CheckerCase("repro_contract_checker.py", "fixtures/bad_C40_repro_contract.json", 1, "repro contract bad"),
+    CheckerCase("tool_log_hygiene_checker.py", "fixtures/good_C47_tool_log_hygiene.py", 0, "tool log hygiene good"),
+    CheckerCase("tool_log_hygiene_checker.py", "fixtures/bad_C47_tool_log_hygiene.py", 1, "tool log hygiene bad"),
+    CheckerCase("regression_sample_checker.py", "fixtures/good_C6_sdk_trim.json", 0, "regression sample checker self-test", arguments=("--self-test",)),
     CheckerCase("lifecycle_checker.py", "fixtures/good_lifecycle.c", 0, "lifecycle good"),
     CheckerCase("lifecycle_checker.py", "fixtures/bad_lifecycle.c", 1, "lifecycle bad"),
     CheckerCase("api_sequence_checker.py", "fixtures/good_api_sequence.c", 0, "API sequence good"),
@@ -331,6 +369,8 @@ SELF_TEST_CASES: tuple[CheckerCase, ...] = (
 
 
 VALIDATE_EXAMPLE_CASES: tuple[CheckerCase, ...] = (
+    CheckerCase("sdk_trim_checker.py", "tools/fixtures/good_C6_sdk_trim.json", 0, "C6 good"),
+    CheckerCase("sdk_trim_checker.py", "tools/fixtures/bad_C6_sdk_trim.json", 1, "C6 bad"),
     CheckerCase("lvgl_thread_checker.py", "examples/good_mvp_pattern.c", 0, "C1 good"),
     CheckerCase("lvgl_thread_checker.py", "examples/good_presenter_consumer.c", 0, "C1 good"),
     CheckerCase("lvgl_thread_checker.py", "examples/bad_lvgl_cross_thread.c", 1, "C1.1 bad"),
@@ -353,6 +393,8 @@ VALIDATE_EXAMPLE_CASES: tuple[CheckerCase, ...] = (
     CheckerCase("av_clock_jitter_checker.py", "examples/bad_av_clock_jitter.c", 1, "C27 bad"),
     CheckerCase("av_dma_buffer_checker.py", "examples/good_av_dma_buffer_lifecycle.c", 0, "C28 good"),
     CheckerCase("av_dma_buffer_checker.py", "examples/bad_av_dma_buffer_lifecycle.c", 1, "C28 bad"),
+    CheckerCase("repro_contract_checker.py", "tools/fixtures/good_C40_repro_contract.json", 0, "C40 good"),
+    CheckerCase("repro_contract_checker.py", "tools/fixtures/bad_C40_repro_contract.json", 1, "C40 bad"),
     CheckerCase("module_boundary_checker.py", "examples/good_module_boundary.c", 0, "C29 good"),
     CheckerCase("module_boundary_checker.py", "examples/bad_god_module.c", 1, "C29.6 bad"),
     CheckerCase("module_boundary_checker.py", "examples/bad_cross_layer_dependency.c", 1, "C29.7 bad"),

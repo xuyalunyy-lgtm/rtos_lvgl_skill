@@ -1,0 +1,7 @@
+{
+  "sdk": {"name": "esp-idf", "version": "5.2.1"},
+  "questionnaire": ["Wi-Fi station is required", "Bluetooth is not required"],
+  "decisions": [
+    {"component": "bt", "feature": "Bluetooth", "action": "remove", "rationale": "product questionnaire excludes Bluetooth", "rollback": "restore CONFIG_BT_ENABLED and rebuild"}
+  ]
+}

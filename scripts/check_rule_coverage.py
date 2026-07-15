@@ -128,7 +128,14 @@ def main() -> int:
     parser.add_argument("--json", action="store_true", help="Output JSON")
     parser.add_argument("--md", action="store_true", help="Output Markdown (default)")
     parser.add_argument("--output", "-o", help="Write to file instead of stdout")
+    parser.add_argument("--strict", action="store_true", help="fail when coverage exceeds configured thresholds")
+    parser.add_argument("--max-missing", type=int, default=0,
+                        help="maximum missing constraints in --strict mode (default: 0)")
+    parser.add_argument("--max-partial", type=int,
+                        help="optional maximum partial constraints in --strict mode")
     args = parser.parse_args()
+    if args.max_missing < 0 or (args.max_partial is not None and args.max_partial < 0):
+        parser.error("coverage thresholds must be non-negative")
 
     constraints = parse_constraints()
     checker_map = build_checker_map()
@@ -189,6 +196,19 @@ def main() -> int:
         if k in counts:
             print(f"  {k}: {counts[k]}", file=sys.stderr)
 
+    missing = counts.get("missing", 0)
+    partial = counts.get("partial", 0)
+    if args.strict and (
+        missing > args.max_missing
+        or (args.max_partial is not None and partial > args.max_partial)
+    ):
+        partial_limit = str(args.max_partial) if args.max_partial is not None else "not limited"
+        print(
+            f"[FAIL] coverage threshold exceeded: missing={missing} (max {args.max_missing}), "
+            f"partial={partial} (max {partial_limit})",
+            file=sys.stderr,
+        )
+        return 1
     return 0
 
 

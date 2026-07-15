@@ -1,0 +1,4 @@
+{
+  "sdk": {"name": "esp-idf"},
+  "decisions": [{"component": "bt", "action": "remove"}]
+}

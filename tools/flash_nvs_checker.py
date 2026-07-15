@@ -13,6 +13,7 @@ C19 Flash/NVS 安全启发式检查器。
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from checker_io import make_issue, read_file, run_checker
@@ -62,7 +63,7 @@ def check_nvs_commit(path: Path, lines: list[str]) -> list[dict]:
     # Check if nvs_commit return value is checked
     for i, line in enumerate(lines, 1):
         stripped = line.strip()
-        if "nvs_commit" not in stripped:
+        if not re.search(r"\bnvs_commit\s*\(", stripped):
             continue
 
         # Skip if inside error-checking macros

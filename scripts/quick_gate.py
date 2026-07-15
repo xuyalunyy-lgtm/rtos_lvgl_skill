@@ -45,7 +45,6 @@ STEPS = [
     GateStep("post-install smoke self-test", [sys.executable, "scripts/post_install_smoke.py", "--self-test"]),
     GateStep("skill metadata", [sys.executable, "scripts/check_skill_metadata.py"]),
     GateStep("official skill validator", [sys.executable, "scripts/run_official_skill_validator.py", "."]),
-    GateStep("constraint coverage", [sys.executable, "scripts/check_rule_coverage.py"]),
     GateStep("text encoding", [sys.executable, "scripts/check_text_encoding.py"]),
     GateStep("runtime distribution", [sys.executable, "scripts/check_runtime_distribution.py"]),
     GateStep("link check", [sys.executable, "tools/check_links.py"]),
@@ -234,6 +233,20 @@ def _build_route_quality_step(args: argparse.Namespace, *, strict: bool) -> Gate
     return GateStep("log symptom routes quality", command)
 
 
+def _build_coverage_step(*, strict: bool) -> GateStep:
+    command = [sys.executable, "scripts/check_rule_coverage.py"]
+    if strict:
+        command.append("--strict")
+    return GateStep("constraint coverage", command)
+
+
+def _build_checker_registry_step(*, strict: bool) -> GateStep:
+    command = [sys.executable, "scripts/check_checker_registry.py"]
+    if strict:
+        command.append("--strict")
+    return GateStep("checker registry", command)
+
+
 def _step_slug(name: str) -> str:
     return "-".join(part for part in "".join(ch.lower() if ch.isalnum() else " " for ch in name).split())
 
@@ -303,6 +316,9 @@ def main() -> int:
 
     steps = STEPS.copy()
     steps.insert(5, _build_route_quality_step(args, strict=quality_strict))
+    steps.insert(14, _build_coverage_step(strict=quality_strict))
+    steps.insert(15, _build_checker_registry_step(strict=quality_strict))
+    steps.insert(16, GateStep("architecture sync", [sys.executable, "scripts/check_architecture_sync.py"]))
     steps = _select_steps(steps, args.filters)
     if args.filters and not steps:
         available = ", ".join(_step_slug(step.name) for step in STEPS)

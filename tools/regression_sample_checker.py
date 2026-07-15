@@ -134,13 +134,16 @@ def _infer_constraint_from_fixture(filename: str) -> list[str]:
     return []
 
 
-def check_coverage() -> tuple[list[dict], list[dict]]:
+def check_coverage(
+    samples: dict[str, dict[str, list[str]]] | None = None,
+    constraints: set[str] | None = None,
+) -> tuple[list[dict], list[dict]]:
     """检查约束样本覆盖率。返回 (issues, summary)。"""
-    samples = scan_samples()
+    samples = samples if samples is not None else scan_samples()
     issues = []
     summary = []
 
-    for cid in sorted(registered_constraints()):
+    for cid in sorted(constraints if constraints is not None else registered_constraints()):
         entry = samples.get(cid, {"good": [], "bad": []})
         good_count = len(entry["good"])
         bad_count = len(entry["bad"])
@@ -177,13 +180,30 @@ def check_coverage() -> tuple[list[dict], list[dict]]:
     return issues, summary
 
 
+def run_self_test() -> int:
+    complete = {"C6": {"good": ["good_C6.json"], "bad": ["bad_C6.json"]}}
+    issues, summary = check_coverage(complete, {"C6"})
+    assert not issues and summary[0]["constraint"] == "C6"
+
+    incomplete = {"C6": {"good": ["good_C6.json"], "bad": []}}
+    issues, _summary = check_coverage(incomplete, {"C6"})
+    assert len(issues) == 1 and issues[0]["type"] == "missing_bad"
+    print("[PASS] regression sample checker self-test")
+    return 0
+
+
 def main() -> int:
     import argparse
     configure_stdout()
     parser = argparse.ArgumentParser(description="C41 regression sample coverage checker")
+    parser.add_argument("files", nargs="*", help="reserved for checker-harness fixture compatibility")
+    parser.add_argument("--self-test", action="store_true", help="run deterministic coverage-classification tests")
     parser.add_argument("--json", action="store_true", help="Output JSON")
     parser.add_argument("--jsonl", action="store_true", help="Emit checker-result/v1 JSON Lines output")
     args = parser.parse_args()
+
+    if args.self_test:
+        return run_self_test()
 
     issues, summary = check_coverage()
 

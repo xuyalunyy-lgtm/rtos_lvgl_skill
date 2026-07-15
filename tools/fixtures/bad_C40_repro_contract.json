@@ -1,0 +1,4 @@
+{
+  "commands": {"build": "idf.py build"},
+  "failure_logs": {"path": "logs/"}
+}

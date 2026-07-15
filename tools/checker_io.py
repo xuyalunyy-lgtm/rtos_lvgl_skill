@@ -435,8 +435,23 @@ def run_checker(
     args = parser.parse_args()
 
     targets = collect_targets(args.files, args.dir, suffixes)
+    domain_str = "/".join(domains)
 
     if not targets:
+        if args.json or args.jsonl:
+            payload = {
+                "protocol_version": "checker-result/v1",
+                "checker": description,
+                "domains": list(domains),
+                "files_checked": 0,
+                "violations": 0,
+                "issues": [],
+            }
+            if args.jsonl:
+                print(json.dumps(payload, ensure_ascii=False, separators=(",", ":")))
+            else:
+                output_json(payload)
+            return 0
         print(f"[{description}] 无文件可检查")
         return 0
 
@@ -444,8 +459,6 @@ def run_checker(
     if check_paths_fn is None:
         for path in targets:
             all_issues.extend(check_fn(path))
-
-    domain_str = "/".join(domains)
 
     if args.json or args.jsonl:
         payload = {

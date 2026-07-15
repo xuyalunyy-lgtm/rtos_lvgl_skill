@@ -1,0 +1,9 @@
+{
+  "sdk_version": "esp-idf 5.2.1",
+  "commands": {"build": "idf.py build", "flash": "idf.py flash", "monitor": "idf.py monitor"},
+  "crash_decode": {"symbol_path": "build/app.elf", "command": "addr2line -e build/app.elf < address.txt", "input_log": "logs/crash.log"},
+  "minimal_config": "sdkconfig.defaults",
+  "test_entry": "pytest -q tests/test_smoke.py",
+  "expected_output": "BOOT_OK",
+  "failure_logs": {"path": "logs/", "redaction": "redact tokens before upload", "retention_days": 30}
+}
