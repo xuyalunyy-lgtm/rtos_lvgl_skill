@@ -145,7 +145,7 @@ SERIAL_TOOL_SCHEMAS = [
             "properties": {
                 "keyword": {
                     "type": "string",
-                    "description": "Search keyword (case-sensitive substring match)",
+                    "description": "Search keyword",
                 },
                 "n": {
                     "type": "integer",
@@ -153,6 +153,11 @@ SERIAL_TOOL_SCHEMAS = [
                     "minimum": 1,
                     "maximum": 5000,
                     "description": "Max results to return (most recent)",
+                },
+                "case_sensitive": {
+                    "type": "boolean",
+                    "default": True,
+                    "description": "Use a case-sensitive substring match (default: true)",
                 },
             },
             "required": ["keyword"],

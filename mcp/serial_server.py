@@ -103,6 +103,7 @@ def serial_search(args: dict[str, Any]) -> dict[str, Any]:
     results = bridge.search(
         keyword=args["keyword"],
         n=args.get("n", 50),
+        case_sensitive=args.get("case_sensitive", True),
     )
     return {"ok": True, "count": len(results), "matches": results}
 

@@ -93,6 +93,20 @@ class LoopbackSerial:
             self._rx_buffer.append(data)
 
 
+class FlakyReadSerial(LoopbackSerial):
+    """Loopback mock that raises serial-like read errors before recovering."""
+
+    def __init__(self, failures: int):
+        super().__init__(echo=False)
+        self._remaining_failures = failures
+
+    def readline(self) -> bytes:
+        if self._remaining_failures:
+            self._remaining_failures -= 1
+            raise OSError("simulated USB read failure")
+        return super().readline()
+
+
 # ── Test Helpers ──
 
 
@@ -270,6 +284,15 @@ class TestSearch:
         assert len(results) == 1
         bridge.shutdown()
 
+    def test_search_case_insensitive(self):
+        bridge = make_bridge()
+        bridge._buffer.append({"ts": 1.0, "raw": "error", "direction": "rx"})
+        bridge._buffer.append({"ts": 2.0, "raw": "ERROR", "direction": "rx"})
+
+        results = bridge.search("error", case_sensitive=False)
+        assert len(results) == 2
+        bridge.shutdown()
+
     def test_search_respects_limit(self):
         bridge = make_bridge()
         for i in range(20):
@@ -338,6 +361,24 @@ class TestRequest:
         result = bridge.request("AT+GMR", r"VERSION:\s*(\S+)", timeout=2.0)
         assert result["ok"] is True
         assert result["match_groups"] == ["1.2.3"]
+        assert isinstance(result["matched_sequence"], int)
+        bridge.shutdown()
+
+    def test_request_context_uses_monotonic_sequence(self):
+        bridge = make_bridge()
+        mock = LoopbackSerial(echo=False)
+        connect_loopback(bridge, mock)
+
+        def delayed_inject():
+            time.sleep(0.05)
+            mock.inject_rx(b"noise before\r\n")
+            mock.inject_rx(b"OK\r\n")
+
+        threading.Thread(target=delayed_inject, daemon=True).start()
+        result = bridge.request("AT", r"^OK$", timeout=1.0, context_lines=1)
+        assert result["ok"] is True
+        assert result["matched_sequence"] > 0
+        assert result["context"][-1] == "OK"
         bridge.shutdown()
 
     def test_request_disconnected(self):
@@ -518,6 +559,29 @@ class TestDisconnectDetection:
         assert "ok" in result
         bridge.shutdown()
 
+    def test_read_loop_recovers_from_transient_io_errors(self):
+        bridge = make_bridge()
+        bridge._read_retry_delay_seconds = 0.01
+        mock = FlakyReadSerial(failures=2)
+        connect_loopback(bridge, mock)
+        mock.inject_rx(b"recovered\n")
+        time.sleep(0.15)
+
+        assert bridge.status["connected"] is True
+        assert bridge.get_lines(n=1, direction="rx")[0]["raw"] == "recovered"
+        bridge.shutdown()
+
+    def test_read_loop_marks_connection_lost_after_retry_budget(self):
+        bridge = make_bridge()
+        bridge._read_retry_delay_seconds = 0.01
+        mock = FlakyReadSerial(failures=3)
+        connect_loopback(bridge, mock)
+        time.sleep(0.15)
+
+        assert bridge.status["connected"] is False
+        assert bridge._serial is None
+        bridge.shutdown()
+
 
 class TestHighThroughput:
     """Test behavior under high data volume."""
@@ -573,8 +637,20 @@ class TestHighThroughput:
         tx_lines = [l for l in all_lines if l["direction"] == "tx"]
         rx_lines = [l for l in all_lines if l["direction"] == "rx"]
         assert len(tx_lines) == 50
+        assert bridge.status["tx_count"] == 50
         # RX may vary due to timing, but should be close to 50
         assert len(rx_lines) >= 40
+        bridge.shutdown()
+
+    def test_recorded_entries_have_monotonic_sequences(self):
+        bridge = make_bridge()
+        bridge._record_line("first", "rx")
+        bridge._record_line("second", "tx")
+        bridge._record_line("third", "rx")
+
+        assert [entry["seq"] for entry in bridge.get_lines(n=10)] == [1, 2, 3]
+        assert bridge.status["rx_count"] == 2
+        assert bridge.status["tx_count"] == 1
         bridge.shutdown()
 
 

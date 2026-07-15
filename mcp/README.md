@@ -36,6 +36,8 @@ serial_get_lines(n=50)
 
 # 搜索关键字
 serial_search(keyword="ERROR")
+# 忽略大小写搜索
+serial_search(keyword="error", case_sensitive=false)
 
 # 标记关键时刻
 serial_bookmark(label="wifi-test-start")
@@ -61,7 +63,7 @@ python mcp/test_serial_e2e.py
 | `serial_write` | 发送原始数据 |
 | **`serial_request`** | **发送命令并等待正则匹配**（替代手动 write+poll） |
 | `serial_get_lines` | 从环形缓冲区读取最近日志 |
-| `serial_search` | 搜索缓冲区关键字 |
+| `serial_search` | 搜索缓冲区关键字（可选忽略大小写） |
 | `serial_check_device` | 检测 USB 设备是否重新插入（可能换了端口） |
 | `serial_get_stats` | 缓冲区统计（收发计数、时间范围） |
 | `serial_watch` | 后台症状监控（崩溃、WDT、堆耗尽等） |

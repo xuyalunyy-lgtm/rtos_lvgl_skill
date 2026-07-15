@@ -23,8 +23,14 @@ import threading
 import time
 from collections import deque
 from datetime import datetime, timezone
+from itertools import islice
 from pathlib import Path
 from typing import Any
+
+try:
+    from serial import SerialException as _SerialException
+except ImportError:  # pyserial is optional until a real connection is opened
+    _SerialException = OSError
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +38,8 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_LOG_MAX_SIZE = int(os.environ.get("SERIAL_LOG_MAX_SIZE", 5 * 1024 * 1024))  # 5 MB
 DEFAULT_LOG_MAX_FILES = int(os.environ.get("SERIAL_LOG_MAX_FILES", 10))
+READ_RETRY_ATTEMPTS = 3
+READ_RETRY_DELAY_SECONDS = 0.5
 
 
 def _configured_redact_patterns() -> list[re.Pattern]:
@@ -390,11 +398,14 @@ class SerialBridge:
         self._buffer: deque[dict[str, Any]] = deque(maxlen=max_lines)
         self._max_lines = max_lines
         self._lock = threading.Lock()
+        self._next_sequence = 1
         self._reader_thread: threading.Thread | None = None
         self._stop_event = threading.Event()
         self._connect_time: float = 0
         self._rx_count: int = 0
         self._tx_count: int = 0
+        self._read_retry_attempts = READ_RETRY_ATTEMPTS
+        self._read_retry_delay_seconds = READ_RETRY_DELAY_SECONDS
         self._allowed_ports = ALLOWED_PORTS if allowed_ports is None else tuple(allowed_ports)
         self._log_dir = DEFAULT_LOG_DIR if log_dir is None else Path(log_dir).resolve()
         self._log_path: Path | None = None
@@ -502,8 +513,9 @@ class SerialBridge:
             self._baudrate = baudrate
             self._connected = True
             self._connect_time = time.time()
-            self._rx_count = 0
-            self._tx_count = 0
+            with self._lock:
+                self._rx_count = 0
+                self._tx_count = 0
             self._device_identity = self._probe_device_identity(port)
             self._open_log_file(port)
 
@@ -568,8 +580,6 @@ class SerialBridge:
             payload_bytes = payload.encode("utf-8")
             self._serial.write(payload_bytes)
             self._serial.flush()
-            self._tx_count += 1
-
             self._record_line(payload, "tx")
 
             return {"ok": True, "bytes_sent": len(payload_bytes)}
@@ -594,12 +604,13 @@ class SerialBridge:
 
         return lines[-n:]
 
-    def search(self, keyword: str, n: int = 50) -> list[dict[str, Any]]:
+    def search(self, keyword: str, n: int = 50, case_sensitive: bool = True) -> list[dict[str, Any]]:
         """Search ring buffer for keyword.
 
         Args:
-            keyword: Search string (case-sensitive substring match)
+            keyword: Search string
             n: Max results (most recent)
+            case_sensitive: Whether to use a case-sensitive substring match
 
         Returns:
             List of matching {ts, raw, direction}
@@ -607,7 +618,11 @@ class SerialBridge:
         with self._lock:
             lines = list(self._buffer)
 
-        matched = [l for l in lines if keyword in l["raw"]]
+        needle = keyword if case_sensitive else keyword.casefold()
+        matched = [
+            line for line in lines
+            if needle in (line["raw"] if case_sensitive else line["raw"].casefold())
+        ]
         return matched[-n:]
 
     # ── Status ──
@@ -617,14 +632,16 @@ class SerialBridge:
         """Connection status."""
         with self._lock:
             buf_size = len(self._buffer)
+            rx_count = self._rx_count
+            tx_count = self._tx_count
         result: dict[str, Any] = {
             "connected": self._connected,
             "port": self._port if self._connected else None,
             "baudrate": self._baudrate if self._connected else None,
             "buffer_size": buf_size,
             "max_lines": self._max_lines,
-            "rx_count": self._rx_count,
-            "tx_count": self._tx_count,
+            "rx_count": rx_count,
+            "tx_count": tx_count,
             "uptime_seconds": round(time.time() - self._connect_time, 1) if self._connected else 0,
             "log_enabled": self._log_dir is not None,
             "log_path": str(self._log_path) if self._log_path else None,
@@ -810,28 +827,99 @@ class SerialBridge:
         self._log_writer = None
 
     def _record_line(self, raw: str, direction: str) -> None:
-        entry = {"ts": time.time(), "raw": raw, "direction": direction}
         with self._lock:
+            entry = {
+                "seq": self._next_sequence,
+                "ts": time.time(),
+                "raw": raw,
+                "direction": direction,
+            }
+            self._next_sequence += 1
             self._buffer.append(entry)
+            if direction == "rx":
+                self._rx_count += 1
+            elif direction == "tx":
+                self._tx_count += 1
         if self._log_writer is not None:
             self._log_writer.write(direction, raw)
 
+    def _append_bookmark(self, label: str) -> None:
+        """Add an in-memory bookmark with the same sequence guarantees as I/O."""
+        with self._lock:
+            self._buffer.append({
+                "seq": self._next_sequence,
+                "ts": time.time(),
+                "raw": f"--- BOOKMARK: {label} ---",
+                "direction": "bookmark",
+            })
+            self._next_sequence += 1
+
+    def _latest_sequence_locked(self) -> int:
+        """Return the highest sequence currently emitted by this bridge."""
+        return self._next_sequence - 1
+
+    def _entries_after_locked(self, sequence: int) -> list[dict[str, Any]]:
+        """Copy only the unread suffix of the ring buffer.
+
+        Sequence numbers remain monotonic when the bounded deque evicts old
+        lines.  The ``islice`` offset therefore avoids materialising the full
+        ring buffer for watch and request polling.
+        """
+        if not self._buffer:
+            return []
+        first_sequence = self._buffer[0].get("seq")
+        if not isinstance(first_sequence, int):
+            # Compatibility for callers that manually seed the public buffer.
+            return [entry for entry in self._buffer if entry.get("seq", 0) > sequence]
+        offset = max(0, sequence - first_sequence + 1)
+        return list(islice(self._buffer, offset, None))
+
+    def _mark_read_failure(self, reason: str) -> None:
+        """Transition an unusable reader session to a truthful disconnected state."""
+        with self._lock:
+            serial_obj = self._serial
+            self._connected = False
+            self._serial = None
+        if serial_obj is not None:
+            try:
+                if serial_obj.is_open:
+                    serial_obj.close()
+            except (OSError, _SerialException):
+                pass
+        self._close_log_file()
+        logger.warning("Serial reader stopped: %s", reason)
+
     def _read_loop(self):
         """Background thread: continuously read serial data into buffer."""
+        failures = 0
         while not self._stop_event.is_set():
+            serial_obj = self._serial
+            if not serial_obj or not serial_obj.is_open:
+                if not self._stop_event.is_set():
+                    self._mark_read_failure("serial port is closed")
+                break
             try:
-                if not self._serial or not self._serial.is_open:
-                    break
-                data = self._serial.readline()
+                data = serial_obj.readline()
+                failures = 0
                 if data:
                     line = data.decode("utf-8", errors="replace").rstrip("\r\n")
                     if line:
                         self._record_line(line, "rx")
-                        self._rx_count += 1
-            except Exception as e:
-                if not self._stop_event.is_set():
-                    logger.warning("Serial read error: %s", e)
-                break
+            except (OSError, _SerialException) as exc:
+                failures += 1
+                if self._stop_event.is_set():
+                    break
+                if failures >= self._read_retry_attempts:
+                    self._mark_read_failure(f"read failed after {failures} attempts: {exc}")
+                    break
+                logger.warning(
+                    "Serial read error (%d/%d), retrying in %.1fs: %s",
+                    failures,
+                    self._read_retry_attempts,
+                    self._read_retry_delay_seconds,
+                    exc,
+                )
+                self._stop_event.wait(self._read_retry_delay_seconds)
 
     # ── Intelligent Watch ──
 
@@ -982,18 +1070,17 @@ class SerialBridge:
 
     def _watch_loop(self, platform: str = "esp32"):
         """Background thread: monitor new lines for symptoms."""
-        scan_idx = len(self._buffer)  # Start from current end
+        with self._lock:
+            scan_sequence = self._latest_sequence_locked()
 
         while self._watch_active:
             try:
-                # Get new lines since last scan
+                # Copy only the unread suffix. Sequence numbers remain valid
+                # even when the bounded deque evicts older lines.
                 with self._lock:
-                    current_len = len(self._buffer)
-                    if current_len > scan_idx:
-                        new_lines = list(self._buffer)[scan_idx:current_len]
-                        scan_idx = current_len
-                    else:
-                        new_lines = []
+                    new_lines = self._entries_after_locked(scan_sequence)
+                    if new_lines:
+                        scan_sequence = new_lines[-1].get("seq", scan_sequence)
 
                 for entry in new_lines:
                     if not self._watch_active:
@@ -1052,12 +1139,7 @@ class SerialBridge:
         ts = datetime.now(timezone.utc).isoformat()
 
         # Also add to ring buffer for search
-        with self._lock:
-            self._buffer.append({
-                "ts": time.time(),
-                "raw": f"--- BOOKMARK: {label} ---",
-                "direction": "bookmark",
-            })
+        self._append_bookmark(label)
 
         return {"ok": True, "label": label, "timestamp": ts}
 
@@ -1158,9 +1240,10 @@ class SerialBridge:
 
         timeout = max(0.1, min(30.0, timeout))
 
-        # Record current buffer position so we only scan new entries
+        # Record the current sequence so only entries after the command are
+        # considered. Sequence numbers avoid ambiguity under high throughput.
         with self._lock:
-            start_idx = len(self._buffer)
+            scan_sequence = self._latest_sequence_locked()
 
         # Send the command
         write_result = self.write(command, newline=newline)
@@ -1173,12 +1256,9 @@ class SerialBridge:
 
         while time.time() < deadline:
             with self._lock:
-                current_len = len(self._buffer)
-                if current_len > start_idx:
-                    new_entries = list(self._buffer)[start_idx:current_len]
-                    start_idx = current_len
-                else:
-                    new_entries = []
+                new_entries = self._entries_after_locked(scan_sequence)
+                if new_entries:
+                    scan_sequence = new_entries[-1].get("seq", scan_sequence)
 
             for entry in new_entries:
                 if entry["direction"] == "rx":
@@ -1200,12 +1280,12 @@ class SerialBridge:
                 all_lines = list(self._buffer)
 
             rx_lines = [l for l in all_lines if l["direction"] == "rx"]
-            match_ts = matched_entry["ts"]
+            match_sequence = matched_entry.get("seq")
 
             # Find the match position in the RX-only list
             match_pos = None
             for i, line in enumerate(rx_lines):
-                if line["ts"] == match_ts and line["raw"] == matched_entry["raw"]:
+                if line.get("seq") == match_sequence:
                     match_pos = i
                     break
 
@@ -1222,6 +1302,7 @@ class SerialBridge:
             return {
                 "ok": True,
                 "matched_line": matched_entry["raw"],
+                "matched_sequence": match_sequence,
                 "match_groups": match_groups,
                 "context": context,
                 "elapsed_ms": elapsed_ms,
