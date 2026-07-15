@@ -95,6 +95,15 @@ Boundary rules:
 
 **方式 B — codegen：**
 
+**架构优先（推荐）：** 先用一份可审查的规格声明 module boundary、task/queue topology、backpressure 与约束，再生成 C 骨架与 manifest：
+
+```bash
+python tools/firmware_architect.py --init-spec architecture.json
+python tools/firmware_architect.py --spec architecture.json --outdir ./generated
+```
+
+**遗留 MVP 骨架：**
+
 ```bash
 python tools/mvp_codegen_tool.py <Module> --platform <jl|bk|esp32|stm32> -o ./generated
 ```

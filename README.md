@@ -178,6 +178,10 @@ python tools/run_review.py --dir ./src --platform esp32 --watch
 # 快速查询约束、关联 checker、fixture 与平台差异
 python tools/constraint_lookup.py C15 --platform zephyr
 
+# 架构规格驱动的模块代码生成（先生成规格，再生成可审查骨架）
+python tools/firmware_architect.py --init-spec architecture.json
+python tools/firmware_architect.py --spec architecture.json --outdir generated
+
 # 只审查本次 Git 变更的 C/C++ 文件（CI 指定基线）
 python tools/run_review.py --changed-only --changed-base origin/main
 
