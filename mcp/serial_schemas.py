@@ -79,7 +79,7 @@ SERIAL_TOOL_SCHEMAS = [
     },
     {
         "name": "serial_request",
-        "description": "Send a command and wait for a matching response. Returns matched line with context, or timeout with recent RX history. More reliable than manual write+poll.",
+        "description": "Send a command and wait for a matching response. Returns matched line with context, or timeout with recent RX history. Supports MCP notifications/cancelled. More reliable than manual write+poll.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -184,7 +184,7 @@ SERIAL_TOOL_SCHEMAS = [
     },
     {
         "name": "serial_watch",
-        "description": "Start/stop/query background log monitoring. When active, automatically detects symptoms (crash, WDT, heap exhaustion, etc.) and generates alerts. Uses the same symptom routes as log_triage.",
+        "description": "Start/stop/query background log monitoring. Alerts include a context_router diagnostic plan, so WDT/crash detection directly identifies debug_crash.md, constraints, probes, and checker targets.",
         "inputSchema": {
             "type": "object",
             "properties": {

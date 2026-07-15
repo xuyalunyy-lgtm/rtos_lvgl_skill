@@ -25,6 +25,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).parent))
 
 from serial_client import SerialBridge, RotatingLogWriter, _apply_redaction
+import serial_server
 
 
 # ── Loopback Serial Mock ──
@@ -381,6 +382,48 @@ class TestRequest:
         assert result["context"][-1] == "OK"
         bridge.shutdown()
 
+    def test_request_honors_cancellation_event(self):
+        bridge = make_bridge()
+        mock = LoopbackSerial(echo=False)
+        connect_loopback(bridge, mock)
+        cancelled = threading.Event()
+        threading.Timer(0.05, cancelled.set).start()
+
+        result = bridge.request("AT", "OK", timeout=2.0, cancel_event=cancelled)
+        assert result["ok"] is False
+        assert result["error"] == "cancelled"
+        bridge.shutdown()
+
+    def test_jsonrpc_cancel_notification_cancels_request(self):
+        class BlockingBridge:
+            def request(self, **kwargs):
+                cancel_event = kwargs["cancel_event"]
+                cancel_event.wait(timeout=1.0)
+                return {"ok": False, "error": "cancelled" if cancel_event.is_set() else "timeout"}
+
+        original_get_bridge = serial_server.get_bridge
+        serial_server.get_bridge = lambda: BlockingBridge()
+        responses: list[dict] = []
+        request = {
+            "method": "tools/call",
+            "params": {"name": "serial_request", "arguments": {"command": "AT", "expect": "OK", "timeout": 1.0}},
+            "id": "cancel-test",
+        }
+        try:
+            worker = threading.Thread(target=lambda: responses.append(serial_server._handle_request(request)))
+            worker.start()
+            time.sleep(0.05)
+            assert serial_server._handle_request({
+                "method": "notifications/cancelled",
+                "params": {"requestId": "cancel-test"},
+            }) is None
+            worker.join(timeout=1.0)
+            assert not worker.is_alive()
+            payload = json.loads(responses[0]["result"]["content"][0]["text"])
+            assert payload["error"] == "cancelled"
+        finally:
+            serial_server.get_bridge = original_get_bridge
+
     def test_request_disconnected(self):
         bridge = make_bridge()
         result = bridge.request("AT", "OK")
@@ -423,6 +466,12 @@ class TestWatch:
         alerts = bridge.get_watch_alerts(n=10)
         assert len(alerts) >= 1
         assert any(a["severity"] == "critical" for a in alerts)
+        wdt_alerts = [a for a in alerts if "WDT" in a["line"]]
+        assert wdt_alerts
+        plan = wdt_alerts[-1]["diagnostic_plan"]
+        assert plan["routing_decision"] == "diagnose"
+        assert plan["workflow"] == "crash_debug"
+        assert "workflows/debug_crash.md" in [item["path"] for item in plan["required_files"]]
 
         bridge.stop_watch()
         bridge.shutdown()

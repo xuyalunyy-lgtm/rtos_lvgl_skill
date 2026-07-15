@@ -19,6 +19,7 @@ import json
 import logging
 import os
 import re
+import sys
 import threading
 import time
 from collections import deque
@@ -304,6 +305,31 @@ def match_symptoms_fast(line: str) -> list[dict]:
 
     matches.sort(key=lambda x: x["score"], reverse=True)
     return matches[:3]
+
+
+def build_watch_diagnostic_plan(text: str, platform: str) -> dict[str, Any]:
+    """Build the context-router plan attached to a watch alert."""
+    tools_dir = str(ROOT / "tools")
+    if tools_dir not in sys.path:
+        sys.path.insert(0, tools_dir)
+    try:
+        from context_router import build_symptom_plan
+
+        rtos = "zephyr" if platform == "zephyr" else "freertos"
+        return build_symptom_plan(
+            text,
+            platform,
+            rtos,
+            budget="compact",
+            probe_detail="compact",
+            allow_weak_route=True,
+        )
+    except (ImportError, OSError, ValueError) as exc:
+        logger.warning("Could not build serial watch diagnostic plan: %s", exc)
+        return {
+            "routing_decision": "unavailable",
+            "error": f"context_router unavailable: {exc}",
+        }
 
 
 # Log level / error pattern detection
@@ -1105,6 +1131,7 @@ class SerialBridge:
                             "severity": sev,
                             "category": cls["category"],
                             "symptoms": symptoms,
+                            "diagnostic_plan": build_watch_diagnostic_plan(raw, platform),
                         }
 
                         with self._watch_lock:
@@ -1215,6 +1242,7 @@ class SerialBridge:
         timeout: float = 5.0,
         newline: str = "\r\n",
         context_lines: int = 5,
+        cancel_event: threading.Event | None = None,
     ) -> dict[str, Any]:
         """Send a command and wait for a matching response.
 
@@ -1224,6 +1252,7 @@ class SerialBridge:
             timeout: Max seconds to wait for match (0.1–30.0)
             newline: Newline suffix appended to command
             context_lines: Number of RX lines before/after match to include
+            cancel_event: Optional event set by the MCP cancellation handler
 
         Returns:
             On match: {"ok": True, "matched_line", "match_groups", "context", "elapsed_ms"}
@@ -1237,6 +1266,9 @@ class SerialBridge:
 
         if not self._connected or not self._serial:
             return {"ok": False, "error": "Not connected"}
+
+        if cancel_event is not None and cancel_event.is_set():
+            return {"ok": False, "error": "cancelled", "command_sent": False}
 
         timeout = max(0.1, min(30.0, timeout))
 
@@ -1255,6 +1287,13 @@ class SerialBridge:
         matched_entry = None
 
         while time.time() < deadline:
+            if cancel_event is not None and cancel_event.is_set():
+                return {
+                    "ok": False,
+                    "error": "cancelled",
+                    "command_sent": command,
+                    "elapsed_ms": round((time.time() - (deadline - timeout)) * 1000),
+                }
             with self._lock:
                 new_entries = self._entries_after_locked(scan_sequence)
                 if new_entries:

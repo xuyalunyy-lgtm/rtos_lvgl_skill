@@ -61,12 +61,12 @@ python mcp/test_serial_e2e.py
 | `serial_connect` | 连接白名单串口，启动后台读取线程 |
 | `serial_disconnect` | 断开连接 |
 | `serial_write` | 发送原始数据 |
-| **`serial_request`** | **发送命令并等待正则匹配**（替代手动 write+poll） |
+| **`serial_request`** | **发送命令并等待正则匹配**（支持 MCP 取消） |
 | `serial_get_lines` | 从环形缓冲区读取最近日志 |
 | `serial_search` | 搜索缓冲区关键字（可选忽略大小写） |
 | `serial_check_device` | 检测 USB 设备是否重新插入（可能换了端口） |
 | `serial_get_stats` | 缓冲区统计（收发计数、时间范围） |
-| `serial_watch` | 后台症状监控（崩溃、WDT、堆耗尽等） |
+| `serial_watch` | 后台症状监控，并附带自动诊断计划 |
 | `serial_bookmark` | 在日志中标记关键时刻 |
 | `serial_export_bundle` | 导出最小复现包（JSON） |
 | `serial_summary` | 缓冲区健康摘要 |
@@ -81,13 +81,19 @@ serial_request(command="AT+RST", expect="ready", timeout=5.0)
 
 匹配成功返回：
 ```json
-{"ok": true, "matched_line": "ready", "match_groups": [], "context": ["...", "ready"], "elapsed_ms": 312}
+{"ok": true, "matched_line": "ready", "matched_sequence": 42, "match_groups": [], "context": ["...", "ready"], "elapsed_ms": 312}
 ```
+
+客户端可通过 JSON-RPC `notifications/cancelled` 及原始请求 ID 取消仍在等待的请求；取消会返回 `{"ok": false, "error": "cancelled"}`。
 
 超时返回（含最近 RX 日志，方便诊断）：
 ```json
 {"ok": false, "error": "timeout", "recent_rx": ["...", "..."], "elapsed_ms": 5000}
 ```
+
+## `serial_watch` — 自动诊断桥接
+
+检测到 WDT、HardFault、Guru Meditation 等告警时，每条 alert 都会附带 `diagnostic_plan`。它由 `context_router` 生成，包含推荐工作流（例如 `crash_debug`）、`workflows/debug_crash.md` 等必读文件、约束、诊断探针和 checker 目标。调用方读取 alert 后即可直接进入对应调试流程，无需再手工复制日志。
 
 ## USB 设备身份
 

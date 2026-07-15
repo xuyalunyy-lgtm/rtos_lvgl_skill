@@ -18,6 +18,7 @@ import argparse
 import json
 import logging
 import sys
+import threading
 from pathlib import Path
 from typing import Any
 
@@ -37,6 +38,81 @@ logger = logging.getLogger(__name__)
 PROTOCOL_VERSIONS = ["2024-11-05", "2025-03-26", "2025-06-18", "2025-11-25"]
 DEFAULT_PROTOCOL_VERSION = "2025-11-25"
 SERVER_INFO = {"name": "serial-mcp", "version": "0.1.0"}
+_CANCELLATIONS: dict[str, threading.Event] = {}
+_CANCELLED_EARLY: set[str] = set()
+_CANCELLATION_LOCK = threading.Lock()
+_STDOUT_LOCK = threading.Lock()
+
+
+def _request_key(request_id: Any) -> str:
+    """Use a stable, hashable key for a JSON-RPC request ID."""
+    return json.dumps(request_id, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+
+
+def _register_cancellation(request_id: Any) -> threading.Event:
+    key = _request_key(request_id)
+    event = threading.Event()
+    with _CANCELLATION_LOCK:
+        if key in _CANCELLED_EARLY:
+            _CANCELLED_EARLY.remove(key)
+            event.set()
+        _CANCELLATIONS[key] = event
+    return event
+
+
+def _finish_cancellation(request_id: Any) -> None:
+    with _CANCELLATION_LOCK:
+        _CANCELLATIONS.pop(_request_key(request_id), None)
+
+
+def _cancel_request(request_id: Any) -> None:
+    key = _request_key(request_id)
+    with _CANCELLATION_LOCK:
+        event = _CANCELLATIONS.get(key)
+        if event is None:
+            _CANCELLED_EARLY.add(key)
+        else:
+            event.set()
+
+
+def _validate_schema_value(schema: dict[str, Any], value: Any, path: str) -> list[str]:
+    """Validate the JSON-Schema subset used by the local MCP tool schemas."""
+    errors: list[str] = []
+    expected = schema.get("type")
+    type_ok = {
+        "object": isinstance(value, dict),
+        "array": isinstance(value, list),
+        "string": isinstance(value, str),
+        "boolean": isinstance(value, bool),
+        "integer": isinstance(value, int) and not isinstance(value, bool),
+        "number": isinstance(value, (int, float)) and not isinstance(value, bool),
+    }
+    if expected and not type_ok.get(expected, True):
+        return [f"{path} must be {expected}"]
+    if "enum" in schema and value not in schema["enum"]:
+        errors.append(f"{path} must be one of {schema['enum']}")
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        if "minimum" in schema and value < schema["minimum"]:
+            errors.append(f"{path} must be >= {schema['minimum']}")
+        if "maximum" in schema and value > schema["maximum"]:
+            errors.append(f"{path} must be <= {schema['maximum']}")
+    if isinstance(value, dict):
+        properties = schema.get("properties", {})
+        for name in schema.get("required", []):
+            if name not in value:
+                errors.append(f"{path}.{name} is required")
+        if schema.get("additionalProperties") is False:
+            unknown = sorted(set(value) - set(properties))
+            errors.extend(f"{path}.{name} is not allowed" for name in unknown)
+        for name, item in value.items():
+            if name in properties:
+                errors.extend(_validate_schema_value(properties[name], item, f"{path}.{name}"))
+    return errors
+
+
+def _validate_tool_arguments(tool_name: str, arguments: dict[str, Any]) -> list[str]:
+    schema = TOOL_SCHEMA_MAP[tool_name]["inputSchema"]
+    return _validate_schema_value(schema, arguments, "arguments")
 
 # ── Tool implementations ──
 
@@ -66,7 +142,7 @@ def serial_disconnect(args: dict[str, Any]) -> dict[str, Any]:
     return bridge.disconnect()
 
 
-def serial_request(args: dict[str, Any]) -> dict[str, Any]:
+def serial_request(args: dict[str, Any], *, cancel_event: threading.Event | None = None) -> dict[str, Any]:
     """Send a command and wait for a matching response."""
     bridge = get_bridge()
     return bridge.request(
@@ -75,6 +151,7 @@ def serial_request(args: dict[str, Any]) -> dict[str, Any]:
         timeout=args.get("timeout", 5.0),
         newline=args.get("newline", "\r\n"),
         context_lines=args.get("context_lines", 5),
+        cancel_event=cancel_event,
     )
 
 
@@ -241,6 +318,14 @@ def _handle_request(req: dict[str, Any]) -> dict[str, Any] | None:
     if method == "notifications/initialized":
         return None
 
+    if method == "notifications/cancelled":
+        if not isinstance(params, dict):
+            return None
+        cancelled_id = params.get("requestId", params.get("request_id", params.get("id")))
+        if cancelled_id is not None:
+            _cancel_request(cancelled_id)
+        return None
+
     if method == "initialize":
         client_version = params.get("protocolVersion", DEFAULT_PROTOCOL_VERSION)
         version = client_version if client_version in PROTOCOL_VERSIONS else DEFAULT_PROTOCOL_VERSION
@@ -270,6 +355,8 @@ def _handle_request(req: dict[str, Any]) -> dict[str, Any] | None:
             return _jsonrpc_error(-32000, f"Resource error: {e}", req_id)
 
     if method == "tools/call":
+        if not isinstance(params, dict):
+            return _jsonrpc_error(-32602, "Tool call params must be an object", req_id)
         tool_name = params.get("name", "")
         tool_args = params.get("arguments", {})
         handler = TOOLS.get(tool_name)
@@ -277,17 +364,47 @@ def _handle_request(req: dict[str, Any]) -> dict[str, Any] | None:
             return _jsonrpc_error(-32602, f"Unknown tool: {tool_name}", req_id)
         if not isinstance(tool_args, dict):
             return _jsonrpc_error(-32602, "Arguments must be an object", req_id)
+        errors = _validate_tool_arguments(tool_name, tool_args)
+        if errors:
+            return _jsonrpc_error(-32602, f"Invalid arguments for {tool_name}: {'; '.join(errors)}", req_id)
+        cancel_event: threading.Event | None = None
+        if tool_name == "serial_request" and req_id is not None:
+            cancel_event = _register_cancellation(req_id)
         try:
-            result = handler(tool_args)
+            result = handler(tool_args, cancel_event=cancel_event) if tool_name == "serial_request" else handler(tool_args)
             return _jsonrpc_result(_mcp_result(result), req_id)
         except Exception as e:
             logger.exception("Tool %s failed", tool_name)
             return _jsonrpc_result(_mcp_result({"ok": False, "error": str(e)}), req_id)
+        finally:
+            if cancel_event is not None:
+                _finish_cancellation(req_id)
 
     return _jsonrpc_error(-32601, f"Method not found: {method}", req_id)
 
 
 # ── Main loop ──
+
+
+def _is_cancellable_tool_call(message: dict[str, Any]) -> bool:
+    params = message.get("params")
+    return (
+        message.get("method") == "tools/call"
+        and isinstance(params, dict)
+        and params.get("name") == "serial_request"
+        and message.get("id") is not None
+    )
+
+
+def _write_stdio_response(response: Any) -> None:
+    with _STDOUT_LOCK:
+        print(json.dumps(response, ensure_ascii=False), flush=True)
+
+
+def _handle_async_request(message: dict[str, Any]) -> None:
+    response = _handle_request(message)
+    if response is not None:
+        _write_stdio_response(response)
 
 
 def serve_stdio() -> None:
@@ -299,7 +416,7 @@ def serve_stdio() -> None:
         try:
             message = json.loads(line)
         except json.JSONDecodeError:
-            print(json.dumps(_jsonrpc_error(-32700, "Parse error")), flush=True)
+            _write_stdio_response(_jsonrpc_error(-32700, "Parse error"))
             continue
 
         if isinstance(message, list):
@@ -310,13 +427,16 @@ def serve_stdio() -> None:
                     if resp is not None:
                         responses.append(resp)
             if responses:
-                print(json.dumps(responses), flush=True)
+                _write_stdio_response(responses)
         elif isinstance(message, dict) and "method" in message:
-            response = _handle_request(message)
-            if response is not None:
-                print(json.dumps(response), flush=True)
+            if _is_cancellable_tool_call(message):
+                threading.Thread(target=_handle_async_request, args=(message,), daemon=True).start()
+            else:
+                response = _handle_request(message)
+                if response is not None:
+                    _write_stdio_response(response)
         else:
-            print(json.dumps(_jsonrpc_error(-32600, "Invalid request")), flush=True)
+            _write_stdio_response(_jsonrpc_error(-32600, "Invalid request"))
 
 
 # ── Self-test ──
@@ -522,29 +642,57 @@ def run_self_test() -> int:
     resp = _handle_request({"method": "unknown_method", "params": {}, "id": 5})
     check("unknown method returns error", resp is not None and resp.get("error", {}).get("code") == -32601)
 
-    # Test 11: Tool call — list ports
-    resp = _handle_request({"method": "tools/call", "params": {"name": "serial_list", "arguments": {}}, "id": 6})
-    check("serial_list tool call", resp is not None)
-    if resp:
-        result = resp.get("result", {})
-        content = result.get("content", [{}])
-        if content:
-            inner = json.loads(content[0].get("text", "{}"))
-            check("serial_list returns ok", inner.get("ok") is True)
+    # Test 11: Every serial tool reaches its JSON-RPC tools/call path.
+    tool_cases = [
+        ("serial_list", {}),
+        ("serial_connect", {"port": "INVALID_PORT"}),
+        ("serial_disconnect", {}),
+        ("serial_write", {"data": "AT"}),
+        ("serial_request", {"command": "AT", "expect": "OK", "timeout": 0.1}),
+        ("serial_get_lines", {}),
+        ("serial_search", {"keyword": "ERROR", "case_sensitive": False}),
+        ("serial_check_device", {}),
+        ("serial_get_stats", {}),
+        ("serial_watch", {"action": "status"}),
+        ("serial_bookmark", {"label": "self-test"}),
+        ("serial_export_bundle", {}),
+        ("serial_summary", {"n": 50}),
+    ]
+    for index, (tool_name, arguments) in enumerate(tool_cases, start=6):
+        resp = _handle_request({
+            "method": "tools/call",
+            "params": {"name": tool_name, "arguments": arguments},
+            "id": index,
+        })
+        content = resp.get("result", {}).get("content", []) if resp else []
+        check(f"{tool_name} JSON-RPC path", bool(content) and content[0].get("type") == "text")
 
-    # Test 12: Tool call — get_stats
-    resp = _handle_request({"method": "tools/call", "params": {"name": "serial_get_stats", "arguments": {}}, "id": 7})
-    check("serial_get_stats tool call", resp is not None)
+    # Test 12: Input schemas reject wrong types, missing fields, and unknown keys.
+    resp = _handle_request({
+        "method": "tools/call",
+        "params": {"name": "serial_connect", "arguments": {"port": 123}},
+        "id": 30,
+    })
+    check("input schema rejects wrong type", resp is not None and resp.get("error", {}).get("code") == -32602)
+    resp = _handle_request({
+        "method": "tools/call",
+        "params": {"name": "serial_write", "arguments": {}},
+        "id": 31,
+    })
+    check("input schema rejects missing field", resp is not None and resp.get("error", {}).get("code") == -32602)
+    resp = _handle_request({
+        "method": "tools/call",
+        "params": {"name": "serial_get_stats", "arguments": {"unexpected": True}},
+        "id": 32,
+    })
+    check("input schema rejects unknown field", resp is not None and resp.get("error", {}).get("code") == -32602)
 
-    # Test 13: Tool call — connect without valid port (should error gracefully)
-    resp = _handle_request({"method": "tools/call", "params": {"name": "serial_connect", "arguments": {"port": "INVALID_PORT"}}, "id": 8})
-    check("connect invalid port handled", resp is not None)
-    if resp:
-        result = resp.get("result", {})
-        content = result.get("content", [{}])
-        if content:
-            inner = json.loads(content[0].get("text", "{}"))
-            check("connect invalid port returns error", inner.get("ok") is False)
+    # Test 13: notifications/cancelled reaches the request-specific event.
+    cancel_id = "self-test-cancel"
+    cancellation = _register_cancellation(cancel_id)
+    resp = _handle_request({"method": "notifications/cancelled", "params": {"requestId": cancel_id}})
+    check("cancel notification is acknowledged", resp is None and cancellation.is_set())
+    _finish_cancellation(cancel_id)
 
     # Cleanup
     bridge.shutdown()
