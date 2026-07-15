@@ -177,6 +177,8 @@ class OtaProtocol:
         firmware_url: str,
         sha256: str,
         size_bytes: int,
+        signature_url: str = "",
+        key_id: str = "",
     ) -> dict[str, Any]:
         """Build upgrade notification payload using configured format."""
         format_spec = self.config["notification_payload"]["format"]
@@ -193,6 +195,10 @@ class OtaProtocol:
                 result[key] = template.format(**replacements)
             else:
                 result[key] = template
+        if signature_url:
+            result["signature_url"] = signature_url
+        if key_id:
+            result["signature_key_id"] = key_id
         return result
 
     @property

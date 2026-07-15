@@ -4,6 +4,7 @@ version = "45.0.0"
 description = "FreeRTOS firmware review and LVGL design-to-code tooling"
 requires-python = ">=3.10"
 dependencies = [
+    "cryptography>=42,<46",
     "paho-mqtt>=1.6,<3",
     "pyserial>=3.5,<4",
 ]

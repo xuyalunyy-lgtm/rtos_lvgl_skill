@@ -53,6 +53,10 @@ def mqtt_connect(args: dict[str, Any]) -> dict[str, Any]:
         password=args.get("password"),
         tls=args.get("tls", False),
         keepalive=args.get("keepalive", 60),
+        will_topic=args.get("will_topic"),
+        will_payload=args.get("will_payload"),
+        will_qos=args.get("will_qos", 1),
+        will_retain=args.get("will_retain", True),
     )
 
 
@@ -88,6 +92,24 @@ def mqtt_unsubscribe(args: dict[str, Any]) -> dict[str, Any]:
     return bridge.unsubscribe(topic=args["topic"])
 
 
+def mqtt_validate_qos_policy(args: dict[str, Any]) -> dict[str, Any]:
+    """Validate QoS/retain use before publishing."""
+    return get_bridge().validate_qos_policy(args["message_class"], args["qos"], args["retain"])
+
+
+def mqtt_verify_retained(args: dict[str, Any]) -> dict[str, Any]:
+    """Verify that a broker replays a retained message to a new subscriber."""
+    return get_bridge().verify_retained(args["topic"], args.get("expected_payload"), args.get("timeout_seconds", 5))
+
+
+def mqtt_test_will(args: dict[str, Any]) -> dict[str, Any]:
+    """Test a Last Will using isolated probe clients."""
+    return get_bridge().test_will(
+        args["topic"], args["payload"], args.get("qos", 1),
+        args.get("retain", True), args.get("timeout_seconds", 5),
+    )
+
+
 def mqtt_list_topics(args: dict[str, Any]) -> dict[str, Any]:
     """List subscribed topics."""
     bridge = get_bridge()
@@ -119,6 +141,9 @@ TOOLS = {
     "mqtt_publish": mqtt_publish,
     "mqtt_subscribe": mqtt_subscribe,
     "mqtt_unsubscribe": mqtt_unsubscribe,
+    "mqtt_validate_qos_policy": mqtt_validate_qos_policy,
+    "mqtt_verify_retained": mqtt_verify_retained,
+    "mqtt_test_will": mqtt_test_will,
     "mqtt_list_topics": mqtt_list_topics,
     "mqtt_get_messages": mqtt_get_messages,
     "mqtt_clear_messages": mqtt_clear_messages,
@@ -289,7 +314,7 @@ def run_self_test() -> int:
             print(f"  FAIL: {name}")
 
     # Test 1: Tool schemas are valid
-    check("has tool schemas", len(MQTT_TOOL_SCHEMAS) == 8)
+    check("has tool schemas", len(MQTT_TOOL_SCHEMAS) == 11)
     for schema in MQTT_TOOL_SCHEMAS:
         check(f"schema {schema['name']} has name", "name" in schema)
         check(f"schema {schema['name']} has inputSchema", "inputSchema" in schema)
@@ -325,12 +350,16 @@ def run_self_test() -> int:
     check("127.0.0.1 allowed", bridge._is_host_allowed("127.0.0.1"))
     check("evil.com blocked", not bridge._is_host_allowed("evil.com"))
 
-    # Test 8: JSON-RPC handler
+    # Test 8: QoS policy keeps retained availability separate from commands.
+    check("availability QoS policy accepted", bridge.validate_qos_policy("availability", 1, True)["ok"])
+    check("unsafe retained command rejected", not bridge.validate_qos_policy("command", 1, True)["ok"])
+
+    # Test 9: JSON-RPC handler
     resp = _handle_request({"method": "initialize", "params": {"protocolVersion": "2025-11-25"}, "id": 1})
     check("initialize works", resp is not None and resp.get("result", {}).get("protocolVersion") == "2025-11-25")
 
     resp = _handle_request({"method": "tools/list", "params": {}, "id": 2})
-    check("tools/list returns schemas", resp is not None and len(resp.get("result", {}).get("tools", [])) == 8)
+    check("tools/list returns schemas", resp is not None and len(resp.get("result", {}).get("tools", [])) == 11)
 
     resp = _handle_request({"method": "resources/list", "params": {}, "id": 3})
     check("resources/list returns schemas", resp is not None and len(resp.get("result", {}).get("resources", [])) == 3)
@@ -350,6 +379,9 @@ def run_self_test() -> int:
         if content:
             inner = json.loads(content[0].get("text", "{}"))
             check("error message mentions not connected", "not connected" in inner.get("error", "").lower())
+
+    resp = _handle_request({"method": "tools/call", "params": {"name": "mqtt_validate_qos_policy", "arguments": {"message_class": "ota", "qos": 1, "retain": False}}, "id": 7})
+    check("QoS policy JSON-RPC path works", resp is not None and not resp.get("result", {}).get("isError", True))
 
     print(f"\nSelf-test: {passed} passed, {failed} failed")
     return 0 if failed == 0 else 1

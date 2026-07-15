@@ -44,7 +44,28 @@ SERVER_INFO = {"name": "ota-mcp", "version": "0.1.0"}
 # ── Shared state ──
 
 FIRMWARE_ROOT = ROOT / "artifacts" / "firmware"
-_repo = FirmwareRepo(FIRMWARE_ROOT)
+
+
+def _load_trusted_keys(path: Path) -> dict[str, str]:
+    """Load public release keys; private signing keys are never handled by MCP."""
+    if not path.is_file():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        keys = data.get("keys", data)
+        return {
+            key_id: value["public_key_pem"] if isinstance(value, dict) else value
+            for key_id, value in keys.items()
+            if isinstance(key_id, str) and isinstance(value, (str, dict))
+            and (isinstance(value, str) or isinstance(value.get("public_key_pem"), str))
+        }
+    except (OSError, json.JSONDecodeError, AttributeError):
+        logger.warning("Unable to load OTA trusted-key configuration: %s", path)
+        return {}
+
+
+TRUSTED_KEYS_FILE = Path(os.environ.get("OTA_TRUSTED_KEYS_FILE", ROOT / "ota_trusted_keys.json"))
+_repo = FirmwareRepo(FIRMWARE_ROOT, _load_trusted_keys(TRUSTED_KEYS_FILE))
 _devices = DeviceRegistry(stale_timeout=300)
 _protocol = OtaProtocol(ROOT / "ota_protocol.json")
 _http_server: OtaHttpServer | None = None
@@ -97,7 +118,8 @@ def ota_upload(args: dict[str, Any]) -> dict[str, Any]:
     file_path = Path(args["file_path"])
     description = args.get("description", "")
 
-    return _repo.upload(platform, version, file_path, description)
+    signature_path = Path(args["signature_path"]) if args.get("signature_path") else None
+    return _repo.upload(platform, version, file_path, description, signature_path, args.get("key_id"))
 
 
 def ota_list(args: dict[str, Any]) -> dict[str, Any]:
@@ -120,6 +142,11 @@ def ota_info(args: dict[str, Any]) -> dict[str, Any]:
     return {"ok": False, "error": f"Firmware not found: {args['platform']}/{args['version']}"}
 
 
+def ota_verify_signature(args: dict[str, Any]) -> dict[str, Any]:
+    """Verify manifest digest and trusted Ed25519 signature before release."""
+    return _repo.verify_artifact(args["platform"], args["version"])
+
+
 def ota_push(args: dict[str, Any]) -> dict[str, Any]:
     """Push upgrade notification to a device."""
     device_ip = args["device_ip"]
@@ -133,6 +160,9 @@ def ota_push(args: dict[str, Any]) -> dict[str, Any]:
     firmware = _repo.get_info(platform, version)
     if not firmware:
         return {"ok": False, "error": f"Firmware not found: {platform}/{version}"}
+    verification = _repo.verify_artifact(platform, version)
+    if not verification["ok"]:
+        return {"ok": False, "error": "Refusing unsigned or invalid firmware", "verification": verification}
 
     # In a real implementation, this would send an HTTP request to the device
     # or publish via MQTT. For now, we update the device status.
@@ -144,6 +174,11 @@ def ota_push(args: dict[str, Any]) -> dict[str, Any]:
         firmware_url=f"http://localhost:{_http_server.port if _http_server else 8080}{firmware['firmware_url']}",
         sha256=firmware["sha256"],
         size_bytes=firmware["size_bytes"],
+        signature_url=(
+            f"http://localhost:{_http_server.port if _http_server else 8080}"
+            f"{firmware['firmware_url'].removesuffix('firmware.bin')}firmware.sig"
+        ),
+        key_id=firmware.get("signature", {}).get("key_id", ""),
     )
 
     return {
@@ -152,6 +187,37 @@ def ota_push(args: dict[str, Any]) -> dict[str, Any]:
         "notification": payload,
         "message": f"Upgrade notification sent to {device_ip}",
     }
+
+
+def ota_prepare_ab_switch(args: dict[str, Any]) -> dict[str, Any]:
+    """Authorize a signed firmware image for the device's inactive A/B slot."""
+    device = _devices.get_device(args["device_ip"])
+    if not device:
+        return {"ok": False, "error": f"Device not registered: {args['device_ip']}"}
+    firmware = _repo.get_info(args["platform"], args["version"])
+    if not firmware:
+        return {"ok": False, "error": f"Firmware not found: {args['platform']}/{args['version']}"}
+    if device["platform"] != args["platform"]:
+        return {"ok": False, "error": "Device platform does not match firmware platform"}
+    verification = _repo.verify_artifact(args["platform"], args["version"])
+    if not verification["ok"]:
+        return {"ok": False, "error": "Refusing A/B switch for unsigned or invalid firmware", "verification": verification}
+    return _devices.prepare_ab_switch(args["device_ip"], args["version"], args.get("target_partition"))
+
+
+def ota_report_boot_result(args: dict[str, Any]) -> dict[str, Any]:
+    """Record bootloader/device outcome and finalize or roll back the A/B switch."""
+    return _devices.report_boot_result(args["device_ip"], args["partition"], args["success"], args.get("reason", ""))
+
+
+def ota_validate_ab_state(args: dict[str, Any]) -> dict[str, Any]:
+    """Validate A/B transition invariants without touching the device."""
+    return _devices.validate_ab_state(args["device_ip"])
+
+
+def ota_test_rollback(args: dict[str, Any]) -> dict[str, Any]:
+    """Dry-run a pending-slot boot failure and prove the active slot is preserved."""
+    return _devices.test_rollback(args["device_ip"])
 
 
 def ota_push_all(args: dict[str, Any]) -> dict[str, Any]:
@@ -166,6 +232,9 @@ def ota_push_all(args: dict[str, Any]) -> dict[str, Any]:
     firmware = _repo.get_info(platform, version)
     if not firmware:
         return {"ok": False, "error": f"Firmware not found: {platform}/{version}"}
+    verification = _repo.verify_artifact(platform, version)
+    if not verification["ok"]:
+        return {"ok": False, "error": "Refusing unsigned or invalid firmware", "verification": verification}
 
     notified = 0
     for device in devices:
@@ -199,7 +268,12 @@ TOOLS = {
     "ota_list": ota_list,
     "ota_delete": ota_delete,
     "ota_info": ota_info,
+    "ota_verify_signature": ota_verify_signature,
     "ota_push": ota_push,
+    "ota_prepare_ab_switch": ota_prepare_ab_switch,
+    "ota_report_boot_result": ota_report_boot_result,
+    "ota_validate_ab_state": ota_validate_ab_state,
+    "ota_test_rollback": ota_test_rollback,
     "ota_push_all": ota_push_all,
     "ota_device_status": ota_device_status,
 }
@@ -360,21 +434,31 @@ def run_self_test() -> int:
     import tempfile
 
     # Test 1: Schema validation
-    check("has tool schemas", len(OTA_TOOL_SCHEMAS) == 10)
+    check("has tool schemas", len(OTA_TOOL_SCHEMAS) == 15)
     check("has resource schemas", len(OTA_RESOURCE_SCHEMAS) == 3)
     check("all tools registered", set(TOOLS.keys()) == set(TOOL_SCHEMA_MAP.keys()))
 
     # Test 2: Firmware repo
     with tempfile.TemporaryDirectory() as tmpdir:
-        repo = FirmwareRepo(Path(tmpdir))
+        from cryptography.hazmat.primitives import serialization
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+        private_key = Ed25519PrivateKey.generate()
+        public_pem = private_key.public_key().public_bytes(
+            serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo,
+        ).decode("utf-8")
+        repo = FirmwareRepo(Path(tmpdir), {"self-test": public_pem})
 
         # Create a test firmware file
         fw_file = Path(tmpdir) / "test.bin"
         fw_file.write_bytes(b"\x00" * 1024)
+        sig_file = Path(tmpdir) / "test.sig"
+        sig_file.write_bytes(private_key.sign(fw_file.read_bytes()))
 
-        result = repo.upload("esp32", "1.0.0", fw_file, "Test firmware")
+        result = repo.upload("esp32", "1.0.0", fw_file, "Test firmware", sig_file, "self-test")
         check("upload ok", result["ok"])
         check("upload has sha256", len(result["manifest"]["sha256"]) == 64)
+        check("signature verified", repo.verify_artifact("esp32", "1.0.0")["ok"])
 
         # List
         firmware = repo.list_firmware()
@@ -417,6 +501,12 @@ def run_self_test() -> int:
     check("upgrade status updated", device["upgrade_status"] == "downloading")
 
     check("device count", devices.device_count == 1)
+    prepared = devices.prepare_ab_switch("192.168.1.100", "1.1.0")
+    check("A/B switch prepared", prepared["ok"] and prepared["device"]["pending_partition"] == "B")
+    rollback_test = devices.test_rollback("192.168.1.100")
+    check("rollback dry-run preserves active slot", rollback_test["ok"])
+    boot_failed = devices.report_boot_result("192.168.1.100", "B", False, "self-test")
+    check("failed pending boot rolls back", boot_failed["rolled_back"] and boot_failed["device"]["active_partition"] == "A")
 
     # Test 4: Protocol
     protocol = OtaProtocol()
@@ -435,7 +525,7 @@ def run_self_test() -> int:
     check("initialize works", resp is not None and resp.get("result", {}).get("protocolVersion") == "2025-11-25")
 
     resp = _handle_request({"method": "tools/list", "params": {}, "id": 2})
-    check("tools/list returns 10", resp is not None and len(resp.get("result", {}).get("tools", [])) == 10)
+    check("tools/list returns 15", resp is not None and len(resp.get("result", {}).get("tools", [])) == 15)
 
     resp = _handle_request({"method": "resources/list", "params": {}, "id": 3})
     check("resources/list returns 3", resp is not None and len(resp.get("result", {}).get("resources", [])) == 3)

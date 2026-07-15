@@ -55,6 +55,14 @@ class OtaRequestHandler(BaseHTTPRequestHandler):
                 self._serve_firmware(platform, version)
                 return
 
+        # GET /firmware/{platform}/{version}/firmware.sig
+        if path.startswith("/firmware/") and path.endswith("/firmware.sig"):
+            parts = path.split("/")
+            if len(parts) == 5:
+                platform, version = parts[2], parts[3]
+                self._serve_signature(platform, version)
+                return
+
         # GET /firmware/{platform}/latest
         if path.startswith("/firmware/") and path.endswith("/latest"):
             parts = path.split("/")
@@ -110,6 +118,18 @@ class OtaRequestHandler(BaseHTTPRequestHandler):
             return
 
         self._json_response(200, latest)
+
+    def _serve_signature(self, platform: str, version: str):
+        signature_path = self.repo.get_signature_path(platform, version)
+        if not signature_path:
+            self._json_response(404, {"error": f"Firmware signature not found: {platform}/{version}"})
+            return
+        signature = signature_path.read_bytes()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/octet-stream")
+        self.send_header("Content-Length", str(len(signature)))
+        self.end_headers()
+        self.wfile.write(signature)
 
     def _serve_device_status(self, device_ip: str):
         """Serve device status."""

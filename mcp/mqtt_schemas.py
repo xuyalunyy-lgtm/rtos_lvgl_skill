@@ -42,6 +42,16 @@ MQTT_TOOL_SCHEMAS = [
                     "maximum": 300,
                     "description": "Keepalive interval in seconds",
                 },
+                "will_topic": {
+                    "type": "string",
+                    "description": "Last Will topic; must be supplied with will_payload",
+                },
+                "will_payload": {
+                    "type": "string",
+                    "description": "Last Will payload; must be supplied with will_topic",
+                },
+                "will_qos": {"type": "integer", "enum": [0, 1, 2], "default": 1},
+                "will_retain": {"type": "boolean", "default": True},
             },
             "required": ["host"],
             "additionalProperties": False,
@@ -119,6 +129,50 @@ MQTT_TOOL_SCHEMAS = [
                 },
             },
             "required": ["topic"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "mqtt_validate_qos_policy",
+        "description": "Validate QoS and retain settings against telemetry, command, availability, or OTA policy.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "message_class": {"type": "string", "enum": ["telemetry", "command", "availability", "ota"]},
+                "qos": {"type": "integer", "enum": [0, 1, 2]},
+                "retain": {"type": "boolean"},
+            },
+            "required": ["message_class", "qos", "retain"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "mqtt_verify_retained",
+        "description": "Use a fresh subscriber to confirm a broker retained message and its payload.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "topic": {"type": "string"},
+                "expected_payload": {"type": "string"},
+                "timeout_seconds": {"type": "number", "default": 5, "minimum": 0.1, "maximum": 15},
+            },
+            "required": ["topic"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "mqtt_test_will",
+        "description": "Create an isolated client, drop its transport, and verify the broker publishes its Last Will.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "topic": {"type": "string"},
+                "payload": {"type": "string"},
+                "qos": {"type": "integer", "enum": [0, 1, 2], "default": 1},
+                "retain": {"type": "boolean", "default": True},
+                "timeout_seconds": {"type": "number", "default": 5, "minimum": 0.1, "maximum": 15},
+            },
+            "required": ["topic", "payload"],
             "additionalProperties": False,
         },
     },

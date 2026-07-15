@@ -16,6 +16,7 @@ import logging
 import os
 import threading
 import time
+import uuid
 from typing import Any
 
 import paho.mqtt.client as mqtt
@@ -28,6 +29,14 @@ DEFAULT_MAX_MESSAGES = 1000
 DEFAULT_KEEPALIVE = 60
 DEFAULT_TIMEOUT = 30
 MAX_PAYLOAD_BYTES = 64 * 1024  # 64KB
+MAX_PROBE_TIMEOUT = 15
+
+QOS_POLICIES = {
+    "telemetry": {"allowed_qos": (0, 1), "retain": False, "recommended_qos": 0},
+    "command": {"allowed_qos": (1, 2), "retain": False, "recommended_qos": 1},
+    "availability": {"allowed_qos": (1,), "retain": True, "recommended_qos": 1},
+    "ota": {"allowed_qos": (1, 2), "retain": False, "recommended_qos": 1},
+}
 
 ALLOWED_HOSTS = [
     h.strip()
@@ -52,6 +61,7 @@ class MqttBridge:
         self._connect_time: float = 0
         self._reconnect_delay: float = 1.0
         self._max_reconnect_delay: float = 60.0
+        self._connection_options: dict[str, Any] = {}
 
     # ── Connection ──
 
@@ -64,6 +74,10 @@ class MqttBridge:
         password: str | None = None,
         tls: bool = False,
         keepalive: int = DEFAULT_KEEPALIVE,
+        will_topic: str | None = None,
+        will_payload: str | None = None,
+        will_qos: int = 1,
+        will_retain: bool = True,
     ) -> dict[str, Any]:
         """Connect to MQTT broker.
 
@@ -73,6 +87,11 @@ class MqttBridge:
         # Validate host against allowlist
         if not self._is_host_allowed(host):
             return {"ok": False, "error": f"Host '{host}' not in allowed hosts: {ALLOWED_HOSTS}"}
+
+        if (will_topic is None) != (will_payload is None):
+            return {"ok": False, "error": "will_topic and will_payload must be supplied together"}
+        if will_topic and will_qos not in (0, 1, 2):
+            return {"ok": False, "error": "will_qos must be 0, 1, or 2"}
 
         # Disconnect existing connection if any
         if self._connected:
@@ -90,6 +109,8 @@ class MqttBridge:
 
             if tls:
                 self._client.tls_set()
+            if will_topic:
+                self._client.will_set(will_topic, will_payload, qos=will_qos, retain=will_retain)
 
             self._client.on_connect = self._on_connect
             self._client.on_disconnect = self._on_disconnect
@@ -112,6 +133,12 @@ class MqttBridge:
             self._client_id = self._client._client_id.decode() if self._client._client_id else ""
             self._connect_time = time.time()
             self._reconnect_delay = 1.0
+            # Passwords stay in memory only so isolated probe clients can use
+            # the same authenticated transport.  They are never returned.
+            self._connection_options = {
+                "host": host, "port": port, "username": username, "password": password,
+                "tls": tls, "keepalive": keepalive,
+            }
 
             return {
                 "ok": True,
@@ -208,6 +235,116 @@ class MqttBridge:
         except Exception as e:
             return {"ok": False, "error": str(e)}
 
+    def validate_qos_policy(self, message_class: str, qos: int, retain: bool) -> dict[str, Any]:
+        """Validate a publish configuration against the built-in MQTT safety policy."""
+        policy = QOS_POLICIES.get(message_class)
+        if not policy:
+            return {"ok": False, "error": f"Unknown message_class: {message_class}", "supported": sorted(QOS_POLICIES)}
+        violations = []
+        if qos not in policy["allowed_qos"]:
+            violations.append(f"QoS {qos} is not allowed for {message_class}")
+        if retain != policy["retain"]:
+            violations.append(f"retain must be {policy['retain']} for {message_class}")
+        return {
+            "ok": not violations,
+            "message_class": message_class,
+            "qos": qos,
+            "retain": retain,
+            "recommended": {"qos": policy["recommended_qos"], "retain": policy["retain"]},
+            "violations": violations,
+        }
+
+    def verify_retained(self, topic: str, expected_payload: str | None = None, timeout: float = 5.0) -> dict[str, Any]:
+        """Verify broker retention through a fresh subscriber connection."""
+        if not self._connected:
+            return {"ok": False, "error": "Not connected"}
+        timeout = min(max(timeout, 0.1), MAX_PROBE_TIMEOUT)
+        event = threading.Event()
+        received: dict[str, Any] = {}
+        client = self._make_probe_client("retain")
+
+        def on_connect(probe, _userdata, _flags, reason_code, _properties=None):
+            if reason_code == 0:
+                probe.subscribe(topic, qos=1)
+
+        def on_message(_probe, _userdata, msg):
+            received.update({
+                "topic": msg.topic,
+                "payload": msg.payload.decode("utf-8", errors="replace"),
+                "qos": msg.qos,
+                "retain": bool(msg.retain),
+            })
+            event.set()
+
+        try:
+            client.on_connect = on_connect
+            client.on_message = on_message
+            client.connect(self._connection_options["host"], self._connection_options["port"], self._connection_options["keepalive"])
+            client.loop_start()
+            event.wait(timeout)
+        except Exception as exc:
+            return {"ok": False, "error": f"Retained-message probe failed: {exc}"}
+        finally:
+            try:
+                client.disconnect()
+                client.loop_stop()
+            except Exception:
+                pass
+
+        payload_matches = expected_payload is None or received.get("payload") == expected_payload
+        ok = bool(received) and received.get("retain") is True and payload_matches
+        return {"ok": ok, "topic": topic, "received": received or None, "expected_payload": expected_payload,
+                "error": None if ok else "No matching retained message was received"}
+
+    def test_will(self, topic: str, payload: str, qos: int = 1, retain: bool = True, timeout: float = 5.0) -> dict[str, Any]:
+        """Test an isolated client's Last Will without disrupting the main connection."""
+        if not self._connected:
+            return {"ok": False, "error": "Not connected"}
+        if qos not in (0, 1, 2):
+            return {"ok": False, "error": "qos must be 0, 1, or 2"}
+        timeout = min(max(timeout, 0.1), MAX_PROBE_TIMEOUT)
+        observed = threading.Event()
+        received: dict[str, Any] = {}
+        observer = self._make_probe_client("will-observer")
+        publisher = self._make_probe_client("will-publisher")
+
+        def on_observer_connect(client, _userdata, _flags, reason_code, _properties=None):
+            if reason_code == 0:
+                client.subscribe(topic, qos=qos)
+
+        def on_observer_message(_client, _userdata, msg):
+            received.update({"payload": msg.payload.decode("utf-8", errors="replace"), "qos": msg.qos, "retain": bool(msg.retain)})
+            observed.set()
+
+        try:
+            observer.on_connect = on_observer_connect
+            observer.on_message = on_observer_message
+            observer.connect(self._connection_options["host"], self._connection_options["port"], self._connection_options["keepalive"])
+            observer.loop_start()
+            # Give the subscription a bounded chance to reach the broker before
+            # the test publisher loses its transport unexpectedly.
+            time.sleep(min(0.25, timeout / 4))
+            publisher.will_set(topic, payload, qos=qos, retain=retain)
+            publisher.connect(self._connection_options["host"], self._connection_options["port"], self._connection_options["keepalive"])
+            publisher.loop_start()
+            time.sleep(min(0.25, timeout / 4))
+            publisher._sock_close()  # paho's deliberate abrupt-close helper; no MQTT DISCONNECT is sent.
+            publisher.loop_stop()
+            observed.wait(timeout)
+        except Exception as exc:
+            return {"ok": False, "error": f"Will-message probe failed: {exc}"}
+        finally:
+            for client in (publisher, observer):
+                try:
+                    client.disconnect()
+                    client.loop_stop()
+                except Exception:
+                    pass
+
+        ok = received.get("payload") == payload and received.get("qos") == qos and received.get("retain") == retain
+        return {"ok": ok, "topic": topic, "expected": {"payload": payload, "qos": qos, "retain": retain},
+                "received": received or None, "error": None if ok else "Will message was not observed as expected"}
+
     # ── Message History ──
 
     def get_messages(
@@ -291,6 +428,19 @@ class MqttBridge:
         if host in ("localhost", "127.0.0.1", "::1"):
             return True
         return host in ALLOWED_HOSTS
+
+    def _make_probe_client(self, purpose: str) -> mqtt.Client:
+        """Build a disposable authenticated client for broker-side probes."""
+        client = mqtt.Client(
+            callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
+            client_id=f"mcp-{purpose}-{uuid.uuid4().hex[:12]}",
+            protocol=mqtt.MQTTv311,
+        )
+        if self._connection_options.get("username"):
+            client.username_pw_set(self._connection_options["username"], self._connection_options.get("password"))
+        if self._connection_options.get("tls"):
+            client.tls_set()
+        return client
 
     def _on_connect(self, client, userdata, flags, rc, properties=None):
         """Callback when connected."""

@@ -64,6 +64,14 @@ OTA_TOOL_SCHEMAS = [
                     "default": "",
                     "description": "Optional firmware description",
                 },
+                "signature_path": {
+                    "type": "string",
+                    "description": "Detached Ed25519 signature file. Required with key_id for distributable firmware.",
+                },
+                "key_id": {
+                    "type": "string",
+                    "description": "Trusted public-key ID from ota_trusted_keys.json. Required with signature_path.",
+                },
             },
             "required": ["platform", "version", "file_path"],
             "additionalProperties": False,
@@ -122,6 +130,19 @@ OTA_TOOL_SCHEMAS = [
         },
     },
     {
+        "name": "ota_verify_signature",
+        "description": "Verify stored firmware SHA-256 and its detached Ed25519 signature against a trusted public key.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "platform": {"type": "string"},
+                "version": {"type": "string"},
+            },
+            "required": ["platform", "version"],
+            "additionalProperties": False,
+        },
+    },
+    {
         "name": "ota_push",
         "description": "Push upgrade notification to a specific device.",
         "inputSchema": {
@@ -141,6 +162,56 @@ OTA_TOOL_SCHEMAS = [
                 },
             },
             "required": ["device_ip", "platform", "version"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "ota_prepare_ab_switch",
+        "description": "Validate signed firmware and schedule the device's inactive A/B slot for the next boot.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "device_ip": {"type": "string"},
+                "platform": {"type": "string"},
+                "version": {"type": "string"},
+                "target_partition": {"type": "string", "enum": ["A", "B"]},
+            },
+            "required": ["device_ip", "platform", "version"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "ota_report_boot_result",
+        "description": "Record device boot outcome; a failed pending-slot boot becomes a rollback while the known-good slot remains active.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "device_ip": {"type": "string"},
+                "partition": {"type": "string", "enum": ["A", "B"]},
+                "success": {"type": "boolean"},
+                "reason": {"type": "string"},
+            },
+            "required": ["device_ip", "partition", "success"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "ota_validate_ab_state",
+        "description": "Validate A/B control-plane invariants for a registered device.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"device_ip": {"type": "string"}},
+            "required": ["device_ip"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "ota_test_rollback",
+        "description": "Dry-run a pending partition boot failure and prove the active partition is preserved; registry state is restored afterwards.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"device_ip": {"type": "string"}},
+            "required": ["device_ip"],
             "additionalProperties": False,
         },
     },

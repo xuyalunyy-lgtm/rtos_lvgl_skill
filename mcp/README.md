@@ -161,3 +161,49 @@ python mcp/serial_server.py --self-test
 # E2E 测试（使用 loopback mock，不需要硬件）
 python mcp/test_serial_e2e.py
 ```
+
+## MQTT release-safety probes
+
+The MQTT MCP now separates policy validation from broker verification:
+
+```text
+mqtt_validate_qos_policy(message_class="availability", qos=1, retain=true)
+mqtt_verify_retained(topic="device/42/status", expected_payload="online")
+mqtt_test_will(topic="device/42/status", payload="offline", qos=1, retain=true)
+```
+
+`mqtt_verify_retained` and `mqtt_test_will` create isolated, short-lived
+probe clients on the already connected broker. The Will probe deliberately
+closes only its temporary client's transport; it never interrupts the main
+MCP connection. Keep probe topics scoped to a disposable test device/topic.
+
+## OTA signed A/B workflow
+
+Only Ed25519-signed firmware can be pushed or scheduled for an A/B switch.
+Create `ota_trusted_keys.json` beside the repository root (or set
+`OTA_TRUSTED_KEYS_FILE`) with public keys only:
+
+```json
+{
+  "keys": {
+    "release-2026": {"public_key_pem": "-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----\n"}
+  }
+}
+```
+
+Upload a detached signature with `ota_upload(signature_path=..., key_id="release-2026")`, then run
+`ota_verify_signature`. The release operations reject unsigned, untrusted, or
+hash-mismatched artifacts. Private signing keys must remain outside this
+repository and are never accepted by the MCP server.
+
+For A/B control-plane verification:
+
+```text
+ota_prepare_ab_switch(device_ip="...", platform="esp32", version="1.2.0")
+ota_test_rollback(device_ip="...")
+ota_report_boot_result(device_ip="...", partition="B", success=true)
+```
+
+The device bootloader performs the physical partition selection and reports
+the boot result. The MCP tracks and validates the transition; a failed pending
+slot keeps the known-good active slot and is recorded as `rolled_back`.
