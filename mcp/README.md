@@ -11,8 +11,7 @@
   "command": "python",
   "args": ["mcp/serial_server.py"],
   "env": {
-    "SERIAL_ALLOWED_PORTS": "COM3",
-    "SERIAL_LOG_DIR": "artifacts/serial-logs"
+    "SERIAL_LOG_DIR": "%TEMP%/freertos-serial-logs"
   }
 }
 ```
@@ -58,7 +57,7 @@ python mcp/test_serial_e2e.py
 | 工具 | 说明 |
 |------|------|
 | `serial_list` | 列出串口，含 USB VID/PID/序列号/厂商信息 |
-| `serial_connect` | 连接白名单串口，启动后台读取线程 |
+| `serial_connect` | 连接指定串口，启动后台读取线程 |
 | `serial_disconnect` | 断开连接 |
 | `serial_write` | 发送原始数据 |
 | **`serial_request`** | **发送命令并等待正则匹配**（支持 MCP 取消） |
@@ -70,6 +69,24 @@ python mcp/test_serial_e2e.py
 | `serial_bookmark` | 在日志中标记关键时刻 |
 | `serial_export_bundle` | 导出最小复现包（JSON） |
 | `serial_summary` | 缓冲区健康摘要 |
+| `serial_session_start` | 启动持续接收会话，默认在读异常后重连同一端口 |
+| `serial_session_poll` | 增量读取新日志，并返回断线/重连状态 |
+| `serial_session_stop` | 停止会话并释放端口 |
+
+## 持续接收与分析
+
+使用一个会话持续接收，不必重复连接或读取整段历史：
+
+```text
+serial_session_start(port="COM10", baudrate=1000000)
+serial_session_poll(after_sequence=0, n=200)
+# 下次将返回的 next_sequence 传回 after_sequence
+serial_session_stop()
+```
+
+会话遇到瞬时读错误时会保留 `connection_state`、`last_disconnect_reason`、
+`last_read_error` 和重连计数；它只会重连原端口，绝不按相同 VID/PID 自动
+切换到另一块设备。
 
 ## `serial_request` — 发并等
 
@@ -97,16 +114,11 @@ serial_request(command="AT+RST", expect="ready", timeout=5.0)
 
 ## USB 设备身份
 
-不再只靠 COM 口名称识别设备：
+除了 COM 口名称，也会记录设备身份：
 
 ```json
 {"port": "COM3", "vid": "0x1a86", "pid": "0x7523", "serial_number": "ABC123", "manufacturer": "wch.cn"}
 ```
-
-白名单支持三种格式：
-- `COM3` — 端口名（原有）
-- `vid:1a86 pid:7523` — USB VID:PID
-- `serial:ABC123` — 序列号
 
 `serial_check_device` 可检测同一块板是否换了端口重新插入。
 
@@ -146,7 +158,6 @@ serial_request(command="AT+RST", expect="ready", timeout=5.0)
 
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
-| `SERIAL_ALLOWED_PORTS` | （空 = 拒绝所有） | 逗号分隔的串口白名单 |
 | `SERIAL_LOG_DIR` | （无） | 日志输出目录 |
 | `SERIAL_LOG_MAX_SIZE` | `5242880`（5MB） | 单个日志文件最大字节数 |
 | `SERIAL_LOG_MAX_FILES` | `10` | 每个端口最多保留的日志文件数 |

@@ -75,8 +75,7 @@ python scripts/quick_gate.py
   "command": "python",
   "args": ["mcp/serial_server.py"],
   "env": {
-    "SERIAL_ALLOWED_PORTS": "COM3",
-    "SERIAL_LOG_DIR": "artifacts/serial-logs"
+    "SERIAL_LOG_DIR": "%TEMP%/freertos-serial-logs"
   }
 }
 ```
@@ -95,10 +94,9 @@ python tools/diagnostic_loop.py --log ./crash.log --dir ./src --platform esp32
 
 ### 7. 串口 AT 到 MQTT 的端到端验证
 
-此桥接同时复用 serial MCP 与 MQTT MCP 的 allowlist：必须显式指定端口、broker、模组 AT 命令模板和 Wi-Fi 密码所在环境变量；不会扫描设备、不会在输出中回显命令或密码。
+此桥接要求显式指定端口、broker、模组 AT 命令模板和 Wi-Fi 密码所在环境变量；不会自动连接设备，也不会在输出中回显命令或密码。
 
 ```powershell
-$env:SERIAL_ALLOWED_PORTS = 'COM3'
 $env:MQTT_ALLOWED_HOSTS = '192.168.1.20'
 $env:WIFI_PASSWORD = 'replace-with-local-secret'
 

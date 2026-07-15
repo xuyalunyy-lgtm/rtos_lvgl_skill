@@ -24,8 +24,7 @@
       "env": {
         "PYTHONUTF8": "1",
         "PYTHONIOENCODING": "utf-8",
-        "SERIAL_ALLOWED_PORTS": "",
-        "SERIAL_LOG_DIR": "artifacts/serial-logs"
+        "SERIAL_LOG_DIR": "%TEMP%/freertos-serial-logs"
       }
     }
   }

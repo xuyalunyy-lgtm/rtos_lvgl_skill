@@ -380,22 +380,9 @@ DEFAULT_MAX_LINES = 50000
 DEFAULT_BAUDRATE = 115200
 DEFAULT_TIMEOUT = 1.0  # serial read timeout in seconds
 
-def _configured_ports() -> tuple[str, ...]:
-    """Return the explicit serial-port allowlist, defaulting to deny all."""
-    ports = tuple(
-        p.strip()
-        for p in os.environ.get("SERIAL_ALLOWED_PORTS", "").split(",")
-        if p.strip()
-    )
-    if "*" in ports:
-        logger.warning("SERIAL_ALLOWED_PORTS='*' is ignored; configure explicit ports instead")
-        return ()
-    return ports
-
-
 def _configured_log_dir() -> Path | None:
     """Resolve the optional log directory relative to the skill root."""
-    value = os.environ.get("SERIAL_LOG_DIR", "").strip()
+    value = os.path.expandvars(os.environ.get("SERIAL_LOG_DIR", "").strip())
     if not value:
         return None
     candidate = Path(value).expanduser()
@@ -404,7 +391,6 @@ def _configured_log_dir() -> Path | None:
     return candidate.resolve()
 
 
-ALLOWED_PORTS = _configured_ports()
 DEFAULT_LOG_DIR = _configured_log_dir()
 
 
@@ -429,11 +415,24 @@ class SerialBridge:
         self._reader_thread: threading.Thread | None = None
         self._stop_event = threading.Event()
         self._connect_time: float = 0
+        self._session_start_time: float = 0
         self._rx_count: int = 0
         self._tx_count: int = 0
         self._read_retry_attempts = READ_RETRY_ATTEMPTS
         self._read_retry_delay_seconds = READ_RETRY_DELAY_SECONDS
-        self._allowed_ports = ALLOWED_PORTS if allowed_ports is None else tuple(allowed_ports)
+        self._auto_reconnect = True
+        self._session_active = False
+        self._connection_state = "disconnected"
+        self._last_disconnect_reason: str | None = None
+        self._last_read_error: str | None = None
+        self._last_activity_time: float | None = None
+        self._last_rx_time: float | None = None
+        self._reconnect_attempts = 0
+        self._reconnect_successes = 0
+        self._connection_settings: dict[str, Any] = {}
+        # Accepted only to avoid breaking older integrations.  Port restrictions
+        # are intentionally not enforced.
+        _ = allowed_ports
         self._log_dir = DEFAULT_LOG_DIR if log_dir is None else Path(log_dir).resolve()
         self._log_path: Path | None = None
         self._log_writer: RotatingLogWriter | None = None
@@ -493,6 +492,7 @@ class SerialBridge:
         bytesize: int = 8,
         parity: str = "N",
         stopbits: float = 1,
+        auto_reconnect: bool = True,
     ) -> dict[str, Any]:
         """Connect to a serial port.
 
@@ -506,16 +506,6 @@ class SerialBridge:
         Returns:
             {"ok": bool, "port": str, "baudrate": int, "error": str|None}
         """
-        if not self._is_port_allowed(port):
-            allowed = ", ".join(self._allowed_ports) or "(none)"
-            return {
-                "ok": False,
-                "error": (
-                    f"Port '{port}' is not explicitly allowed. "
-                    f"Set SERIAL_ALLOWED_PORTS to the intended port; configured: {allowed}"
-                ),
-            }
-
         # Disconnect if already connected
         if self._connected:
             self.disconnect()
@@ -526,20 +516,31 @@ class SerialBridge:
             parity_map = {"N": ser.PARITY_NONE, "E": ser.PARITY_EVEN, "O": ser.PARITY_ODD,
                           "M": ser.PARITY_MARK, "S": ser.PARITY_SPACE}
             stopbits_map = {1: ser.STOPBITS_ONE, 1.5: ser.STOPBITS_ONE_POINT_FIVE, 2: ser.STOPBITS_TWO}
-
-            self._serial = ser.Serial(
-                port=port,
-                baudrate=baudrate,
-                bytesize=bytesize,
-                parity=parity_map.get(parity.upper(), ser.PARITY_NONE),
-                stopbits=stopbits_map.get(stopbits, ser.STOPBITS_ONE),
-                timeout=DEFAULT_TIMEOUT,
-            )
+            self._connection_settings = {
+                "port": port,
+                "baudrate": baudrate,
+                "bytesize": bytesize,
+                "parity": parity.upper(),
+                "stopbits": stopbits,
+                "parity_value": parity_map.get(parity.upper(), ser.PARITY_NONE),
+                "stopbits_value": stopbits_map.get(stopbits, ser.STOPBITS_ONE),
+            }
+            self._serial = self._open_configured_port(ser)
 
             self._port = port
             self._baudrate = baudrate
             self._connected = True
             self._connect_time = time.time()
+            self._session_start_time = self._connect_time
+            self._session_active = True
+            self._auto_reconnect = auto_reconnect
+            self._connection_state = "connected"
+            self._last_disconnect_reason = None
+            self._last_read_error = None
+            self._last_activity_time = self._connect_time
+            self._last_rx_time = None
+            self._reconnect_attempts = 0
+            self._reconnect_successes = 0
             with self._lock:
                 self._rx_count = 0
                 self._tx_count = 0
@@ -558,6 +559,7 @@ class SerialBridge:
                 "bytesize": bytesize,
                 "parity": parity,
                 "stopbits": stopbits,
+                "auto_reconnect": auto_reconnect,
                 "log_path": str(self._log_path) if self._log_path else None,
             }
 
@@ -567,13 +569,12 @@ class SerialBridge:
                 self._serial.close()
             self._serial = None
             self._connected = False
+            self._session_active = False
+            self._connection_state = "disconnected"
             return {"ok": False, "error": str(e)}
 
     def disconnect(self) -> dict[str, Any]:
         """Disconnect from serial port."""
-        if not self._connected:
-            return {"ok": True, "message": "Not connected"}
-
         try:
             self._stop_event.set()
             if self._reader_thread and self._reader_thread.is_alive():
@@ -582,6 +583,8 @@ class SerialBridge:
                 self._serial.close()
             self._connected = False
             self._serial = None
+            self._session_active = False
+            self._connection_state = "disconnected"
             self._close_log_file()
             return {"ok": True, "message": f"Disconnected from {self._port}"}
         except Exception as e:
@@ -661,15 +664,31 @@ class SerialBridge:
             buf_size = len(self._buffer)
             rx_count = self._rx_count
             tx_count = self._tx_count
+            connection_state = self._connection_state
+            last_disconnect_reason = self._last_disconnect_reason
+            last_read_error = self._last_read_error
+            last_activity_time = self._last_activity_time
+            last_rx_time = self._last_rx_time
+            reconnect_attempts = self._reconnect_attempts
+            reconnect_successes = self._reconnect_successes
         result: dict[str, Any] = {
             "connected": self._connected,
-            "port": self._port if self._connected else None,
-            "baudrate": self._baudrate if self._connected else None,
+            "connection_state": connection_state,
+            "session_active": self._session_active,
+            "auto_reconnect": self._auto_reconnect,
+            "port": self._port or None,
+            "baudrate": self._baudrate or None,
             "buffer_size": buf_size,
             "max_lines": self._max_lines,
             "rx_count": rx_count,
             "tx_count": tx_count,
-            "uptime_seconds": round(time.time() - self._connect_time, 1) if self._connected else 0,
+            "uptime_seconds": round(time.time() - self._session_start_time, 1) if self._session_active else 0,
+            "last_disconnect_reason": last_disconnect_reason,
+            "last_read_error": last_read_error,
+            "last_activity_time": last_activity_time,
+            "last_rx_time": last_rx_time,
+            "reconnect_attempts": reconnect_attempts,
+            "reconnect_successes": reconnect_successes,
             "log_enabled": self._log_dir is not None,
             "log_path": str(self._log_path) if self._log_path else None,
             "log_rotating": self._log_writer is not None,
@@ -707,52 +726,6 @@ class SerialBridge:
         }
 
     # ── Internal ──
-
-    def _is_port_allowed(self, port: str) -> bool:
-        """Check if port is in allowlist. Supports port name, vid:pid, or serial:XXXX."""
-        if not self._allowed_ports:
-            return False
-        for entry in self._allowed_ports:
-            if entry == port:
-                return True
-            # Identity-based matching: probe the port and compare
-            if entry.startswith("vid:") or entry.startswith("serial:"):
-                identity = self._probe_device_identity(port)
-                if self._allowlist_entry_matches(entry, identity):
-                    return True
-        return False
-
-    @staticmethod
-    def _normalize_hex(value: str) -> str:
-        """Normalize hex value: strip 0x prefix, lowercase."""
-        v = value.strip().lower()
-        if v.startswith("0x"):
-            v = v[2:]
-        return v
-
-    @classmethod
-    def _allowlist_entry_matches(cls, entry: str, identity: dict[str, Any]) -> bool:
-        """Check if an allowlist entry matches a device identity.
-
-        Supports formats:
-            vid:XXXX pid:YYYY  — match USB VID and PID
-            serial:XXXX        — match serial number
-        """
-        if entry.startswith("serial:"):
-            target_serial = entry.split(":", 1)[1].strip()
-            return identity.get("serial_number") == target_serial
-        if entry.startswith("vid:"):
-            parts = entry.split()
-            target_vid = parts[0].split(":", 1)[1].strip()
-            target_pid = ""
-            if len(parts) > 1 and parts[1].startswith("pid:"):
-                target_pid = parts[1].split(":", 1)[1].strip()
-            if cls._normalize_hex(target_vid) != cls._normalize_hex(identity.get("vid", "")):
-                return False
-            if target_pid and cls._normalize_hex(target_pid) != cls._normalize_hex(identity.get("pid", "")):
-                return False
-            return bool(target_vid)
-        return False
 
     @staticmethod
     def _probe_device_identity(port: str) -> dict[str, Any]:
@@ -854,10 +827,11 @@ class SerialBridge:
         self._log_writer = None
 
     def _record_line(self, raw: str, direction: str) -> None:
+        now = time.time()
         with self._lock:
             entry = {
                 "seq": self._next_sequence,
-                "ts": time.time(),
+                "ts": now,
                 "raw": raw,
                 "direction": direction,
             }
@@ -865,8 +839,10 @@ class SerialBridge:
             self._buffer.append(entry)
             if direction == "rx":
                 self._rx_count += 1
+                self._last_rx_time = now
             elif direction == "tx":
                 self._tx_count += 1
+            self._last_activity_time = now
         if self._log_writer is not None:
             self._log_writer.write(direction, raw)
 
@@ -907,6 +883,8 @@ class SerialBridge:
             serial_obj = self._serial
             self._connected = False
             self._serial = None
+            self._connection_state = "disconnected"
+            self._last_disconnect_reason = reason
         if serial_obj is not None:
             try:
                 if serial_obj.is_open:
@@ -916,14 +894,127 @@ class SerialBridge:
         self._close_log_file()
         logger.warning("Serial reader stopped: %s", reason)
 
+    def _open_configured_port(self, serial_module: Any):
+        """Open the most recently requested port without mutating session state."""
+        settings = self._connection_settings
+        return serial_module.Serial(
+            port=settings["port"],
+            baudrate=settings["baudrate"],
+            bytesize=settings["bytesize"],
+            parity=settings["parity_value"],
+            stopbits=settings["stopbits_value"],
+            timeout=DEFAULT_TIMEOUT,
+        )
+
+    def _begin_reconnect(self, reason: str) -> None:
+        """Close a failed handle while preserving the requested session."""
+        with self._lock:
+            serial_obj = self._serial
+            self._serial = None
+            self._connected = False
+            self._connection_state = "reconnecting"
+            self._last_disconnect_reason = reason
+            self._last_read_error = reason
+        if serial_obj is not None:
+            try:
+                if serial_obj.is_open:
+                    serial_obj.close()
+            except (OSError, _SerialException):
+                pass
+        self._close_log_file()
+
+    def _attempt_reconnect(self) -> bool:
+        """Try reopening the original, explicitly authorised port once."""
+        if not self._session_active or not self._auto_reconnect or self._stop_event.is_set():
+            return False
+        if not self._connection_settings:
+            return False
+        with self._lock:
+            self._reconnect_attempts += 1
+        try:
+            import serial as ser
+
+            serial_obj = self._open_configured_port(ser)
+            self._open_log_file(self._port)
+            with self._lock:
+                self._serial = serial_obj
+                self._connected = True
+                self._connection_state = "connected"
+                self._last_read_error = None
+                self._last_activity_time = time.time()
+                self._reconnect_successes += 1
+            logger.info("Serial session reconnected to %s", self._port)
+            return True
+        except Exception as exc:
+            try:
+                if "serial_obj" in locals() and serial_obj.is_open:
+                    serial_obj.close()
+            except (OSError, _SerialException):
+                pass
+            with self._lock:
+                self._last_read_error = f"reconnect failed: {type(exc).__name__}: {exc}"
+            return False
+
+    def start_session(
+        self,
+        port: str,
+        baudrate: int = DEFAULT_BAUDRATE,
+        bytesize: int = 8,
+        parity: str = "N",
+        stopbits: float = 1,
+        auto_reconnect: bool = True,
+    ) -> dict[str, Any]:
+        """Start a receive-only session whose buffer can be polled incrementally."""
+        result = self.connect(port, baudrate, bytesize, parity, stopbits, auto_reconnect)
+        if result.get("ok"):
+            result["session"] = self.status
+            result["next_sequence"] = self._next_sequence - 1
+        return result
+
+    def poll_session(self, after_sequence: int = 0, n: int = 200) -> dict[str, Any]:
+        """Return only log entries added since a caller-provided sequence number."""
+        after_sequence = max(0, after_sequence)
+        n = max(1, min(1000, n))
+        with self._lock:
+            entries = self._entries_after_locked(after_sequence)
+            available_count = len(entries)
+            if available_count > n:
+                entries = entries[-n:]
+            next_sequence = entries[-1]["seq"] if entries else after_sequence
+            payload = [
+                {
+                    "sequence": entry["seq"],
+                    "timestamp": entry["ts"],
+                    "direction": entry["direction"],
+                    "text": _apply_redaction(entry["raw"]),
+                }
+                for entry in entries
+            ]
+        return {
+            "ok": True,
+            "status": self.status,
+            "entries": payload,
+            "returned_count": len(payload),
+            "available_count": available_count,
+            "truncated": available_count > len(payload),
+            "next_sequence": next_sequence,
+        }
+
     def _read_loop(self):
         """Background thread: continuously read serial data into buffer."""
         failures = 0
         while not self._stop_event.is_set():
             serial_obj = self._serial
             if not serial_obj or not serial_obj.is_open:
+                reason = "serial port is closed"
+                if self._session_active and self._auto_reconnect:
+                    self._begin_reconnect(reason)
+                    if not self._attempt_reconnect():
+                        self._stop_event.wait(self._read_retry_delay_seconds)
+                    failures = 0
+                    continue
                 if not self._stop_event.is_set():
-                    self._mark_read_failure("serial port is closed")
+                    self._mark_read_failure(reason)
                 break
             try:
                 data = serial_obj.readline()
@@ -937,7 +1028,14 @@ class SerialBridge:
                 if self._stop_event.is_set():
                     break
                 if failures >= self._read_retry_attempts:
-                    self._mark_read_failure(f"read failed after {failures} attempts: {exc}")
+                    reason = f"read failed after {failures} attempts: {exc}"
+                    if self._session_active and self._auto_reconnect:
+                        self._begin_reconnect(reason)
+                        if not self._attempt_reconnect():
+                            self._stop_event.wait(self._read_retry_delay_seconds)
+                        failures = 0
+                        continue
+                    self._mark_read_failure(reason)
                     break
                 logger.warning(
                     "Serial read error (%d/%d), retrying in %.1fs: %s",

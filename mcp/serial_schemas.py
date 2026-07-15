@@ -12,7 +12,7 @@ SERIAL_TOOL_SCHEMAS = [
     },
     {
         "name": "serial_connect",
-        "description": "Connect to an explicitly allowlisted serial port. Starts background reading into a local ring buffer and, when SERIAL_LOG_DIR is configured, a persistent session log.",
+        "description": "Connect to a serial port. Starts background reading into a local ring buffer and, when SERIAL_LOG_DIR is configured, a persistent session log.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -43,6 +43,11 @@ SERIAL_TOOL_SCHEMAS = [
                     "default": 1,
                     "description": "Stop bits",
                 },
+                "auto_reconnect": {
+                    "type": "boolean",
+                    "default": True,
+                    "description": "Keep the session alive and retry the same port after read failures",
+                },
             },
             "required": ["port"],
             "additionalProperties": False,
@@ -51,6 +56,81 @@ SERIAL_TOOL_SCHEMAS = [
     {
         "name": "serial_disconnect",
         "description": "Disconnect from the current serial port.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "serial_session_start",
+        "description": "Start a receive-only serial session. The local reader runs continuously; transient read failures retry the same port and preserve diagnostics.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "port": {
+                    "type": "string",
+                    "description": "Serial port to monitor (for example COM10)",
+                },
+                "baudrate": {
+                    "type": "integer",
+                    "default": 115200,
+                    "description": "Baud rate",
+                },
+                "bytesize": {
+                    "type": "integer",
+                    "enum": [5, 6, 7, 8],
+                    "default": 8,
+                    "description": "Data bits",
+                },
+                "parity": {
+                    "type": "string",
+                    "enum": ["N", "E", "O", "M", "S"],
+                    "default": "N",
+                    "description": "Parity",
+                },
+                "stopbits": {
+                    "type": "number",
+                    "enum": [1, 1.5, 2],
+                    "default": 1,
+                    "description": "Stop bits",
+                },
+                "auto_reconnect": {
+                    "type": "boolean",
+                    "default": True,
+                    "description": "Retry the original port after transient failures",
+                },
+            },
+            "required": ["port"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "serial_session_poll",
+        "description": "Return only newly received serial lines since after_sequence, with live session and reconnect health. Pass next_sequence from the prior response on the next call.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "after_sequence": {
+                    "type": "integer",
+                    "default": 0,
+                    "minimum": 0,
+                    "description": "Last consumed sequence number from the prior poll",
+                },
+                "n": {
+                    "type": "integer",
+                    "default": 200,
+                    "minimum": 1,
+                    "maximum": 1000,
+                    "description": "Maximum new entries to return",
+                },
+            },
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "serial_session_stop",
+        "description": "Stop the persistent receive-only session and release the serial port.",
         "inputSchema": {
             "type": "object",
             "properties": {},

@@ -18,7 +18,7 @@ import threading
 import time
 from collections import deque
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import patch
 
 # Ensure mcp/ is importable
 import sys
@@ -175,11 +175,12 @@ class TestConnectDisconnect:
         assert result["ok"] is True
         bridge.shutdown()
 
-    def test_connect_blocks_disallowed_port(self):
+    def test_connect_does_not_require_a_port_allowlist(self):
         bridge = SerialBridge(allowed_ports=("COM3",))
-        result = bridge.connect("COM99")
-        assert result["ok"] is False
-        assert "not explicitly allowed" in result["error"]
+        mock = LoopbackSerial()
+        with patch("serial.Serial", return_value=mock):
+            result = bridge.connect("COM99")
+        assert result["ok"] is True
         bridge.shutdown()
 
 
@@ -629,6 +630,49 @@ class TestDisconnectDetection:
 
         assert bridge.status["connected"] is False
         assert bridge._serial is None
+        bridge.shutdown()
+
+    def test_active_session_reports_reconnect_state_after_reader_failure(self):
+        bridge = make_bridge()
+        bridge._read_retry_delay_seconds = 0.01
+        failed = FlakyReadSerial(failures=3)
+        recovered = LoopbackSerial(echo=False)
+        connect_loopback(bridge, failed)
+        bridge._session_active = True
+        bridge._auto_reconnect = True
+        bridge._connection_settings = {
+            "port": "COM99",
+            "baudrate": 115200,
+            "bytesize": 8,
+            "parity_value": "N",
+            "stopbits_value": 1,
+        }
+        with patch("serial.Serial", return_value=recovered) as reconnect:
+            time.sleep(0.15)
+            assert reconnect.called
+
+        status = bridge.status
+        assert status["connection_state"] == "connected"
+        assert status["reconnect_successes"] == 1
+        assert "read failed after 3 attempts" in (status["last_disconnect_reason"] or "")
+        recovered.inject_rx(b"recovered after reconnect\n")
+        time.sleep(0.05)
+        assert bridge.get_lines(n=1, direction="rx")[0]["raw"] == "recovered after reconnect"
+        bridge.shutdown()
+
+    def test_session_poll_returns_only_new_entries(self):
+        bridge = make_bridge()
+        mock = LoopbackSerial(echo=False)
+        connect_loopback(bridge, mock)
+        mock.inject_rx(b"wifi connected\n")
+        time.sleep(0.05)
+
+        first = bridge.poll_session(after_sequence=0, n=10)
+        assert first["returned_count"] == 1
+        assert first["entries"][0]["text"] == "wifi connected"
+
+        second = bridge.poll_session(after_sequence=first["next_sequence"], n=10)
+        assert second["returned_count"] == 0
         bridge.shutdown()
 
 

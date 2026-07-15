@@ -9,7 +9,6 @@ Usage:
     python mcp/serial_server.py --self-test  # Run self-test
 
 Environment:
-    SERIAL_ALLOWED_PORTS  — required comma-separated allowlist, e.g. COM3,COM5
     SERIAL_LOG_DIR        — optional directory for persistent RX/TX session logs
 """
 from __future__ import annotations
@@ -85,11 +84,40 @@ def serial_connect(args: dict[str, Any]) -> dict[str, Any]:
         bytesize=args.get("bytesize", 8),
         parity=args.get("parity", "N"),
         stopbits=args.get("stopbits", 1),
+        auto_reconnect=args.get("auto_reconnect", True),
     )
 
 
 def serial_disconnect(args: dict[str, Any]) -> dict[str, Any]:
     """Disconnect from serial port."""
+    bridge = get_bridge()
+    return bridge.disconnect()
+
+
+def serial_session_start(args: dict[str, Any]) -> dict[str, Any]:
+    """Start a persistent receive-only serial session."""
+    bridge = get_bridge()
+    return bridge.start_session(
+        port=args["port"],
+        baudrate=args.get("baudrate", 115200),
+        bytesize=args.get("bytesize", 8),
+        parity=args.get("parity", "N"),
+        stopbits=args.get("stopbits", 1),
+        auto_reconnect=args.get("auto_reconnect", True),
+    )
+
+
+def serial_session_poll(args: dict[str, Any]) -> dict[str, Any]:
+    """Read only lines received since the caller's previous poll."""
+    bridge = get_bridge()
+    return bridge.poll_session(
+        after_sequence=args.get("after_sequence", 0),
+        n=args.get("n", 200),
+    )
+
+
+def serial_session_stop(args: dict[str, Any]) -> dict[str, Any]:
+    """Stop the persistent serial session and release its port."""
     bridge = get_bridge()
     return bridge.disconnect()
 
@@ -199,6 +227,9 @@ TOOLS = {
     "serial_list": serial_list,
     "serial_connect": serial_connect,
     "serial_disconnect": serial_disconnect,
+    "serial_session_start": serial_session_start,
+    "serial_session_poll": serial_session_poll,
+    "serial_session_stop": serial_session_stop,
     "serial_write": serial_write,
     "serial_request": serial_request,
     "serial_get_lines": serial_get_lines,
@@ -461,23 +492,6 @@ def run_self_test() -> int:
     check_result = bridge.check_device_present()
     check("check_device with no identity returns not present", check_result.get("present") is False)
 
-    # Test 9e: _allowlist_entry_matches with serial
-    identity = {"serial_number": "ABC123", "vid": "0x1a86", "pid": "0x7523"}
-    check("allowlist serial match", SerialBridge._allowlist_entry_matches("serial:ABC123", identity))
-    check("allowlist serial no match", not SerialBridge._allowlist_entry_matches("serial:XYZ", identity))
-
-    # Test 9f: _allowlist_entry_matches with vid:pid
-    check("allowlist vid:pid match", SerialBridge._allowlist_entry_matches("vid:1a86 pid:7523", identity))
-    check("allowlist vid only match", SerialBridge._allowlist_entry_matches("vid:1a86", identity))
-    check("allowlist vid:pid no match", not SerialBridge._allowlist_entry_matches("vid:1a86 pid:9999", identity))
-    check("allowlist vid no match", not SerialBridge._allowlist_entry_matches("vid:0000", identity))
-
-    # Test 9g: Default-deny and explicit allowlist.
-    check("default denies unconfigured port", not bridge._is_port_allowed("COM99"))
-    allowed_bridge = SerialBridge(allowed_ports=("COM7",))
-    check("explicit allowlist permits configured port", allowed_bridge._is_port_allowed("COM7"))
-    check("explicit allowlist blocks other port", not allowed_bridge._is_port_allowed("COM8"))
-
     # Test 10: Configured log directory stores an RX/TX session record.
     import tempfile
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -561,6 +575,9 @@ def run_self_test() -> int:
         ("serial_list", {}),
         ("serial_connect", {"port": "INVALID_PORT"}),
         ("serial_disconnect", {}),
+        ("serial_session_start", {"port": "INVALID_PORT"}),
+        ("serial_session_poll", {"after_sequence": 0, "n": 10}),
+        ("serial_session_stop", {}),
         ("serial_write", {"data": "AT"}),
         ("serial_request", {"command": "AT", "expect": "OK", "timeout": 0.1}),
         ("serial_get_lines", {}),

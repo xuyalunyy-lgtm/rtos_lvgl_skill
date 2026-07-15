@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Verify a device MQTT publish through an explicitly authorised serial AT session.
+"""Verify a device MQTT publish through an explicitly selected serial AT session.
 
 The caller supplies the target serial port, broker and module-specific AT command
-templates.  This script never discovers devices or brokers.  ``SERIAL_ALLOWED_PORTS``
-and ``MQTT_ALLOWED_HOSTS`` remain mandatory policy boundaries in the two bridges.
+templates.  This script never discovers devices or brokers.  ``MQTT_ALLOWED_HOSTS``
+remains a mandatory policy boundary for the MQTT bridge.
 """
 from __future__ import annotations
 
@@ -36,7 +36,7 @@ def _request(serial, command: str, stage: str, timeout: float) -> dict:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--port", required=True, help="Explicitly allowlisted serial port")
+    parser.add_argument("--port", required=True, help="Serial port to use")
     parser.add_argument("--broker", required=True, help="Explicitly allowlisted MQTT broker host")
     parser.add_argument("--topic", required=True)
     parser.add_argument("--ssid", required=True)
