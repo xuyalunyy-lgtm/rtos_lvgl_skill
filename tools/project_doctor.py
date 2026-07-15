@@ -80,11 +80,25 @@ def _parse_config(path: Path) -> dict[str, str]:
         return values
     for line in lines:
         line = line.strip()
-        if not line or line.startswith("#") or "=" not in line:
+        if not line:
+            continue
+        disabled = re.fullmatch(r"#\s*(CONFIG_[A-Za-z0-9_]+)\s+is\s+not\s+set", line)
+        if disabled:
+            values[disabled.group(1)] = "n"
+            continue
+        if line.startswith("#") or "=" not in line:
             continue
         key, value = line.split("=", 1)
         values[key.strip()] = value.strip().strip('"')
     return values
+
+
+def _enabled_configs(config: dict[str, str]) -> list[str]:
+    """Return the enabled CONFIG_* symbols in deterministic manifest order."""
+    return sorted(
+        key for key, value in config.items()
+        if key.startswith("CONFIG_") and value.lower() in {"y", "1", "true", "yes", "on"}
+    )
 
 
 def _find_artifacts(root: Path) -> dict[str, list[str]]:
@@ -137,7 +151,11 @@ def _parse_esp_idf(root: Path) -> dict[str, Any]:
         "chip": target.lower() if target else None,
         "board": None,
         "sdk": {"name": "esp-idf", "version": version, "evidence": version_evidence},
-        "configuration": {"files": config_files, "selected": {key: config[key] for key in sorted(config) if key in {"CONFIG_IDF_TARGET", "CONFIG_FREERTOS_HZ"}}},
+        "configuration": {
+            "files": config_files,
+            "selected": {key: config[key] for key in sorted(config) if key in {"CONFIG_IDF_TARGET", "CONFIG_FREERTOS_HZ"}},
+            "enabled": _enabled_configs(config),
+        },
         "build": {
             "system": "esp-idf",
             "command": ["idf.py", "build"],
@@ -168,7 +186,11 @@ def _parse_zephyr(root: Path) -> dict[str, Any]:
         "chip": None,
         "board": board,
         "sdk": {"name": "zephyr", "version": None, "evidence": ["west.yml"] if (root / "west.yml").is_file() else []},
-        "configuration": {"files": config_files, "selected": {key: config[key] for key in sorted(config) if key in {"CONFIG_BOARD", "CONFIG_MAIN_STACK_SIZE", "CONFIG_HEAP_MEM_POOL_SIZE"}}},
+        "configuration": {
+            "files": config_files,
+            "selected": {key: config[key] for key in sorted(config) if key in {"CONFIG_BOARD", "CONFIG_MAIN_STACK_SIZE", "CONFIG_HEAP_MEM_POOL_SIZE"}},
+            "enabled": _enabled_configs(config),
+        },
         "build": {
             "system": "west",
             "command": command,
@@ -186,7 +208,7 @@ def _generic_manifest(root: Path, primary: str | None, build_systems: list[str])
         "chip": None,
         "board": None,
         "sdk": {"name": None, "version": None, "evidence": []},
-        "configuration": {"files": [], "selected": {}},
+        "configuration": {"files": [], "selected": {}, "enabled": []},
         "build": {
             "system": build_systems[0] if build_systems else None,
             "command": ["cmake", "--build", "build"] if cached_build else None,
@@ -305,10 +327,14 @@ def verify_build(report: dict[str, Any], timeout: int) -> int:
         return 1
 
 
-def _run_review(root: Path, platform: str | None) -> dict[str, Any]:
+def _run_review(root: Path, platform: str | None, configuration_files: list[str]) -> dict[str, Any]:
     command = [sys.executable, str(ROOT / "tools" / "run_review.py"), "--dir", str(root)]
     if platform:
         command.extend(["--platform", platform])
+    for relative_path in configuration_files:
+        config_path = root / relative_path
+        if config_path.is_file():
+            command.extend(["--config", str(config_path)])
     proc = subprocess.run(command, cwd=ROOT, capture_output=True, encoding="utf-8", errors="replace")
     return {"command": command, "exit_code": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr}
 
@@ -374,7 +400,11 @@ def main() -> int:
         return 2
     build_exit = 0
     if args.run_review:
-        report["review"] = _run_review(Path(report["project_root"]), report["primary_platform"])
+        report["review"] = _run_review(
+            Path(report["project_root"]),
+            report["primary_platform"],
+            report["project_manifest"]["configuration"]["files"],
+        )
     if args.verify_build:
         build_exit = verify_build(report, args.build_timeout)
     if args.write_manifest or args.manifest:

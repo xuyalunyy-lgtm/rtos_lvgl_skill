@@ -15,9 +15,12 @@ C41 回归样本覆盖率检查器。
 
 from __future__ import annotations
 
+import json
 import re
 import sys
 from pathlib import Path
+
+from checker_io import configure_stdout, output_json
 
 TOOLS_DIR = Path(__file__).resolve().parent
 SKILL_ROOT = TOOLS_DIR.parent
@@ -29,14 +32,16 @@ CONSTRAINT_FROM_FILENAME = re.compile(r"(?:^|[^a-zA-Z])(C\d+)(?:[^a-zA-Z]|$)")
 GOOD_PATTERN = re.compile(r"good_", re.IGNORECASE)
 BAD_PATTERN = re.compile(r"bad_", re.IGNORECASE)
 
-# 已注册的约束 ID（来自 checker_registry.py 的 ALL_CHECKERS）
-REGISTERED_CONSTRAINTS = {
-    "C1", "C2", "C3", "C4", "C5", "C7", "C8", "C9", "C10",
-    "C11", "C12", "C13", "C14", "C15", "C16",
-    "C18", "C19", "C20", "C21", "C22", "C23", "C24",
-    "C25", "C26", "C27", "C28", "C29", "C31", "C32", "C33",
-    "C34", "C35", "C36", "C37", "C39", "C42", "C43", "C44", "C45",
-}
+def registered_constraints() -> set[str]:
+    """Read registered root constraints from the single checker registry."""
+    from checker_registry import ALL_CHECKERS
+
+    # C41 audits other checker constraints; requiring a C41 fixture for the
+    # coverage checker itself would be a recursive, permanently failing rule.
+    return {
+        root for spec in ALL_CHECKERS for domain in spec.domains
+        if (root := domain.split(".", 1)[0]) != "C41"
+    }
 
 
 def scan_samples() -> dict[str, dict[str, list[str]]]:
@@ -51,7 +56,9 @@ def scan_samples() -> dict[str, dict[str, list[str]]]:
     for search_dir in search_dirs:
         if not search_dir.is_dir():
             continue
-        for f in sorted(search_dir.iterdir()):
+        for f in sorted(search_dir.rglob("*")):
+            if not f.is_file():
+                continue
             if f.suffix not in (".c", ".h", ".cpp", ".json", ".yaml", ".txt"):
                 continue
             name = f.name
@@ -114,6 +121,10 @@ def _infer_constraint_from_fixture(filename: str) -> list[str]:
         "secret": ["C9"],
         "ota": ["C22"],
         "hotpath": ["C34"],
+        "multi_core_ipc": ["C17"],
+        "fault_isolation": ["C38"],
+        "api_sequence": ["C20", "C23"],
+        "ble_protocol": ["C46"],
     }
     name_lower = filename.lower()
     for key, cids in mapping.items():
@@ -128,7 +139,7 @@ def check_coverage() -> tuple[list[dict], list[dict]]:
     issues = []
     summary = []
 
-    for cid in sorted(REGISTERED_CONSTRAINTS):
+    for cid in sorted(registered_constraints()):
         entry = samples.get(cid, {"good": [], "bad": []})
         good_count = len(entry["good"])
         bad_count = len(entry["bad"])
@@ -143,15 +154,23 @@ def check_coverage() -> tuple[list[dict], list[dict]]:
 
         if good_count == 0:
             issues.append({
+                "id": "C41.1",
+                "severity": "P1",
+                "file": "examples/ or tools/fixtures/",
+                "line": 0,
+                "issue": f"{cid}: no good sample found in examples/ or fixtures/",
                 "constraint": cid,
                 "type": "missing_good",
-                "message": f"{cid}: no good sample found in examples/ or fixtures/",
             })
         if bad_count == 0:
             issues.append({
+                "id": "C41.2",
+                "severity": "P1",
+                "file": "examples/ or tools/fixtures/",
+                "line": 0,
+                "issue": f"{cid}: no bad sample found in examples/ or fixtures/",
                 "constraint": cid,
                 "type": "missing_bad",
-                "message": f"{cid}: no bad sample found in examples/ or fixtures/",
             })
 
     return issues, summary
@@ -159,26 +178,34 @@ def check_coverage() -> tuple[list[dict], list[dict]]:
 
 def main() -> int:
     import argparse
+    configure_stdout()
     parser = argparse.ArgumentParser(description="C41 regression sample coverage checker")
     parser.add_argument("--json", action="store_true", help="Output JSON")
+    parser.add_argument("--jsonl", action="store_true", help="Emit checker-result/v1 JSON Lines output")
     args = parser.parse_args()
 
     issues, summary = check_coverage()
 
     good_covered = sum(1 for s in summary if s["good_samples"] > 0)
     bad_covered = sum(1 for s in summary if s["bad_samples"] > 0)
-    total = len(REGISTERED_CONSTRAINTS)
+    total = len(registered_constraints())
 
-    if args.json:
-        import json
-        json.dump({
-            "total_constraints": total,
-            "good_coverage": f"{good_covered}/{total}",
-            "bad_coverage": f"{bad_covered}/{total}",
-            "issues": issues,
-            "summary": summary,
-        }, sys.stdout, ensure_ascii=False, indent=2)
-        print()
+    payload = {
+        "protocol_version": "checker-result/v1",
+        "checker": "C41 regression sample coverage",
+        "domains": ["C41"],
+        "files_checked": sum(item["good_samples"] + item["bad_samples"] for item in summary),
+        "violations": len(issues),
+        "issues": issues,
+        "total_constraints": total,
+        "good_coverage": f"{good_covered}/{total}",
+        "bad_coverage": f"{bad_covered}/{total}",
+        "summary": summary,
+    }
+    if args.jsonl:
+        print(json.dumps(payload, ensure_ascii=False, separators=(",", ":")))
+    elif args.json:
+        output_json(payload)
     else:
         print(f"C41 Regression Sample Coverage: {total} constraints")
         print(f"  Good samples: {good_covered}/{total}")
@@ -186,11 +213,11 @@ def main() -> int:
         if issues:
             print(f"\nMissing samples ({len(issues)}):")
             for issue in issues:
-                print(f"  - {issue['message']}")
+                print(f"  - {issue['issue']}")
         else:
             print("\nAll constraints have good + bad samples.")
 
-    return 0
+    return 1 if issues else 0
 
 
 if __name__ == "__main__":

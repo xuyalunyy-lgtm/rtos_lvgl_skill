@@ -48,6 +48,43 @@ def checker_env() -> dict[str, str]:
     return env
 
 
+_DISABLED_CONFIG_RE = re.compile(r"#\s*(CONFIG_[A-Za-z0-9_]+)\s+is\s+not\s+set")
+
+
+def load_kconfig_values(paths: list[str]) -> dict[str, str]:
+    """Merge sdkconfig/prj.conf files for checker-side Kconfig filtering."""
+    values: dict[str, str] = {}
+    for raw_path in paths:
+        path = Path(raw_path)
+        try:
+            lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+        except OSError as exc:
+            raise ValueError(f"cannot read Kconfig file {path}: {exc}") from exc
+        for raw_line in lines:
+            line = raw_line.strip()
+            disabled = _DISABLED_CONFIG_RE.fullmatch(line)
+            if disabled:
+                values[disabled.group(1)] = "n"
+                continue
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            key = key.strip()
+            if key.startswith("CONFIG_"):
+                values[key] = value.strip().strip('"')
+    return values
+
+
+def configure_kconfig_values(paths: list[str]) -> dict[str, str]:
+    """Publish known Kconfig values to all checker subprocesses for this run."""
+    values = load_kconfig_values(paths)
+    if values:
+        os.environ["SKILL_KCONFIG_VALUES"] = json.dumps(values, ensure_ascii=False, sort_keys=True)
+    else:
+        os.environ.pop("SKILL_KCONFIG_VALUES", None)
+    return values
+
+
 from checker_io import safe_print as _safe_print  # noqa: E402
 from checker_registry import (  # noqa: E402
     ALL_CHECKERS,
@@ -95,6 +132,30 @@ def collect_c_files(
             continue
         out.append(f)
     return out
+
+
+def collect_changed_c_files(base: str | None) -> list[Path]:
+    """Return changed C/C++ headers and sources from Git, excluding deletions.
+
+    With no base this compares the working tree (including staged changes) to
+    HEAD.  A caller may pass a merge-base revision for CI/PR reviews.
+    """
+    command = ["git", "diff", "--name-only", "--diff-filter=ACMR"]
+    if base:
+        command.append(f"{base}...HEAD")
+    else:
+        command.append("HEAD")
+    try:
+        proc = subprocess.run(
+            command, cwd=SKILL_ROOT, capture_output=True, text=True,
+            encoding="utf-8", errors="replace", timeout=15,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise RuntimeError(f"cannot determine changed files: {exc}") from exc
+    if proc.returncode != 0:
+        detail = (proc.stderr or proc.stdout).strip()
+        raise RuntimeError(f"git diff failed ({' '.join(command)}): {detail}")
+    return collect_c_files(proc.stdout.splitlines(), None, include_bad=True)
 
 
 def run_cmd(label: str, argv: list[str]) -> int:
@@ -330,6 +391,24 @@ def _run_one_checker(spec: CheckerSpec, c_files: list[Path], tools_dir: str, ski
             "findings": payload["issues"], "exit_code": rc,
             "output": _format_checker_payload(payload),
         }
+    elif spec.mode == "global":
+        argv = [sys.executable, os.path.join(tools_dir, spec.script)]
+        rc, payload, error = _run_checker_protocol(argv, cwd=skill_root, env=env)
+        if error:
+            return {
+                "checker": spec.name, "script": spec.script,
+                "domains": spec.domains, "mode": spec.mode,
+                "files_checked": 0, "issues": 0,
+                "findings": [], "exit_code": 1, "output": error,
+            }
+        assert payload is not None
+        return {
+            "checker": spec.name, "script": spec.script,
+            "domains": spec.domains, "mode": spec.mode,
+            "files_checked": payload["files_checked"], "issues": payload["violations"],
+            "findings": payload["issues"], "exit_code": rc,
+            "output": _format_checker_payload(payload),
+        }
     else:
         return {
             "checker": spec.name, "script": spec.script,
@@ -410,19 +489,27 @@ def build_execution_plan(args: argparse.Namespace, c_files: list[Path]) -> dict:
             "kind": "auxiliary", "name": "stack_calculator",
             "argv": [sys.executable, str(TOOLS_DIR / "stack_calculator.py"), "--describe", args.describe, "--platform", args.platform],
         })
-    for spec in selected_checker_specs(args):
-        steps.append({
-            "kind": "checker", "name": spec.name, "script": spec.script,
-            "mode": spec.mode, "domains": list(spec.domains),
-            "files": [str(path) for path in c_files],
-            "protocol": CHECKER_PROTOCOL_VERSION,
-        })
+    if not c_files and not any(spec.mode == "global" for spec in selected_checker_specs(args)):
+        steps.append({"kind": "skip", "name": "registered_checkers", "reason": "no C/C++ files selected"})
+    else:
+        for spec in selected_checker_specs(args):
+            if not c_files and spec.mode != "global":
+                continue
+            steps.append({
+                "kind": "checker", "name": spec.name, "script": spec.script,
+                "mode": spec.mode, "domains": list(spec.domains),
+                "files": [str(path) for path in c_files],
+                "protocol": CHECKER_PROTOCOL_VERSION,
+            })
     if args.evidence:
         steps.append({"kind": "output", "name": "delivery_evidence", "path": args.evidence})
     return {
         "version": SKILL_VERSION,
         "dry_run": True,
         "files_checked": len(c_files),
+        "changed_only": bool(getattr(args, "changed_only", False)),
+        "changed_base": getattr(args, "changed_base", None),
+        "kconfig_files": list(getattr(args, "config", []) or []),
         "suites": ["symptom-plan"] if args.from_symptom_plan else ["default"],
         "steps": steps,
     }
@@ -439,6 +526,8 @@ def print_execution_plan(plan: dict, *, as_json: bool) -> None:
             print(f"  [checker] {step['name']} ({step['mode']}, {', '.join(step['domains'])})")
         elif step["kind"] == "output":
             print(f"  [output] {step['name']} -> {step['path']}")
+        elif step["kind"] == "skip":
+            print(f"  [skip] {step['name']}: {step['reason']}")
         else:
             print(f"  [{step['kind']}] {step['name']}: {' '.join(str(arg) for arg in step['argv'])}")
 
@@ -457,7 +546,10 @@ def run_registered_checkers(args: argparse.Namespace, c_files: list[Path]) -> in
     active_checkers = selected_checker_specs(args)
 
     if not c_files:
+        global_checkers = tuple(spec for spec in active_checkers if spec.mode == "global")
         for spec in active_checkers:
+            if spec.mode == "global":
+                continue
             if not json_mode:
                 print(f"\n[skip] {spec.name}: no .c files")
             if json_mode:
@@ -466,7 +558,9 @@ def run_registered_checkers(args: argparse.Namespace, c_files: list[Path]) -> in
                     "domains": spec.domains, "mode": spec.mode,
                     "files_checked": 0, "issues": 0, "exit_code": 0, "skipped": True,
                 })
-        return (exit_code, results) if json_mode else exit_code
+        if not global_checkers:
+            return (exit_code, results) if json_mode else exit_code
+        active_checkers = global_checkers
 
     independent, overlap_pairs = _classify_checkers(active_checkers)
 
@@ -629,6 +723,23 @@ def main() -> int:
         help="只输出将执行的辅助工具与 checker 计划，不运行任何子进程",
     )
     parser.add_argument(
+        "--changed-only",
+        action="store_true",
+        help="只审查相对 HEAD 的 Git diff 中 C/C++ 文件（CI 可配合 --changed-base）",
+    )
+    parser.add_argument(
+        "--changed-base",
+        metavar="REV",
+        help="--changed-only 的 Git 合并基线；使用 REV...HEAD 计算变更",
+    )
+    parser.add_argument(
+        "--config",
+        action="append",
+        default=[],
+        metavar="FILE",
+        help="加载 sdkconfig/prj.conf；已知禁用的 CONFIG 分支不会参与 checker 扫描（可重复）",
+    )
+    parser.add_argument(
         "--evidence",
         metavar="FILE",
         help="输出交付证据包 (delivery_evidence.json) 到指定文件",
@@ -666,6 +777,11 @@ def main() -> int:
     )
     args = parser.parse_args()
 
+    try:
+        args.kconfig_values = configure_kconfig_values(args.config)
+    except ValueError as exc:
+        parser.error(str(exc))
+
     args.symptom_checker_targets = ()
     if args.from_symptom_plan:
         try:
@@ -698,7 +814,18 @@ def main() -> int:
     if args.validate_examples:
         return run_validate_examples()
 
-    c_files = collect_c_files(args.files, args.dir, include_bad=args.include_bad)
+    if args.changed_only and (args.files or args.dir):
+        parser.error("--changed-only cannot be combined with positional files or --dir")
+    if args.changed_base and not args.changed_only:
+        parser.error("--changed-base requires --changed-only")
+
+    if args.changed_only:
+        try:
+            c_files = collect_changed_c_files(args.changed_base)
+        except RuntimeError as exc:
+            parser.error(str(exc))
+    else:
+        c_files = collect_c_files(args.files, args.dir, include_bad=args.include_bad)
     skipped_bad = 0
     if args.dir and not args.include_bad:
         root = Path(args.dir)

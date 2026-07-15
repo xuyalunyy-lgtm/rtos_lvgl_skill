@@ -11,6 +11,7 @@ import hashlib
 import os
 import subprocess
 import sys
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from dataclasses import dataclass, replace
@@ -125,10 +126,12 @@ class StepResult:
     output: str  # captured stdout + stderr
     timed_out: bool = False
     timeout_seconds: float | None = None
+    duration_seconds: float = 0.0
 
 
 def run_step_capture(index: int, step: GateStep) -> StepResult:
     """Run a single gate step and capture output. Designed for parallel execution."""
+    started = time.monotonic()
     try:
         proc = subprocess.run(
             step.cmd,
@@ -151,11 +154,13 @@ def run_step_capture(index: int, step: GateStep) -> StepResult:
             passed=False, returncode=1,
             output=f"Timed out after {step.timeout_seconds:g}s\n{stdout}{stderr}",
             timed_out=True, timeout_seconds=step.timeout_seconds,
+            duration_seconds=time.monotonic() - started,
         )
     except Exception as exc:
         return StepResult(
             index=index, name=step.name, blocking=step.blocking,
             passed=False, returncode=1, output=str(exc),
+            duration_seconds=time.monotonic() - started,
         )
 
     combined = (proc.stdout or "") + (proc.stderr or "")
@@ -163,17 +168,20 @@ def run_step_capture(index: int, step: GateStep) -> StepResult:
         return StepResult(
             index=index, name=step.name, blocking=step.blocking,
             passed=True, returncode=0, output=combined,
+            duration_seconds=time.monotonic() - started,
         )
 
     if not step.blocking:
         return StepResult(
             index=index, name=step.name, blocking=step.blocking,
             passed=True, returncode=proc.returncode, output=combined,
+            duration_seconds=time.monotonic() - started,
         )
 
     return StepResult(
         index=index, name=step.name, blocking=step.blocking,
         passed=False, returncode=proc.returncode, output=combined,
+        duration_seconds=time.monotonic() - started,
     )
 
 
@@ -184,19 +192,19 @@ def print_step_result(result: StepResult, total: int) -> None:
         label += " (non-blocking)"
 
     if result.timed_out:
-        print(f"{label}\n  TIMEOUT {result.name}: exceeded {result.timeout_seconds:g}s")
+        print(f"{label}\n  TIMEOUT {result.name}: exceeded {result.timeout_seconds:g}s ({result.duration_seconds:.2f}s)")
         if result.output.strip():
             for line in result.output.strip().splitlines():
                 print(f"    {line}")
     elif result.passed and result.returncode == 0:
-        print(f"{label}\n  PASS {result.name}")
+        print(f"{label}\n  PASS {result.name} ({result.duration_seconds:.2f}s)")
     elif result.passed and not result.blocking:
-        print(f"{label}\n  WARN {result.name}: exit {result.returncode} (non-blocking)")
+        print(f"{label}\n  WARN {result.name}: exit {result.returncode} ({result.duration_seconds:.2f}s, non-blocking)")
         if result.output.strip():
             for line in result.output.strip().splitlines():
                 print(f"    {line}")
     else:
-        print(f"{label}\n  FAIL {result.name}: exit {result.returncode}")
+        print(f"{label}\n  FAIL {result.name}: exit {result.returncode} ({result.duration_seconds:.2f}s)")
         if result.output.strip():
             print("  stdout:")
             for line in result.output.strip().splitlines():
@@ -240,6 +248,18 @@ def _select_steps(steps: list[GateStep], filters: list[str]) -> list[GateStep]:
         if any(token.casefold() in haystack for token in filters):
             selected.append(step)
     return selected
+
+
+def print_timing_summary(results: list[StepResult], wall_seconds: float) -> None:
+    """Print deterministic per-step timing after sequential or parallel execution."""
+    print("\nTiming summary:")
+    print(f"  {'Step':<32} {'Result':<9} Duration")
+    for result in results:
+        status = "TIMEOUT" if result.timed_out else "PASS" if result.passed else "FAIL"
+        print(f"  {result.name:<32} {status:<9} {result.duration_seconds:.2f}s")
+    accumulated = sum(result.duration_seconds for result in results)
+    print(f"  {'Total wall time':<42} {wall_seconds:.2f}s")
+    print(f"  {'Accumulated step time':<42} {accumulated:.2f}s")
 
 
 def main() -> int:
@@ -291,11 +311,14 @@ def main() -> int:
     total = len(steps)
 
     failed: list[str] = []
+    completed: list[StepResult] = []
+    gate_started = time.monotonic()
 
     if args.sequential:
         # Sequential mode: original behavior
         for index, step in enumerate(steps, start=1):
             result = run_step_capture(index, step)
+            completed.append(result)
             print_step_result(result, total)
             if not result.passed:
                 failed.append(result.name)
@@ -316,9 +339,12 @@ def main() -> int:
         # Print results in original order
         for index in sorted(results_by_index.keys()):
             result = results_by_index[index]
+            completed.append(result)
             print_step_result(result, total)
             if not result.passed:
                 failed.append(result.name)
+
+    print_timing_summary(completed, time.monotonic() - gate_started)
 
     if failed:
         print("\nQuick gate failed:")

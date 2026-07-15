@@ -73,10 +73,96 @@ def safe_print(text: str, file=None) -> None:
 # 文件读取
 # ============================================================================
 
-def read_file(path: Path) -> tuple[list[str], str] | None:
-    """统一文件读取，返回 (lines, text) 或 None。"""
+_KCONFIG_DIRECTIVE_RE = re.compile(r"^\s*#\s*(?P<kind>if|ifdef|ifndef|elif|else|endif)\b(?P<expr>.*)$")
+_KCONFIG_NAME_RE = re.compile(r"\b(CONFIG_[A-Za-z0-9_]+)\b")
+
+
+def _kconfig_values() -> dict[str, str]:
+    """Return the Kconfig values supplied by the review orchestrator.
+
+    An absent environment variable means the checker is running standalone, so
+    source must be left untouched.  This keeps existing direct checker usage
+    conservative while allowing project_doctor/run_review to suppress code
+    compiled out by a known sdkconfig/prj.conf.
+    """
+    raw = os.environ.get("SKILL_KCONFIG_VALUES")
+    if not raw:
+        return {}
     try:
-        text = path.read_text(encoding="utf-8", errors="replace")
+        values = json.loads(raw)
+    except json.JSONDecodeError:
+        return {}
+    if not isinstance(values, dict):
+        return {}
+    return {str(key): str(value) for key, value in values.items() if str(key).startswith("CONFIG_")}
+
+
+def _config_is_enabled(value: str) -> bool:
+    return value.strip().lower() in {"y", "1", "true", "yes", "on"}
+
+
+def _evaluate_kconfig_expr(expr: str, values: dict[str, str]) -> bool | None:
+    """Evaluate a simple CONFIG guard, returning None when it is not known."""
+    names = _KCONFIG_NAME_RE.findall(expr)
+    if len(set(names)) != 1:
+        return None
+    name = names[0]
+    if name not in values:
+        return None
+    enabled = _config_is_enabled(values[name])
+    negated = bool(re.search(r"!\s*(?:defined\s*\()?\s*" + re.escape(name), expr))
+    return not enabled if negated else enabled
+
+
+def filter_inactive_kconfig_blocks(text: str) -> str:
+    """Blank known inactive ``#if CONFIG_*`` blocks while retaining line numbers.
+
+    This intentionally handles only single-symbol guards.  More complex
+    expressions are retained, because guessing their truth value would hide
+    diagnostics.  Directives remain visible; inactive source characters become
+    spaces so all existing line-oriented checkers keep stable locations.
+    """
+    values = _kconfig_values()
+    if not values:
+        return text
+    active = True
+    stack: list[tuple[bool, bool | None]] = []
+    output: list[str] = []
+    for line in text.splitlines(keepends=True):
+        directive = _KCONFIG_DIRECTIVE_RE.match(line)
+        if directive:
+            kind, expr = directive.group("kind"), directive.group("expr")
+            if kind in {"if", "ifdef", "ifndef"}:
+                if kind == "ifdef":
+                    expr = f"defined({expr.strip()})"
+                elif kind == "ifndef":
+                    expr = f"!defined({expr.strip()})"
+                condition = _evaluate_kconfig_expr(expr, values)
+                stack.append((active, condition))
+                active = active if condition is None else active and condition
+            elif kind == "elif" and stack:
+                parent_active, previous = stack[-1]
+                condition = _evaluate_kconfig_expr(expr, values)
+                # A known true first branch makes subsequent alternatives inactive.
+                active = parent_active if previous is None or condition is None else parent_active and not previous and condition
+                stack[-1] = (parent_active, True if previous is True or condition is True else condition)
+            elif kind == "else" and stack:
+                parent_active, condition = stack[-1]
+                active = parent_active if condition is None else parent_active and not condition
+            elif kind == "endif" and stack:
+                active = stack.pop()[0]
+            output.append(line)
+        elif active:
+            output.append(line)
+        else:
+            output.append("".join("\n" if char == "\n" else "\r" if char == "\r" else " " for char in line))
+    return "".join(output)
+
+
+def read_file(path: Path) -> tuple[list[str], str] | None:
+    """统一文件读取，返回 (lines, text) 或 None，并跳过已知禁用 Kconfig 分支。"""
+    try:
+        text = filter_inactive_kconfig_blocks(path.read_text(encoding="utf-8", errors="replace"))
         return text.splitlines(), text
     except OSError:
         return None
@@ -323,6 +409,7 @@ def run_checker(
     description: str,
     domains: tuple[str, ...],
     suffixes: set[str] | None = None,
+    check_paths_fn: Callable[[list[Path]], list[dict]] | None = None,
 ) -> int:
     """统一 checker main() 框架。
 
@@ -353,9 +440,10 @@ def run_checker(
         print(f"[{description}] 无文件可检查")
         return 0
 
-    all_issues: list[dict] = []
-    for path in targets:
-        all_issues.extend(check_fn(path))
+    all_issues = check_paths_fn(targets) if check_paths_fn else []
+    if check_paths_fn is None:
+        for path in targets:
+            all_issues.extend(check_fn(path))
 
     domain_str = "/".join(domains)
 

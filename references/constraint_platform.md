@@ -51,6 +51,7 @@
 | C20.3 | DNS 解析失败必须处理，不可直接崩溃 | P1 | 人工 | `getaddrinfo` 返回值检查 + 重试 | `getaddrinfo` 失败直接 HardFault |
 | C20.4 | TLS 握手失败须区分错误类型（证书无效 vs 超时 vs 服务端拒绝） | P1 | 人工 | 按 mbedTLS 错误码分类处理 | 所有 TLS 错误统一重试 |
 | C20.5 | 网络断线时业务必须有降级策略（离线模式） | P1 | 人工 | `NET_MODE_OFFLINE` + 本地功能继续 | 断线后产品完全不可用 |
+| C20.6 | 同一执行上下文内必须遵守 WiFi connect → MQTT connect/start → subscribe；跨事件回调链应显式由 IP/MQTT-connected 事件衔接 | P0 | `api_sequence_checker.py` | WiFi 获 IP 后再启动 MQTT 并订阅 | MQTT 未连接就 subscribe |
 
 ---
 
@@ -76,6 +77,7 @@
 | C23.4 | 显示刷新必须有撕裂防护（TE 信号同步 / 双缓冲 / 直接模式）；禁止单缓冲无同步写入 | P1 | 人工 | `esp_lcd_panel_io_tx_param(0x35)` TE 信号 | 单缓冲直接写入 |
 | C23.5 | 帧缓冲大小必须根据 RAM 可用性选择：PSRAM 可用→全屏双缓冲；RAM 不足→部分刷新（1/5 或 1/10 屏）；分配失败必须检查 | P0 | `display_driver_checker.py` | `heap_caps_malloc` [HEAP_ALLOC] 返回值检查 | 未检查 `malloc` [HEAP_ALLOC] 返回 |
 | C23.6 | `lv_disp_drv_t` 注册必须设置 `hor_res`、`ver_res`、`draw_buf`、`flush_cb`；禁止遗漏必要字段 | P1 | `display_driver_checker.py` | 完整 `lv_disp_drv_init` + 字段赋值 | 缺少 `hor_res`/`ver_res` |
+| C23.7 | 同一执行上下文内 camera init/open 必须先于 capture/start；跨任务时必须以显式 ready 状态或事件衔接 | P0 | `api_sequence_checker.py` | init 成功后再启动采集 | 未初始化就取帧/启动采集 |
 
 **症状表**：
 
@@ -133,10 +135,10 @@
 
 | ID | Constraint | Severity | Validation | Good pattern | Bad pattern |
 |----|------------|----------|------------|--------------|-------------|
-| C46.1 | BLE init/close must have a state machine and rollback path | P1 | Manual + integration log | `init -> configure -> start -> stop` is explicit | Direct BLE API calls with no state owner |
+| C46.1 | BLE init/close must have a state machine and rollback path | P1 | `ble_protocol_checker.py` + integration log | `init -> configure -> start -> stop` is explicit | Direct BLE API calls with no state owner |
 | C46.2 | ADV/reconnect parameters must come from profile or board config | P1 | Manual + fixtures | Config-driven ADV interval/timeout | Hard-coded interval values |
 | C46.3 | GATT UUID/Service/Characteristic changes must match documents and route mapping | P1 | Manual | Doc mapping passes review | Service changes ship without doc update |
-| C46.4 | BLE state machine must cover idle/connecting/connected/disconnecting | P1 | Manual + event replay | Illegal transitions recover cleanly | Pending state jumps directly to idle |
+| C46.4 | BLE state machine must cover idle/connecting/connected/disconnecting | P1 | `ble_protocol_checker.py` + event replay | Illegal transitions recover cleanly | Pending state jumps directly to idle |
 | C46.5 | Pairing/auth/encryption/bond lifecycle must be explicit and clean up on failure | P2 | Manual | Pairing context has clear lifetime | Plain pairing or stale bond residue |
 | C46.6 | MTU and fragment settings must negotiate by device capability and support fallback | P1 | Manual + compatibility tests | MTU and payload size are negotiated | Fixed MTU causes compatibility failures |
 | C46.7 | Error codes must distinguish recoverable/fatal and map to recovery actions | P1 | Manual + log aggregation | Retry/disable/alert mapping is visible | All failures log the same error |

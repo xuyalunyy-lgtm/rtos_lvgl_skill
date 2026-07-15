@@ -119,6 +119,9 @@ ALL_CHECKERS: tuple[CheckerSpec, ...] = (
     # ── C20: Network resilience ─────────────────────────────────────────
     CheckerSpec("network_resilience_checker", "network_resilience_checker.py", "network-resilience", "batch", ("C20",),
                 suites=("all", "platform"), error_prefix="C20"),
+    CheckerSpec("api_sequence_checker", "api_sequence_checker.py", "api-sequence", "batch", ("C20", "C23"),
+                note="WiFi/MQTT and camera API order within one function",
+                suites=("all", "platform"), error_prefix="C20"),
     # ── C21: Low power ─────────────────────────────────────────────────
     CheckerSpec("low_power_checker", "low_power_checker.py", "low-power", "batch", ("C21",),
                 suites=("all", "platform"), error_prefix="C21"),
@@ -183,6 +186,12 @@ ALL_CHECKERS: tuple[CheckerSpec, ...] = (
     # ── C45: Sensor integration ─────────────────────────────────────────
     CheckerSpec("sensor_integration_checker", "sensor_integration_checker.py", "sensor-integration", "batch", ("C45",),
                 suites=("default", "all"), error_prefix="C45"),
+    CheckerSpec("ble_protocol_checker", "ble_protocol_checker.py", "ble-protocol", "batch", ("C46",),
+                suites=("all", "platform"), error_prefix="C46"),
+    # ── C41: Regression sample coverage (repository-wide) ──────────────
+    CheckerSpec("regression_sample_checker", "regression_sample_checker.py", "regression-sample", "global", ("C41",),
+                note="Repository-wide good/bad fixture coverage audit",
+                suites=("all",), error_prefix="C41"),
     # ── ISR safety (cross-cutting) ──────────────────────────────────────
     CheckerSpec("isr_safety_checker", "isr_safety_checker.py", "isr", "per-file", ("C4",),
                 suites=("default", "all", "realtime"), error_prefix="C4"),
@@ -234,6 +243,8 @@ SELF_TEST_CASES: tuple[CheckerCase, ...] = (
     CheckerCase("fault_isolation_checker.py", "fixtures/bad_fault_isolation.c", 1, "fault isolation bad"),
     CheckerCase("sensor_integration_checker.py", "fixtures/good_sensor_integration.c", 0, "sensor integration good"),
     CheckerCase("sensor_integration_checker.py", "fixtures/bad_sensor_integration.c", 1, "sensor integration bad"),
+    CheckerCase("ble_protocol_checker.py", "fixtures/good_ble_protocol.c", 0, "BLE protocol good"),
+    CheckerCase("ble_protocol_checker.py", "fixtures/bad_ble_protocol.c", 1, "BLE protocol bad"),
     CheckerCase("secret_scan_checker.py", "fixtures/good_config_secrets", 0, "secret good"),
     CheckerCase("secret_scan_checker.py", "fixtures/bad_config_secrets", 1, "secret bad"),
     CheckerCase("ota_safety_checker.py", "fixtures/good_ota_update.c", 0, "ota good"),
@@ -244,6 +255,8 @@ SELF_TEST_CASES: tuple[CheckerCase, ...] = (
     CheckerCase("stack_alloc_checker.py", "fixtures/bad_stack_alloc.c", 1, "stack alloc bad"),
     CheckerCase("lifecycle_checker.py", "fixtures/good_lifecycle.c", 0, "lifecycle good"),
     CheckerCase("lifecycle_checker.py", "fixtures/bad_lifecycle.c", 1, "lifecycle bad"),
+    CheckerCase("api_sequence_checker.py", "fixtures/good_api_sequence.c", 0, "API sequence good"),
+    CheckerCase("api_sequence_checker.py", "fixtures/bad_api_sequence.c", 1, "API sequence bad"),
     CheckerCase("peripheral_shutdown_checker.py", "fixtures/good_peripheral_shutdown.c", 0, "peripheral shutdown good"),
     CheckerCase("peripheral_shutdown_checker.py", "fixtures/bad_peripheral_shutdown.c", 1, "peripheral shutdown bad"),
     CheckerCase("backpressure_checker.py", "fixtures/good_backpressure.c", 0, "backpressure good"),
@@ -276,6 +289,8 @@ SELF_TEST_CASES: tuple[CheckerCase, ...] = (
     CheckerCase("board_resource_checker.py", "fixtures/bad_board_resource.c", 1, "board resource bad"),
     CheckerCase("module_boundary_checker.py", "fixtures/good_module_boundary.c", 0, "module boundary good"),
     CheckerCase("module_boundary_checker.py", "fixtures/bad_module_boundary.c", 1, "module boundary bad"),
+    CheckerCase("module_boundary_checker.py", "fixtures/good_interface_contract.c", 0, "interface contract good"),
+    CheckerCase("module_boundary_checker.py", "fixtures/bad_interface_contract.c", 1, "interface contract bad"),
     CheckerCase("hotpath_checker.py", "fixtures/good_hotpath.c", 0, "hotpath good"),
     CheckerCase("hotpath_checker.py", "fixtures/bad_hotpath.c", 1, "hotpath bad"),
     # ── Edge cases: boundary conditions (must not false-positive) ──

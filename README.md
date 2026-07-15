@@ -27,6 +27,9 @@ python tools/run_review.py your_code.c --platform esp32
 
 # 整个目录审查
 python tools/run_review.py --dir ./src --platform esp32
+
+# 按项目实际 Kconfig 过滤已编译掉的分支（可重复指定配置文件）
+python tools/run_review.py --dir ./src --platform esp32 --config ./sdkconfig
 ```
 
 `exit=1` 表示发现问题，`exit=0` 表示全部通过。
@@ -39,6 +42,7 @@ python tools/project_doctor.py ./your-project
 ```
 
 自动识别 SDK/RTOS/构建系统，解析 ESP-IDF 的目标芯片或 Zephyr 的板型，并给出下一步建议。默认只读。
+`--run-review` 会自动传递检测到的 `sdkconfig` / `prj.conf`，避免已禁用的 `CONFIG_*` 分支产生静态检查误报。
 
 ```bash
 # 将识别结果固化为项目级清单；不需要维护每个新芯片的全局表
@@ -133,6 +137,9 @@ python tools/run_review.py --from-symptom-plan plan.json --dir ./src
 
 # 预览审查计划（不执行 checker）
 python tools/run_review.py --from-symptom-plan plan.json --dir ./src --dry-run
+
+# 只审查本次 Git 变更的 C/C++ 文件（CI 指定基线）
+python tools/run_review.py --changed-only --changed-base origin/main
 
 # 仅运行某项发布门禁；每步默认超时 300 秒
 python scripts/quick_gate.py --only serial-mcp

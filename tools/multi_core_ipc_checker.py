@@ -12,7 +12,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from checker_io import make_issue, read_file, run_checker, strip_comments
+from checker_io import extract_functions, make_issue, read_file, run_checker, strip_comments
 
 VOLATILE_DECL_RE = re.compile(
     r"^\s*(?:static\s+)?volatile\s+[A-Za-z_]\w*(?:\s*\*)*\s+([A-Za-z_]\w*)\b"
@@ -42,19 +42,21 @@ def check_file(path: Path) -> list[dict[str, str]]:
         return []
     _lines, raw_text = result
     code = strip_comments(raw_text)
-    code_lines = code.splitlines()
     issues: list[dict[str, str]] = []
+    functions = extract_functions(code)
 
     for name, declaration_line in _shared_volatile_names(code).items():
         access_re = re.compile(rf"\b{re.escape(name)}\b")
         unprotected: list[int] = []
-        for index, line in enumerate(code_lines):
-            line_no = index + 1
-            if line_no == declaration_line or not access_re.search(line):
+        for func in functions:
+            # Protection may be established far from the access (for example
+            # via a common function prologue). Search the function boundary,
+            # not a fixed neighbouring-line window.
+            if PROTECTION_RE.search(func.body):
                 continue
-            window = "\n".join(code_lines[max(0, index - 3):min(len(code_lines), index + 4)])
-            if not PROTECTION_RE.search(window):
-                unprotected.append(line_no)
+            for offset, line in enumerate(func.body.splitlines()):
+                if access_re.search(line):
+                    unprotected.append(func.line + offset)
 
         # One access can be a one-way status handoff; two unprotected accesses
         # are a useful signal of a shared read/write path worth fixing.

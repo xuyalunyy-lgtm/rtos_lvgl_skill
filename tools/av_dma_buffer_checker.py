@@ -111,19 +111,45 @@ def check_dma_memory(path: Path, code: str) -> list[dict[str, str]]:
     return issues
 
 
-def check_cache_direction(path: Path, code: str) -> list[dict[str, str]]:
+def check_cache_direction(path: Path, code: str, functions: list) -> list[dict[str, str]]:
+    """Validate cache maintenance next to the DMA direction, not file-wide."""
     issues: list[dict[str, str]] = []
     if not CACHE_CONTEXT_RE.search(code):
         return issues
 
-    has_rx = RX_RE.search(code) is not None
-    has_tx = TX_RE.search(code) is not None
+    for func in functions:
+        name = func.name
+        body = func.body
+        name_lower = name.lower()
+        invalidate = _first_cache_op(CACHE_INVALIDATE_RE, body)
+        clean = _first_cache_op(CACHE_CLEAN_RE, body)
+        dma_start = _first_cache_op(DMA_START_RE, body)
+        completion_callback = bool(re.search(r"(callback|(?:rx|dma|display|flush).*(?:done|complete|cplt)|(?:done|complete|cplt).*(?:rx|dma|display|flush))", name_lower))
+        rx_callback = completion_callback and RX_RE.search(name) is not None
+        tx_submit = (
+            bool(re.search(r"(tx|transmit|playback|lcd|display|flush|submit)", name_lower))
+            and not rx_callback
+            and not completion_callback
+        )
 
-    if has_rx and not CACHE_INVALIDATE_RE.search(code):
-        issues.append(make_issue(path, 1, "C28.2", "P0", "DMA RX/camera capture 后 CPU 读前缺少 cache invalidate"))
-    if has_tx and not CACHE_CLEAN_RE.search(code):
-        issues.append(make_issue(path, 1, "C28.2", "P0", "CPU 写后提交给 DMA TX/LCD 前缺少 cache clean"))
+        if rx_callback and ("buf" in body.lower() or "frame" in body.lower() or "camera" in body.lower()):
+            if invalidate is None:
+                issues.append(make_issue(path, func.line, "C28.2", "P0", f"{name} DMA RX/capture callback reads CPU-visible data without cache invalidate"))
+            elif dma_start is not None and invalidate > dma_start:
+                issues.append(make_issue(path, func.line, "C28.2", "P0", f"{name} invalidates cache after restarting DMA; invalidate before CPU reads/reuse"))
+
+        if tx_submit or (dma_start is not None and TX_RE.search(name) and not rx_callback):
+            if clean is None:
+                direction = "cache invalidate" if invalidate is not None else "no cache maintenance"
+                issues.append(make_issue(path, func.line, "C28.2", "P0", f"{name} submits CPU-written data to DMA/LCD with {direction}; clean is required before submit"))
+            elif dma_start is not None and clean > dma_start:
+                issues.append(make_issue(path, func.line, "C28.2", "P0", f"{name} cleans cache after DMA/LCD submission; clean must precede submit"))
     return issues
+
+
+def _first_cache_op(pattern: re.Pattern[str], body: str) -> int | None:
+    match = pattern.search(body)
+    return match.start() if match else None
 
 
 def check_lifecycle(path: Path, code: str, functions: list) -> list[dict[str, str]]:
@@ -181,7 +207,7 @@ def check_file(path: Path) -> list[dict[str, str]]:
     functions = extract_functions(code)
     issues: list[dict[str, str]] = []
     issues.extend(check_dma_memory(path, code))
-    issues.extend(check_cache_direction(path, code))
+    issues.extend(check_cache_direction(path, code, functions))
     issues.extend(check_lifecycle(path, code, functions))
     issues.extend(check_queue_payload(path, code))
     issues.extend(check_cache_range_alignment(path, code))

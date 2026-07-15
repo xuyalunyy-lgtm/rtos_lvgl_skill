@@ -82,6 +82,7 @@
 | C29.8 | 模块禁止依赖对方 private struct/global；跨模块只传 handle/descriptor/event 或公开类型 | P1 | 人工 | 同上 | include 对方 private header 后直接改状态 |
 | C29.9 | 禁止多个模块共享可写全局 context；全局状态必须有唯一 owner 和访问 API | P0 | `module_boundary_checker.py` + 人工 | 同上 | `extern app_context_t g_app_ctx` 到处读写 |
 | C29.10 | review 必须判断高内聚/低耦合：职责是否单一、依赖是否单向、是否存在循环依赖或跨层调用 | P1 | 人工 + `module_boundary_checker.py` | 同上 | 业务修复需要同时改 5 个无关模块 |
+| C29.11 | 同模块公开 `.h` 声明必须与 `.c` 定义的返回类型和参数类型一致 | P0 | `module_boundary_checker.py` | `good_interface_contract.c/.h` | 声明返回 `int`、实现返回 `void` |
 
 **症状表**：
 

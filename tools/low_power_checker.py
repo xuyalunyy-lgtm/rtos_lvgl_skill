@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from checker_io import make_issue, read_file, run_checker
+from checker_io import extract_functions, make_issue, read_file, run_checker, strip_comments
 from sdk_lookup import SdkLookup
 
 lookup = SdkLookup("esp32")
@@ -30,60 +30,38 @@ STATE_SAVE_INDICATORS = lookup.get_all_apis("NVS_WRITE", "NVS_COMMIT", "FLASH_WR
 POWER_DOWN_INDICATORS = lookup.get_apis("PERIPHERAL_POWER_DOWN")
 
 
-def check_state_save_before_sleep(path: Path, lines: list[str]) -> list[dict]:
+def check_state_save_before_sleep(path: Path, code: str) -> list[dict]:
     """C21.1 — Must have state save before deep_sleep"""
     issues = []
 
-    for i, line in enumerate(lines, 1):
-        stripped = line.strip()
-        if stripped.startswith("//") or stripped.startswith("/*"):
-            continue
-
+    for func in extract_functions(code):
         for api in DEEP_SLEEP_APIS:
-            if api + "(" not in stripped and api + "()" not in stripped:
+            match = func.body.find(api + "(")
+            if match < 0:
                 continue
-
-            # Check previous 20 lines for state save
-            has_state_save = False
-            for j in range(max(0, i - 20), i):
-                prev_line = lines[j]
-                if any(indicator in prev_line for indicator in STATE_SAVE_INDICATORS):
-                    has_state_save = True
-                    break
-
-            if not has_state_save:
+            # A shared shutdown helper can establish state well before sleep;
+            # search the complete function rather than an arbitrary line window.
+            if not any(indicator in func.body for indicator in STATE_SAVE_INDICATORS):
                 issues.append(make_issue(
-                    path, i, "C21.1", "P0",
+                    path, func.line + func.body[:match].count("\n"), "C21.1", "P0",
                     f"No state save found before {api} (nvs_set_* / nvs_commit)",
                 ))
 
     return issues
 
 
-def check_power_down_before_sleep(path: Path, lines: list[str]) -> list[dict]:
+def check_power_down_before_sleep(path: Path, code: str) -> list[dict]:
     """C21.4 — Must power down peripherals before deep_sleep"""
     issues = []
 
-    for i, line in enumerate(lines, 1):
-        stripped = line.strip()
-        if stripped.startswith("//") or stripped.startswith("/*"):
-            continue
-
+    for func in extract_functions(code):
         for api in DEEP_SLEEP_APIS:
-            if api + "(" not in stripped and api + "()" not in stripped:
+            match = func.body.find(api + "(")
+            if match < 0:
                 continue
-
-            # Check previous 30 lines for power down
-            has_power_down = False
-            for j in range(max(0, i - 30), i):
-                prev_line = lines[j]
-                if any(indicator in prev_line for indicator in POWER_DOWN_INDICATORS):
-                    has_power_down = True
-                    break
-
-            if not has_power_down:
+            if not any(indicator in func.body for indicator in POWER_DOWN_INDICATORS):
                 issues.append(make_issue(
-                    path, i, "C21.4", "P1",
+                    path, func.line + func.body[:match].count("\n"), "C21.4", "P1",
                     f"No peripheral power down found before {api} (LCD/Audio/WiFi)",
                 ))
 
@@ -95,10 +73,11 @@ def check_file(path: Path) -> list[dict]:
     if result is None:
         return []
 
-    lines, _text = result
+    _lines, raw_text = result
+    code = strip_comments(raw_text)
     issues = []
-    issues.extend(check_state_save_before_sleep(path, lines))
-    issues.extend(check_power_down_before_sleep(path, lines))
+    issues.extend(check_state_save_before_sleep(path, code))
+    issues.extend(check_power_down_before_sleep(path, code))
     return issues
 
 

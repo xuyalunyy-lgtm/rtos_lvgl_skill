@@ -4,6 +4,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tools"))
 import project_doctor
@@ -15,7 +16,10 @@ class ProjectDoctorTests(unittest.TestCase):
             root = Path(directory)
             (root / "main").mkdir()
             (root / "build").mkdir()
-            (root / "sdkconfig").write_text('CONFIG_IDF_TARGET="esp32s3"\nCONFIG_FREERTOS_HZ=1000\n', encoding="utf-8")
+            (root / "sdkconfig").write_text(
+                'CONFIG_IDF_TARGET="esp32s3"\nCONFIG_FREERTOS_HZ=1000\nCONFIG_BT_ENABLED=y\n# CONFIG_WIFI_ENABLED is not set\n',
+                encoding="utf-8",
+            )
             (root / "CMakeLists.txt").write_text('set(IDF_VERSION "5.2.1")\nidf_component_register(SRCS main.c)\n', encoding="utf-8")
             (root / "main" / "main.c").write_text('#include "freertos/FreeRTOS.h"\n#include "lvgl.h"\n', encoding="utf-8")
             (root / "build" / "app.elf").write_bytes(b"ELF")
@@ -28,6 +32,8 @@ class ProjectDoctorTests(unittest.TestCase):
         self.assertEqual(manifest["sdk"]["name"], "esp-idf")
         self.assertEqual(manifest["build"]["command"], ["idf.py", "build"])
         self.assertEqual(manifest["build"]["artifacts"]["elf"], ["build/app.elf"])
+        self.assertIn("CONFIG_BT_ENABLED", manifest["configuration"]["enabled"])
+        self.assertNotIn("CONFIG_WIFI_ENABLED", manifest["configuration"]["enabled"])
 
     def test_reports_uncertain_empty_project(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -64,6 +70,17 @@ class ProjectDoctorTests(unittest.TestCase):
             written = destination.read_text(encoding="utf-8")
         self.assertIn('"chip": "esp32c6"', written)
         self.assertIn('"generated_at"', written)
+
+    def test_run_review_receives_detected_kconfig_files(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "sdkconfig").write_text("CONFIG_BT_ENABLED=y\n", encoding="utf-8")
+            completed = type("Completed", (), {"returncode": 0, "stdout": "", "stderr": ""})()
+            with patch.object(project_doctor.subprocess, "run", return_value=completed) as run:
+                project_doctor._run_review(root, "esp32", ["sdkconfig"])
+        command = run.call_args.args[0]
+        self.assertIn("--config", command)
+        self.assertIn(str(root / "sdkconfig"), command)
 
 
 if __name__ == "__main__":

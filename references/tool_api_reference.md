@@ -15,9 +15,11 @@ python tools/run_review.py --dir ./src --platform esp32
 python tools/run_review.py --dir ./src --platform esp32 --json
 python tools/run_review.py --dir ./src --platform esp32 --suggest-fixes --fix-detail full
 python tools/run_review.py --dir ./src --platform esp32 --scan-secrets
+python tools/run_review.py --dir ./src --platform esp32 --config ./sdkconfig
 python tools/context_router.py --symptom-text "task watchdog timeout" --json > plan.json
 python tools/run_review.py --from-symptom-plan plan.json --dir ./src
 python tools/run_review.py --from-symptom-plan plan.json --dir ./src --dry-run --json
+python tools/run_review.py --changed-only --changed-base origin/main
 python tools/run_review.py --self-test
 python tools/run_review.py --list-checkers
 python tools/run_review.py --validate-examples
@@ -36,6 +38,9 @@ python tools/run_review.py --validate-examples
 | `--strict-field` | 可选 | P0 现场诊断阻断 exit code |
 | `--from-symptom-plan <file>` | 可选 | 只运行 `context_router` / `log_triage --json` 计划内的 `checker_targets` |
 | `--dry-run` | 可选 | 输出实际会调用的辅助工具和 checker，不执行它们 |
+| `--changed-only` | 可选 | 仅审查相对 `HEAD` 的 Git diff 内 C/C++ 源与头文件 |
+| `--changed-base <rev>` | 可选 | 对比 `<rev>...HEAD`；用于 CI/PR 的明确基线，须与 `--changed-only` 联用 |
+| `--config <file>` | 可选，可重复 | 加载 `sdkconfig` / `prj.conf`；对已知禁用的单一 `CONFIG_*` 条件分支跳过扫描 |
 | `--self-test` | 可选 | 自测模式 |
 | `--list-checkers` | 可选 | 列出所有 checker |
 | `--validate-examples` | 可选 | 验证 examples/ 正反例 |
@@ -43,6 +48,7 @@ python tools/run_review.py --validate-examples
 - **Exit code**：0=全部通过，1=发现问题
 - **JSON 输出**：`{checkers: [{name, issues: [{severity, constraint, file, line, message}]}], summary: {total, p0, p1, p2}}`
 - **Checker 协议**：`run_review` 以 `checker-result/v1` JSON Lines 接收每个 checker 的 `{violations, issues}`，不再解析人类 stdout 计数。
+- **C29 接口契约**：`module_boundary_checker` 会比较本地 quoted include / 同名 `.h` 与 `.c` 的同名函数签名；未在审查范围找到实现的外部库声明不会报错。
 - **依赖**：`checker_registry.py` → 各 checker 模块 → `checker_io.py` → `static_c_scan.py`
 
 ### context_router.py — 上下文路由器
@@ -82,7 +88,7 @@ python scripts/quick_gate.py --only serial-mcp
 python scripts/quick_gate.py --filter "project doctor" --timeout 120
 ```
 
-每个步骤默认最多运行 300 秒；超时会作为失败步骤明确报告。`--only` 与 `--filter` 可重复使用，按显示名或短横线 slug 筛选步骤。
+每个步骤默认最多运行 300 秒；超时会作为失败步骤明确报告。成功、失败和超时步骤都会输出耗时，末尾汇总逐步耗时、累计耗时和墙钟耗时。`--only` 与 `--filter` 可重复使用，按显示名或短横线 slug 筛选步骤。
 
 ### codegen_gate.py — 代码生成门禁
 
@@ -283,7 +289,11 @@ python tools/project_doctor.py <project>
 python tools/project_doctor.py <project> --write-manifest
 python tools/project_doctor.py <project> --manifest <path>
 python tools/project_doctor.py <project> --verify-build
+python tools/project_doctor.py <project> --run-review
 ```
+
+`--run-review` 会将检测到的 Kconfig 配置文件传给 `run_review`；manifest 的
+`configuration.enabled` 列出已启用的 `CONFIG_*`，供 CI 和后续诊断复用。
 
 当前内置 ESP-IDF 与 Zephyr 解析器：ESP-IDF 从 `sdkconfig` 提取 `CONFIG_IDF_TARGET`，Zephyr 从 `build/zephyr/.config` 或项目配置提取 `CONFIG_BOARD`。因此同一 SDK 家族的新芯片通常无需更新工具；只有新增 SDK 家族时才需要增加解析器。
 

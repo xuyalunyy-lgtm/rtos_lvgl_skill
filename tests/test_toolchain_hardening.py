@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 import unittest
 from pathlib import Path
+import os
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
@@ -11,6 +14,8 @@ sys.path.insert(0, str(ROOT / "tools"))
 
 import quick_gate
 import run_review
+from checker_io import filter_inactive_kconfig_blocks
+from checker_registry import ALL_CHECKERS
 
 
 class QuickGateHardeningTests(unittest.TestCase):
@@ -28,6 +33,7 @@ class QuickGateHardeningTests(unittest.TestCase):
         self.assertTrue(result.timed_out)
         self.assertFalse(result.passed)
         self.assertIn("Timed out", result.output)
+        self.assertGreaterEqual(result.duration_seconds, 0.0)
 
 
 class RunReviewProtocolTests(unittest.TestCase):
@@ -52,8 +58,71 @@ class RunReviewProtocolTests(unittest.TestCase):
             "repro_output": None, "skip_stack": True, "evidence": None, "describe": "fixture",
             "platform": "esp32",
         })()
-        plan = run_review.build_execution_plan(args, [])
+        plan = run_review.build_execution_plan(args, [Path("fixture.c")])
         self.assertEqual([step["name"] for step in plan["steps"]], ["fault_isolation_checker"])
+
+    def test_changed_only_uses_git_diff_and_skips_deleted_paths(self) -> None:
+        completed = run_review.subprocess.CompletedProcess(
+            ["git", "diff"], 0, stdout="src/a.c\ninclude/a.h\n", stderr="",
+        )
+        with patch.object(run_review.subprocess, "run", return_value=completed) as run:
+            with patch.object(run_review, "collect_c_files", return_value=[Path("src/a.c"), Path("include/a.h")]) as collect:
+                result = run_review.collect_changed_c_files("origin/main")
+        self.assertEqual(result, [Path("src/a.c"), Path("include/a.h")])
+        self.assertIn("origin/main...HEAD", run.call_args.args[0])
+        self.assertEqual(collect.call_args.args[0], ["src/a.c", "include/a.h"])
+
+    def test_registered_c41_is_global_checker(self) -> None:
+        spec = next(spec for spec in ALL_CHECKERS if spec.name == "regression_sample_checker")
+        self.assertEqual(spec.domains, ("C41",))
+        self.assertEqual(spec.mode, "global")
+
+        args = type("Args", (), {
+            "json": True,
+            "from_symptom_plan": "fixture-plan.json",
+            "symptom_checker_targets": ("regression_sample_checker",),
+        })()
+        exit_code, results = run_review.run_registered_checkers(args, [])
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["checker"], "regression_sample_checker")
+        self.assertGreaterEqual(exit_code, 0)
+
+    def test_known_disabled_kconfig_block_is_not_scanned(self) -> None:
+        source = """#ifdef CONFIG_BT_ENABLED
+unsafe_bt_call();
+#endif
+#ifdef CONFIG_WIFI_ENABLED
+unsafe_wifi_call();
+#endif
+"""
+        with patch.dict(os.environ, {"SKILL_KCONFIG_VALUES": json.dumps({"CONFIG_BT_ENABLED": "y", "CONFIG_WIFI_ENABLED": "n"})}):
+            filtered = filter_inactive_kconfig_blocks(source)
+        self.assertIn("unsafe_bt_call", filtered)
+        self.assertNotIn("unsafe_wifi_call", filtered)
+        self.assertEqual(source.count("\n"), filtered.count("\n"))
+
+    def test_cross_file_lock_order_cycle(self) -> None:
+        checker = ROOT / "tools" / "lock_budget_checker.py"
+        good = [ROOT / "tools" / "fixtures" / "good_lock_order_a.c", ROOT / "tools" / "fixtures" / "good_lock_order_b.c"]
+        bad = [ROOT / "tools" / "fixtures" / "bad_lock_order_a.c", ROOT / "tools" / "fixtures" / "bad_lock_order_b.c"]
+        good_result = subprocess.run([sys.executable, str(checker), *(str(path) for path in good)], capture_output=True, text=True, encoding="utf-8", errors="replace")
+        bad_result = subprocess.run([sys.executable, str(checker), *(str(path) for path in bad)], capture_output=True, text=True, encoding="utf-8", errors="replace")
+        self.assertEqual(good_result.returncode, 0)
+        self.assertEqual(bad_result.returncode, 1)
+        self.assertIn("C43.6", bad_result.stdout)
+
+    def test_cross_file_resource_lifecycle(self) -> None:
+        checker = ROOT / "tools" / "lifecycle_checker.py"
+        good = [
+            ROOT / "tools" / "fixtures" / "good_cross_file_lifecycle_owner.c",
+            ROOT / "tools" / "fixtures" / "good_cross_file_lifecycle_cleanup.c",
+        ]
+        bad = [ROOT / "tools" / "fixtures" / "bad_cross_file_lifecycle_owner.c"]
+        good_result = subprocess.run([sys.executable, str(checker), *(str(path) for path in good)], capture_output=True, text=True, encoding="utf-8", errors="replace")
+        bad_result = subprocess.run([sys.executable, str(checker), *(str(path) for path in bad)], capture_output=True, text=True, encoding="utf-8", errors="replace")
+        self.assertEqual(good_result.returncode, 0)
+        self.assertEqual(bad_result.returncode, 1)
+        self.assertIn("g_leaked_queue", bad_result.stdout)
 
 
 if __name__ == "__main__":

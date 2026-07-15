@@ -34,6 +34,11 @@ LOCK_TAKE_RE = re.compile(
     re.IGNORECASE | re.DOTALL,
 )
 LOCK_GIVE_RE = _lookup.build_regex("SEM_GIVE", "MUTEX_UNLOCK")
+_lock_give_apis = _lookup.get_all_apis("SEM_GIVE", "MUTEX_UNLOCK")
+LOCK_GIVE_CALL_RE = re.compile(
+    r"\b(?:%s)\s*\((?P<args>[^;]*?)\)\s*;" % "|".join(re.escape(a) for a in _lock_give_apis),
+    re.IGNORECASE | re.DOTALL,
+)
 FOREVER_WAIT_RE = _lookup.build_constant_regex("TIMEOUT_FOREVER")
 LOCK_BUDGET_HINT_RE = re.compile(r"(lock_budget|max_hold|hold_.*(?:us|ms)|bounded_lock|try_lock|pdMS_TO_TICKS\s*\()", re.IGNORECASE)
 LOCK_ORDER_HINT_RE = re.compile(r"(lock_order|lock order|lock_rank|rank:|order:|L[0-9]\s*->)", re.IGNORECASE)
@@ -108,6 +113,89 @@ def check_binary_semaphore_mutex(path: Path, code: str) -> list[dict[str, str]]:
     return issues
 
 
+def _lock_name(args: str) -> str | None:
+    """Extract a stable lock-handle token from a take/give first argument."""
+    first = args.split(",", 1)[0]
+    first = re.sub(r"\([^)]*\)", "", first).replace("&", " ")
+    match = re.search(r"[A-Za-z_]\w*(?:\s*->\s*[A-Za-z_]\w*)?", first)
+    return re.sub(r"\s+", "", match.group(0)) if match else None
+
+
+def _lock_edges(path: Path, code: str) -> list[tuple[str, str, int, str]]:
+    """Return nested lock-order edges seen in every function of one file."""
+    edges: list[tuple[str, str, int, str]] = []
+    for func in extract_functions(code):
+        events: list[tuple[int, str, str]] = []
+        for match in LOCK_TAKE_RE.finditer(func.body):
+            name = _lock_name(match.group("args"))
+            if name:
+                events.append((match.start(), "take", name))
+        for match in LOCK_GIVE_CALL_RE.finditer(func.body):
+            name = _lock_name(match.group("args"))
+            if name:
+                events.append((match.start(), "give", name))
+        held: list[str] = []
+        for offset, event, name in sorted(events):
+            if event == "take":
+                line = func.line + func.body[:offset].count("\n")
+                for outer in held:
+                    if outer != name:
+                        edges.append((outer, name, line, func.name))
+                held.append(name)
+            elif name in held:
+                held.pop(len(held) - 1 - held[::-1].index(name))
+    return edges
+
+
+def _find_lock_cycles(graph: dict[str, set[str]]) -> list[list[str]]:
+    cycles: list[list[str]] = []
+    seen: set[tuple[str, ...]] = set()
+
+    def visit(node: str, stack: list[str], active: set[str]) -> None:
+        for nxt in graph.get(node, set()):
+            if nxt in active:
+                cycle = stack[stack.index(nxt):] + [nxt]
+                core = cycle[:-1]
+                canonical = min(tuple(core[index:] + core[:index]) for index in range(len(core)))
+                if canonical not in seen:
+                    seen.add(canonical)
+                    cycles.append(list(canonical) + [canonical[0]])
+            elif nxt not in stack:
+                visit(nxt, stack + [nxt], active | {nxt})
+
+    for start in sorted(graph):
+        visit(start, [start], {start})
+    return cycles
+
+
+def check_cross_file_lock_order(paths: list[Path]) -> list[dict[str, str]]:
+    """C43.6 — detect a lock-order cycle built from all reviewed files."""
+    graph: dict[str, set[str]] = {}
+    evidence: dict[tuple[str, str], tuple[Path, int, str]] = {}
+    all_issues: list[dict[str, str]] = []
+    for path in paths:
+        result = read_file(path)
+        if result is None:
+            continue
+        _lines, raw_text = result
+        code = strip_comments(raw_text)
+        all_issues.extend(check_forever_lock_wait(path, code, raw_text))
+        all_issues.extend(check_function_lock_patterns(path, raw_text, extract_functions(code)))
+        all_issues.extend(check_binary_semaphore_mutex(path, code))
+        for outer, inner, line, func in _lock_edges(path, code):
+            graph.setdefault(outer, set()).add(inner)
+            evidence.setdefault((outer, inner), (path, line, func))
+
+    for cycle in _find_lock_cycles(graph):
+        outer, inner = cycle[0], cycle[1]
+        path, line, func = evidence[(outer, inner)]
+        all_issues.append(issue(
+            path, line, "C43.6", "P0",
+            f"cross-file lock-order cycle: {' -> '.join(cycle)} (edge observed in {func}())",
+        ))
+    return all_issues
+
+
 def check_file(path: Path) -> list[dict[str, str]]:
     result = read_file(path)
     if result is None:
@@ -124,4 +212,7 @@ def check_file(path: Path) -> list[dict[str, str]]:
 
 
 if __name__ == "__main__":
-    raise SystemExit(run_checker(check_file, "C43 lock budget checker", ("C43",)))
+    raise SystemExit(run_checker(
+        check_file, "C43 lock budget checker", ("C43",),
+        check_paths_fn=check_cross_file_lock_order,
+    ))
