@@ -17,6 +17,7 @@ python tools/run_review.py --dir ./src --platform esp32 --suggest-fixes --fix-de
 python tools/run_review.py --dir ./src --platform esp32 --scan-secrets
 python tools/context_router.py --symptom-text "task watchdog timeout" --json > plan.json
 python tools/run_review.py --from-symptom-plan plan.json --dir ./src
+python tools/run_review.py --from-symptom-plan plan.json --dir ./src --dry-run --json
 python tools/run_review.py --self-test
 python tools/run_review.py --list-checkers
 python tools/run_review.py --validate-examples
@@ -34,12 +35,14 @@ python tools/run_review.py --validate-examples
 | `--scan-secrets` | 可选 | 附加密钥扫描（C9） |
 | `--strict-field` | 可选 | P0 现场诊断阻断 exit code |
 | `--from-symptom-plan <file>` | 可选 | 只运行 `context_router` / `log_triage --json` 计划内的 `checker_targets` |
+| `--dry-run` | 可选 | 输出实际会调用的辅助工具和 checker，不执行它们 |
 | `--self-test` | 可选 | 自测模式 |
 | `--list-checkers` | 可选 | 列出所有 checker |
 | `--validate-examples` | 可选 | 验证 examples/ 正反例 |
 
 - **Exit code**：0=全部通过，1=发现问题
 - **JSON 输出**：`{checkers: [{name, issues: [{severity, constraint, file, line, message}]}], summary: {total, p0, p1, p2}}`
+- **Checker 协议**：`run_review` 以 `checker-result/v1` JSON Lines 接收每个 checker 的 `{violations, issues}`，不再解析人类 stdout 计数。
 - **依赖**：`checker_registry.py` → 各 checker 模块 → `checker_io.py` → `static_c_scan.py`
 
 ### context_router.py — 上下文路由器
@@ -70,6 +73,16 @@ python tools/context_router.py --self-test
 - **JSON 输出**：`{required_files, forbidden_by_default, constraint_shards, estimated_tokens, budget_mode, workflow, platform}`
 
 ## 门禁工具
+
+### quick_gate.py — 快速发布门禁
+
+```bash
+python scripts/quick_gate.py --strict
+python scripts/quick_gate.py --only serial-mcp
+python scripts/quick_gate.py --filter "project doctor" --timeout 120
+```
+
+每个步骤默认最多运行 300 秒；超时会作为失败步骤明确报告。`--only` 与 `--filter` 可重复使用，按显示名或短横线 slug 筛选步骤。
 
 ### codegen_gate.py — 代码生成门禁
 

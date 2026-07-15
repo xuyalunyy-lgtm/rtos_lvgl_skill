@@ -131,6 +131,12 @@ python tools/run_review.py --validate-examples
 python tools/context_router.py --symptom-text "task watchdog timeout" --json > plan.json
 python tools/run_review.py --from-symptom-plan plan.json --dir ./src
 
+# 预览审查计划（不执行 checker）
+python tools/run_review.py --from-symptom-plan plan.json --dir ./src --dry-run
+
+# 仅运行某项发布门禁；每步默认超时 300 秒
+python scripts/quick_gate.py --only serial-mcp
+
 # 项目诊断
 python tools/project_doctor.py ./your-project
 python tools/project_doctor.py ./your-project --run-review

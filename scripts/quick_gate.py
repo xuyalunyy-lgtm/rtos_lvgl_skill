@@ -13,7 +13,7 @@ import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 
@@ -28,6 +28,7 @@ class GateStep:
     name: str
     cmd: list[str]
     blocking: bool = True
+    timeout_seconds: float = 300.0
 
 
 STEPS = [
@@ -122,6 +123,8 @@ class StepResult:
     passed: bool
     returncode: int
     output: str  # captured stdout + stderr
+    timed_out: bool = False
+    timeout_seconds: float | None = None
 
 
 def run_step_capture(index: int, step: GateStep) -> StepResult:
@@ -134,6 +137,20 @@ def run_step_capture(index: int, step: GateStep) -> StepResult:
             capture_output=True,
             encoding="utf-8",
             errors="replace",
+            timeout=step.timeout_seconds,
+        )
+    except subprocess.TimeoutExpired as exc:
+        stdout = exc.stdout or ""
+        stderr = exc.stderr or ""
+        if isinstance(stdout, bytes):
+            stdout = stdout.decode("utf-8", errors="replace")
+        if isinstance(stderr, bytes):
+            stderr = stderr.decode("utf-8", errors="replace")
+        return StepResult(
+            index=index, name=step.name, blocking=step.blocking,
+            passed=False, returncode=1,
+            output=f"Timed out after {step.timeout_seconds:g}s\n{stdout}{stderr}",
+            timed_out=True, timeout_seconds=step.timeout_seconds,
         )
     except Exception as exc:
         return StepResult(
@@ -166,7 +183,12 @@ def print_step_result(result: StepResult, total: int) -> None:
     if not result.blocking:
         label += " (non-blocking)"
 
-    if result.passed and result.returncode == 0:
+    if result.timed_out:
+        print(f"{label}\n  TIMEOUT {result.name}: exceeded {result.timeout_seconds:g}s")
+        if result.output.strip():
+            for line in result.output.strip().splitlines():
+                print(f"    {line}")
+    elif result.passed and result.returncode == 0:
         print(f"{label}\n  PASS {result.name}")
     elif result.passed and not result.blocking:
         print(f"{label}\n  WARN {result.name}: exit {result.returncode} (non-blocking)")
@@ -204,6 +226,22 @@ def _build_route_quality_step(args: argparse.Namespace, *, strict: bool) -> Gate
     return GateStep("log symptom routes quality", command)
 
 
+def _step_slug(name: str) -> str:
+    return "-".join(part for part in "".join(ch.lower() if ch.isalnum() else " " for ch in name).split())
+
+
+def _select_steps(steps: list[GateStep], filters: list[str]) -> list[GateStep]:
+    """Select steps by case-insensitive display name or stable dashed slug."""
+    if not filters:
+        return steps
+    selected: list[GateStep] = []
+    for step in steps:
+        haystack = f"{step.name.casefold()} {_step_slug(step.name)}"
+        if any(token.casefold() in haystack for token in filters):
+            selected.append(step)
+    return selected
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run the fast local skill release gate")
     parser.add_argument("--verbose", action="store_true", help="stream full child-process output")
@@ -219,7 +257,18 @@ def main() -> int:
     parser.add_argument("--quality-max-multi-match-fixtures", type=int)
     parser.add_argument("--strict", action="store_true", help="fail on quality gate warnings (CI-style strict mode)")
     parser.add_argument("--sequential", action="store_true", help="run steps sequentially (default: parallel)")
+    parser.add_argument(
+        "--timeout", type=float, default=300.0, metavar="SECONDS",
+        help="per-step timeout in seconds (default: 300)",
+    )
+    parser.add_argument(
+        "--only", "--filter", dest="filters", action="append", default=[], metavar="STEP",
+        help="run only matching step name/slug; repeatable (for example: --only serial-mcp)",
+    )
     args = parser.parse_args()
+
+    if args.timeout <= 0:
+        parser.error("--timeout must be greater than zero")
 
     policy_fingerprint, policy_mtime = _file_fingerprint(args.quality_policy)
     allowlist_fingerprint, allowlist_mtime = _file_fingerprint(args.quality_allowlist)
@@ -234,6 +283,11 @@ def main() -> int:
 
     steps = STEPS.copy()
     steps.insert(5, _build_route_quality_step(args, strict=quality_strict))
+    steps = _select_steps(steps, args.filters)
+    if args.filters and not steps:
+        available = ", ".join(_step_slug(step.name) for step in STEPS)
+        parser.error(f"no gate steps match {args.filters!r}; available: {available}")
+    steps = [replace(step, timeout_seconds=args.timeout) for step in steps]
     total = len(steps)
 
     failed: list[str] = []

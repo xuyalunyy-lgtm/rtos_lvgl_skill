@@ -341,6 +341,10 @@ def run_checker(
     parser.add_argument("files", nargs="*", help="待检查文件")
     parser.add_argument("--dir", "-d", help="递归检查目录")
     parser.add_argument("--json", action="store_true", help="JSON 输出")
+    parser.add_argument(
+        "--jsonl", action="store_true",
+        help="Emit exactly one JSON Lines protocol record (for tool orchestration)",
+    )
     args = parser.parse_args()
 
     targets = collect_targets(args.files, args.dir, suffixes)
@@ -355,14 +359,19 @@ def run_checker(
 
     domain_str = "/".join(domains)
 
-    if args.json:
-        output_json({
+    if args.json or args.jsonl:
+        payload = {
+            "protocol_version": "checker-result/v1",
             "checker": description,
-            "domains": domains,
+            "domains": list(domains),
             "files_checked": len(targets),
             "violations": len(all_issues),
             "issues": all_issues,
-        })
+        }
+        if args.jsonl:
+            print(json.dumps(payload, ensure_ascii=False, separators=(",", ":")))
+        else:
+            output_json(payload)
         return 1 if all_issues else 0
 
     if not all_issues:

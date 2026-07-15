@@ -218,19 +218,66 @@ def _run_and_capture(label: str, argv: list[str], quiet: bool = False) -> tuple[
     return proc.returncode, combined
 
 
-_ISSUE_COUNT_RE = re.compile(r'(?:found|发现)\s*(\d+)\s*(?:issues?|个)')
-_WARN_COUNT_RE = re.compile(r'(\d+)\s+warnings?', re.IGNORECASE)
+CHECKER_PROTOCOL_VERSION = "checker-result/v1"
 
 
-def _parse_issue_count(output: str) -> int:
-    """Extract violation count from checker stdout."""
-    m = _ISSUE_COUNT_RE.search(output)
-    if m:
-        return int(m.group(1))
-    m = _WARN_COUNT_RE.search(output)
-    if m:
-        return int(m.group(1))
-    return 0
+def _parse_checker_jsonl(output: str) -> dict:
+    """Parse the one-record checker JSON Lines protocol strictly.
+
+    Human-oriented checker text must never be used to calculate issue counts:
+    wording changes would otherwise silently turn real findings into zero.
+    """
+    records = [line for line in output.splitlines() if line.strip()]
+    if len(records) != 1:
+        raise ValueError(f"expected one JSONL record, received {len(records)}")
+    try:
+        payload = json.loads(records[0])
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"invalid JSONL record: {exc.msg}") from exc
+    if not isinstance(payload, dict) or payload.get("protocol_version") != CHECKER_PROTOCOL_VERSION:
+        raise ValueError("unsupported checker result protocol")
+    issues = payload.get("issues")
+    violations = payload.get("violations")
+    if not isinstance(issues, list) or not isinstance(violations, int) or violations != len(issues):
+        raise ValueError("invalid violations/issues fields")
+    if not isinstance(payload.get("files_checked"), int):
+        raise ValueError("invalid files_checked field")
+    return payload
+
+
+def _format_checker_payload(payload: dict) -> str:
+    """Render a structured checker payload for the interactive CLI."""
+    checker = payload.get("checker", "checker")
+    files_checked = payload.get("files_checked", 0)
+    issues = payload.get("issues", [])
+    domains = "/".join(payload.get("domains", [])) or "checker"
+    if not issues:
+        return f"[{checker}] checked {files_checked} file(s), no {domains} violations\n"
+    lines = [f"[{checker}] checked {files_checked} file(s), found {len(issues)} {domains} warning(s):", ""]
+    for issue in issues:
+        lines.append(
+            f"  [{issue.get('severity', '?')}] {issue.get('id', '?')} — "
+            f"{issue.get('file', '?')} — {issue.get('issue', '?')}"
+        )
+    return "\n".join(lines) + "\n"
+
+
+def _run_checker_protocol(argv: list[str], *, cwd: str, env: dict[str, str]) -> tuple[int, dict | None, str]:
+    """Run one checker and require its checker-result/v1 JSONL record."""
+    try:
+        proc = subprocess.run(
+            [*argv, "--jsonl"], cwd=cwd, env=env,
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
+            timeout=300,
+        )
+    except subprocess.TimeoutExpired:
+        return 1, None, "checker timed out after 300s"
+    combined = proc.stdout + proc.stderr
+    try:
+        payload = _parse_checker_jsonl(proc.stdout)
+    except ValueError as exc:
+        return 1, None, f"checker protocol error: {exc}; raw output: {combined[:500]}"
+    return proc.returncode, payload, ""
 
 
 def _run_one_checker(spec: CheckerSpec, c_files: list[Path], tools_dir: str, skill_root: str) -> dict:
@@ -245,50 +292,43 @@ def _run_one_checker(spec: CheckerSpec, c_files: list[Path], tools_dir: str, ski
 
     if spec.mode == "per-file":
         checker_exit = 0
-        total_issues = 0
-        combined_output = ""
+        findings: list[dict] = []
+        rendered: list[str] = []
+        protocol_error = ""
         for f in c_files:
             argv = [sys.executable, os.path.join(tools_dir, spec.script), str(f)]
-            try:
-                proc = subprocess.run(
-                    argv, cwd=skill_root, env=env,
-                    capture_output=True, text=True, encoding="utf-8", errors="replace",
-                    timeout=300,
-                )
-            except subprocess.TimeoutExpired:
-                checker_exit = max(checker_exit, 1)
+            rc, payload, error = _run_checker_protocol(argv, cwd=skill_root, env=env)
+            checker_exit = max(checker_exit, rc)
+            if error:
+                protocol_error = error
                 continue
-            checker_exit = max(checker_exit, proc.returncode)
-            combined_output += proc.stdout + proc.stderr
-            total_issues += _parse_issue_count(proc.stdout + proc.stderr)
+            assert payload is not None
+            findings.extend(payload["issues"])
+            rendered.append(_format_checker_payload(payload))
         return {
             "checker": spec.name, "script": spec.script,
             "domains": spec.domains, "mode": spec.mode,
-            "files_checked": len(c_files), "issues": total_issues,
-            "exit_code": checker_exit, "output": combined_output,
+            "files_checked": len(c_files), "issues": len(findings), "findings": findings,
+            "exit_code": checker_exit, "output": "".join(rendered) or protocol_error,
         }
     elif spec.mode == "batch":
         argv = [sys.executable, os.path.join(tools_dir, spec.script)]
         argv.extend(str(f) for f in c_files)
-        try:
-            proc = subprocess.run(
-                argv, cwd=skill_root, env=env,
-                capture_output=True, text=True, encoding="utf-8", errors="replace",
-                timeout=300,
-            )
-        except subprocess.TimeoutExpired:
+        rc, payload, error = _run_checker_protocol(argv, cwd=skill_root, env=env)
+        if error:
             return {
                 "checker": spec.name, "script": spec.script,
                 "domains": spec.domains, "mode": spec.mode,
                 "files_checked": len(c_files), "issues": 0,
-                "exit_code": 1, "output": "",
+                "findings": [], "exit_code": 1, "output": error,
             }
-        combined = proc.stdout + proc.stderr
+        assert payload is not None
         return {
             "checker": spec.name, "script": spec.script,
             "domains": spec.domains, "mode": spec.mode,
-            "files_checked": len(c_files), "issues": _parse_issue_count(combined),
-            "exit_code": proc.returncode, "output": combined,
+            "files_checked": len(c_files), "issues": payload["violations"],
+            "findings": payload["issues"], "exit_code": rc,
+            "output": _format_checker_payload(payload),
         }
     else:
         return {
@@ -331,6 +371,78 @@ def _classify_checkers(checkers: tuple[CheckerSpec, ...]) -> tuple[list[CheckerS
     return independent, overlap_pairs
 
 
+def selected_checker_specs(args: argparse.Namespace) -> tuple[CheckerSpec, ...]:
+    """Resolve the effective checker set once for execution and --dry-run."""
+    from_symptom_plan = bool(getattr(args, "from_symptom_plan", None))
+    candidates = ALL_CHECKERS if from_symptom_plan else DEFAULT_CHECKERS
+    selected = set(getattr(args, "symptom_checker_targets", ()))
+    return tuple(
+        spec for spec in candidates
+        if (not from_symptom_plan or spec.name in selected)
+        and not getattr(args, spec.skip_attr, False)
+    )
+
+
+def build_execution_plan(args: argparse.Namespace, c_files: list[Path]) -> dict:
+    """Describe every subprocess that would be run without executing it."""
+    steps: list[dict] = []
+    if args.scan_secrets or args.git_remotes:
+        argv = [sys.executable, str(TOOLS_DIR / "secret_scan_checker.py")]
+        if args.git_remotes:
+            argv.append("--git-remotes")
+        if args.scan_secrets:
+            if args.dir:
+                argv.extend(["--dir", args.dir])
+            argv.extend(args.files)
+        steps.append({"kind": "auxiliary", "name": "secret_scan_checker", "argv": argv})
+    if args.log:
+        steps.append({
+            "kind": "auxiliary", "name": "log_triage",
+            "argv": [sys.executable, str(TOOLS_DIR / "log_triage.py"), "--log", args.log, "--platform", args.platform],
+        })
+    if args.repro_output:
+        steps.append({
+            "kind": "auxiliary", "name": "repro_bundle",
+            "argv": [sys.executable, str(TOOLS_DIR / "repro_bundle.py"), "--output", args.repro_output],
+        })
+    if not args.skip_stack:
+        steps.append({
+            "kind": "auxiliary", "name": "stack_calculator",
+            "argv": [sys.executable, str(TOOLS_DIR / "stack_calculator.py"), "--describe", args.describe, "--platform", args.platform],
+        })
+    for spec in selected_checker_specs(args):
+        steps.append({
+            "kind": "checker", "name": spec.name, "script": spec.script,
+            "mode": spec.mode, "domains": list(spec.domains),
+            "files": [str(path) for path in c_files],
+            "protocol": CHECKER_PROTOCOL_VERSION,
+        })
+    if args.evidence:
+        steps.append({"kind": "output", "name": "delivery_evidence", "path": args.evidence})
+    return {
+        "version": SKILL_VERSION,
+        "dry_run": True,
+        "files_checked": len(c_files),
+        "suites": ["symptom-plan"] if args.from_symptom_plan else ["default"],
+        "steps": steps,
+    }
+
+
+def print_execution_plan(plan: dict, *, as_json: bool) -> None:
+    if as_json:
+        json.dump(plan, sys.stdout, ensure_ascii=False, indent=2)
+        print()
+        return
+    print(f"Dry run: {plan['files_checked']} source file(s), {len(plan['steps'])} planned step(s)")
+    for step in plan["steps"]:
+        if step["kind"] == "checker":
+            print(f"  [checker] {step['name']} ({step['mode']}, {', '.join(step['domains'])})")
+        elif step["kind"] == "output":
+            print(f"  [output] {step['name']} -> {step['path']}")
+        else:
+            print(f"  [{step['kind']}] {step['name']}: {' '.join(str(arg) for arg in step['argv'])}")
+
+
 def run_registered_checkers(args: argparse.Namespace, c_files: list[Path]) -> int | tuple[int, list[dict]]:
     """Run all registered checkers.  Returns exit_code, or (exit_code, results) in JSON mode.
 
@@ -342,14 +454,7 @@ def run_registered_checkers(args: argparse.Namespace, c_files: list[Path]) -> in
     results: list[dict] = []
 
     # Filter by --skip-* flags
-    from_symptom_plan = bool(getattr(args, "from_symptom_plan", None))
-    candidates = ALL_CHECKERS if from_symptom_plan else DEFAULT_CHECKERS
-    selected = set(getattr(args, "symptom_checker_targets", ()))
-    active_checkers = tuple(
-        spec for spec in candidates
-        if (not from_symptom_plan or spec.name in selected)
-        and not getattr(args, spec.skip_attr, False)
-    )
+    active_checkers = selected_checker_specs(args)
 
     if not c_files:
         for spec in active_checkers:
@@ -519,6 +624,11 @@ def main() -> int:
         help="输出 JSON 格式摘要（CI 集成 / 机器可读）",
     )
     parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="只输出将执行的辅助工具与 checker 计划，不运行任何子进程",
+    )
+    parser.add_argument(
         "--evidence",
         metavar="FILE",
         help="输出交付证据包 (delivery_evidence.json) 到指定文件",
@@ -576,6 +686,9 @@ def main() -> int:
         except (OSError, json.JSONDecodeError, ValueError) as exc:
             parser.error(f"invalid --from-symptom-plan: {exc}")
 
+    if args.dry_run and (args.self_test or args.validate_examples or args.list_checkers):
+        parser.error("--dry-run cannot be combined with --self-test, --validate-examples, or --list-checkers")
+
     if args.list_checkers:
         return list_checkers(as_json=args.json)
 
@@ -584,6 +697,17 @@ def main() -> int:
 
     if args.validate_examples:
         return run_validate_examples()
+
+    c_files = collect_c_files(args.files, args.dir, include_bad=args.include_bad)
+    skipped_bad = 0
+    if args.dir and not args.include_bad:
+        root = Path(args.dir)
+        if root.is_dir():
+            skipped_bad = sum(1 for f in root.rglob("*.c") if is_bad_example(f.resolve()))
+
+    if args.dry_run:
+        print_execution_plan(build_execution_plan(args, c_files), as_json=args.json)
+        return 0
 
     exit_code = 0
     extra_results: list[dict] = []  # for --json: checkers run outside registered loop
@@ -597,11 +721,22 @@ def main() -> int:
                 secret_argv.extend(["--dir", args.dir])
             secret_argv.extend(args.files)
         if args.json:
-            rc, out = _run_and_capture("secret_scan_checker", secret_argv, quiet=True)
+            rc, out = _run_and_capture("secret_scan_checker", [*secret_argv, "--jsonl"], quiet=True)
+            protocol_error = ""
+            try:
+                payload = _parse_checker_jsonl(out)
+            except ValueError as exc:
+                payload = None
+                rc = 1
+                protocol_error = str(exc)
             extra_results.append({
                 "checker": "secret_scan_checker", "script": "secret_scan_checker.py",
                 "domains": ["C9"], "mode": "batch",
-                "files_checked": 0, "issues": _parse_issue_count(out), "exit_code": rc,
+                "files_checked": payload["files_checked"] if payload else 0,
+                "issues": payload["violations"] if payload else 0,
+                "findings": payload["issues"] if payload else [],
+                "exit_code": rc,
+                **({"protocol_error": protocol_error} if payload is None else {}),
             })
         else:
             rc = run_cmd("secret_scan_checker", secret_argv)
@@ -655,13 +790,6 @@ def main() -> int:
         else:
             rc = run_cmd("repro_bundle", repro_argv)
         exit_code = max(exit_code, rc)
-
-    c_files = collect_c_files(args.files, args.dir, include_bad=args.include_bad)
-    skipped_bad = 0
-    if args.dir and not args.include_bad:
-        root = Path(args.dir)
-        if root.is_dir():
-            skipped_bad = sum(1 for f in root.rglob("*.c") if is_bad_example(f.resolve()))
 
     if skipped_bad and not args.json:
         print(f"[info] 已排除 {skipped_bad} 个 bad_*.c 反例（加 --include-bad 可纳入）")
@@ -831,18 +959,16 @@ def main() -> int:
         if args.json:
             for r in all_results:
                 checker_name = r.get("checker", "")
-                # issues 字段可能是 int（摘要）或 list（详细）
-                if isinstance(r.get("issues"), list):
-                    for iss in r["issues"]:
-                        ev_issues.append(issue_entry(
-                            cid=iss.get("id", ""),
-                            severity=iss.get("severity", "P2"),
-                            file=iss.get("file", ""),
-                            line=iss.get("line", 0),
-                            constraint=iss.get("id", "").split(".")[0] if "." in iss.get("id", "") else "",
-                            message=iss.get("issue", ""),
-                            checker=checker_name,
-                        ))
+                for iss in r.get("findings", []):
+                    ev_issues.append(issue_entry(
+                        cid=iss.get("id", ""),
+                        severity=iss.get("severity", "P2"),
+                        file=iss.get("file", ""),
+                        line=iss.get("line", 0),
+                        constraint=iss.get("id", "").split(".")[0] if "." in iss.get("id", "") else "",
+                        message=iss.get("issue", ""),
+                        checker=checker_name,
+                    ))
 
         # 生成复现命令
         repro_cmd = f"python tools/run_review.py --dir {args.dir}" if args.dir else f"python tools/run_review.py {' '.join(args.files)}"

@@ -14,11 +14,13 @@
 
 from __future__ import annotations
 
+import argparse
+import json
 import re
 import subprocess
 from pathlib import Path
 
-from checker_io import make_issue_str, read_file, run_checker
+from checker_io import collect_targets, configure_stdout, make_issue_str, output_json, read_file
 
 # Kconfig / sdkconfig 敏感键名
 SENSITIVE_KEY = re.compile(
@@ -127,36 +129,45 @@ def scan_git_remotes() -> list[dict]:
 
 
 def main() -> int:
-    """支持 --git-remotes + 标准 run_checker 接口。"""
-    import sys
-
-    git_remotes = "--git-remotes" in sys.argv
-    if git_remotes:
-        sys.argv.remove("--git-remotes")
-
-    from checker_io import configure_stdout, output_json
+    """Scan files/remotes and emit checker-result/v1 when machine-readable."""
     configure_stdout()
+    parser = argparse.ArgumentParser(description="密钥/凭证启发式扫描 (C9)")
+    parser.add_argument("files", nargs="*", help="待扫描文件")
+    parser.add_argument("--dir", "-d", help="递归扫描目录")
+    parser.add_argument("--git-remotes", action="store_true", help="scan git remote URLs")
+    parser.add_argument("--json", action="store_true", help="JSON output")
+    parser.add_argument("--jsonl", action="store_true", help="single checker-result/v1 JSON Lines record")
+    args = parser.parse_args()
 
-    exit_code = 0
+    targets = collect_targets(args.files, args.dir, SCAN_EXTENSIONS)
+    issues: list[dict] = []
+    if args.git_remotes:
+        issues.extend(scan_git_remotes())
+    for target in targets:
+        issues.extend(check_file(target))
 
-    if git_remotes:
-        remote_issues = scan_git_remotes()
-        if remote_issues:
-            for iss in remote_issues:
-                print(f"  [{iss['severity']}] {iss['id']} — {iss['file']} — {iss['issue']}")
-            exit_code = 1
-        else:
-            print("[密钥/凭证扫描] git remote 无内嵌凭证")
-
-    # 标准文件扫描（如果有文件参数）
-    remaining_args = sys.argv[1:]
-    if remaining_args:
-        file_rc = run_checker(check_file, "密钥/凭证启发式扫描 (C9)", ("C9",), SCAN_EXTENSIONS)
-        exit_code = max(exit_code, file_rc)
-    elif git_remotes and not remaining_args:
-        pass  # 仅扫描 git remotes，无文件参数
-
-    return exit_code
+    payload = {
+        "protocol_version": "checker-result/v1",
+        "checker": "密钥/凭证启发式扫描 (C9)",
+        "domains": ["C9"],
+        "files_checked": len(targets),
+        "violations": len(issues),
+        "issues": issues,
+    }
+    if args.jsonl:
+        print(json.dumps(payload, ensure_ascii=False, separators=(",", ":")))
+    elif args.json:
+        output_json(payload)
+    elif not targets and not args.git_remotes:
+        print("[密钥/凭证扫描] 无文件可检查")
+    elif not issues:
+        print(f"[密钥/凭证扫描] 已检查 {len(targets)} 个文件，未发现 C9 违规")
+    else:
+        print(f"[密钥/凭证扫描] 已检查 {len(targets)} 个文件，发现 {len(issues)} 个 C9 告警:\n")
+        for issue in issues:
+            print(f"  [{issue['severity']}] {issue['id']} — {issue['file']} — {issue['issue']}")
+        print(f"\nSummary: {len(issues)} C9 warnings")
+    return 1 if issues else 0
 
 
 if __name__ == "__main__":
