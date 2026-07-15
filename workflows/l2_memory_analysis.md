@@ -1,9 +1,9 @@
-# Workflow: L2 内存专项分析
+# 工作流：L2 内存专项分析
 
 **触发：** 内存不足 / 堆持续下降 / 栈溢出 / 缩池/缩栈需求 / OOM 复位 / 内存优化专项 / memory analysis / heap leak / stack overflow
 
 ```yaml
-# Workflow Input Schema
+# 工作流输入结构
 inputs:
   required:
     - name: platform
@@ -20,7 +20,7 @@ inputs:
       type: enum[heap_decreasing, stack_overflow, oom_reboot, pool_shrink]
       description: 内存症状分类
 
-# Workflow Output Schema
+# 工作流输出结构
 outputs:
   format: markdown
   sections:

@@ -58,6 +58,11 @@ def generate_routing_table() -> str:
     return "\n".join(lines)
 
 
+def table_body(table: str) -> str:
+    """Return only data rows; SKILL.md already owns the Markdown header."""
+    return "\n".join(table.splitlines()[2:])
+
+
 def update_skill_md(table: str) -> None:
     """Update SKILL.md routing table section in place."""
     skill_md = ROOT / "SKILL.md"
@@ -68,7 +73,7 @@ def update_skill_md(table: str) -> None:
         r"(\| Keywords \| Exclude \| Priority \| Workflow \|\n"
         r"\|[-|]+\|\n)"
         r"(.*?\n)"
-        r"(Composite requests:)",
+        r"(Composite requests:|组合请求：)",
         re.DOTALL,
     )
 
@@ -77,7 +82,7 @@ def update_skill_md(table: str) -> None:
         print("ERROR: Could not find routing table in SKILL.md", file=sys.stderr)
         sys.exit(1)
 
-    new_content = content[:match.start(1)] + match.group(1) + table + "\n" + match.group(3) + content[match.end(3):]
+    new_content = content[:match.start(1)] + match.group(1) + table_body(table) + "\n" + match.group(3) + content[match.end(3):]
     skill_md.write_text(new_content, encoding="utf-8")
     print(f"Updated {skill_md}")
 
@@ -91,7 +96,7 @@ def check_in_sync(table: str) -> bool:
         r"\| Keywords \| Exclude \| Priority \| Workflow \|\n"
         r"\|[-|]+\|\n"
         r"(.*?)\n"
-        r"(Composite requests:)",
+        r"(Composite requests:|组合请求：)",
         re.DOTALL,
     )
 
@@ -101,7 +106,7 @@ def check_in_sync(table: str) -> bool:
         return False
 
     current = match.group(1).strip()
-    expected = table.strip()
+    expected = table_body(table).strip()
 
     if current == expected:
         print("OK: SKILL.md routing table is in sync with context_router.py")

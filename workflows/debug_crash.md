@@ -1,9 +1,9 @@
-# Workflow: Bug Diagnosis / Crash Log
+# 工作流：故障诊断 / 崩溃日志
 
 **触发：** HardFault / Guru Meditation / crash dump / stack overflow / WDT / UI frozen / WSS handshake failure / 崩溃 / 死机 / 看门狗复位
 
 ```yaml
-# Workflow Input Schema
+# 工作流输入结构
 inputs:
   required:
     - name: crash_log
@@ -20,7 +20,7 @@ inputs:
       type: string
       description: 自然语言症状描述（用于 context_router 症状路由）
 
-# Workflow Output Schema
+# 工作流输出结构
 outputs:
   format: markdown
   sections:
@@ -32,17 +32,17 @@ outputs:
 ```
 
 <thinking>
-1. Log first, then code changes
-2. Extract PC/LR/Backtrace → addr2line
-3. Cross-reference with negative examples and scene prompts
-4. If user requests fix: **Autonomous Implementation Mode** — modify code until compilation passes, no step-by-step confirmation needed
+1. 先分析日志，再修改代码
+2. 提取 PC/LR/Backtrace，并使用 addr2line 定位
+3. 与反例和场景 prompt 交叉比对
+4. 用户要求修复时，进入**自主实施模式**：持续修改代码直至编译通过，无需逐步确认
 </thinking>
 
-## Step 1 — Log Interpretation
+## Step 1 — 日志解读
 
 Read [crash_log_decode.txt](../prompts/crash_log_decode.txt) + corresponding `platforms/xxx.md` Crash/addr2line section.
 
-## Step 2 — Symptom Routing (load only the corresponding prompt + negative examples from the table below; output references `C#.#`)
+## Step 2 — 症状路由（仅加载下表对应的 prompt 与反例；输出引用 `C#.#`）
 
 | Symptom | Priority ID | Load Only | Negative Examples / Tools |
 |------|---------|--------|-------------|
@@ -80,16 +80,16 @@ Read [crash_log_decode.txt](../prompts/crash_log_decode.txt) + corresponding `pl
 | Second-round Mic Amplitude Drop after Wake Chime | **C10.1, C10.2** | [voice_asr_uplink.txt](../prompts/voice_asr_uplink.txt) | — |
 | No Upload after AI Key Interrupts TTS / MIC Failure after Speaker Stop | **C10.1, C10.5, C24.4** | [voice_asr_uplink.txt](../prompts/voice_asr_uplink.txt) · [peripheral_shutdown_safety.txt](../prompts/peripheral_shutdown_safety.txt) | [good_voice_prompt_uplink.c](../examples/good_voice_prompt_uplink.c) |
 
-## Step 3 — Fix and Verify (Full Version)
+## Step 3 — 修复与验证（完整版）
 
-**Autonomous Implementation (Default):** Modify source code per [core_rules.md](../references/core_rules.md) autonomous implementation mode, compile until passing.
+**自主实施（默认）：**遵循 [core_rules.md](../references/core_rules.md) 的自主实施模式修改源码，直至编译通过。
 
 ```bash
 python tools/run_review.py --dir ./src --platform xxx
 # Compile — see platforms/xxx.md
 ```
 
-## Step 4 — Output
+## Step 4 — 输出
 
 ```markdown
 ## Conclusion

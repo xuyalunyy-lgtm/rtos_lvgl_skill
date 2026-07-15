@@ -1,39 +1,30 @@
-# Workflow: L3 LVGL Page
+# 工作流：L3 LVGL 页面
 
-Use this workflow to turn a confirmed design into a maintainable LVGL page in
-the target firmware project. This skill does not provide a bundled code
-generator or simulator.
+将已确认的设计稿实现为目标固件工程中可维护的 LVGL 页面。本技能不提供内置代码生成器或模拟器。
 
-## Inputs
+## 输入
 
-- Design screenshot and target display dimensions
-- LVGL version and target-project build command
-- Cut assets, fonts, text, page states, and interaction decisions
+- 设计截图和目标显示尺寸
+- LVGL 版本与目标工程构建命令
+- 切图资源、字体、文本、页面状态和交互决策
 
-## Delivery
+## 交付内容
 
-- Page C/H files, assets, and build-system entries required by the target
-  project
-- A concise record of display assumptions, asset ownership, and interaction
-  behavior
-- Build or hardware verification evidence from the target project
+- 目标工程所需的页面 C/H 文件、资源和构建系统条目
+- 显示假设、资源归属和交互行为的简明记录
+- 来自目标工程的构建或硬件验证证据
 
-## Process
+## 实施流程
 
-1. Confirm coordinate space, asset roles, fonts, page states, and runtime
-   ownership before coding.
-2. Prefer Flex or Grid for adaptive groups. Use fixed coordinates only for
-   intentional design reconstruction and document the reason beside the code.
-3. Keep LVGL calls in the GUI context. Post background-task updates through the
-   project's existing queue, presenter, or async mechanism.
-4. Use assets for complex artwork; use LVGL widgets for dynamic labels,
-   controls, and indicators.
-5. Build in the target project, then verify on its simulator or device. Treat
-   a browser mockup as a layout aid, not visual proof.
+1. 编码前确认坐标系、资源角色、字体、页面状态和运行时所有权。
+2. 自适应分组优先使用 Flex 或 Grid。仅在有意还原设计稿时使用固定坐标，并在代码旁说明原因。
+3. 在 GUI 上下文中调用 LVGL；后台任务更新必须通过工程既有的队列、Presenter 或异步机制投递。
+4. 复杂美术使用资源文件；动态标签、控件和指示器使用 LVGL 控件。
+5. 在目标工程中构建，并在其模拟器或设备上验证。浏览器 mockup 只能辅助布局，不构成视觉验证证据。
 
-## Completion checks
+## 完成检查
 
-- All assets and fonts resolve through the target build.
-- The page compiles for the selected LVGL version.
-- No background task mutates an LVGL object directly.
-- Display size, touch behavior, and state transitions are verified.
+- 所有资源和字体均能被目标构建解析。
+- 页面能针对选定 LVGL 版本编译。
+- 没有后台任务直接修改 LVGL 对象。
+- 已验证显示尺寸、触摸行为和状态切换。

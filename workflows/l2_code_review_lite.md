@@ -1,4 +1,4 @@
-# Workflow: L2 Code Review（Lite 版）
+# 工作流：L2 代码审查（Lite 版）
 
 **触发：** 用户要求 review / audit / 审查嵌入式 C 代码。
 

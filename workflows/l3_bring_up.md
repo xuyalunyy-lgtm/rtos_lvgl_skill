@@ -1,9 +1,9 @@
-# Workflow: L3 板级 Bring-up（从上电到全功能跑通）
+# 工作流：L3 板级启动（从上电到全功能跑通）
 
 **触发：** 新板 bring-up / 最小系统验证 / 外设逐个点亮 / 首次全链路联调 / 量产前闭环验证 / board bring-up
 
 ```yaml
-# Workflow Input Schema
+# 工作流输入结构
 inputs:
   required:
     - name: board_name
@@ -20,7 +20,7 @@ inputs:
       type: string
       description: SDK 路径
 
-# Workflow Output Schema
+# 工作流输出结构
 outputs:
   format: markdown
   sections:

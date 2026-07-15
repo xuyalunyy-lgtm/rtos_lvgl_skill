@@ -1,9 +1,9 @@
-# Workflow: L2 工程审查（多仓 / 固件产品）
+# 工作流：L2 工程审查（多仓 / 固件产品）
 
 **触发：** 工程审查 / workspace review / 量产前审计 / 架构 review / project review / production audit
 
 ```yaml
-# Workflow Input Schema
+# 工作流输入结构
 inputs:
   required:
     - name: project_dir
@@ -18,7 +18,7 @@ inputs:
       default: full
       description: 审查范围
 
-# Workflow Output Schema
+# 工作流输出结构
 outputs:
   format: markdown
   sections:

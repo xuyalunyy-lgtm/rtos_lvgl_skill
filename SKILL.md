@@ -8,7 +8,7 @@ description: >-
   WSS/mbedTLS、传感器集成、锁预算、优先级反转、临界区。多平台（ESP32/STM32/JL/BK/Zephyr）。
   Use when working on embedded C, RTOS tasks, board bring-up, memory analysis, peripheral drivers, or firmware review.
 ---
-# FreeRTOS Embedded Architect
+# FreeRTOS 嵌入式架构师
 
 路由规则：将用户的第一条消息匹配到**一个**工作流。
 优先级：1 = 最高（调试/安全），2 = 高（审查），3 = 正常（生成）。
@@ -31,42 +31,42 @@ description: >-
 仅在该工作流明确需要时才加载补充材料。
 如果主要任务不明确，先问一个澄清问题再继续。
 ---
-## Review Domain
-**Trigger:** code review / audit / memory analysis / project review / HW-SW co-debug
-**Output:** risk level + verification results + actionable recommendations
-| Workflow | Trigger |
+## 审查域
+**触发：**代码审查 / 审计 / 内存分析 / 工程审查 / 软硬件协同调试
+**输出：**风险等级、验证结果和可执行建议
+| 工作流 | 触发条件 |
 |----------|---------|
-| l2_code_review.md | code review / audit |
-| l2_code_review_lite.md | lite manual review |
-| l2_project_review.md | project/workspace review |
-| l2_memory_analysis.md | memory analysis / leak |
-| hw_sw_cocodebug.md | HW/SW co-debug / GPIO conflict |
+| l2_code_review.md | 代码审查 / 审计 |
+| l2_code_review_lite.md | 轻量人工审查 |
+| l2_project_review.md | 工程 / 工作区审查 |
+| l2_memory_analysis.md | 内存分析 / 泄漏 |
+| hw_sw_cocodebug.md | 软硬件协同 / GPIO 冲突 |
 - **必读:** `references/core_rules.md`, `references/constraint_index.md`
 - **按需:** `platforms/{platform}.md`, workflow 指定的 `prompts/{scene}.txt`
 - **工具:** `python tools/run_review.py`, `python tools/context_router.py`
 - **禁止:** `ui/`, `schemas/`
 ---
-## Generate Domain
-**Trigger:** LVGL page / manifest / new module / bring-up / SDK trim
-**Output:** minimal compilable firmware artifacts; verification evidence remains in the internal run ledger
-| Workflow | Trigger |
+## 生成域
+**触发：**LVGL 页面 / manifest / 新模块 / 板级启动 / SDK 裁剪
+**输出：**最小可编译固件产物；验证证据记录在内部运行台账中
+| 工作流 | 触发条件 |
 |----------|---------|
-| l3_lvgl_page.md | LVGL page / manifest generation |
-| l3_new_module.md | new module / multitask MVP |
-| l3_bring_up.md | board bring-up |
-| l3_sdk_trim.md | SDK trimming |
+| l3_lvgl_page.md | LVGL 页面 / manifest 生成 |
+| l3_new_module.md | 新模块 / 多任务 MVP |
+| l3_bring_up.md | 板级启动 |
+| l3_sdk_trim.md | SDK 裁剪 |
 - **必读:** `references/core_rules.md`
 - **LVGL 必读:** `workflows/l3_lvgl_page.md`
 - **按需:** `platforms/{platform}.md`, `references/lvgl_*`
 - **工具:** 使用目标工程的 LVGL 构建、渲染和测试工具。对未确认的视觉或交互意图先澄清，再交付最小可编译文件集。
 - **禁止:** `tools/*_checker.py`, `examples/bad_*.c`
 ---
-## Debug Domain
-**Trigger:** crash / HardFault / 死机 / WDT / 崩溃日志 / frozen / deadlock
-**Output:** root-cause hypothesis + minimal verify steps + next-action plan
-| Workflow | Trigger |
+## 调试域
+**触发：**崩溃 / HardFault / 死机 / WDT / 崩溃日志 / 卡死 / 死锁
+**输出：**根因假设、最小验证步骤和下一步行动计划
+| 工作流 | 触发条件 |
 |----------|---------|
-| debug_crash.md | HardFault / WDT / crash dump |
+| debug_crash.md | HardFault / WDT / 崩溃转储 |
 - **必读:** `references/core_rules.md`, `references/log_symptom_routes.json`
 - **按需:** `platforms/{platform}.md`, 症状匹配的 `prompts/{scene}.txt`
 - **工具:** `python tools/log_triage.py`, `python tools/context_router.py`
@@ -74,12 +74,12 @@ description: >-
 ---
 ## 共享规则（所有域）
 - 缺少平台信息时先询问；ESP32/STM32/JL/BK 是平台，FreeRTOS/Zephyr 是 RTOS。
-- 先选定工作流再行动；只加载你所在域的 Loading Rules 中列出的文件。
+- 先选定工作流再行动；只加载所在域“加载规则”中列出的文件。
 - 提交请求：遵循 `references/git_commit_style.md`，使用 `type(scope):` 格式。
 - LVGL UI 生成必须在目标工程中实现和验证；不要假设仓库提供了生成器或模拟器。
 ## 约束分片索引
 只加载你选定工作流引用的分片：
-| Shard | Constraints |
+| 约束分片 | 覆盖约束 |
 |-------|-------------|
 | constraint_review.md | C1-C6, C11-C16 |
 | constraint_memory.md | C7, C28, C36 |

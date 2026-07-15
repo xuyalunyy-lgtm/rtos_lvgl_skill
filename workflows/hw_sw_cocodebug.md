@@ -1,9 +1,9 @@
-# Workflow: Hardware-Software Co-debug / IO Pin Planning
+# 工作流：软硬件协同调试 / IO 引脚规划
 
 **触发：** 硬件联调 / IO pin allocation / GPIO conflict / pin muxing / 外设接线 / 新板 bring-up / PCB layout review / 硬件软件协同调试
 
 ```yaml
-# Workflow Input Schema
+# 工作流输入结构
 inputs:
   required:
     - name: io_pin_table
@@ -20,7 +20,7 @@ inputs:
       type: string
       description: 原理图路径（如有）
 
-# Workflow Output Schema
+# 工作流输出结构
 outputs:
   format: markdown
   sections:
@@ -39,7 +39,7 @@ outputs:
 5. New projects may only **reference** the format and structure of existing configuration files; **direct reuse or modification of original configuration files is forbidden**; must write entirely new configurations strictly per user input
 </thinking>
 
-## Step 0 — Collect IO Pin Usage Table (Mandatory, Cannot Skip)
+## Step 0 — 收集 IO 引脚使用表（必做，不可跳过）
 
 **Iron Rules:**
 1. Before user provides a complete IO table, Agent is forbidden from outputting any pin-related code or configuration

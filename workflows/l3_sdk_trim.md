@@ -1,9 +1,9 @@
-# Workflow: L3 SDK 搭建 / Demo 改造 / 裁剪
+# 工作流：L3 SDK 搭建 / Demo 改造 / 裁剪
 
 **触发：** 新工程 / SDK Demo 改造 / 删模块 / sdkconfig/Makefile 裁剪 / JL/BK 扫描 / SDK trimming
 
 ```yaml
-# Workflow Input Schema
+# 工作流输入结构
 inputs:
   required:
     - name: platform
@@ -20,7 +20,7 @@ inputs:
       type: string
       description: 现有 sdkconfig/Makefile 路径
 
-# Workflow Output Schema
+# 工作流输出结构
 outputs:
   format: markdown
   sections:

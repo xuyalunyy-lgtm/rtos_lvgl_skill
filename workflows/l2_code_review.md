@@ -1,9 +1,9 @@
-# Workflow: L2 Code Review
+# 工作流：L2 代码审查
 
 **触发：** code review / audit / 审查 / 嵌入式 C 代码质量检查
 
 ```yaml
-# Workflow Input Schema
+# 工作流输入结构
 inputs:
   required:
     - name: source_dir
@@ -21,7 +21,7 @@ inputs:
       default: standard
       description: context_router 预算级别
 
-# Workflow Output Schema
+# 工作流输出结构
 outputs:
   format: markdown
   sections:

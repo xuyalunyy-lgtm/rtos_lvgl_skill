@@ -1,9 +1,9 @@
-# Workflow: L3 新增模块 / 多任务设计
+# 工作流：L3 新增模块 / 多任务设计
 
 **触发：** 新功能模块 / WSS+LVGL MVP / 多任务架构 / codegen 骨架 / new module / module design
 
 ```yaml
-# Workflow Input Schema
+# 工作流输入结构
 inputs:
   required:
     - name: module_description
@@ -21,7 +21,7 @@ inputs:
       type: string
       description: 现有代码目录（增量模式）
 
-# Workflow Output Schema
+# 工作流输出结构
 outputs:
   format: mixed
   sections:

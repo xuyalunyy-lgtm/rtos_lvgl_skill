@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 import tempfile
 from pathlib import Path
@@ -27,7 +28,15 @@ MOJIBAKE_MARKERS = (
     "瀹",
     "杞",
     "绾",
+    "Ã",   # UTF-8 text decoded as a single-byte Western encoding
+    "Â",
+    "â€",
+    "ðŸ",
+    "ï»¿",
 )
+# GBK bytes rendered as Latin-1 commonly look like "»·¾³".  A middle dot can
+# occur between byte pairs, but a normal standalone middle dot is allowed.
+LEGACY_GBK_MOJIBAKE = re.compile(r"[¡-¯º-¿À-ÿ](?:[¡-¯º-¿À-ÿ]|·[¡-¯º-¿À-ÿ])+")
 
 
 def iter_text_files(root: Path, max_files: int = 500) -> tuple[list[Path], bool]:
@@ -53,6 +62,8 @@ def check_file(path: Path) -> list[str]:
     issues: list[str] = []
     for line_no, line in enumerate(text.splitlines(), start=1):
         markers = [marker for marker in MOJIBAKE_MARKERS if marker in line]
+        if LEGACY_GBK_MOJIBAKE.search(line):
+            markers.append("legacy-gbk-latin1-sequence")
         if markers:
             preview = line.strip()[:120]
             issues.append(f"line {line_no}: marker(s) {markers!r}: {preview}")
@@ -75,13 +86,16 @@ def run_self_test() -> int:
         good = root / "good.md"
         bad = root / "bad.md"
         good.write_text("# Good\n\nUse UTF-8 text.\n", encoding="utf-8")
-        bad.write_text("# Bad\n\nLVGL 鈥?broken\n", encoding="utf-8")
+        bad.write_text("# Bad\n\nLVGL 鈥?broken\n环境: »·¾³\nUTF-8: â€”\n", encoding="utf-8")
         good_issues = check_file(good)
         bad_issues = check_file(bad)
         assert not good_issues, good_issues
         files, truncated = iter_text_files(root, max_files=1)
         assert len(files) == 1 and truncated
-        assert bad_issues and "鈥" in bad_issues[0], bad_issues
+        assert len(bad_issues) == 3, bad_issues
+        assert "鈥" in bad_issues[0], bad_issues
+        assert "legacy-gbk-latin1-sequence" in bad_issues[1], bad_issues
+        assert "â€" in bad_issues[2], bad_issues
     print("[text-encoding:self-test] all fixtures passed")
     return 0
 

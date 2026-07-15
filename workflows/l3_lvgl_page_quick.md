@@ -1,16 +1,10 @@
-# L3 LVGL Page Quick Workflow
+# L3 LVGL 页面快速工作流
 
-Use this compact path for a small, confirmed LVGL page when the target
-firmware project already has a working LVGL build and display driver.
+当目标固件工程已有可用的 LVGL 构建与显示驱动时，使用此精简路径实现一个已确认的小型 LVGL 页面。
 
-1. Confirm display size, LVGL version, assets, fonts, and the visible page
-   state.
-2. Implement dynamic UI with LVGL widgets; retain image assets only where they
-   materially improve visual fidelity.
-3. Prefer Flex or Grid for repeated groups. Document any fixed-coordinate
-   reconstruction beside the code.
-4. Build and run the target project. Check the target display or simulator for
-   clipping, font fallback, touch handling, and task-safety problems.
+1. 确认显示尺寸、LVGL 版本、资源、字体和可见页面状态。
+2. 动态 UI 使用 LVGL 控件；仅在能显著提升视觉还原度时保留图片资源。
+3. 重复分组优先使用 Flex 或 Grid；固定坐标还原须在代码旁说明原因。
+4. 构建并运行目标工程，在目标显示设备或模拟器检查裁切、字体回退、触摸处理和任务安全问题。
 
-The quick path produces no repository-managed generator artifacts. It remains
-the target project's responsibility to compile, render, and package the page.
+快速路径不生成由本仓库管理的生成器产物；页面的编译、渲染和打包仍由目标工程负责。
