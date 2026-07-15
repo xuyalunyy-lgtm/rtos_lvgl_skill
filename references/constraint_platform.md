@@ -27,6 +27,7 @@
 | C18.4 | DMA 通道分配须文档化，同一通道不可被两个外设同时使用 | P1 | 人工 | DMA 通道分配表 | I2S 和 SPI 共享 DMA 通道 |
 | C18.5 | ADC 引脚必须配置为模拟输入模式，禁用上拉/下拉 | P2 | 人工 | `adc1_config_channel_atten()` | ADC 引脚同时配置为数字输出 |
 | C18.6 | PWM 频率与分辨率互斥，须根据应用选择 | P2 | 人工 | 5kHz/13-bit（电机） | 100kHz/7-bit（亮度不够） |
+| C18.7 | Zephyr `DEVICE_DT_GET*()` 得到的设备在同一初始化路径使用前必须 `device_is_ready()` | P0 | `zephyr_pattern_checker.py` | `if (!device_is_ready(dev)) return -ENODEV;` | 直接 I2C/GPIO 调用 |
 
 ---
 

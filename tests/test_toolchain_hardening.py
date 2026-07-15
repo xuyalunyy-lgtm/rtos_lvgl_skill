@@ -18,6 +18,7 @@ import review_history
 import run_review
 from checker_io import filter_inactive_kconfig_blocks
 from checker_registry import ALL_CHECKERS
+from sdk_lookup import SdkLookup
 
 
 class QuickGateHardeningTests(unittest.TestCase):
@@ -48,6 +49,27 @@ class RunReviewProtocolTests(unittest.TestCase):
         self.assertEqual(first_history["trend"], "baseline")
         self.assertEqual(second_history["trend"], "improved")
         self.assertEqual(second_history["previous_total_issues"], 4)
+
+    def test_generic_freertos_sdk_map_is_complete(self) -> None:
+        self.assertEqual(SdkLookup("freertos").validate(), [])
+
+    def test_run_review_passes_zephyr_platform_to_checker(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            plan = Path(directory) / "plan.json"
+            plan.write_text(json.dumps({"checker_targets": ["zephyr_pattern_checker"]}), encoding="utf-8")
+            completed = subprocess.run(
+                [
+                    sys.executable, str(ROOT / "tools" / "run_review.py"),
+                    "--dir", str(ROOT / "tools" / "fixtures"), "--include-bad", "--platform", "zephyr",
+                    "--from-symptom-plan", str(plan), "--skip-stack", "--json", "--no-history",
+                ],
+                capture_output=True, text=True, encoding="utf-8", errors="replace",
+            )
+        report = json.loads(completed.stdout)
+        result = next(item for item in report["checkers"] if item["checker"] == "zephyr_pattern_checker")
+        self.assertEqual(completed.returncode, 1)
+        self.assertEqual(report["review_context"]["platform"], "zephyr")
+        self.assertGreater(result["issues"], 0)
 
     def test_checker_jsonl_protocol_rejects_text_counting(self) -> None:
         payload = {

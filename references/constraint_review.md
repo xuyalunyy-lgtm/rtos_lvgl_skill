@@ -71,6 +71,7 @@
 | C4.6 | 音频处理结果经 Queue 送 Presenter，**禁止** ISR/音频任务直接改 UI | P0 | 人工 | [audio_dma_pingpong.txt](../prompts/audio_dma_pingpong.txt) | — |
 | C4.7 | ISR 禁止获取 mutex（`xSemaphoreTake` [SEM_TAKE] 任何变体） | P0 | checker | — | — |
 | C4.8 | 带 Cache 的 SoC：DMA 写完成后 CPU 读前须 **invalidate**；CPU 写后 DMA 读前须 **clean**；缓冲须 DMA-capable 区域 | P1 | 人工 | [audio_dma_pingpong.txt](../prompts/audio_dma_pingpong.txt) | — |
+| C4.9 | STM32 `HAL_*Callback` / `*IRQHandler` 中禁止 `HAL_Delay`；中断后续工作须转交 task/queue | P0 | `run_review.py --platform stm32` | callback 仅 `*FromISR` 通知 | callback 内 `HAL_Delay(10)` |
 
 ---
 

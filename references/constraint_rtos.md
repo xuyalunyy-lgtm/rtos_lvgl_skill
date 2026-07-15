@@ -83,6 +83,7 @@
 | C29.9 | 禁止多个模块共享可写全局 context；全局状态必须有唯一 owner 和访问 API | P0 | `module_boundary_checker.py` + 人工 | 同上 | `extern app_context_t g_app_ctx` 到处读写 |
 | C29.10 | review 必须判断高内聚/低耦合：职责是否单一、依赖是否单向、是否存在循环依赖或跨层调用 | P1 | 人工 + `module_boundary_checker.py` | 同上 | 业务修复需要同时改 5 个无关模块 |
 | C29.11 | 同模块公开 `.h` 声明必须与 `.c` 定义的返回类型和参数类型一致 | P0 | `module_boundary_checker.py` | `good_interface_contract.c/.h` | 声明返回 `int`、实现返回 `void` |
+| C29.12 | 单一函数不得混用 FreeRTOS 与 Zephyr 原生 API；须经过 RTOS 抽象层，例外须标注 `RTOS_NATIVE_BRIDGE` | P1 | `rtos_abstraction_checker.py` | `rtos_task_create()` | 同一函数 `xTaskCreate()` + `k_thread_create()` |
 
 **症状表**：
 
@@ -104,6 +105,8 @@
 | C30.3 | 每条 Queue 必须声明深度、发送/接收 timeout 和满队列策略：drop-oldest/drop-newest/backpressure/overwrite | P1 | 人工 | 同上 | 满队列时无限等 |
 | C30.4 | 每个 task 必须有退出条件、stop flag 或通知路径；禁止只能通过 reboot 终止 | P1 | 人工 | 同上 | while(1) 无退出和状态 |
 | C30.5 | 拓扑表必须保留 queue high-water、drop、timeout 或 overflow 观测点 | P2 | 人工 | 同上 | 队列满无法复盘 |
+| C30.6 | JL 应用任务须使用 `thread_fork` / `os_task_create`，并保留 `task_info_table` 元数据；禁止裸 `xTaskCreate` | P1 | `run_review.py --platform jl` | `thread_fork(...)` | `xTaskCreate(...)` |
+| C30.7 | BK 应用任务须使用 `rtos_create_thread` / `rtos_delay_milliseconds`；禁止裸 FreeRTOS 任务 API 绕过 SDK 生命周期 | P1 | `run_review.py --platform bk` | `rtos_create_thread(...)` | `vTaskDelay(...)` |
 
 **症状表**：
 
@@ -124,6 +127,7 @@
 | C31.3 | mutex/semaphore 等待必须声明持锁路径和超时处理；持锁时禁止再做长 IO | P1 | `blocking_wait_checker.py` + 人工 | timeout 后统计并降级 | 持锁 TLS handshake [TLS_HANDSHAKE] |
 | C31.4 | 永久等待只允许 dedicated idle/daemon consumer；必须注释说明不会持锁、不会阻塞 stop/deinit，并有 health counter | P1 | 人工 | `/* allowed C31.4: idle consumer */` | 普通业务任务永久等 |
 | C31.5 | timeout/drop/retry 必须保留低频遥测计数，避免只靠临时日志判断 | P2 | 人工 | `stats.rx_timeout++` | timeout 后 silent continue |
+| C31.6 | Zephyr 共享 system workqueue handler 禁止 `k_sleep` / `k_msleep` 或 `K_FOREVER` 阻塞；改用专用线程或 delayable work | P1 | `zephyr_pattern_checker.py` | 短处理后返回 | handler 内睡眠/永久等待 |
 
 **症状表**：
 

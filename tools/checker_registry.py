@@ -55,6 +55,7 @@ class CheckerCase:
     path: str
     expected: int
     label: str
+    environment: tuple[tuple[str, str], ...] = ()
 
 
 ALL_CHECKERS: tuple[CheckerSpec, ...] = (
@@ -195,6 +196,13 @@ ALL_CHECKERS: tuple[CheckerSpec, ...] = (
                 suites=("default", "all"), error_prefix="C45"),
     CheckerSpec("ble_protocol_checker", "ble_protocol_checker.py", "ble-protocol", "batch", ("C46",),
                 suites=("all", "platform"), error_prefix="C46"),
+    # ── Platform SDK / RTOS patterns ────────────────────────────────────
+    CheckerSpec("platform_sdk_checker", "platform_sdk_checker.py", "platform-sdk", "batch", ("C4", "C30"),
+                note="STM32 HAL callback, JL and BK SDK task API rules", suites=("default", "all", "platform"), error_prefix="C30"),
+    CheckerSpec("zephyr_pattern_checker", "zephyr_pattern_checker.py", "zephyr-pattern", "batch", ("C18", "C31", "C39"),
+                note="Zephyr devicetree readiness, Kconfig ownership, and work queue blocking", suites=("default", "all", "platform", "realtime"), error_prefix="C18"),
+    CheckerSpec("rtos_abstraction_checker", "rtos_abstraction_checker.py", "rtos-abstraction", "batch", ("C29",),
+                note="FreeRTOS and Zephyr native API boundary enforcement", suites=("default", "all", "realtime"), error_prefix="C29"),
     CheckerSpec("ai_generated_code_checker", "ai_generated_code_checker.py", "ai-generated", "batch", ("C48",),
                 note="Only evaluates files explicitly marked as AI-generated", suites=("all",), error_prefix="C48"),
     CheckerSpec("tool_log_hygiene_checker", "tool_log_hygiene_checker.py", "tool-log-hygiene", "global", ("C47",),
@@ -258,6 +266,14 @@ SELF_TEST_CASES: tuple[CheckerCase, ...] = (
     CheckerCase("ble_protocol_checker.py", "fixtures/bad_ble_protocol.c", 1, "BLE protocol bad"),
     CheckerCase("ai_generated_code_checker.py", "fixtures/good_ai_generated.c", 0, "AI generated code good"),
     CheckerCase("ai_generated_code_checker.py", "fixtures/bad_ai_generated.c", 1, "AI generated code bad"),
+    CheckerCase("platform_sdk_checker.py", "fixtures/good_platform_sdk.c", 0, "platform SDK good", (("SDK_PLATFORM", "stm32"),)),
+    CheckerCase("platform_sdk_checker.py", "fixtures/bad_stm32_hal_callback.c", 1, "STM32 HAL callback bad", (("SDK_PLATFORM", "stm32"),)),
+    CheckerCase("platform_sdk_checker.py", "fixtures/bad_jl_raw_freertos.c", 1, "JL raw FreeRTOS API bad", (("SDK_PLATFORM", "jl"),)),
+    CheckerCase("platform_sdk_checker.py", "fixtures/bad_bk_raw_freertos.c", 1, "BK raw FreeRTOS API bad", (("SDK_PLATFORM", "bk"),)),
+    CheckerCase("zephyr_pattern_checker.py", "fixtures/good_zephyr_patterns.c", 0, "Zephyr patterns good", (("SDK_PLATFORM", "zephyr"),)),
+    CheckerCase("zephyr_pattern_checker.py", "fixtures/bad_zephyr_patterns.c", 1, "Zephyr patterns bad", (("SDK_PLATFORM", "zephyr"),)),
+    CheckerCase("rtos_abstraction_checker.py", "fixtures/good_rtos_abstraction.c", 0, "RTOS abstraction good"),
+    CheckerCase("rtos_abstraction_checker.py", "fixtures/bad_rtos_api_mix.c", 1, "RTOS native API mix bad"),
     CheckerCase("secret_scan_checker.py", "fixtures/good_config_secrets", 0, "secret good"),
     CheckerCase("secret_scan_checker.py", "fixtures/bad_config_secrets", 1, "secret bad"),
     CheckerCase("ota_safety_checker.py", "fixtures/good_ota_update.c", 0, "ota good"),

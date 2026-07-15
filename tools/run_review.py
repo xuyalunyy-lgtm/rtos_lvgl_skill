@@ -169,15 +169,18 @@ def run_cmd(label: str, argv: list[str]) -> int:
     return proc.returncode
 
 
-def run_checker(script: str, checker_args: list[str]) -> int:
+def run_checker(script: str, checker_args: list[str], environment: dict[str, str] | None = None) -> int:
     argv = [sys.executable, str(TOOLS_DIR / script), *checker_args]
+    env = checker_env()
+    if environment:
+        env.update(environment)
     proc = subprocess.run(
         argv,
         cwd=SKILL_ROOT,
         capture_output=True,
         encoding="utf-8",
         errors="replace",
-        env=checker_env(),
+        env=env,
     )
     if proc.stdout:
         _safe_print(proc.stdout)
@@ -192,7 +195,7 @@ def run_checker_case(case: CheckerCase, base_dir: Path) -> bool:
         print(f"[FAIL] Missing test file: {path}")
         return False
 
-    rc = run_checker(case.script, [str(path)])
+    rc = run_checker(case.script, [str(path)], dict(case.environment))
     ok = rc == case.expected
     status = "PASS" if ok else "FAIL"
     print(f"[{status}] {case.label}: {case.script} {path.name} -> exit {rc} (expected {case.expected})")
@@ -799,6 +802,9 @@ def main() -> int:
         os.environ["SKILL_BUILD_SYSTEM"] = args.build_system
     else:
         os.environ.pop("SKILL_BUILD_SYSTEM", None)
+    # All SDK-aware checkers load their API names at process start.  Propagate
+    # the requested target before any checker subprocess is created.
+    os.environ["SDK_PLATFORM"] = args.platform
 
     args.symptom_checker_targets = ()
     if args.from_symptom_plan:

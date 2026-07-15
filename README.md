@@ -34,6 +34,7 @@ python tools/run_review.py --dir ./src --platform esp32 --config ./sdkconfig
 
 `exit=1` 表示发现问题，`exit=0` 表示全部通过。
 `--platform` 可选：`esp32` / `stm32` / `jl` / `bk` / `freertos` / `zephyr`。
+平台参数会传递给全部 SDK-aware checker：STM32 会审查 HAL 回调阻塞，JL/BK 会审查是否绕过各自任务封装，Zephyr 会审查 devicetree 设备就绪、Kconfig 所有权和 workqueue 阻塞；同一函数混用 FreeRTOS/Zephyr 原生 API 也会被标记为抽象层边界问题。
 
 ### 3. 项目初检
 
