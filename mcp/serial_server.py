@@ -30,6 +30,15 @@ if hasattr(sys.stdout, "reconfigure"):
 
 from serial_client import SerialBridge, get_bridge
 from serial_schemas import SERIAL_RESOURCE_SCHEMAS, SERIAL_TOOL_SCHEMAS
+from mcp_runtime import (
+    AuditTrail,
+    CancellationRegistry,
+    jsonrpc_error as _runtime_jsonrpc_error,
+    jsonrpc_result as _runtime_jsonrpc_result,
+    mcp_result as _runtime_mcp_result,
+    serve_stdio as _runtime_serve_stdio,
+    validate_tool_arguments as _runtime_validate_tool_arguments,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -38,81 +47,24 @@ logger = logging.getLogger(__name__)
 PROTOCOL_VERSIONS = ["2024-11-05", "2025-03-26", "2025-06-18", "2025-11-25"]
 DEFAULT_PROTOCOL_VERSION = "2025-11-25"
 SERVER_INFO = {"name": "serial-mcp", "version": "0.1.0"}
-_CANCELLATIONS: dict[str, threading.Event] = {}
-_CANCELLED_EARLY: set[str] = set()
-_CANCELLATION_LOCK = threading.Lock()
-_STDOUT_LOCK = threading.Lock()
-
-
-def _request_key(request_id: Any) -> str:
-    """Use a stable, hashable key for a JSON-RPC request ID."""
-    return json.dumps(request_id, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+_CANCELLATIONS = CancellationRegistry()
+_AUDIT = AuditTrail("serial")
 
 
 def _register_cancellation(request_id: Any) -> threading.Event:
-    key = _request_key(request_id)
-    event = threading.Event()
-    with _CANCELLATION_LOCK:
-        if key in _CANCELLED_EARLY:
-            _CANCELLED_EARLY.remove(key)
-            event.set()
-        _CANCELLATIONS[key] = event
-    return event
+    return _CANCELLATIONS.register(request_id)
 
 
 def _finish_cancellation(request_id: Any) -> None:
-    with _CANCELLATION_LOCK:
-        _CANCELLATIONS.pop(_request_key(request_id), None)
+    _CANCELLATIONS.finish(request_id)
 
 
 def _cancel_request(request_id: Any) -> None:
-    key = _request_key(request_id)
-    with _CANCELLATION_LOCK:
-        event = _CANCELLATIONS.get(key)
-        if event is None:
-            _CANCELLED_EARLY.add(key)
-        else:
-            event.set()
-
-
-def _validate_schema_value(schema: dict[str, Any], value: Any, path: str) -> list[str]:
-    """Validate the JSON-Schema subset used by the local MCP tool schemas."""
-    errors: list[str] = []
-    expected = schema.get("type")
-    type_ok = {
-        "object": isinstance(value, dict),
-        "array": isinstance(value, list),
-        "string": isinstance(value, str),
-        "boolean": isinstance(value, bool),
-        "integer": isinstance(value, int) and not isinstance(value, bool),
-        "number": isinstance(value, (int, float)) and not isinstance(value, bool),
-    }
-    if expected and not type_ok.get(expected, True):
-        return [f"{path} must be {expected}"]
-    if "enum" in schema and value not in schema["enum"]:
-        errors.append(f"{path} must be one of {schema['enum']}")
-    if isinstance(value, (int, float)) and not isinstance(value, bool):
-        if "minimum" in schema and value < schema["minimum"]:
-            errors.append(f"{path} must be >= {schema['minimum']}")
-        if "maximum" in schema and value > schema["maximum"]:
-            errors.append(f"{path} must be <= {schema['maximum']}")
-    if isinstance(value, dict):
-        properties = schema.get("properties", {})
-        for name in schema.get("required", []):
-            if name not in value:
-                errors.append(f"{path}.{name} is required")
-        if schema.get("additionalProperties") is False:
-            unknown = sorted(set(value) - set(properties))
-            errors.extend(f"{path}.{name} is not allowed" for name in unknown)
-        for name, item in value.items():
-            if name in properties:
-                errors.extend(_validate_schema_value(properties[name], item, f"{path}.{name}"))
-    return errors
+    _CANCELLATIONS.cancel(request_id)
 
 
 def _validate_tool_arguments(tool_name: str, arguments: dict[str, Any]) -> list[str]:
-    schema = TOOL_SCHEMA_MAP[tool_name]["inputSchema"]
-    return _validate_schema_value(schema, arguments, "arguments")
+    return _runtime_validate_tool_arguments(TOOL_SCHEMA_MAP, tool_name, arguments)
 
 # ── Tool implementations ──
 
@@ -293,18 +245,15 @@ RESOURCES = {
 
 
 def _mcp_result(payload: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "content": [{"type": "text", "text": json.dumps(payload, ensure_ascii=False)}],
-        "isError": not payload.get("ok", True),
-    }
+    return _runtime_mcp_result(payload)
 
 
 def _jsonrpc_error(code: int, message: str, id: Any = None) -> dict[str, Any]:
-    return {"jsonrpc": "2.0", "error": {"code": code, "message": message}, "id": id}
+    return _runtime_jsonrpc_error(code, message, id)
 
 
 def _jsonrpc_result(result: Any, id: Any) -> dict[str, Any]:
-    return {"jsonrpc": "2.0", "result": result, "id": id}
+    return _runtime_jsonrpc_result(result, id)
 
 
 # ── Request handlers ──
@@ -366,15 +315,19 @@ def _handle_request(req: dict[str, Any]) -> dict[str, Any] | None:
             return _jsonrpc_error(-32602, "Arguments must be an object", req_id)
         errors = _validate_tool_arguments(tool_name, tool_args)
         if errors:
+            _AUDIT.record("tool_rejected", request_id=req_id, tool=tool_name, arguments=tool_args, errors=errors)
             return _jsonrpc_error(-32602, f"Invalid arguments for {tool_name}: {'; '.join(errors)}", req_id)
         cancel_event: threading.Event | None = None
         if tool_name == "serial_request" and req_id is not None:
             cancel_event = _register_cancellation(req_id)
         try:
+            _AUDIT.record("tool_call", request_id=req_id, tool=tool_name, arguments=tool_args)
             result = handler(tool_args, cancel_event=cancel_event) if tool_name == "serial_request" else handler(tool_args)
+            _AUDIT.record("tool_result", request_id=req_id, tool=tool_name, ok=result.get("ok", True))
             return _jsonrpc_result(_mcp_result(result), req_id)
         except Exception as e:
             logger.exception("Tool %s failed", tool_name)
+            _AUDIT.record("tool_error", request_id=req_id, tool=tool_name, error=str(e))
             return _jsonrpc_result(_mcp_result({"ok": False, "error": str(e)}), req_id)
         finally:
             if cancel_event is not None:
@@ -396,47 +349,8 @@ def _is_cancellable_tool_call(message: dict[str, Any]) -> bool:
     )
 
 
-def _write_stdio_response(response: Any) -> None:
-    with _STDOUT_LOCK:
-        print(json.dumps(response, ensure_ascii=False), flush=True)
-
-
-def _handle_async_request(message: dict[str, Any]) -> None:
-    response = _handle_request(message)
-    if response is not None:
-        _write_stdio_response(response)
-
-
 def serve_stdio() -> None:
-    for line in sys.stdin:
-        line = line.strip()
-        if not line:
-            continue
-
-        try:
-            message = json.loads(line)
-        except json.JSONDecodeError:
-            _write_stdio_response(_jsonrpc_error(-32700, "Parse error"))
-            continue
-
-        if isinstance(message, list):
-            responses = []
-            for req in message:
-                if isinstance(req, dict) and "method" in req:
-                    resp = _handle_request(req)
-                    if resp is not None:
-                        responses.append(resp)
-            if responses:
-                _write_stdio_response(responses)
-        elif isinstance(message, dict) and "method" in message:
-            if _is_cancellable_tool_call(message):
-                threading.Thread(target=_handle_async_request, args=(message,), daemon=True).start()
-            else:
-                response = _handle_request(message)
-                if response is not None:
-                    _write_stdio_response(response)
-        else:
-            _write_stdio_response(_jsonrpc_error(-32600, "Invalid request"))
+    _runtime_serve_stdio(_handle_request, _is_cancellable_tool_call)
 
 
 # ── Self-test ──

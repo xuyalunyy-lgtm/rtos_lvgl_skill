@@ -207,3 +207,15 @@ ota_report_boot_result(device_ip="...", partition="B", success=true)
 The device bootloader performs the physical partition selection and reports
 the boot result. The MCP tracks and validates the transition; a failed pending
 slot keeps the known-good active slot and is recorded as `rolled_back`.
+
+## Shared MCP runtime
+
+Serial, MQTT, and OTA servers share `mcp_runtime.py`. Every `tools/call` now
+uses the same JSON-schema subset validation, fragmented stdin JSON buffering,
+and output redaction. Long serial requests and MQTT broker probes also honor
+`notifications/cancelled` by JSON-RPC request ID.
+
+Set `MCP_AUDIT_LOG_DIR` to enable local JSONL audit records. Arguments and
+results are redacted before writing; passwords, tokens, secrets, API keys,
+authorization values, and private-key fields are never persisted. Auditing is
+best-effort and cannot block a device-control operation.

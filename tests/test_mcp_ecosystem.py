@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sys
 import tempfile
+import threading
 import unittest
 from pathlib import Path
 
@@ -12,8 +13,11 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "mcp"))
 
 from mqtt_client import MqttBridge
+from mcp_runtime import AuditTrail, CancellationRegistry, JsonMessageBuffer, redact, validate_tool_arguments
 from ota_device import DeviceRegistry
 from ota_firmware import FirmwareRepo
+import mqtt_server
+import ota_server
 
 
 class MqttEcosystemTests(unittest.TestCase):
@@ -24,6 +28,22 @@ class MqttEcosystemTests(unittest.TestCase):
         incomplete_will = bridge.connect("localhost", will_topic="device/status")
         self.assertFalse(incomplete_will["ok"])
         self.assertIn("will_topic", incomplete_will["error"])
+
+    def test_probe_wait_only_reports_cancel_when_token_is_set(self) -> None:
+        completed = threading.Event()
+        completed.set()
+        self.assertFalse(MqttBridge._wait_for_event(completed, 0.1, None))
+        cancelled = threading.Event()
+        cancelled.set()
+        self.assertTrue(MqttBridge._wait_for_event(threading.Event(), 0.1, cancelled))
+
+    def test_mqtt_jsonrpc_rejects_wrong_schema_type(self) -> None:
+        response = mqtt_server._handle_request({
+            "method": "tools/call",
+            "params": {"name": "mqtt_connect", "arguments": {"host": 123}},
+            "id": "bad-mqtt-schema",
+        })
+        self.assertEqual(response["error"]["code"], -32602)
 
 
 class OtaEcosystemTests(unittest.TestCase):
@@ -59,6 +79,37 @@ class OtaEcosystemTests(unittest.TestCase):
         failed = registry.report_boot_result("192.0.2.1", "B", False, "boot self-test failed")
         self.assertTrue(failed["rolled_back"])
         self.assertEqual(failed["device"]["active_partition"], "A")
+
+    def test_ota_jsonrpc_rejects_unknown_argument(self) -> None:
+        response = ota_server._handle_request({
+            "method": "tools/call",
+            "params": {"name": "ota_list", "arguments": {"unexpected": True}},
+            "id": "bad-ota-schema",
+        })
+        self.assertEqual(response["error"]["code"], -32602)
+
+
+class SharedRuntimeTests(unittest.TestCase):
+    def test_fragmented_json_is_buffered_until_complete(self) -> None:
+        buffer = JsonMessageBuffer()
+        self.assertEqual(list(buffer.feed('{"method":')), [])
+        messages = list(buffer.feed(' "ping", "id": 1}\n'))
+        self.assertEqual(messages, [{"method": "ping", "id": 1}])
+
+    def test_schema_cancellation_and_redacted_audit(self) -> None:
+        schemas = {"tool": {"inputSchema": {"type": "object", "properties": {"port": {"type": "integer"}}, "required": ["port"], "additionalProperties": False}}}
+        self.assertEqual(validate_tool_arguments(schemas, "tool", {"port": 3}), [])
+        self.assertTrue(validate_tool_arguments(schemas, "tool", {"port": "3"}))
+        cancellation = CancellationRegistry()
+        cancellation.cancel("later")
+        self.assertTrue(cancellation.register("later").is_set())
+        self.assertEqual(redact({"password": "visible", "line": "token=visible"}), {"password": "[REDACTED]", "line": "token=[REDACTED]"})
+        with tempfile.TemporaryDirectory() as directory:
+            audit = AuditTrail("unit", directory)
+            audit.record("tool_call", password="visible", line="Bearer visible")
+            text = (Path(directory) / "unit-audit.jsonl").read_text(encoding="utf-8")
+            self.assertNotIn("visible", text)
+            self.assertIn("[REDACTED]", text)
 
 
 if __name__ == "__main__":

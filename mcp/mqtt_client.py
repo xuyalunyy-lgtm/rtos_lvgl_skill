@@ -254,7 +254,10 @@ class MqttBridge:
             "violations": violations,
         }
 
-    def verify_retained(self, topic: str, expected_payload: str | None = None, timeout: float = 5.0) -> dict[str, Any]:
+    def verify_retained(
+        self, topic: str, expected_payload: str | None = None, timeout: float = 5.0,
+        cancel_event: threading.Event | None = None,
+    ) -> dict[str, Any]:
         """Verify broker retention through a fresh subscriber connection."""
         if not self._connected:
             return {"ok": False, "error": "Not connected"}
@@ -281,7 +284,8 @@ class MqttBridge:
             client.on_message = on_message
             client.connect(self._connection_options["host"], self._connection_options["port"], self._connection_options["keepalive"])
             client.loop_start()
-            event.wait(timeout)
+            if self._wait_for_event(event, timeout, cancel_event):
+                return {"ok": False, "error": "cancelled"}
         except Exception as exc:
             return {"ok": False, "error": f"Retained-message probe failed: {exc}"}
         finally:
@@ -296,7 +300,10 @@ class MqttBridge:
         return {"ok": ok, "topic": topic, "received": received or None, "expected_payload": expected_payload,
                 "error": None if ok else "No matching retained message was received"}
 
-    def test_will(self, topic: str, payload: str, qos: int = 1, retain: bool = True, timeout: float = 5.0) -> dict[str, Any]:
+    def test_will(
+        self, topic: str, payload: str, qos: int = 1, retain: bool = True, timeout: float = 5.0,
+        cancel_event: threading.Event | None = None,
+    ) -> dict[str, Any]:
         """Test an isolated client's Last Will without disrupting the main connection."""
         if not self._connected:
             return {"ok": False, "error": "Not connected"}
@@ -323,14 +330,17 @@ class MqttBridge:
             observer.loop_start()
             # Give the subscription a bounded chance to reach the broker before
             # the test publisher loses its transport unexpectedly.
-            time.sleep(min(0.25, timeout / 4))
+            if self._wait_for_event(threading.Event(), min(0.25, timeout / 4), cancel_event):
+                return {"ok": False, "error": "cancelled"}
             publisher.will_set(topic, payload, qos=qos, retain=retain)
             publisher.connect(self._connection_options["host"], self._connection_options["port"], self._connection_options["keepalive"])
             publisher.loop_start()
-            time.sleep(min(0.25, timeout / 4))
+            if self._wait_for_event(threading.Event(), min(0.25, timeout / 4), cancel_event):
+                return {"ok": False, "error": "cancelled"}
             publisher._sock_close()  # paho's deliberate abrupt-close helper; no MQTT DISCONNECT is sent.
             publisher.loop_stop()
-            observed.wait(timeout)
+            if self._wait_for_event(observed, timeout, cancel_event):
+                return {"ok": False, "error": "cancelled"}
         except Exception as exc:
             return {"ok": False, "error": f"Will-message probe failed: {exc}"}
         finally:
@@ -441,6 +451,17 @@ class MqttBridge:
         if self._connection_options.get("tls"):
             client.tls_set()
         return client
+
+    @staticmethod
+    def _wait_for_event(event: threading.Event, timeout: float, cancel_event: threading.Event | None) -> bool:
+        """Wait in bounded slices so MCP cancellation takes effect promptly."""
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            if cancel_event and cancel_event.is_set():
+                return True
+            if event.wait(min(0.1, max(0.0, deadline - time.monotonic()))):
+                return False
+        return bool(cancel_event and cancel_event.is_set())
 
     def _on_connect(self, client, userdata, flags, rc, properties=None):
         """Callback when connected."""

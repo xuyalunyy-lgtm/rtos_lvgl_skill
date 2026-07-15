@@ -19,6 +19,7 @@ import argparse
 import json
 import logging
 import sys
+import threading
 from pathlib import Path
 from typing import Any
 
@@ -30,6 +31,15 @@ if hasattr(sys.stdout, "reconfigure"):
 
 from mqtt_client import MqttBridge, get_bridge
 from mqtt_schemas import MQTT_RESOURCE_SCHEMAS, MQTT_TOOL_SCHEMAS
+from mcp_runtime import (
+    AuditTrail,
+    CancellationRegistry,
+    jsonrpc_error as _runtime_jsonrpc_error,
+    jsonrpc_result as _runtime_jsonrpc_result,
+    mcp_result as _runtime_mcp_result,
+    serve_stdio as _runtime_serve_stdio,
+    validate_tool_arguments,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +48,8 @@ logger = logging.getLogger(__name__)
 PROTOCOL_VERSIONS = ["2024-11-05", "2025-03-26", "2025-06-18", "2025-11-25"]
 DEFAULT_PROTOCOL_VERSION = "2025-11-25"
 SERVER_INFO = {"name": "mqtt-mcp", "version": "0.1.0"}
+_CANCELLATIONS = CancellationRegistry()
+_AUDIT = AuditTrail("mqtt")
 
 # ── Tool implementations ──
 
@@ -97,16 +109,16 @@ def mqtt_validate_qos_policy(args: dict[str, Any]) -> dict[str, Any]:
     return get_bridge().validate_qos_policy(args["message_class"], args["qos"], args["retain"])
 
 
-def mqtt_verify_retained(args: dict[str, Any]) -> dict[str, Any]:
+def mqtt_verify_retained(args: dict[str, Any], *, cancel_event: threading.Event | None = None) -> dict[str, Any]:
     """Verify that a broker replays a retained message to a new subscriber."""
-    return get_bridge().verify_retained(args["topic"], args.get("expected_payload"), args.get("timeout_seconds", 5))
+    return get_bridge().verify_retained(args["topic"], args.get("expected_payload"), args.get("timeout_seconds", 5), cancel_event)
 
 
-def mqtt_test_will(args: dict[str, Any]) -> dict[str, Any]:
+def mqtt_test_will(args: dict[str, Any], *, cancel_event: threading.Event | None = None) -> dict[str, Any]:
     """Test a Last Will using isolated probe clients."""
     return get_bridge().test_will(
         args["topic"], args["payload"], args.get("qos", 1),
-        args.get("retain", True), args.get("timeout_seconds", 5),
+        args.get("retain", True), args.get("timeout_seconds", 5), cancel_event,
     )
 
 
@@ -186,20 +198,17 @@ RESOURCES = {
 
 def _mcp_result(payload: dict[str, Any]) -> dict[str, Any]:
     """Wrap tool result in MCP content format."""
-    return {
-        "content": [{"type": "text", "text": json.dumps(payload, ensure_ascii=False)}],
-        "isError": not payload.get("ok", True),
-    }
+    return _runtime_mcp_result(payload)
 
 
 def _jsonrpc_error(code: int, message: str, id: Any = None) -> dict[str, Any]:
     """Build JSON-RPC error response."""
-    return {"jsonrpc": "2.0", "error": {"code": code, "message": message}, "id": id}
+    return _runtime_jsonrpc_error(code, message, id)
 
 
 def _jsonrpc_result(result: Any, id: Any) -> dict[str, Any]:
     """Build JSON-RPC success response."""
-    return {"jsonrpc": "2.0", "result": result, "id": id}
+    return _runtime_jsonrpc_result(result, id)
 
 
 # ── Request handlers ──
@@ -212,6 +221,13 @@ def _handle_request(req: dict[str, Any]) -> dict[str, Any] | None:
     req_id = req.get("id")
 
     if method == "notifications/initialized":
+        return None
+
+    if method == "notifications/cancelled":
+        if isinstance(params, dict):
+            cancelled_id = params.get("requestId", params.get("request_id", params.get("id")))
+            if cancelled_id is not None:
+                _CANCELLATIONS.cancel(cancelled_id)
         return None
 
     if method == "initialize":
@@ -243,6 +259,8 @@ def _handle_request(req: dict[str, Any]) -> dict[str, Any] | None:
             return _jsonrpc_error(-32000, f"Resource error: {e}", req_id)
 
     if method == "tools/call":
+        if not isinstance(params, dict):
+            return _jsonrpc_error(-32602, "Tool call params must be an object", req_id)
         tool_name = params.get("name", "")
         tool_args = params.get("arguments", {})
         handler = TOOLS.get(tool_name)
@@ -250,12 +268,24 @@ def _handle_request(req: dict[str, Any]) -> dict[str, Any] | None:
             return _jsonrpc_error(-32602, f"Unknown tool: {tool_name}", req_id)
         if not isinstance(tool_args, dict):
             return _jsonrpc_error(-32602, "Arguments must be an object", req_id)
+        errors = validate_tool_arguments(TOOL_SCHEMA_MAP, tool_name, tool_args)
+        if errors:
+            _AUDIT.record("tool_rejected", request_id=req_id, tool=tool_name, arguments=tool_args, errors=errors)
+            return _jsonrpc_error(-32602, f"Invalid arguments for {tool_name}: {'; '.join(errors)}", req_id)
+        cancellable = tool_name in {"mqtt_verify_retained", "mqtt_test_will"} and req_id is not None
+        cancel_event = _CANCELLATIONS.register(req_id) if cancellable else None
         try:
-            result = handler(tool_args)
+            _AUDIT.record("tool_call", request_id=req_id, tool=tool_name, arguments=tool_args)
+            result = handler(tool_args, cancel_event=cancel_event) if cancellable else handler(tool_args)
+            _AUDIT.record("tool_result", request_id=req_id, tool=tool_name, ok=result.get("ok", True))
             return _jsonrpc_result(_mcp_result(result), req_id)
         except Exception as e:
             logger.exception("Tool %s failed", tool_name)
+            _AUDIT.record("tool_error", request_id=req_id, tool=tool_name, error=str(e))
             return _jsonrpc_result(_mcp_result({"ok": False, "error": str(e)}), req_id)
+        finally:
+            if cancellable:
+                _CANCELLATIONS.finish(req_id)
 
     return _jsonrpc_error(-32601, f"Method not found: {method}", req_id)
 
@@ -263,37 +293,17 @@ def _handle_request(req: dict[str, Any]) -> dict[str, Any] | None:
 # ── Main loop ──
 
 
+def _is_cancellable_tool_call(message: dict[str, Any]) -> bool:
+    params = message.get("params")
+    return (
+        message.get("method") == "tools/call" and isinstance(params, dict)
+        and params.get("name") in {"mqtt_verify_retained", "mqtt_test_will"} and message.get("id") is not None
+    )
+
+
 def serve_stdio() -> None:
-    """Run the MCP server over stdio (JSON-RPC 2.0)."""
-    for line in sys.stdin:
-        line = line.strip()
-        if not line:
-            continue
-
-        try:
-            message = json.loads(line)
-        except json.JSONDecodeError:
-            response = _jsonrpc_error(-32700, "Parse error")
-            print(json.dumps(response), flush=True)
-            continue
-
-        # Handle batch requests
-        if isinstance(message, list):
-            responses = []
-            for req in message:
-                if isinstance(req, dict) and "method" in req:
-                    resp = _handle_request(req)
-                    if resp is not None:
-                        responses.append(resp)
-            if responses:
-                print(json.dumps(responses), flush=True)
-        elif isinstance(message, dict) and "method" in message:
-            response = _handle_request(message)
-            if response is not None:
-                print(json.dumps(response), flush=True)
-        else:
-            response = _jsonrpc_error(-32600, "Invalid request")
-            print(json.dumps(response), flush=True)
+    """Run the MCP server over the shared JSON-RPC stdio runtime."""
+    _runtime_serve_stdio(_handle_request, _is_cancellable_tool_call)
 
 
 # ── Self-test ──

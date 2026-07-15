@@ -32,6 +32,15 @@ from ota_device import DeviceRegistry
 from ota_protocol import OtaProtocol
 from ota_http import OtaHttpServer
 from ota_schemas import OTA_RESOURCE_SCHEMAS, OTA_TOOL_SCHEMAS
+from mcp_runtime import (
+    AuditTrail,
+    CancellationRegistry,
+    jsonrpc_error as _runtime_jsonrpc_error,
+    jsonrpc_result as _runtime_jsonrpc_result,
+    mcp_result as _runtime_mcp_result,
+    serve_stdio as _runtime_serve_stdio,
+    validate_tool_arguments,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +49,8 @@ logger = logging.getLogger(__name__)
 PROTOCOL_VERSIONS = ["2024-11-05", "2025-03-26", "2025-06-18", "2025-11-25"]
 DEFAULT_PROTOCOL_VERSION = "2025-11-25"
 SERVER_INFO = {"name": "ota-mcp", "version": "0.1.0"}
+_CANCELLATIONS = CancellationRegistry()
+_AUDIT = AuditTrail("ota")
 
 # ── Shared state ──
 
@@ -313,18 +324,15 @@ RESOURCES = {
 
 
 def _mcp_result(payload: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "content": [{"type": "text", "text": json.dumps(payload, ensure_ascii=False)}],
-        "isError": not payload.get("ok", True),
-    }
+    return _runtime_mcp_result(payload)
 
 
 def _jsonrpc_error(code: int, message: str, id: Any = None) -> dict[str, Any]:
-    return {"jsonrpc": "2.0", "error": {"code": code, "message": message}, "id": id}
+    return _runtime_jsonrpc_error(code, message, id)
 
 
 def _jsonrpc_result(result: Any, id: Any) -> dict[str, Any]:
-    return {"jsonrpc": "2.0", "result": result, "id": id}
+    return _runtime_jsonrpc_result(result, id)
 
 
 # ── Request handlers ──
@@ -336,6 +344,13 @@ def _handle_request(req: dict[str, Any]) -> dict[str, Any] | None:
     req_id = req.get("id")
 
     if method == "notifications/initialized":
+        return None
+
+    if method == "notifications/cancelled":
+        if isinstance(params, dict):
+            cancelled_id = params.get("requestId", params.get("request_id", params.get("id")))
+            if cancelled_id is not None:
+                _CANCELLATIONS.cancel(cancelled_id)
         return None
 
     if method == "initialize":
@@ -367,6 +382,8 @@ def _handle_request(req: dict[str, Any]) -> dict[str, Any] | None:
             return _jsonrpc_error(-32000, f"Resource error: {e}", req_id)
 
     if method == "tools/call":
+        if not isinstance(params, dict):
+            return _jsonrpc_error(-32602, "Tool call params must be an object", req_id)
         tool_name = params.get("name", "")
         tool_args = params.get("arguments", {})
         handler = TOOLS.get(tool_name)
@@ -374,11 +391,18 @@ def _handle_request(req: dict[str, Any]) -> dict[str, Any] | None:
             return _jsonrpc_error(-32602, f"Unknown tool: {tool_name}", req_id)
         if not isinstance(tool_args, dict):
             return _jsonrpc_error(-32602, "Arguments must be an object", req_id)
+        errors = validate_tool_arguments(TOOL_SCHEMA_MAP, tool_name, tool_args)
+        if errors:
+            _AUDIT.record("tool_rejected", request_id=req_id, tool=tool_name, arguments=tool_args, errors=errors)
+            return _jsonrpc_error(-32602, f"Invalid arguments for {tool_name}: {'; '.join(errors)}", req_id)
         try:
+            _AUDIT.record("tool_call", request_id=req_id, tool=tool_name, arguments=tool_args)
             result = handler(tool_args)
+            _AUDIT.record("tool_result", request_id=req_id, tool=tool_name, ok=result.get("ok", True))
             return _jsonrpc_result(_mcp_result(result), req_id)
         except Exception as e:
             logger.exception("Tool %s failed", tool_name)
+            _AUDIT.record("tool_error", request_id=req_id, tool=tool_name, error=str(e))
             return _jsonrpc_result(_mcp_result({"ok": False, "error": str(e)}), req_id)
 
     return _jsonrpc_error(-32601, f"Method not found: {method}", req_id)
@@ -388,31 +412,7 @@ def _handle_request(req: dict[str, Any]) -> dict[str, Any] | None:
 
 
 def serve_stdio() -> None:
-    for line in sys.stdin:
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            message = json.loads(line)
-        except json.JSONDecodeError:
-            print(json.dumps(_jsonrpc_error(-32700, "Parse error")), flush=True)
-            continue
-
-        if isinstance(message, list):
-            responses = []
-            for req in message:
-                if isinstance(req, dict) and "method" in req:
-                    resp = _handle_request(req)
-                    if resp is not None:
-                        responses.append(resp)
-            if responses:
-                print(json.dumps(responses), flush=True)
-        elif isinstance(message, dict) and "method" in message:
-            response = _handle_request(message)
-            if response is not None:
-                print(json.dumps(response), flush=True)
-        else:
-            print(json.dumps(_jsonrpc_error(-32600, "Invalid request")), flush=True)
+    _runtime_serve_stdio(_handle_request)
 
 
 # ── Self-test ──
