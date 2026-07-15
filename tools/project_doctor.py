@@ -327,16 +327,35 @@ def verify_build(report: dict[str, Any], timeout: int) -> int:
         return 1
 
 
-def _run_review(root: Path, platform: str | None, configuration_files: list[str]) -> dict[str, Any]:
-    command = [sys.executable, str(ROOT / "tools" / "run_review.py"), "--dir", str(root)]
+def _run_review(
+    root: Path,
+    platform: str | None,
+    configuration_files: list[str],
+    build_system: str | None,
+) -> dict[str, Any]:
+    command = [sys.executable, str(ROOT / "tools" / "run_review.py"), "--dir", str(root), "--json"]
     if platform:
         command.extend(["--platform", platform])
+    if build_system:
+        command.extend(["--build-system", build_system])
     for relative_path in configuration_files:
         config_path = root / relative_path
         if config_path.is_file():
             command.extend(["--config", str(config_path)])
+    history_dir = root / "artifacts" / "review_history"
+    command.extend(["--history-dir", str(history_dir)])
     proc = subprocess.run(command, cwd=ROOT, capture_output=True, encoding="utf-8", errors="replace")
-    return {"command": command, "exit_code": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr}
+    return {
+        "command": command,
+        "context": {
+            "platform": platform,
+            "build_system": build_system,
+            "configuration_files": configuration_files,
+        },
+        "exit_code": proc.returncode,
+        "stdout": proc.stdout,
+        "stderr": proc.stderr,
+    }
 
 
 def _print_human(report: dict[str, Any]) -> None:
@@ -404,6 +423,7 @@ def main() -> int:
             Path(report["project_root"]),
             report["primary_platform"],
             report["project_manifest"]["configuration"]["files"],
+            report["project_manifest"]["build"]["system"],
         )
     if args.verify_build:
         build_exit = verify_build(report, args.build_timeout)

@@ -718,6 +718,20 @@ def main() -> int:
         help="输出 JSON 格式摘要（CI 集成 / 机器可读）",
     )
     parser.add_argument(
+        "--build-system",
+        help="由 project_doctor 传入的构建系统上下文（例如 esp-idf、west、cmake）",
+    )
+    parser.add_argument(
+        "--history-dir",
+        default="artifacts/review_history",
+        help="JSON review 历史目录（默认：artifacts/review_history）",
+    )
+    parser.add_argument(
+        "--no-history",
+        action="store_true",
+        help="不保存 JSON review 历史（默认会保存，适合一次性临时检查）",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="只输出将执行的辅助工具与 checker 计划，不运行任何子进程",
@@ -781,6 +795,10 @@ def main() -> int:
         args.kconfig_values = configure_kconfig_values(args.config)
     except ValueError as exc:
         parser.error(str(exc))
+    if args.build_system:
+        os.environ["SKILL_BUILD_SYSTEM"] = args.build_system
+    else:
+        os.environ.pop("SKILL_BUILD_SYSTEM", None)
 
     args.symptom_checker_targets = ()
     if args.from_symptom_plan:
@@ -964,6 +982,12 @@ def main() -> int:
             "checkers": all_results,
             "total_issues": sum(r.get("issues", 0) for r in all_results),
             "total_checkers_run": sum(1 for r in all_results if not r.get("skipped")),
+            "review_context": {
+                "platform": args.platform,
+                "build_system": args.build_system,
+                "kconfig_files": list(args.config),
+                "kconfig_values_loaded": len(args.kconfig_values),
+            },
         }
         if field_diagnostics:
             report["field_diagnostics"] = field_diagnostics
@@ -1018,6 +1042,12 @@ def main() -> int:
             report["total_non_applicable"] = len(non_applicable)
             if non_applicable:
                 report["non_applicable"] = non_applicable
+        if not args.no_history:
+            try:
+                from review_history import append as append_review_history
+                append_review_history(report, args.history_dir)
+            except OSError as exc:
+                print(f"[warn] review history was not saved: {exc}", file=sys.stderr)
         json.dump(report, sys.stdout, ensure_ascii=False, indent=2)
         print()
     else:

@@ -42,7 +42,7 @@ python tools/project_doctor.py ./your-project
 ```
 
 自动识别 SDK/RTOS/构建系统，解析 ESP-IDF 的目标芯片或 Zephyr 的板型，并给出下一步建议。默认只读。
-`--run-review` 会自动传递检测到的 `sdkconfig` / `prj.conf`，避免已禁用的 `CONFIG_*` 分支产生静态检查误报。
+`--run-review` 会自动传递检测到的平台、构建系统及 `sdkconfig` / `prj.conf`，避免已禁用的 `CONFIG_*` 分支产生静态检查误报；JSON 审查结果会保存到目标项目的 `artifacts/review_history/`，并标记相对上一份报告是 improved、regressed 还是 unchanged。
 
 ```bash
 # 将识别结果固化为项目级清单；不需要维护每个新芯片的全局表
@@ -80,6 +80,30 @@ python scripts/quick_gate.py
 
 然后使用 `serial_request(command="AT+RST", expect="ready", timeout=5.0)` 发并等。
 
+### 6. 崩溃到验证闭环
+
+```bash
+# 生成症状计划 -> 定向审查 -> 修复建议 -> 定向复核；不自动修改固件
+python tools/diagnostic_loop.py --log ./crash.log --dir ./src --platform esp32
+```
+
+每次 `run_review.py --json` 默认也会保存一份 UTF-8 JSON 报告到
+`artifacts/review_history/`。如只做临时检查，可显式使用 `--no-history`。
+
+### 7. 串口 AT 到 MQTT 的端到端验证
+
+此桥接同时复用 serial MCP 与 MQTT MCP 的 allowlist：必须显式指定端口、broker、模组 AT 命令模板和 Wi-Fi 密码所在环境变量；不会扫描设备、不会在输出中回显命令或密码。
+
+```powershell
+$env:SERIAL_ALLOWED_PORTS = 'COM3'
+$env:MQTT_ALLOWED_HOSTS = '192.168.1.20'
+$env:WIFI_PASSWORD = 'replace-with-local-secret'
+
+python tools/serial_mqtt_e2e.py --port COM3 --broker 192.168.1.20 --topic device/e2e --ssid lab-net --wifi-password-env WIFI_PASSWORD --mqtt-command '<module-specific MQTT setup using {broker}>' --publish-command '<module-specific publish using {topic} and {payload}>'
+```
+
+不同 AT 固件的 MQTT 建连序列不兼容，因此 `--mqtt-command` 可重复传入，且必须由操作者按目标模组明确提供。
+
 ---
 
 ## 入口一览
@@ -89,9 +113,11 @@ python scripts/quick_gate.py
 | CLI / CI 审查 | `python tools/run_review.py` | 一键静态审查 |
 | Claude Code / IDE | Skill | 读取 `SKILL.md` 与对应 workflow |
 | 项目初检 | `python tools/project_doctor.py <project>` | 识别 SDK/RTOS/构建系统，生成可选项目清单 |
+| 崩溃闭环 | `python tools/diagnostic_loop.py --log ... --dir ...` | 分诊、定向审查、修复建议与复核 |
 | LVGL 页面生成 | 目标工程优先 | 遵循 `workflows/l3_lvgl_page.md` |
 | 发布前自测 | `python scripts/quick_gate.py` | 全量检查 |
 | 串口调试 | `serial_request` / `serial_watch` | MCP 串口工具 |
+| AT + MQTT 验证 | `python tools/serial_mqtt_e2e.py ...` | 显式授权的端到端设备消息验证 |
 
 控制平面：[SKILL.md](SKILL.md) · 结构总览：[references/skill_structure.md](references/skill_structure.md)
 
@@ -149,6 +175,12 @@ python tools/project_doctor.py ./your-project
 python tools/project_doctor.py ./your-project --run-review
 python tools/project_doctor.py ./your-project --write-manifest
 python tools/project_doctor.py ./your-project --verify-build
+
+# 从故障日志跑到定向复核（不会自动应用修复）
+python tools/diagnostic_loop.py --log ./crash.log --dir ./src --platform esp32
+
+# JSON 审查结果默认记录趋势；临时审查可关闭
+python tools/run_review.py --dir ./src --platform esp32 --json --no-history
 
 # 运行时分布检查
 python scripts/check_runtime_distribution.py

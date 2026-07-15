@@ -77,10 +77,12 @@ class ProjectDoctorTests(unittest.TestCase):
             (root / "sdkconfig").write_text("CONFIG_BT_ENABLED=y\n", encoding="utf-8")
             completed = type("Completed", (), {"returncode": 0, "stdout": "", "stderr": ""})()
             with patch.object(project_doctor.subprocess, "run", return_value=completed) as run:
-                project_doctor._run_review(root, "esp32", ["sdkconfig"])
+                project_doctor._run_review(root, "esp32", ["sdkconfig"], "esp-idf")
         command = run.call_args.args[0]
         self.assertIn("--config", command)
         self.assertIn(str(root / "sdkconfig"), command)
+        self.assertIn("--build-system", command)
+        self.assertIn("esp-idf", command)
 
 
 if __name__ == "__main__":

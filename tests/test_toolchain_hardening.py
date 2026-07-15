@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 import os
@@ -13,6 +14,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 sys.path.insert(0, str(ROOT / "tools"))
 
 import quick_gate
+import review_history
 import run_review
 from checker_io import filter_inactive_kconfig_blocks
 from checker_registry import ALL_CHECKERS
@@ -37,6 +39,16 @@ class QuickGateHardeningTests(unittest.TestCase):
 
 
 class RunReviewProtocolTests(unittest.TestCase):
+    def test_review_history_reports_baseline_then_improvement(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            first = {"total_issues": 4}
+            first_history = review_history.append(first, directory)
+            second = {"total_issues": 1}
+            second_history = review_history.append(second, directory)
+        self.assertEqual(first_history["trend"], "baseline")
+        self.assertEqual(second_history["trend"], "improved")
+        self.assertEqual(second_history["previous_total_issues"], 4)
+
     def test_checker_jsonl_protocol_rejects_text_counting(self) -> None:
         payload = {
             "protocol_version": "checker-result/v1",
