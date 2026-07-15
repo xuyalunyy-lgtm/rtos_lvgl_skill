@@ -24,6 +24,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+CONSTRAINT_SCHEMA_VERSION = "2.0"
+# Rules are additive unless a migration explicitly states otherwise.  Consumers
+# can use this manifest to pin their review baseline in CI.
+CONSTRAINT_MIGRATIONS: tuple[dict[str, str], ...] = (
+    {"from": "1.0", "to": "2.0", "policy": "additive", "note": "C47/C48 added; existing checker IDs retain semantics"},
+)
+
 
 @dataclass(frozen=True)
 class CheckerSpec:
@@ -188,6 +195,10 @@ ALL_CHECKERS: tuple[CheckerSpec, ...] = (
                 suites=("default", "all"), error_prefix="C45"),
     CheckerSpec("ble_protocol_checker", "ble_protocol_checker.py", "ble-protocol", "batch", ("C46",),
                 suites=("all", "platform"), error_prefix="C46"),
+    CheckerSpec("ai_generated_code_checker", "ai_generated_code_checker.py", "ai-generated", "batch", ("C48",),
+                note="Only evaluates files explicitly marked as AI-generated", suites=("all",), error_prefix="C48"),
+    CheckerSpec("tool_log_hygiene_checker", "tool_log_hygiene_checker.py", "tool-log-hygiene", "global", ("C47",),
+                note="Repository-wide MCP output redaction audit", suites=("all", "security"), error_prefix="C47"),
     # ── C41: Regression sample coverage (repository-wide) ──────────────
     CheckerSpec("regression_sample_checker", "regression_sample_checker.py", "regression-sample", "global", ("C41",),
                 note="Repository-wide good/bad fixture coverage audit",
@@ -245,6 +256,8 @@ SELF_TEST_CASES: tuple[CheckerCase, ...] = (
     CheckerCase("sensor_integration_checker.py", "fixtures/bad_sensor_integration.c", 1, "sensor integration bad"),
     CheckerCase("ble_protocol_checker.py", "fixtures/good_ble_protocol.c", 0, "BLE protocol good"),
     CheckerCase("ble_protocol_checker.py", "fixtures/bad_ble_protocol.c", 1, "BLE protocol bad"),
+    CheckerCase("ai_generated_code_checker.py", "fixtures/good_ai_generated.c", 0, "AI generated code good"),
+    CheckerCase("ai_generated_code_checker.py", "fixtures/bad_ai_generated.c", 1, "AI generated code bad"),
     CheckerCase("secret_scan_checker.py", "fixtures/good_config_secrets", 0, "secret good"),
     CheckerCase("secret_scan_checker.py", "fixtures/bad_config_secrets", 1, "secret bad"),
     CheckerCase("ota_safety_checker.py", "fixtures/good_ota_update.c", 0, "ota good"),

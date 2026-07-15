@@ -1,0 +1,1 @@
+Fixture for a missing-redaction C47 violation.

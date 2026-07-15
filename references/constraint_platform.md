@@ -152,3 +152,20 @@
 | Reconnect storm | C46.2/C46.7 |
 | Pairing failure | C46.5 |
 | Compatibility crash | C46.6/C46.8 |
+
+---
+
+## C47 — Tool Output and Log Hygiene
+
+| ID | Constraint | Severity | Validation |
+|----|------------|----------|------------|
+| C47.1 | MCP tool output and logs MUST redact password/token/secret/API-key values before returning or sharing | P0 | `tool_log_hygiene_checker.py` + review |
+| C47.2 | Redaction must occur before persistence/export as well as before display | P1 | Manual + serial export tests |
+
+## C48 — AI-generated Firmware Code Review
+
+| ID | Constraint | Severity | Validation |
+|----|------------|----------|------------|
+| C48.1 | AI-generated code MUST verify SDK APIs against the selected platform map | P0 | `ai_generated_code_checker.py` + review |
+| C48.2 | AI-generated error paths MUST preserve cleanup/logging/propagation semantics | P1 | `ai_generated_code_checker.py` + C12 |
+| C48.3 | Keep contract comments; remove line-by-line AI narration before merge | P2 | `ai_generated_code_checker.py` |

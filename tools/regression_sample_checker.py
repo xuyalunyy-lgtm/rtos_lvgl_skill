@@ -125,6 +125,7 @@ def _infer_constraint_from_fixture(filename: str) -> list[str]:
         "fault_isolation": ["C38"],
         "api_sequence": ["C20", "C23"],
         "ble_protocol": ["C46"],
+        "ai_generated": ["C48"],
     }
     name_lower = filename.lower()
     for key, cids in mapping.items():

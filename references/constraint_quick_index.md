@@ -1,6 +1,6 @@
 # Constraint Quick Index
 
-> Lightweight constraint index. Lists only C1-C46 names, applicable scenarios, and corresponding detail shards.
+> Lightweight constraint index. Lists C1-C48 names, applicable scenarios, and corresponding detail shards.
 > See corresponding shard files for complete rules.
 
 ## Constraint Shard Mapping
@@ -65,6 +65,16 @@
 | C44 | 临界区预算 | 短临界区、禁重活 | rtos |
 | C45 | 传感器集成 | WHO_AM_I、data-ready | platform |
 | C46 | 蓝牙协议核对 | BLE 状态机、GATT、配对安全与 MTU | platform |
+| C47 | 工具层日志卫生 | MCP 输出、日志脱敏、凭据保护 | toolchain |
+| C48 | AI 生成代码审查 | 幻觉 API、错误处理、注释卫生 | review |
+
+## Checker Status Dashboard
+
+`python tools/constraint_dashboard.py` emits the versioned, machine-readable
+coverage table. Status is `automatic` (one or more registered checkers),
+`manual` (process/document verification), or `missing` (no current control).
+The registry is the source of truth; its schema/migration metadata prevents a
+rule update from silently changing an existing checker contract.
 
 ## 加载规则
 

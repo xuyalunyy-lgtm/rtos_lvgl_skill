@@ -1,0 +1,6 @@
+{
+  "schema_version": "2.0",
+  "compatibility": "additive",
+  "migration_policy": "A constraint ID never changes meaning silently; a semantic change requires a new sub-ID and an entry below.",
+  "migrations": [{"from": "1.0", "to": "2.0", "added": ["C47", "C48"], "breaking": false}]
+}
