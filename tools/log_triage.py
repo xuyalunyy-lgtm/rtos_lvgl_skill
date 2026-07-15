@@ -25,7 +25,7 @@ if hasattr(sys.stdout, "reconfigure"):
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-ROUTES_FILE = ROOT / "references" / "log_symptom_routes.json"
+from symptom_routes import load_symptom_routes
 
 # Windows-safe tags
 TAG_SW = "[SOFTWARE]"
@@ -33,12 +33,6 @@ TAG_HW = "[HARDWARE]"
 TAG_ARCH = "[ARCH]"
 TAG_WARN = "[WARN]"
 TAG_DNP = "[DO-NOT-PATCH]"
-
-
-def load_symptom_routes() -> list[dict]:
-    if ROUTES_FILE.exists():
-        return json.loads(ROUTES_FILE.read_text(encoding="utf-8")).get("symptoms", [])
-    return []
 
 
 def parse_log(lines: list[str]) -> list[dict]:
@@ -231,7 +225,7 @@ def build_do_not_patch_until(symptoms: list[dict]) -> list[str]:
 def triage(log_text: str, platform: str = "") -> dict:
     """Main analysis function."""
     lines = log_text.splitlines()
-    routes = load_symptom_routes()
+    routes = list(load_symptom_routes())
 
     events = parse_log(lines)
     symptoms = match_symptoms(events, routes)
@@ -255,6 +249,10 @@ def triage(log_text: str, platform: str = "") -> dict:
 
     has_symptoms = bool(classified["software"] or classified["hardware"] or classified["architecture"])
 
+    from context_router import build_symptom_plan
+    rtos = "zephyr" if platform == "zephyr" else "freertos"
+    diagnostic_plan = build_symptom_plan(log_text, platform or "esp32", rtos, allow_weak_route=True)
+
     return {
         "summary": summary,
         "platform": platform,
@@ -268,6 +266,7 @@ def triage(log_text: str, platform: str = "") -> dict:
         "do_not_patch_until": do_not_patch,
         "confidence": confidence,
         "has_symptoms": has_symptoms,
+        "diagnostic_plan": diagnostic_plan,
     }
 
 
@@ -385,6 +384,14 @@ def run_self_test() -> int:
     print("[PASS] Windows-safe output")
     passed += 1
 
+    plan = triage("E (100) task_wdt: Task watchdog timeout\n", "esp32")["diagnostic_plan"]
+    if plan.get("workflow") == "crash_debug" and plan.get("routing_decision") == "diagnose":
+        print("[PASS] diagnostic plan bridge")
+        passed += 1
+    else:
+        print("[FAIL] diagnostic plan bridge")
+        failed += 1
+
     print(f"\nSelf-test: {passed} passed, {failed} failed")
     return 1 if failed > 0 else 0
 
@@ -459,6 +466,14 @@ def main() -> int:
             print(f"\nNext Actions:")
             for a in r["next_actions"][:10]:
                 print(f"  {a}")
+
+        plan = r.get("diagnostic_plan", {})
+        if plan and plan.get("workflow"):
+            print(f"\nDiagnostic Plan: workflow={plan['workflow']}")
+            targets = plan.get("checker_targets", [])
+            if targets:
+                print(f"  Checker targets: {', '.join(targets)}")
+            print("  Run targeted review: python tools/run_review.py --from-symptom-plan <plan.json> --dir src")
 
     # Exit code: 0=has symptoms, 1=no symptoms, 2=error
     return 0 if r.get("has_symptoms") else 1

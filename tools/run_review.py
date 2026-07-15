@@ -50,6 +50,7 @@ def checker_env() -> dict[str, str]:
 
 from checker_io import safe_print as _safe_print  # noqa: E402
 from checker_registry import (  # noqa: E402
+    ALL_CHECKERS,
     DEFAULT_CHECKERS,
     SELF_TEST_CASES,
     VALIDATE_EXAMPLE_CASES,
@@ -341,7 +342,14 @@ def run_registered_checkers(args: argparse.Namespace, c_files: list[Path]) -> in
     results: list[dict] = []
 
     # Filter by --skip-* flags
-    active_checkers = tuple(s for s in DEFAULT_CHECKERS if not getattr(args, s.skip_attr))
+    from_symptom_plan = bool(getattr(args, "from_symptom_plan", None))
+    candidates = ALL_CHECKERS if from_symptom_plan else DEFAULT_CHECKERS
+    selected = set(getattr(args, "symptom_checker_targets", ()))
+    active_checkers = tuple(
+        spec for spec in candidates
+        if (not from_symptom_plan or spec.name in selected)
+        and not getattr(args, spec.skip_attr, False)
+    )
 
     if not c_files:
         for spec in active_checkers:
@@ -521,6 +529,11 @@ def main() -> int:
         help="加载串口/系统日志并运行现场诊断 (log_triage)",
     )
     parser.add_argument(
+        "--from-symptom-plan",
+        metavar="FILE",
+        help="Load a context_router diagnostic plan JSON and run only its checker_targets",
+    )
+    parser.add_argument(
         "--repro-output",
         metavar="FILE",
         help="生成可复现调试包到指定文件",
@@ -542,6 +555,26 @@ def main() -> int:
         help="FixPlan 输出详细程度：summary（默认）只输出摘要，full 输出完整 template/diff",
     )
     args = parser.parse_args()
+
+    args.symptom_checker_targets = ()
+    if args.from_symptom_plan:
+        try:
+            raw_plan = json.loads(Path(args.from_symptom_plan).read_text(encoding="utf-8"))
+            # log_triage --json wraps the router result in diagnostic_plan;
+            # context_router writes the plan directly.  Accept both forms.
+            plan = raw_plan.get("diagnostic_plan", raw_plan) if isinstance(raw_plan, dict) else raw_plan
+            if not isinstance(plan, dict):
+                raise ValueError("plan must be a JSON object")
+            targets = plan.get("checker_targets", [])
+            if not isinstance(targets, list) or not all(isinstance(item, str) for item in targets):
+                raise ValueError("checker_targets must be a string list")
+            known = {spec.name for spec in ALL_CHECKERS}
+            unknown = sorted(set(targets) - known)
+            if unknown:
+                raise ValueError(f"unknown checker target(s): {', '.join(unknown)}")
+            args.symptom_checker_targets = tuple(targets)
+        except (OSError, json.JSONDecodeError, ValueError) as exc:
+            parser.error(f"invalid --from-symptom-plan: {exc}")
 
     if args.list_checkers:
         return list_checkers(as_json=args.json)
@@ -672,7 +705,7 @@ def main() -> int:
             "version": SKILL_VERSION,
             "exit_code": exit_code,
             "files_checked": len(c_files),
-            "suites": ["default"],
+            "suites": ["symptom-plan"] if args.from_symptom_plan else ["default"],
             "checkers": all_results,
             "total_issues": sum(r.get("issues", 0) for r in all_results),
             "total_checkers_run": sum(1 for r in all_results if not r.get("skipped")),

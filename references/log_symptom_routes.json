@@ -1048,7 +1048,8 @@
       "constraints": [
         "C33",
         "C29",
-        "C12"
+        "C12",
+        "C38"
       ],
       "root_cause_hints": [
         "init/deinit asymmetry",
@@ -1090,7 +1091,8 @@
       ],
       "checker_targets": [
         "lifecycle_checker",
-        "module_boundary_checker"
+        "module_boundary_checker",
+        "fault_isolation_checker"
       ],
       "stop_conditions": [
         "Stop when owner lifecycle and cleanup contract are fully validated"

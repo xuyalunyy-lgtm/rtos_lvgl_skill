@@ -226,7 +226,7 @@ def classify_request(text: str, cross_domain_threshold: float | None = None) -> 
 
 # ── 症状路由表 ──
 
-SYMPTOM_ROUTES_PATH = ROOT / "references" / "log_symptom_routes.json"
+from symptom_routes import load_symptom_routes
 
 # ── 平台推断关键词 ──
 
@@ -333,18 +333,10 @@ def match_symptoms(text: str) -> list[dict]:
     Returns:
         匹配的症状列表，按置信度排序
     """
-    if not SYMPTOM_ROUTES_PATH.is_file():
-        return []
-
-    try:
-        data = json.loads(SYMPTOM_ROUTES_PATH.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        return []
-
     text_lower = text.lower()
     matches = []
 
-    for symptom in data.get("symptoms", []):
+    for symptom in load_symptom_routes():
         score = 0
         matched_patterns = []
         match_type = "none"  # none / weak / medium / strong
@@ -543,7 +535,7 @@ def build_symptom_plan(text: str, platform: str, rtos: str, budget: str = "compa
             if sc not in stop_conditions:
                 stop_conditions.append(sc)
 
-    workflow = _infer_workflow(top_matches[0]["id"])
+    workflow = _infer_workflow(top_matches[0]["id"], tuple(match["id"] for match in top_matches))
     routing_decision = "diagnose" if overall_confidence in ("strong", "medium") else "ask_more"
 
     plan = build_load_plan(workflow, platform, rtos, all_constraints, budget)
@@ -595,7 +587,7 @@ def build_symptom_plan(text: str, platform: str, rtos: str, budget: str = "compa
     return plan
 
 
-def _infer_workflow(symptom_id: str) -> str:
+def _infer_workflow(symptom_id: str, related_ids: tuple[str, ...] = ()) -> str:
     """根据症状 ID 推断最可能的 workflow。"""
     mapping = {
         "WDT_RESET": "crash_debug",
@@ -615,6 +607,11 @@ def _infer_workflow(symptom_id: str) -> str:
         "HOT_PATH_BLOCKED": "code_review",
         "UNCLEAR_TOPOLOGY": "code_review",
     }
+    # A crash-class symptom must take precedence even when a queue-full line
+    # scored higher.  Queue pressure can be the cause, but the first workflow
+    # must preserve crash evidence before ordinary review work starts.
+    if {"WDT_RESET", "HARDFAULT", "STACK_OVERFLOW"}.intersection(related_ids):
+        return "crash_debug"
     return mapping.get(symptom_id, "code_review")
 
 
@@ -1170,6 +1167,12 @@ def run_self_test() -> int:
 
     plan_json = json.dumps(build_load_plan("code_review", "esp32", "freertos"), ensure_ascii=False)
     check("JSON output valid", len(plan_json) > 100)
+
+    queue_wdt = build_symptom_plan(
+        "queue full xQueueSend failed; task watchdog timeout", "esp32", "freertos",
+        allow_weak_route=True,
+    )
+    check("queue pressure + WDT prioritizes crash workflow", queue_wdt.get("workflow") == "crash_debug")
 
     # app_manifest should behave like lvgl_page in compact mode
     plan_manifest = build_load_plan("app_manifest", "esp32", "freertos", budget="compact")

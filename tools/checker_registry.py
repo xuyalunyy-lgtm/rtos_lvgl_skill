@@ -107,6 +107,9 @@ ALL_CHECKERS: tuple[CheckerSpec, ...] = (
     # ── C16: Timer ──────────────────────────────────────────────────────
     CheckerSpec("timer_checker", "timer_checker.py", "timer", "batch", ("C16",),
                 suites=("default", "all"), error_prefix="C16"),
+    # ── C17: Multi-core IPC ────────────────────────────────────────────
+    CheckerSpec("multi_core_ipc_checker", "multi_core_ipc_checker.py", "multi-core-ipc", "batch", ("C17",),
+                suites=("all", "realtime"), error_prefix="C17"),
     # ── C18: Peripheral driver ──────────────────────────────────────────
     CheckerSpec("peripheral_driver_checker", "peripheral_driver_checker.py", "peripheral-driver", "batch", ("C18",),
                 suites=("all", "platform"), error_prefix="C18"),
@@ -162,6 +165,9 @@ ALL_CHECKERS: tuple[CheckerSpec, ...] = (
     CheckerSpec("backpressure_checker", "backpressure_checker.py", "backpressure", "batch", ("C37",),
                 suites=("default", "all"), error_prefix="C37",
                 overlaps=("efficiency_budget_checker",)),
+    # ── C38: Fault isolation ───────────────────────────────────────────
+    CheckerSpec("fault_isolation_checker", "fault_isolation_checker.py", "fault-isolation", "batch", ("C38",),
+                suites=("all", "security"), error_prefix="C38"),
     # ── C39: Config matrix ──────────────────────────────────────────────
     CheckerSpec("config_matrix_checker", "config_matrix_checker.py", "config-matrix", "batch", ("C39",),
                 suites=("default", "all"), error_prefix="C39"),
@@ -222,6 +228,10 @@ SELF_TEST_CASES: tuple[CheckerCase, ...] = (
     CheckerCase("lock_budget_checker.py", "fixtures/bad_lock_budget.c", 1, "lock budget bad"),
     CheckerCase("critical_section_checker.py", "fixtures/good_critical_section.c", 0, "critical section good"),
     CheckerCase("critical_section_checker.py", "fixtures/bad_critical_section.c", 1, "critical section bad"),
+    CheckerCase("multi_core_ipc_checker.py", "fixtures/good_multi_core_ipc.c", 0, "multi-core IPC good"),
+    CheckerCase("multi_core_ipc_checker.py", "fixtures/bad_multi_core_ipc.c", 1, "multi-core IPC bad"),
+    CheckerCase("fault_isolation_checker.py", "fixtures/good_fault_isolation.c", 0, "fault isolation good"),
+    CheckerCase("fault_isolation_checker.py", "fixtures/bad_fault_isolation.c", 1, "fault isolation bad"),
     CheckerCase("sensor_integration_checker.py", "fixtures/good_sensor_integration.c", 0, "sensor integration good"),
     CheckerCase("sensor_integration_checker.py", "fixtures/bad_sensor_integration.c", 1, "sensor integration bad"),
     CheckerCase("secret_scan_checker.py", "fixtures/good_config_secrets", 0, "secret good"),

@@ -1,0 +1,4 @@
+{
+  "workflow": "code_review",
+  "checker_targets": ["fault_isolation_checker"]
+}

@@ -212,17 +212,18 @@ class RotatingLogWriter:
 # ── Symptom routes for intelligent watch ──
 
 ROOT = Path(__file__).resolve().parent.parent
-ROUTES_FILE = ROOT / "references" / "log_symptom_routes.json"
 
 
 def _load_symptom_routes() -> list[dict]:
     """Load symptom routes for log analysis."""
-    if ROUTES_FILE.exists():
-        try:
-            return json.loads(ROUTES_FILE.read_text(encoding="utf-8")).get("symptoms", [])
-        except (json.JSONDecodeError, OSError):
-            return []
-    return []
+    tools_dir = str(ROOT / "tools")
+    if tools_dir not in sys.path:
+        sys.path.insert(0, tools_dir)
+    try:
+        from symptom_routes import load_symptom_routes
+        return list(load_symptom_routes())
+    except ImportError:
+        return []
 
 
 # Pre-compiled patterns for fast matching (loaded once at import)

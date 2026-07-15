@@ -127,6 +127,10 @@ python tools/run_review.py --self-test
 # 验证示例
 python tools/run_review.py --validate-examples
 
+# 从日志症状生成并消费定向审查计划
+python tools/context_router.py --symptom-text "task watchdog timeout" --json > plan.json
+python tools/run_review.py --from-symptom-plan plan.json --dir ./src
+
 # 项目诊断
 python tools/project_doctor.py ./your-project
 python tools/project_doctor.py ./your-project --run-review

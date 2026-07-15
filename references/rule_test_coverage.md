@@ -22,7 +22,7 @@
 | C14 | 日志规范 | review | logging_checker, log_desensitize_checker | ✅ covered |
 | C15 | 优先级/通信 | rtos | priority_checker | ⚠️ partial |
 | C16 | 定时器管理 | review | timer_checker | ⚠️ partial |
-| C17 | 多核 IPC | rtos | - | ❌ missing |
+| C17 | 多核 IPC | rtos | multi_core_ipc_checker | ⚠️ partial |
 | C18 | 外设驱动 | platform | peripheral_driver_checker | ⚠️ partial |
 | C19 | Flash/NVS | platform | flash_nvs_checker | ⚠️ partial |
 | C20 | 网络韧性 | platform | network_resilience_checker | ⚠️ partial |
@@ -39,11 +39,11 @@
 | C31 | 超时预算 | rtos | blocking_wait_checker | ✅ covered |
 | C32 | 可观测性 | rtos | observability_checker | ⚠️ partial |
 | C33 | 生命周期 | rtos | lifecycle_checker | ⚠️ partial |
-| C34 | 热路径禁令 | rtos | - | ❌ missing |
+| C34 | 热路径禁令 | rtos | hotpath_checker | ⚠️ partial |
 | C35 | 关键路径预算 | rtos | critical_path_checker | ⚠️ partial |
 | C36 | 拷贝预算 | memory | efficiency_budget_checker | ✅ covered |
 | C37 | 背压降级 | recover | efficiency_budget_checker, backpressure_checker | ✅ covered |
-| C38 | 故障隔离 | recover | - | ❌ missing |
+| C38 | 故障隔离 | recover | fault_isolation_checker | ⚠️ partial |
 | C39 | 配置矩阵 | recover | config_matrix_checker | ⚠️ partial |
 | C40 | 一键复现 | recover | - | ❌ missing |
 | C41 | 回归样本 | recover | - | ❌ missing |

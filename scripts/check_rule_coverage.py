@@ -24,6 +24,16 @@ sys.path.insert(0, str(TOOLS_DIR))
 from checker_registry import ALL_CHECKERS, SELF_TEST_CASES, VALIDATE_EXAMPLE_CASES
 
 
+def configure_stdout() -> None:
+    """Keep Markdown status glyphs usable from legacy Windows terminals."""
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            try:
+                stream.reconfigure(encoding="utf-8", errors="replace")
+            except OSError:
+                pass
+
+
 def parse_constraints() -> list[dict]:
     """Parse constraint_quick_index.md to extract C1-C46 entries."""
     qi_path = ROOT / "references" / "constraint_quick_index.md"
@@ -113,6 +123,7 @@ def classify_coverage(
 
 
 def main() -> int:
+    configure_stdout()
     parser = argparse.ArgumentParser(description="Generate rule test coverage matrix")
     parser.add_argument("--json", action="store_true", help="Output JSON")
     parser.add_argument("--md", action="store_true", help="Output Markdown (default)")

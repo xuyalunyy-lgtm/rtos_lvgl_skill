@@ -15,6 +15,8 @@ python tools/run_review.py --dir ./src --platform esp32
 python tools/run_review.py --dir ./src --platform esp32 --json
 python tools/run_review.py --dir ./src --platform esp32 --suggest-fixes --fix-detail full
 python tools/run_review.py --dir ./src --platform esp32 --scan-secrets
+python tools/context_router.py --symptom-text "task watchdog timeout" --json > plan.json
+python tools/run_review.py --from-symptom-plan plan.json --dir ./src
 python tools/run_review.py --self-test
 python tools/run_review.py --list-checkers
 python tools/run_review.py --validate-examples
@@ -31,6 +33,7 @@ python tools/run_review.py --validate-examples
 | `--fix-detail` | 可选 | `summary`（默认）/ `full` |
 | `--scan-secrets` | 可选 | 附加密钥扫描（C9） |
 | `--strict-field` | 可选 | P0 现场诊断阻断 exit code |
+| `--from-symptom-plan <file>` | 可选 | 只运行 `context_router` / `log_triage --json` 计划内的 `checker_targets` |
 | `--self-test` | 可选 | 自测模式 |
 | `--list-checkers` | 可选 | 列出所有 checker |
 | `--validate-examples` | 可选 | 验证 examples/ 正反例 |
@@ -111,8 +114,10 @@ python tools/mvp_codegen_tool.py --contract <path> --output ./src
 
 ```bash
 python tools/log_triage.py --log <path> --platform esp32 --json
-python tools/log_triage.py --symptom-text "HardFault" --json
 ```
+
+`--json` 输出包含 `diagnostic_plan`；可直接保存后传给
+`run_review.py --from-symptom-plan`，执行症状关联的最小 checker 集合。
 
 ### constraint_discovery.py — 约束发现
 
