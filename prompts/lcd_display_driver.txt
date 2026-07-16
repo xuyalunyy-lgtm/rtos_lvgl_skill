@@ -103,7 +103,7 @@ Common targets:
 void lcd_flush_cb(lv_disp_drv_t *drv, const lv_area_t *area, lv_color_t *color_p)
 {
     lcd_dma_submit(area, color_p);
-    /* DMA completion ISR/task calls lv_disp_flush_ready(drv). */
+    /* LVGL_ASYNC_FLUSH_READY: DMA completion ISR/task calls lv_disp_flush_ready(drv). */
 }
 ```
 
@@ -157,7 +157,7 @@ void lvgl_port_init(void)
 
 Review points:
 - `hor_res`/`ver_res` match physical rotation and touch coordinates.
-- Flush callback always calls `lv_disp_flush_ready()` on every success/failure path.
+- Flush callback calls `lv_disp_flush_ready()` (v8) or `lv_display_flush_ready()` (v9) only after every transfer is safe to reuse. If a DMA ISR/task owns that call, add `LVGL_ASYNC_FLUSH_READY` beside the callback and name the completion owner.
 - Display teardown stops UI timers/tasks before freeing buffers or closing framebuffers.
 
 ### 7. Layout and style performance
@@ -676,7 +676,7 @@ static uint32_t last_flush_ms = 0;
 void on_flush_ready(lv_disp_t *disp)
 {
     last_flush_ms = lv_tick_get();
-    lv_disp_flush_ready(disp->driver->draw_buf);
+    lv_disp_flush_ready(disp->driver);
 }
 
 void ui_watchdog_task(void *arg)

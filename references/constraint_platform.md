@@ -77,7 +77,7 @@
 | C23.3 | `lv_timer_handler` [TIMER_HANDLER] 调用频率必须匹配面板刷新率（60Hz→16ms，30Hz→33ms）；禁止过快调用浪费 CPU | P1 | `lvgl_frame_rate_checker.py` + 人工 | `vTaskDelay(1000/REFRESH_RATE)` [TASK_DELAY] | `vTaskDelay(1)` [TASK_DELAY] 1ms 调用 |
 | C23.4 | 显示刷新必须有撕裂防护（TE 信号同步 / 双缓冲 / 直接模式）；禁止单缓冲无同步写入 | P1 | 人工 | `esp_lcd_panel_io_tx_param(0x35)` TE 信号 | 单缓冲直接写入 |
 | C23.5 | 帧缓冲大小必须根据 RAM 可用性选择：PSRAM 可用→全屏双缓冲；RAM 不足→部分刷新（1/5 或 1/10 屏）；分配失败必须检查 | P0 | `display_driver_checker.py` | `heap_caps_malloc` [HEAP_ALLOC] 返回值检查 | 未检查 `malloc` [HEAP_ALLOC] 返回 |
-| C23.6 | `lv_disp_drv_t` 注册必须设置 `hor_res`、`ver_res`、`draw_buf`、`flush_cb`；禁止遗漏必要字段 | P1 | `display_driver_checker.py` | 完整 `lv_disp_drv_init` + 字段赋值 | 缺少 `hor_res`/`ver_res` |
+| C23.6 | `lv_disp_drv_t` 注册必须设置 `hor_res`、`ver_res`、`draw_buf`、`flush_cb`；已注册的 flush 回调必须在传输安全后调用 ready API，或声明异步完成者 | P1 | `display_driver_checker.py` + `lvgl_frame_rate_checker.py` | 完整 `lv_disp_drv_init` + 字段赋值 + transfer 后 ready | 缺少字段或回调不归还 draw buffer |
 | C23.7 | 同一执行上下文内 camera init/open 必须先于 capture/start；跨任务时必须以显式 ready 状态或事件衔接 | P0 | `api_sequence_checker.py` | init 成功后再启动采集 | 未初始化就取帧/启动采集 |
 
 **症状表**：

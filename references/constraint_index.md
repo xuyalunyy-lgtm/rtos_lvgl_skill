@@ -200,7 +200,7 @@ Full matrix (positive/negative/checker) → [constraint_detail.md](constraint_de
 | C23.3 | 1 | lv_timer_handler 调用频率匹配面板刷新率 |
 | C23.4 | 1 | 显示刷新须撕裂防护（TE 信号/双缓冲） |
 | C23.5 | 0 | 帧缓冲按 RAM 选择全屏/部分刷新，分配须检查 |
-| C23.6 | 1 | lv_disp_drv_t 必须设置 hor_res/ver_res/draw_buf |
+| C23.6 | 1 | lv_disp_drv_t 必须设置字段，flush 回调须在安全后归还 draw buffer |
 
 ## C24 外设关闭安全
 | ID | P | 一句话 |

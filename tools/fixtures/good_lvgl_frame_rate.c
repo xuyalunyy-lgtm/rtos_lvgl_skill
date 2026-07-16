@@ -11,3 +11,37 @@ void update_status(lv_obj_t *label)
     lv_label_set_text(label, "ready");
     lv_obj_invalidate(label);
 }
+
+static void lcd_flush_cb(lv_disp_drv_t *drv, const lv_area_t *area, lv_color_t *color_p)
+{
+    lcd_dma_submit(area, color_p);
+    lv_disp_flush_ready(drv);
+}
+
+void display_init(void)
+{
+    lv_disp_drv_t disp_drv;
+    lv_disp_drv_init(&disp_drv);
+    disp_drv.hor_res = 240;
+    disp_drv.ver_res = 320;
+    disp_drv.draw_buf = &g_draw_buf;
+    disp_drv.flush_cb = lcd_flush_cb;
+    lv_disp_drv_register(&disp_drv);
+}
+
+/* LVGL_ASYNC_FLUSH_READY: lcd_dma_done_isr calls lv_disp_flush_ready(drv). */
+static void async_lcd_flush_cb(lv_disp_drv_t *drv, const lv_area_t *area, lv_color_t *color_p)
+{
+    lcd_dma_submit(area, color_p);
+}
+
+void async_display_init(void)
+{
+    lv_disp_drv_t disp_drv;
+    lv_disp_drv_init(&disp_drv);
+    disp_drv.hor_res = 240;
+    disp_drv.ver_res = 320;
+    disp_drv.draw_buf = &g_draw_buf;
+    disp_drv.flush_cb = async_lcd_flush_cb;
+    lv_disp_drv_register(&disp_drv);
+}
