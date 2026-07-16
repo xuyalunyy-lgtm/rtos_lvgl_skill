@@ -1,92 +1,70 @@
 ---
 name: freertos-embedded-architect
-metadata:
-  version: 45.0.0
 description: >-
-  FreeRTOS/IoT 固件架构师：代码审查、LVGL UI 生成、崩溃调试、OTA 安全、SDK 裁剪、
-  模块契约、任务拓扑、DMA/ISR 安全、音视频同步、时钟抖动、零拷贝缓冲区、cJSON 泄漏防护、
-  WSS/mbedTLS、传感器集成、锁预算、优先级反转、临界区。多平台（ESP32/STM32/JL/BK/Zephyr）。
-  Use when working on embedded C, RTOS tasks, board bring-up, memory analysis, peripheral drivers, or firmware review.
+  FreeRTOS/IoT 固件架构、实现、审查与故障诊断，覆盖嵌入式 C、LVGL UI、板级启动、
+  OTA、SDK 裁剪、内存与任务拓扑、DMA/ISR、音视频、网络、外设和多平台适配
+  （ESP32、STM32、JL、BK、Zephyr）。Use when reviewing or changing firmware,
+  diagnosing crashes or resource issues, designing RTOS modules, bringing up boards,
+  generating LVGL pages, or validating embedded safety and performance.
 ---
+
 # FreeRTOS 嵌入式架构师
 
-路由规则：将用户的第一条消息匹配到**一个**工作流。
-优先级：1 = 最高（调试/安全），2 = 高（审查），3 = 正常（生成）。
-排除：如果输入同时包含 Keywords 和 Exclude，跳过该路由。
-按优先级从高到低匹配；同一优先级内，取关键字命中最多的。
+## 工作方式
 
-| Keywords | Exclude | Priority | Workflow |
-|----------|---------|----------|----------|
-| crash, HardFault, WDT, deadlock, frozen, 死机, 看门狗, 崩溃, backtrace, Guru Meditation, watchdog, stack overflow crash, exception, 卡在, 卡死, 重启 | — | 1 | debug_crash |
-| review, audit, 审查, check, ISR, DMA, cJSON, 代码质量, code quality, static analysis, lint, OTA, 安全, 看看代码, 代码规范, code review | crash, 死机, 卡死, 卡在, 重启 | 2 | l2_code_review |
-| co-debug, GPIO conflict, 硬件协同, GPIO, IO conflict, peripheral conflict, pin mux, 引脚冲突, pin conflict | — | 2 | hw_sw_cocodebug |
-| memory, leak, 内存, 堆栈, heap, stack overflow, memory analysis, pool, fragmentation, 堆栈溢出, 内存泄漏 | crash, 死机, 卡死 | 2 | l2_memory_analysis |
-| project review, 项目审查, workspace review, 全项目, 整个项目, 整个工程, project audit, 项目检查 | crash, 死机 | 2 | l2_project_review |
-| manifest, 多页, multi-page, Router, Presenter, Model, 脚手架, scaffold, app architecture, 应用架构, 多页面 | — | 3 | l3_lvgl_page (manifest sub-path) |
-| bring-up, 板级, 最小系统, peripheral validation, board init, boot, startup, 外设, 新板, first boot, 上电, 串口没输出, 启动流程 | — | 3 | l3_bring_up |
-| LVGL, UI, page, 页面, 设计截图, design, 界面, GUI, widget | crash, 死机, 卡死, frozen, 卡在 | 3 | l3_lvgl_page |
-| new module, 新模块, task, 任务, multitask, module design, 模块设计, module, 模块 | crash, review, 审查, leak, 内存 | 3 | l3_new_module |
-| SDK trim, 裁剪, 裁, driver prune, sdk_trim, component pruning, 减小体积, trim, prune, flash不够, 精简, 缩减 | — | 3 | l3_sdk_trim |
-组合请求：优先匹配用户主要交付物对应的工作流。
-仅在该工作流明确需要时才加载补充材料。
-如果主要任务不明确，先问一个澄清问题再继续。
----
-## 审查域
-**触发：**代码审查 / 审计 / 内存分析 / 工程审查 / 软硬件协同调试
-**输出：**风险等级、验证结果和可执行建议
-| 工作流 | 触发条件 |
-|----------|---------|
-| l2_code_review.md | 代码审查 / 审计 |
-| l2_code_review_lite.md | 轻量人工审查 |
-| l2_project_review.md | 工程 / 工作区审查 |
-| l2_memory_analysis.md | 内存分析 / 泄漏 |
-| hw_sw_cocodebug.md | 软硬件协同 / GPIO 冲突 |
-- **必读:** `references/core_rules.md`, `references/constraint_index.md`
-- **按需:** `platforms/{platform}.md`, workflow 指定的 `prompts/{scene}.txt`
-- **工具:** `python tools/run_review.py`, `python tools/context_router.py`
-- **禁止:** `ui/`, `schemas/`
----
-## 生成域
-**触发：**LVGL 页面 / manifest / 新模块 / 板级启动 / SDK 裁剪
-**输出：**最小可编译固件产物；验证证据记录在内部运行台账中
-| 工作流 | 触发条件 |
-|----------|---------|
-| l3_lvgl_page.md | LVGL 页面 / manifest 生成 |
-| l3_new_module.md | 新模块 / 多任务 MVP |
-| l3_bring_up.md | 板级启动 |
-| l3_sdk_trim.md | SDK 裁剪 |
-- **必读:** `references/core_rules.md`
-- **LVGL 必读:** `workflows/l3_lvgl_page.md`
-- **按需:** `platforms/{platform}.md`, `references/lvgl_*`
-- **工具:** 使用目标工程的 LVGL 构建、渲染和测试工具。对未确认的视觉或交互意图先澄清，再交付最小可编译文件集。
-- **禁止:** `tools/*_checker.py`, `examples/bad_*.c`
----
-## 调试域
-**触发：**崩溃 / HardFault / 死机 / WDT / 崩溃日志 / 卡死 / 死锁
-**输出：**根因假设、最小验证步骤和下一步行动计划
-| 工作流 | 触发条件 |
-|----------|---------|
-| debug_crash.md | HardFault / WDT / 崩溃转储 |
-- **必读:** `references/core_rules.md`, `references/log_symptom_routes.json`
-- **按需:** `platforms/{platform}.md`, 症状匹配的 `prompts/{scene}.txt`
-- **工具:** `python tools/log_triage.py`, `python tools/context_router.py`
-- **禁止:** 无额外默认禁读目录。
----
-## 共享规则（所有域）
-- 缺少平台信息时先询问；ESP32/STM32/JL/BK 是平台，FreeRTOS/Zephyr 是 RTOS。
-- 先选定工作流再行动；只加载所在域“加载规则”中列出的文件。
-- 提交请求：遵循 `references/git_commit_style.md`，使用 `type(scope):` 格式。
-- LVGL UI 生成必须在目标工程中实现和验证；不要假设仓库提供了生成器或模拟器。
-## 约束分片索引
-只加载你选定工作流引用的分片：
-| 约束分片 | 覆盖约束 |
-|-------|-------------|
-| constraint_review.md | C1-C6, C11-C16 |
-| constraint_memory.md | C7, C28, C36 |
-| constraint_rtos.md | C8, C15, C17, C29-C35, C43-C44 |
-| constraint_platform.md | C18-C21, C23, C42, C45-C46 |
-| constraint_media.md | C25-C27 |
-| constraint_voice.md | C10 |
-| constraint_ota.md | C9, C22, C24 |
-| constraint_recover.md | C37-C41 |
-| constraint_bluetooth_protocol.md | C46 |
+1. 从当前请求、源码、构建文件和日志推断目标平台、RTOS、SDK 及主要交付物。
+2. 为当前阶段选择一个主工作流并完整读取；组合请求按交付物依赖顺序分阶段执行。
+3. 只读取工作流直接要求的 reference、platform、prompt、example 和 tool；不要批量加载目录。
+4. 以目标工程及其 SDK 文档为事实源。无法确认平台 API、版本或硬件能力时，不要猜测。
+5. 仅当缺失信息会实质改变方案或阻止验证时，提出一个聚焦的澄清问题。
+
+## 工作流路由
+
+按语义和交付物路由，不依赖单个关键词。故障诊断优先于一般审查；崩溃相关的内存问题先诊断，
+无崩溃症状的容量、泄漏或碎片问题走内存分析。
+
+| 用户意图 | 主工作流 |
+|---|---|
+| HardFault、WDT、死机、死锁、异常重启、日志定位 | [debug_crash.md](workflows/debug_crash.md) |
+| 整个工程或工作区审查 | [l2_project_review.md](workflows/l2_project_review.md) |
+| 堆、栈、泄漏、碎片、内存池或容量分析 | [l2_memory_analysis.md](workflows/l2_memory_analysis.md) |
+| GPIO、pin mux、板卡资源或软硬件协同问题 | [hw_sw_cocodebug.md](workflows/hw_sw_cocodebug.md) |
+| 文件、模块或固件代码审查 | [l2_code_review.md](workflows/l2_code_review.md) |
+| 明确要求无工具的轻量人工审查 | [l2_code_review_lite.md](workflows/l2_code_review_lite.md) |
+| LVGL 页面、多页 manifest、Router/Presenter/Model 脚手架 | [l3_lvgl_page.md](workflows/l3_lvgl_page.md) |
+| 明确要求快速原型或最小页面 | [l3_lvgl_page_quick.md](workflows/l3_lvgl_page_quick.md) |
+| 新模块、任务拓扑、状态机或模块契约 | [l3_new_module.md](workflows/l3_new_module.md) |
+| 新板上电、启动链、外设初始化或最小系统 | [l3_bring_up.md](workflows/l3_bring_up.md) |
+| SDK、驱动或组件裁剪 | [l3_sdk_trim.md](workflows/l3_sdk_trim.md) |
+
+若请求包含“审查并修复”，先用相应审查工作流形成证据，再在同一任务内实施和验证修复。
+若请求同时包含多个独立交付物，先处理风险最高或其他交付物所依赖的阶段，再重新路由下一阶段。
+
+## 渐进式加载
+
+- 始终先读所选 workflow；workflow 中的“必读”和步骤定义优先。
+- 对项目型请求，优先运行 `python tools/project_doctor.py <project> --intent "<task>" --budget compact --json`，
+  复用检测到的平台、RTOS、构建入口、约束 ID 和最小加载计划。
+- 按 workflow 选择 [约束快速索引](references/constraint_quick_index.md) 中相关分片；只有需要完整映射时才读
+  [constraint_index.md](references/constraint_index.md)，需要细则、正例或 checker 时再读对应细节。
+- 能从工程或日志识别平台时直接识别；需要平台事实时只读一个 `platforms/{platform}.md`。
+- 按 [prompt_index.md](references/prompt_index.md) 或 workflow 的症状表选择 1–3 个 prompt。
+- 仅在验证对应风险时读取 example 或运行 checker。审查入口优先使用
+  `python tools/run_review.py --dir <source> --platform <platform>`；崩溃日志优先使用
+  `python tools/log_triage.py <log>`。
+- 维护本 skill 或无法确定资源职责时才读 [skill_structure.md](references/skill_structure.md)。
+- 普通任务不要读取 `archive/`、迭代日志、变更日志或整目录内容。
+
+## 执行边界
+
+- 用户要求审查、解释或诊断时，先保持只读并给出证据；只有明确要求修改或交付实现时才改代码。
+- 用户要求实现、修复或生成时，完成最小闭环：修改、构建或静态验证、检查结果并报告残余风险。
+- 不把 checker 告警当作事实；回到源码、调用上下文、配置和平台语义确认真伪。
+- 不虚构编译、硬件实测或日志结果。无法运行的验证明确标记为未验证，并给出可执行命令。
+- 提交代码时遵循 [git_commit_style.md](references/git_commit_style.md)。
+
+## 交付格式
+
+- **审查：** 先给结论，再按严重度列出 `file:line`、约束 ID、影响、证据和最小修复建议。
+- **诊断：** 区分已证实事实与假设，给出根因排序、最小验证探针和下一步行动。
+- **实现：** 列出改动文件、关键设计、已运行的验证及未覆盖风险。

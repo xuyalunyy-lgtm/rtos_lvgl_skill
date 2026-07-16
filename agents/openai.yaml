@@ -1,4 +1,4 @@
 interface:
   display_name: "FreeRTOS Embedded Architect"
-  short_description: "Review FreeRTOS firmware and generate LVGL UI safely"
-  default_prompt: "Use $freertos-embedded-architect to review this FreeRTOS/ESP32/Zephyr firmware for tasking, memory, DMA, A/V sync, timeout budgets, backpressure, recovery, lock budgets, priority inversion, critical sections, IRQ latency, sensor integration, and crash diagnosis. Load platform docs for the target chip."
+  short_description: "Review, diagnose, and build embedded RTOS firmware"
+  default_prompt: "Use $freertos-embedded-architect to review or implement this embedded firmware task with platform-aware verification."

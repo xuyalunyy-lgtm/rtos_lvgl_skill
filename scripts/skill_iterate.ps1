@@ -15,6 +15,7 @@ if (-not $Check -and -not $Sync) { $Check = $true }
 
 $Root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 $Skill = Join-Path $Root "SKILL.md"
+$Pyproject = Join-Path $Root "pyproject.toml"
 $LiteRoot = Join-Path $Root "freertos-skill-lite"
 $LiteSkill = Join-Path $LiteRoot "SKILL.md"
 $Changelog = Join-Path $Root "CHANGELOG.md"
@@ -26,11 +27,10 @@ function Read-Utf8([string]$Path) {
     return [System.IO.File]::ReadAllText($Path, $Utf8)
 }
 
-function Get-SkillVersion([string]$Path) {
+function Get-ProjectVersion([string]$Path) {
     if (-not (Test-Path $Path)) { return $null }
     $text = Read-Utf8 $Path
-    if ($text -match '(?m)^version:\s*([^\s#]+)') { return $Matches[1].Trim() }
-    if ($text -match '(?ms)^metadata:\s*\r?\n(?:[ \t]+[^\r\n]*\r?\n)*?[ \t]+version:\s*([^\s#]+)') { return $Matches[1].Trim() }
+    if ($text -match '(?m)^version\s*=\s*"([^"]+)"') { return $Matches[1] }
     return $null
 }
 
@@ -83,9 +83,16 @@ function Invoke-PythonCheck {
     Write-Host "  $PythonExe $($PyArgs -join ' ')"
     $env:PYTHONUTF8 = "1"
     $env:PYTHONIOENCODING = "utf-8"
-    $proc = Start-Process -FilePath $PythonExe -ArgumentList $PyArgs -WorkingDirectory $Root -Wait -PassThru -NoNewWindow
-    if ($proc.ExitCode -ne 0) {
-        [void]$Errors.Value.Add("$Label failed (exit $($proc.ExitCode))")
+    Push-Location $Root
+    try {
+        & $PythonExe @PyArgs
+        $exitCode = $LASTEXITCODE
+    }
+    finally {
+        Pop-Location
+    }
+    if ($exitCode -ne 0) {
+        [void]$Errors.Value.Add("$Label failed (exit $exitCode)")
     }
 }
 
@@ -129,28 +136,13 @@ Invoke-PythonCheck -PythonExe $python -Label "      scripts/check_skill_metadata
     -PyArgs @((Join-Path $Root "scripts\check_skill_metadata.py"), "--self-test") `
     -Errors ([ref]$errors)
 
-Write-Host "`n[6/9] SKILL.md version"
-$fullVer = Get-SkillVersion $Skill
-$liteVer = if (Test-Path $LiteRoot) { Get-SkillVersion $LiteSkill } else { $null }
+Write-Host "`n[6/9] package version"
+$fullVer = Get-ProjectVersion $Pyproject
 if (-not $fullVer) {
-    $errors.Add("SKILL.md missing metadata.version field")
+    $errors.Add("pyproject.toml missing [project].version")
 }
 else {
-    Write-Host "  full: $fullVer"
-}
-if (Test-Path $LiteRoot) {
-    if ($liteVer) {
-        Write-Host "  lite: $liteVer"
-        if ($fullVer -and $liteVer -ne $fullVer) {
-            $errors.Add("version mismatch: full $fullVer vs lite $liteVer (run sync_lite.ps1)")
-        }
-    }
-    else {
-        $errors.Add("freertos-skill-lite/SKILL.md missing or no metadata.version")
-    }
-}
-else {
-    Write-Host "  lite: skipped (freertos-skill-lite absent)"
+    Write-Host "  project: $fullVer"
 }
 
 Write-Host "`n[7/9] CHANGELOG / iteration_log"
@@ -183,12 +175,6 @@ if ($Sync -and $errors.Count -eq 0 -and (Test-Path $LiteRoot)) {
     & $SyncLitePs1
     if ($LASTEXITCODE -ne 0) {
         $errors.Add("sync_lite.ps1 failed")
-    }
-    else {
-        $liteVer2 = Get-SkillVersion $LiteSkill
-        if ($fullVer -and $liteVer2 -ne $fullVer) {
-            $errors.Add("after sync, lite version still differs from full")
-        }
     }
 }
 elseif ($Sync -and -not (Test-Path $LiteRoot)) {

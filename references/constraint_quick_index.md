@@ -10,7 +10,7 @@
 | `constraint_review.md` | C1-C4, C11-C16 | 代码审查、ISR、队列、cJSON、编码规范 |
 | `constraint_memory.md` | C7, C28, C36 | 内存分配、DMA、拷贝预算 |
 | `constraint_rtos.md` | C8, C15, C17, C29-C35, C43-C44 | 启动、优先级、IPC、模块契约、拓扑、锁、临界区 |
-| `constraint_platform.md` | C18-C21, C23, C42, C45, C46 | GPIO、NVS、网络、低功耗、显示、板级资源、传感器、蓝牙协议 |
+| `constraint_platform.md` | C18-C21, C23, C42, C45-C48 | GPIO、NVS、网络、低功耗、显示、板级资源、传感器、蓝牙、工具日志、AI 代码 |
 | `constraint_media.md` | C25-C27 | A/V 管线、编解码、时钟漂移 |
 | `constraint_ota.md` | C9, C22, C24 | 密钥、OTA 安全、外设关闭 |
 | `constraint_recover.md` | C37-C41 | 背压、故障隔离、配置矩阵、复现、回归 |
@@ -65,8 +65,8 @@
 | C44 | 临界区预算 | 短临界区、禁重活 | rtos |
 | C45 | 传感器集成 | WHO_AM_I、data-ready | platform |
 | C46 | 蓝牙协议核对 | BLE 状态机、GATT、配对安全与 MTU | platform |
-| C47 | 工具层日志卫生 | MCP 输出、日志脱敏、凭据保护 | toolchain |
-| C48 | AI 生成代码审查 | 幻觉 API、错误处理、注释卫生 | review |
+| C47 | 工具层日志卫生 | MCP 输出、日志脱敏、凭据保护 | platform |
+| C48 | AI 生成代码审查 | 幻觉 API、错误处理、注释卫生 | platform |
 
 ## Checker Status Dashboard
 

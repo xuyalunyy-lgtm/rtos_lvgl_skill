@@ -290,11 +290,14 @@ python tools/project_doctor.py <project> --write-manifest
 python tools/project_doctor.py <project> --manifest <path>
 python tools/project_doctor.py <project> --verify-build
 python tools/project_doctor.py <project> --run-review
+python tools/project_doctor.py <project> --intent "审查这个 cJSON 模块" --budget compact --json
 ```
 
 `--run-review` 会将检测到的 Kconfig 配置文件传给 `run_review`；manifest 的
 `configuration.enabled` 列出已启用的 `CONFIG_*`，供 CI 和后续诊断复用。
 
-当前内置 ESP-IDF 与 Zephyr 解析器：ESP-IDF 从 `sdkconfig` 提取 `CONFIG_IDF_TARGET`，Zephyr 从 `build/zephyr/.config` 或项目配置提取 `CONFIG_BOARD`。因此同一 SDK 家族的新芯片通常无需更新工具；只有新增 SDK 家族时才需要增加解析器。
+内置五类解析器：ESP-IDF 从 `sdkconfig` 提取芯片；Zephyr 从 `.config`/`prj.conf` 提取板型；STM32 从 CubeMX `.ioc` 提取 MCU 与 Cube 版本；JL 从 SDK 目录、`app_config.h` 和 Makefile 目标提取芯片与构建入口；BK 从 Armino defconfig/项目 config 提取 SoC、启用项和构建入口。
 
-`--verify-build` 是显式副作用操作：ESP-IDF 执行 `idf.py build`；Zephyr 仅在已识别板型时执行 `west build -b <board> .`。构建产物会记录在输出的 `project_manifest` 中。
+`--intent` 将项目事实与自然语言路由合并，输出 workflow、自动推断的 `C#` 约束以及最小 `required_files`；平台或 RTOS 证据不足时返回 `needs_facts`，不会伪造加载计划。
+
+`--verify-build` 是显式副作用操作：仅执行已可靠推断的命令，包括 ESP-IDF、已识别板型的 Zephyr、Makefile/CMake STM32、唯一目标的 JL 或已识别 SoC 的 BK。构建产物会记录在输出的 `project_manifest` 中。

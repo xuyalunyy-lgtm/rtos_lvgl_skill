@@ -8,6 +8,7 @@ self-iteration loop. Use --self-test to prove the failure gates still work.
 from __future__ import annotations
 
 import argparse
+import re
 import subprocess
 import sys
 import tempfile
@@ -63,7 +64,6 @@ class RepoSnapshot:
     root: Path
     version: str | None
     head_version: str | None
-    lite_version: str | None
     changed_files: list[str]
     changelog_head: str
     iteration_head: str
@@ -102,17 +102,11 @@ def read_text(path: Path) -> str:
 
 
 def parse_version(text: str) -> str | None:
-    for line_no, line in enumerate(text.splitlines()):
-        if line.strip() == "metadata:":
-            for child in text.splitlines()[line_no + 1:]:
-                if child and not child.startswith((" ", "\t")):
-                    break
-                stripped = child.strip()
-                if stripped.startswith("version:"):
-                    return stripped.split(":", 1)[1].strip().strip("\"'")
-        if line.startswith("version:"):
-            return line.split(":", 1)[1].strip().strip("\"'")
-    return None
+    project = re.search(r"^\[project\]\s*$([\s\S]*?)(?=^\[|\Z)", text, re.MULTILINE)
+    if not project:
+        return None
+    match = re.search(r'^version\s*=\s*["\']([^"\']+)["\']', project.group(1), re.MULTILINE)
+    return match.group(1) if match else None
 
 
 def semver_tuple(version: str | None) -> tuple[int, int, int] | None:
@@ -155,9 +149,9 @@ def changed_files(root: Path) -> list[str]:
 
 
 def collect_snapshot(root: Path, max_log: int) -> RepoSnapshot:
-    skill_text = read_text(root / "SKILL.md")
-    lite_text = read_text(root / "freertos-skill-lite" / "SKILL.md")
-    head_skill_text = read_head_file(root, "SKILL.md")
+    project_text = read_text(root / "pyproject.toml")
+    head_project_text = read_head_file(root, "pyproject.toml")
+    version = parse_version(project_text)
 
     _rc, status = run_git(root, ["status", "--short"])
     _rc, stat = run_git(root, ["diff", "--stat", "HEAD", "--"])
@@ -165,9 +159,8 @@ def collect_snapshot(root: Path, max_log: int) -> RepoSnapshot:
 
     return RepoSnapshot(
         root=root,
-        version=parse_version(skill_text),
-        head_version=parse_version(head_skill_text),
-        lite_version=parse_version(lite_text),
+        version=version,
+        head_version=parse_version(head_project_text),
         changed_files=changed_files(root),
         changelog_head=read_text(root / "CHANGELOG.md")[:2000],
         iteration_head=read_text(root / "references" / "iteration_log.md")[:2600],
@@ -199,9 +192,6 @@ def should_scan_residue(path: str) -> bool:
 def evaluate(snapshot: RepoSnapshot) -> AuditResult:
     result = AuditResult()
     files = set(snapshot.changed_files)
-
-    if snapshot.version and snapshot.lite_version and snapshot.version != snapshot.lite_version:
-        result.failures.append(f"SKILL.md version {snapshot.version} != Lite version {snapshot.lite_version}")
 
     if snapshot.version:
         if snapshot.version not in snapshot.changelog_head:
@@ -249,8 +239,7 @@ def print_snapshot(snapshot: RepoSnapshot) -> None:
     print(
         "  version: "
         f"current={snapshot.version or '<missing>'}, "
-        f"HEAD={snapshot.head_version or '<missing>'}, "
-        f"lite={snapshot.lite_version or '<missing>'}"
+        f"HEAD={snapshot.head_version or '<missing>'}"
     )
     print(f"  changed files: {len(snapshot.changed_files)}")
     print(f"\n== recent commits ==\n{snapshot.log or '<empty>'}")
@@ -287,13 +276,17 @@ def write_skill(path: Path, version: str) -> None:
     path.write_text(
         "---\n"
         "name: freertos-embedded-architect\n"
-        "metadata:\n"
-        f"  version: {version}\n"
         "description: >-\n"
         "  Test skill. Use when auditing releases.\n"
         "---\n",
         encoding="utf-8",
     )
+    if path.parent.name != "freertos-skill-lite":
+        (path.parent / "pyproject.toml").write_text(
+            '[project]\nname = "freertos-embedded-architect"\n'
+            f'version = "{version}"\n',
+            encoding="utf-8",
+        )
 
 
 def write_release_docs(root: Path, version: str, *, refactor: bool = True, impact: bool = True) -> None:
@@ -333,14 +326,6 @@ def run_self_test() -> int:
         write_release_docs(root, "1.3.0")
 
     cases.append(("valid minor", valid_minor, ()))
-
-    def version_mismatch(root: Path) -> None:
-        init_fixture_repo(root, "1.2.3")
-        write_skill(root / "SKILL.md", "1.3.0")
-        write_skill(root / "freertos-skill-lite" / "SKILL.md", "1.2.3")
-        write_release_docs(root, "1.3.0")
-
-    cases.append(("version mismatch", version_mismatch, ("SKILL.md version",)))
 
     def major_missing_refactor(root: Path) -> None:
         init_fixture_repo(root, "1.2.3")

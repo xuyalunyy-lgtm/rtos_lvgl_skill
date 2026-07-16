@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Installed version sync check — compare repo skill against Codex install directory version.
+Installed version sync check — compare repository and installed package versions.
 
 Usage:
     python scripts/check_installed_skill_sync.py
@@ -19,22 +19,23 @@ ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_INSTALL_DIR = Path(os.environ.get("USERPROFILE", "")) / ".codex" / "skills" / "freertos-embedded-architect"
 
 
-def get_version(path: Path) -> str | None:
-    """Extract version number from SKILL.md."""
+def get_version(root: Path) -> str | None:
+    """Extract ``[project].version`` from pyproject.toml."""
+    path = root / "pyproject.toml"
     if not path.exists():
         return None
     text = path.read_text(encoding="utf-8")
-    m = re.search(r"^version:\s*(\S+)", text, re.MULTILINE)
-    if m:
-        return m.group(1)
-    m = re.search(r"metadata:\s*\n(?:[ \t]+[^\n]*\n)*?[ \t]+version:\s*(\S+)", text, re.MULTILINE)
-    return m.group(1) if m else None
+    project = re.search(r"^\[project\]\s*$([\s\S]*?)(?=^\[|\Z)", text, re.MULTILINE)
+    if not project:
+        return None
+    match = re.search(r'^version\s*=\s*["\']([^"\']+)["\']', project.group(1), re.MULTILINE)
+    return match.group(1) if match else None
 
 
 def check_sync(install_dir: Path, strict: bool = False) -> dict:
     """Check installed version against repo version sync status."""
-    repo_version = get_version(ROOT / "SKILL.md")
-    install_version = get_version(install_dir / "SKILL.md")
+    repo_version = get_version(ROOT)
+    install_version = get_version(install_dir)
 
     result = {
         "repo_version": repo_version,
@@ -56,7 +57,7 @@ def check_sync(install_dir: Path, strict: bool = False) -> dict:
 
     if not install_version:
         result["passed"] = False
-        result["issues"].append(f"Installed SKILL.md missing version number")
+        result["issues"].append("Installed pyproject.toml missing [project].version")
         return result
 
     if repo_version and install_version != repo_version:
@@ -92,10 +93,10 @@ def run_self_test() -> int:
     # 3. Version match
     with tempfile.TemporaryDirectory() as tmp:
         tmp = Path(tmp)
-        skill_content = "---\nmetadata:\n  version: 1.0.0\n---\n# Test\n"
-        (tmp / "SKILL.md").write_text(skill_content, encoding="utf-8")
+        (tmp / "pyproject.toml").write_text(
+            '[project]\nname = "fixture"\nversion = "1.0.0"\n', encoding="utf-8"
+        )
         r = check_sync(tmp, strict=True)
-        # repo version is 21.0.8, install is 1.0.0 → mismatch
         assert r["passed"] is False
         assert any("mismatch" in i for i in r["issues"])
         print("[PASS] version mismatch → fail")

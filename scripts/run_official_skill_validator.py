@@ -7,8 +7,9 @@ to the repository's custom validator if the official one is unavailable.
 Lookup order:
 1. Environment variable OFFICIAL_SKILL_VALIDATOR
 2. $CODEX_HOME/skills/.system/skill-creator/scripts/quick_validate.py
-3. third_party/openai-skill-validator/quick_validate.py (vendored)
-4. Fallback: custom check_skill_metadata.py
+3. ~/.codex/skills/.system/skill-creator/scripts/quick_validate.py
+4. third_party/openai-skill-validator/quick_validate.py (vendored)
+5. Fallback: custom check_skill_metadata.py
 
 Usage:
     python scripts/run_official_skill_validator.py .
@@ -39,12 +40,17 @@ def _find_validator() -> tuple[str | None, str]:
         if candidate.is_file():
             return str(candidate), "codex_home"
 
-    # 3. Vendored copy
+    # 3. Default Codex home when CODEX_HOME is unset
+    candidate = Path.home() / ".codex" / "skills" / ".system" / "skill-creator" / "scripts" / "quick_validate.py"
+    if candidate.is_file():
+        return str(candidate), "default_codex_home"
+
+    # 4. Vendored copy
     vendored = ROOT / "third_party" / "openai-skill-validator" / "quick_validate.py"
     if vendored.is_file():
         return str(vendored), "vendored"
 
-    # 4. Fallback to custom
+    # 5. Fallback to custom
     custom = ROOT / "scripts" / "check_skill_metadata.py"
     if custom.is_file():
         return str(custom), "custom_fallback"

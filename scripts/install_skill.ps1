@@ -43,12 +43,11 @@ foreach ($f in $RootOnlyExcludeFiles) {
     Remove-Item -Force -ErrorAction SilentlyContinue (Join-Path $Dest $f)
 }
 
-$skillText = [System.IO.File]::ReadAllText((Join-Path $Dest "SKILL.md"), [System.Text.UTF8Encoding]::new($false))
-if ($skillText -match '(?m)^version:\s*([^\s#]+)') {
-    $ver = $Matches[1].Trim()
-} elseif ($skillText -match '(?ms)^metadata:\s*\r?\n(?:[ \t]+[^\r\n]*\r?\n)*?[ \t]+version:\s*([^\s#]+)') {
-    $ver = $Matches[1].Trim()
-} else {
+$projectText = [System.IO.File]::ReadAllText((Join-Path $Dest "pyproject.toml"), [System.Text.UTF8Encoding]::new($false))
+if ($projectText -match '(?m)^version\s*=\s*"([^"]+)"') {
+    $ver = $Matches[1]
+}
+else {
     $ver = "unknown"
 }
 

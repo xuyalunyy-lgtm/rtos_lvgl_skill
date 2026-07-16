@@ -38,11 +38,12 @@ outputs:
 
 ## Step 1 — 总纲与平台
 
+- 先运行 `python tools/project_doctor.py <project_dir> --intent "工程审查" --budget standard --json`，复用其平台、RTOS、SDK、配置文件、构建命令与加载计划；检测不确定时再人工核实。
 - [core_rules.md](../references/core_rules.md)
 - [constraint_index.md](../references/constraint_index.md)（含 **C9、C10**）
 - **用户指定或检测到的** [platforms/esp32.md](../platforms/esp32.md) | [jl](../platforms/jl.md) | [bk](../platforms/bk.md) | [stm32](../platforms/stm32.md)
 
-平台检测线索：`idf.py` / `sdkconfig` → ESP32；`make ac791n_*` / `task_info_table` → JL；`make bk7258` / `ap/`+`cp/` → BK；CubeMX/`Core/` → STM32。
+内置解析器覆盖：`idf.py` / `sdkconfig` → ESP32；`make ac791n_*` / `task_info_table` → JL；`make bk7258` / `ap/`+`cp/` → BK；CubeMX `.ioc` / `Core/` → STM32；`west.yml` / `prj.conf` → Zephyr。
 
 ## Step 2 — 仓库卫生（C9，优先）
 

@@ -58,7 +58,7 @@ EOF
 
 | Field | Description |
 |------|------|
-| Version | Consistent with `SKILL.md` frontmatter `metadata.version` |
+| Version | Consistent with `pyproject.toml` `[project].version` |
 | Separator | Em dash `—` |
 | patch | Text/minor fixes may use `docs:` / `fix:` + short description |
 

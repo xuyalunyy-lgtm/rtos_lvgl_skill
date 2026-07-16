@@ -58,6 +58,92 @@ class ProjectDoctorTests(unittest.TestCase):
         self.assertEqual(report["project_manifest"]["platform"]["board"], "nrf52840dk_nrf52840")
         self.assertEqual(report["project_manifest"]["build"]["command"], ["west", "build", "-b", "nrf52840dk_nrf52840", "."])
 
+    def test_detects_stm32_cubemx_project(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "Core" / "Src").mkdir(parents=True)
+            (root / "Core" / "Inc").mkdir(parents=True)
+            (root / "Debug").mkdir()
+            (root / "board.ioc").write_text(
+                "Mcu.Name=STM32H743ZITx\nProjectManager.ProjectName=display_node\nMxCube.Version=6.12.1\n",
+                encoding="utf-8",
+            )
+            (root / "Makefile").write_text("all:\n\t@echo build\n", encoding="utf-8")
+            (root / "Core" / "Inc" / "FreeRTOSConfig.h").write_text("#define configUSE_PREEMPTION 1\n", encoding="utf-8")
+            (root / "Core" / "Src" / "main.c").write_text('#include "stm32h7xx_hal.h"\n', encoding="utf-8")
+            (root / "Debug" / "display_node.axf").write_bytes(b"AXF")
+            (root / "Debug" / "display_node.map").write_text("map", encoding="utf-8")
+            report = project_doctor.inspect_project(root)
+        manifest = report["project_manifest"]
+        self.assertEqual(report["primary_platform"], "stm32")
+        self.assertEqual(manifest["platform"]["chip"], "stm32h743zitx")
+        self.assertEqual(manifest["platform"]["board"], "display_node")
+        self.assertEqual(manifest["sdk"]["version"], "6.12.1")
+        self.assertEqual(manifest["build"]["command"], ["make", "-j"])
+        self.assertEqual(manifest["build"]["artifacts"]["elf"], ["Debug/display_node.axf"])
+
+    def test_detects_jieli_sdk_and_unique_target(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "apps" / "common" / "system").mkdir(parents=True)
+            (root / "apps" / "demo" / "demo_wifi" / "include").mkdir(parents=True)
+            (root / "cpu" / "wl82" / "tools").mkdir(parents=True)
+            (root / "Makefile").write_text("ac791n_demo_wifi:\n\t@echo build\n", encoding="utf-8")
+            (root / "apps" / "common" / "system" / "version.c").write_text(
+                'const char *sdk_version(void) { return "AC79NN_SDK_V1.2.13"; }\n', encoding="utf-8"
+            )
+            (root / "apps" / "demo" / "demo_wifi" / "include" / "app_config.h").write_text(
+                "#define CONFIG_WIFI_ENABLE 1\n", encoding="utf-8"
+            )
+            (root / "apps" / "demo" / "demo_wifi" / "main.c").write_text("void thread_fork(void);\n", encoding="utf-8")
+            (root / "cpu" / "wl82" / "tools" / "sdk.elf").write_bytes(b"ELF")
+            (root / "cpu" / "wl82" / "tools" / "jl_isd.fw").write_bytes(b"FW")
+            report = project_doctor.inspect_project(root)
+        manifest = report["project_manifest"]
+        self.assertEqual(report["primary_platform"], "jl")
+        self.assertEqual(manifest["platform"]["chip"], "wl82")
+        self.assertEqual(manifest["sdk"]["version"], "AC79NN_SDK_V1.2.13")
+        self.assertEqual(manifest["build"]["command"], ["make", "ac791n_demo_wifi"])
+        self.assertEqual(manifest["build"]["artifacts"]["firmware"], ["cpu/wl82/tools/jl_isd.fw"])
+
+    def test_detects_bk_armino_soc_and_build(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "middleware" / "soc" / "bk7258").mkdir(parents=True)
+            (root / "projects" / "app" / "config" / "bk7258").mkdir(parents=True)
+            (root / "projects" / "app" / "main").mkdir(parents=True)
+            (root / "Makefile").write_text("all:\n\t@echo armino\n", encoding="utf-8")
+            (root / "middleware" / "soc" / "bk7258" / "bk7258.defconfig").write_text(
+                "CONFIG_FREERTOS=y\n", encoding="utf-8"
+            )
+            (root / "projects" / "app" / "config" / "bk7258" / "config").write_text(
+                "CONFIG_LVGL=y\n", encoding="utf-8"
+            )
+            (root / "projects" / "app" / "main" / "app_main.c").write_text("void bk_init(void);\n", encoding="utf-8")
+            report = project_doctor.inspect_project(root)
+        manifest = report["project_manifest"]
+        self.assertEqual(report["primary_platform"], "bk")
+        self.assertEqual(manifest["platform"]["chip"], "bk7258")
+        self.assertEqual(manifest["sdk"]["name"], "armino-idk")
+        self.assertEqual(manifest["build"]["command"], ["make", "bk7258"])
+        self.assertIn("CONFIG_LVGL", manifest["configuration"]["enabled"])
+
+    def test_plans_task_from_project_facts_and_intent(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "main").mkdir()
+            (root / "sdkconfig").write_text('CONFIG_IDF_TARGET="esp32s3"\n', encoding="utf-8")
+            (root / "CMakeLists.txt").write_text("idf_component_register(SRCS main.c)\n", encoding="utf-8")
+            (root / "main" / "main.c").write_text('#include "freertos/FreeRTOS.h"\n', encoding="utf-8")
+            report = project_doctor.inspect_project(root)
+            task_plan = project_doctor.plan_task(report, "审查这个 cJSON 模块", "compact")
+        self.assertEqual(task_plan["status"], "ready")
+        self.assertEqual(task_plan["classification"]["workflow"], "code_review")
+        self.assertEqual(task_plan["detected_facts"], {"platform": "esp32", "rtos": "freertos"})
+        required = {item["path"] for item in task_plan["load_plan"]["required_files"]}
+        self.assertIn("workflows/l2_code_review.md", required)
+        self.assertIn("references/micro_C03.md", required)
+
     def test_writes_manifest_only_when_explicitly_requested(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

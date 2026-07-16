@@ -29,18 +29,18 @@ PLATFORM_MARKERS = {
     "esp32": ("idf_component_register", "esp-idf", "idf.py", "sdkconfig", "esp_log"),
     "zephyr": ("zephyr", "west.yml", "prj.conf", "zephyr_library", "k_thread_"),
     "stm32": ("stm32cube", ".ioc", "stm32_hal", "hal_gpio"),
-    "jl": ("jieli", "ac79", "ac792", "thread_fork"),
+    "jl": ("jieli", "ac79", "ac791", "ac792", "wl82", "thread_fork", "include_lib"),
     "bk": ("bk_idk", "bk725", "bk_"),
 }
 FRAMEWORK_MARKERS = {
     "freertos": ("freertos.h", "freertosconfig.h", "xtaskcreate", "xqueuesend"),
-    "zephyr": ("zephyr", "k_thread_", "kconfig"),
+    "zephyr": ("zephyr", "k_thread_", "prj.conf", "west.yml", "<zephyr/"),
     "lvgl": ("lvgl.h", "lv_obj_", "lv_init("),
     "lwip": ("lwip/", "tcpip_init", "lwip_"),
     "mbedtls": ("mbedtls/", "mbedtls_ssl_"),
     "littlefs": ("littlefs.h", "lfs_mount"),
 }
-ARTIFACT_SUFFIXES = {".elf", ".map", ".bin", ".hex", ".uf2"}
+ARTIFACT_SUFFIXES = {".elf", ".axf", ".map", ".bin", ".hex", ".uf2", ".fw", ".ufw"}
 
 
 def _relative(root: Path, path: Path) -> str:
@@ -102,22 +102,55 @@ def _enabled_configs(config: dict[str, str]) -> list[str]:
 
 
 def _find_artifacts(root: Path) -> dict[str, list[str]]:
-    build = root / "build"
+    candidates = [
+        root / "build",
+        root / "Debug",
+        root / "Release",
+        root / "cpu" / "wl82" / "tools",
+    ]
     artifacts = {"elf": [], "map": [], "firmware": []}
-    if not build.is_dir():
-        return artifacts
-    for path in build.rglob("*"):
-        if not path.is_file() or path.suffix.lower() not in ARTIFACT_SUFFIXES:
+    seen: set[Path] = set()
+    for directory in candidates:
+        if not directory.is_dir():
             continue
-        relative = _relative(root, path)
-        suffix = path.suffix.lower()
-        if suffix == ".elf":
-            artifacts["elf"].append(relative)
-        elif suffix == ".map":
-            artifacts["map"].append(relative)
-        else:
-            artifacts["firmware"].append(relative)
-    return {name: sorted(paths) for name, paths in artifacts.items()}
+        for path in directory.rglob("*"):
+            if path in seen or not path.is_file() or path.suffix.lower() not in ARTIFACT_SUFFIXES:
+                continue
+            seen.add(path)
+            relative = _relative(root, path)
+            suffix = path.suffix.lower()
+            if suffix in {".elf", ".axf"}:
+                artifacts["elf"].append(relative)
+            elif suffix == ".map":
+                artifacts["map"].append(relative)
+            else:
+                artifacts["firmware"].append(relative)
+    return {name: sorted(set(paths)) for name, paths in artifacts.items()}
+
+
+def _read_key_value_file(path: Path) -> dict[str, str]:
+    values: dict[str, str] = {}
+    try:
+        lines = path.read_text(encoding="utf-8", errors="ignore").splitlines()
+    except OSError:
+        return values
+    for line in lines:
+        if "=" not in line or line.lstrip().startswith(("#", ";")):
+            continue
+        key, value = line.split("=", 1)
+        values[key.strip()] = value.strip().strip('"')
+    return values
+
+
+def _paths_without_skips(root: Path, pattern: str, limit: int = 16) -> list[Path]:
+    return sorted(
+        (
+            path
+            for path in root.rglob(pattern)
+            if path.is_file() and not any(part in SKIP_DIRS for part in path.relative_to(root).parts)
+        ),
+        key=lambda path: path.as_posix(),
+    )[:limit]
 
 
 def _parse_esp_idf(root: Path) -> dict[str, Any]:
@@ -201,6 +234,175 @@ def _parse_zephyr(root: Path) -> dict[str, Any]:
     }
 
 
+def _parse_stm32(root: Path) -> dict[str, Any]:
+    ioc_paths = _paths_without_skips(root, "*.ioc", 4)
+    ioc = _read_key_value_file(ioc_paths[0]) if ioc_paths else {}
+    chip = ioc.get("Mcu.Name") or ioc.get("Mcu.CPN") or ioc.get("Mcu.Device")
+    board = ioc.get("ProjectManager.ProjectName")
+    version = ioc.get("MxCube.Version") or ioc.get("ProjectManager.CubeMXVersion")
+
+    config_paths = [*ioc_paths]
+    config_paths.extend(_paths_without_skips(root, "FreeRTOSConfig.h", 6))
+    config_paths.extend(_paths_without_skips(root, "stm32*_hal_conf.h", 6))
+    config_paths = sorted(set(config_paths), key=lambda path: path.as_posix())
+
+    command: list[str] | None = None
+    system: str | None = None
+    if (root / "build" / "CMakeCache.txt").is_file():
+        system, command = "cmake", ["cmake", "--build", "build"]
+    elif (root / "Makefile").is_file():
+        system, command = "make", ["make", "-j"]
+    elif list(root.glob("*.uvprojx")):
+        system = "keil"
+    elif list(root.glob("*.ewp")):
+        system = "iar"
+    elif (root / ".project").is_file():
+        system = "stm32cubeide"
+    elif (root / "CMakeLists.txt").is_file():
+        system = "cmake"
+
+    return {
+        "family": "stm32",
+        "chip": chip.lower() if chip else None,
+        "board": board,
+        "sdk": {
+            "name": "stm32cube",
+            "version": version,
+            "evidence": [_relative(root, path) for path in ioc_paths],
+        },
+        "configuration": {
+            "files": [_relative(root, path) for path in config_paths],
+            "selected": {
+                key: value
+                for key, value in {
+                    "Mcu.Name": chip,
+                    "ProjectManager.ProjectName": board,
+                }.items()
+                if value
+            },
+            "enabled": [],
+        },
+        "build": {
+            "system": system,
+            "command": command,
+            "working_directory": ".",
+            "artifacts": _find_artifacts(root),
+            "verification": {"status": "not_run", "level": "project_inspected"},
+        },
+    }
+
+
+def _parse_jl(root: Path) -> dict[str, Any]:
+    config_paths = _paths_without_skips(root, "app_config.h", 12)
+    candidate_text = " ".join(path.as_posix().lower() for path in _files(root)[:400])
+    chip_matches = re.findall(r"\b(ac(?:63|69|79)\d*[a-z]*|wl\d+)\b", candidate_text)
+    chip = chip_matches[0] if chip_matches else None
+
+    version: str | None = None
+    version_evidence: list[str] = []
+    version_path = root / "apps" / "common" / "system" / "version.c"
+    if version_path.is_file():
+        body = version_path.read_text(encoding="utf-8", errors="ignore")
+        match = re.search(r"(?:AC|WL)[A-Za-z0-9_.-]*SDK[A-Za-z0-9_.-]*", body, re.IGNORECASE)
+        if match:
+            version = match.group(0)
+        version_evidence.append(_relative(root, version_path))
+
+    command: list[str] | None = None
+    makefile = root / "Makefile"
+    if makefile.is_file():
+        if not (root / "apps").is_dir():
+            command = ["make"]
+        else:
+            body = makefile.read_text(encoding="utf-8", errors="ignore")
+            targets = sorted(set(re.findall(r"^(ac[0-9a-z_\-]+)\s*:", body, re.MULTILINE | re.IGNORECASE)))
+            if len(targets) == 1:
+                command = ["make", targets[0]]
+
+    return {
+        "family": "jl",
+        "chip": chip,
+        "board": None,
+        "sdk": {"name": "jieli-sdk", "version": version, "evidence": version_evidence},
+        "configuration": {
+            "files": [_relative(root, path) for path in config_paths],
+            "selected": {"target": chip} if chip else {},
+            "enabled": [],
+        },
+        "build": {
+            "system": "jieli-make" if makefile.is_file() else None,
+            "command": command,
+            "working_directory": ".",
+            "artifacts": _find_artifacts(root),
+            "verification": {"status": "not_run", "level": "project_inspected"},
+        },
+    }
+
+
+def _parse_bk(root: Path) -> dict[str, Any]:
+    project_configs = sorted(
+        (
+            path
+            for path in root.rglob("config")
+            if path.is_file()
+            and "projects" in path.relative_to(root).parts
+            and "config" in path.relative_to(root).parts
+            and not any(part in SKIP_DIRS for part in path.relative_to(root).parts)
+        ),
+        key=lambda path: path.as_posix(),
+    )[:20]
+    defconfigs = _paths_without_skips(root, "*.defconfig", 20)
+    config_paths = sorted(set([*project_configs, *defconfigs]), key=lambda path: path.as_posix())
+
+    soc_candidates: list[str] = []
+    for path in [*project_configs, *defconfigs]:
+        for part in reversed(path.relative_to(root).parts):
+            if re.fullmatch(r"bk\d+[a-z0-9_]*", part.lower()):
+                soc_candidates.append(part.lower())
+                break
+        if path.name.lower().endswith(".defconfig"):
+            stem = path.name.removesuffix(".defconfig").lower()
+            if re.fullmatch(r"bk\d+[a-z0-9_]*", stem):
+                soc_candidates.append(stem)
+    unique_socs = sorted(set(soc_candidates))
+    soc = unique_socs[0] if len(unique_socs) == 1 else ("bk7258" if "bk7258" in unique_socs else None)
+
+    names = {path.name.lower() for path in root.iterdir()}
+    is_avdk = (root / "ap").is_dir() or (root / "cp").is_dir() or "avdk" in root.name.lower()
+    sdk_name = "bk-avdk" if is_avdk else "armino-idk"
+    makefile = root / "Makefile"
+    command = ["make", soc] if makefile.is_file() and soc else None
+
+    return {
+        "family": "bk",
+        "chip": soc,
+        "board": None,
+        "sdk": {
+            "name": sdk_name,
+            "version": None,
+            "evidence": [name for name in ("README.md", "README_CN.md") if name.lower() in names],
+        },
+        "configuration": {
+            "files": [_relative(root, path) for path in config_paths],
+            "selected": {"soc": soc} if soc else {},
+            "enabled": sorted(
+                {
+                    key
+                    for path in config_paths
+                    for key in _enabled_configs(_parse_config(path))
+                }
+            ),
+        },
+        "build": {
+            "system": "armino" if makefile.is_file() else None,
+            "command": command,
+            "working_directory": ".",
+            "artifacts": _find_artifacts(root),
+            "verification": {"status": "not_run", "level": "project_inspected"},
+        },
+    }
+
+
 def _generic_manifest(root: Path, primary: str | None, build_systems: list[str]) -> dict[str, Any]:
     cached_build = (root / "build" / "CMakeCache.txt").is_file()
     return {
@@ -224,6 +426,12 @@ def _project_manifest(root: Path, primary: str | None, build_systems: list[str],
         detected = _parse_esp_idf(root)
     elif primary == "zephyr":
         detected = _parse_zephyr(root)
+    elif primary == "stm32":
+        detected = _parse_stm32(root)
+    elif primary == "jl":
+        detected = _parse_jl(root)
+    elif primary == "bk":
+        detected = _parse_bk(root)
     else:
         detected = _generic_manifest(root, primary, build_systems)
     return {
@@ -262,6 +470,9 @@ def inspect_project(root: Path) -> dict[str, Any]:
         build_systems.append("west")
     source_count = sum(1 for path in files if path.suffix.lower() in {".c", ".h", ".cpp", ".hpp"})
     manifest = _project_manifest(root, primary, build_systems, source_count, frameworks)
+    detected_build_system = manifest["build"]["system"]
+    if detected_build_system and detected_build_system not in build_systems:
+        build_systems.insert(0, detected_build_system)
 
     findings: list[dict[str, str]] = []
     if not source_count:
@@ -274,6 +485,10 @@ def inspect_project(root: Path) -> dict[str, Any]:
         findings.append({"severity": "warning", "code": "BUILD_SYSTEM_UNDETECTED", "message": "No CMake, Make, PlatformIO, or West build marker was found."})
     if primary == "zephyr" and not manifest["platform"]["board"]:
         findings.append({"severity": "warning", "code": "ZEPHYR_BOARD_UNDETECTED", "message": "No Zephyr board was found in local configuration; set CONFIG_BOARD or supply a board before building."})
+    if primary in {"jl", "bk"} and not manifest["build"]["command"]:
+        findings.append({"severity": "warning", "code": "BUILD_TARGET_REQUIRED", "message": f"Detected {primary} SDK markers, but no unique build target could be inferred safely."})
+    if primary == "stm32" and manifest["build"]["system"] in {"keil", "iar", "stm32cubeide"}:
+        findings.append({"severity": "info", "code": "IDE_BUILD_DETECTED", "message": f"Detected {manifest['build']['system']} project metadata; no portable command-line build was assumed."})
 
     recommendations = [{"command": f'python tools/project_doctor.py "{root}" --run-review', "reason": "Run the registered static review pipeline after confirming the detected platform."}]
     if primary:
@@ -297,6 +512,64 @@ def inspect_project(root: Path) -> dict[str, Any]:
         "recommendations": recommendations,
         "project_manifest": manifest,
     }
+
+
+def plan_task(report: dict[str, Any], intent: str, budget: str = "standard") -> dict[str, Any]:
+    """Classify a task and build a minimal skill load plan from inspected facts."""
+    from context_router import PLATFORM_DOCS, build_load_plan, classify_request
+
+    classification = classify_request(intent)
+    plan: dict[str, Any] = {
+        "intent": intent,
+        "budget": budget,
+        "classification": classification,
+    }
+    if classification.get("clarification_required"):
+        plan.update({
+            "status": "needs_clarification",
+            "missing_facts": ["primary_deliverable"],
+        })
+        return plan
+
+    candidates = [
+        item["name"]
+        for item in report.get("platforms", [])
+        if item["name"] in PLATFORM_DOCS
+    ]
+    platform = report.get("primary_platform")
+    if platform not in PLATFORM_DOCS:
+        platform = candidates[0] if candidates else None
+
+    frameworks = {item["name"] for item in report.get("frameworks", [])}
+    if "zephyr" in frameworks:
+        rtos = "zephyr"
+    elif "freertos" in frameworks or platform in {"esp32", "jl", "bk"}:
+        rtos = "freertos"
+    else:
+        rtos = None
+
+    missing_facts = []
+    if not platform:
+        missing_facts.append("hardware_platform")
+    if not rtos:
+        missing_facts.append("rtos")
+    plan["detected_facts"] = {"platform": platform, "rtos": rtos}
+    if missing_facts:
+        plan.update({"status": "needs_facts", "missing_facts": missing_facts})
+        return plan
+
+    load_plan = build_load_plan(
+        classification["workflow"],
+        platform,
+        rtos,
+        constraints=classification.get("inferred_constraints", []),
+        budget=budget,
+    )
+    if "error" in load_plan:
+        plan.update({"status": "planning_failed", "error": load_plan["error"]})
+    else:
+        plan.update({"status": "ready", "load_plan": load_plan})
+    return plan
 
 
 def write_manifest(report: dict[str, Any], path: Path) -> Path:
@@ -374,6 +647,21 @@ def _print_human(report: dict[str, Any]) -> None:
     print("Recommended next commands:")
     for item in report["recommendations"]:
         print(f"  {item['command']}\n    {item['reason']}")
+    task_plan = report.get("task_plan")
+    if task_plan:
+        classification = task_plan["classification"]
+        print(f"Task planning: {task_plan['status']}")
+        if classification.get("workflow"):
+            print(f"  Workflow: {classification['workflow']}")
+        if task_plan.get("detected_facts"):
+            facts = task_plan["detected_facts"]
+            print(f"  Platform / RTOS: {facts.get('platform') or 'undetermined'} / {facts.get('rtos') or 'undetermined'}")
+        if task_plan.get("missing_facts"):
+            print(f"  Missing facts: {', '.join(task_plan['missing_facts'])}")
+        if task_plan.get("load_plan"):
+            print("  Required skill files:")
+            for item in task_plan["load_plan"].get("required_files", []):
+                print(f"    - {item['path']}")
 
 
 def run_self_test() -> int:
@@ -406,6 +694,8 @@ def main() -> int:
     parser.add_argument("--verify-build", action="store_true", help="Execute the inferred build command (explicit opt-in)")
     parser.add_argument("--build-timeout", type=int, default=600, help="Maximum seconds for --verify-build (default: 600)")
     parser.add_argument("--strict", action="store_true", help="Return non-zero when warnings are present")
+    parser.add_argument("--intent", help="Classify this task and emit a minimal skill load plan using detected project facts")
+    parser.add_argument("--budget", choices=["compact", "standard", "full"], default="standard", help="Load-plan budget used with --intent")
     parser.add_argument("--self-test", action="store_true")
     args = parser.parse_args()
     if args.self_test:
@@ -417,6 +707,8 @@ def main() -> int:
     except FileNotFoundError as exc:
         print(str(exc), file=sys.stderr)
         return 2
+    if args.intent:
+        report["task_plan"] = plan_task(report, args.intent, args.budget)
     build_exit = 0
     if args.run_review:
         report["review"] = _run_review(

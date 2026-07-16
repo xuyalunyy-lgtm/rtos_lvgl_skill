@@ -24,7 +24,7 @@ ROOT = Path(__file__).resolve().parent.parent
 
 CROSS_DOMAIN_AMBIGUITY_THRESHOLD = 0.5  # Tuned on 60-sample dev set; see tests/fixtures/routing_sampling.json
 
-# ── 请求分类关键词表（与 SKILL.md 路由表对齐）──
+# ── 请求分类特征（SKILL.md 使用语义路由；本表提供确定性 CLI 分类）──
 
 ROUTE_KEYWORDS: dict[str, dict] = {
     "crash_debug": {
@@ -105,11 +105,77 @@ ROUTE_KEYWORDS: dict[str, dict] = {
 }
 
 
+CONSTRAINT_KEYWORDS: dict[str, tuple[str, ...]] = {
+    "C1": ("lvgl", "ui thread", "跨线程", "界面线程"),
+    "C2": ("queue ownership", "queue payload", "队列所有权", "栈指针入队"),
+    "C3": ("cjson", "json leak", "json 泄漏"),
+    "C4": ("isr", "interrupt", "中断", "dma callback"),
+    "C6": ("sdk trim", "component pruning", "sdk 裁剪", "组件裁剪"),
+    "C7": ("heap", "stack overflow", "内存泄漏", "堆栈", "memory pool"),
+    "C8": ("watchdog", "wdt", "看门狗", "boot sequence", "启动顺序"),
+    "C9": ("secret", "credential", "api key", "密钥", "凭证"),
+    "C10": ("asr", "aec", "uplink", "语音上行", "唤醒词"),
+    "C12": ("unchecked return", "null dereference", "返回值", "空指针"),
+    "C14": ("logging", "日志", "printf"),
+    "C15": ("task priority", "priority inversion", "任务优先级", "优先级反转"),
+    "C17": ("multicore", "multi-core", "跨核", "mailbox ipc"),
+    "C18": ("peripheral driver", "gpio", "i2c", "spi", "外设驱动"),
+    "C19": ("nvs", "flash write", "flash 写", "磨损均衡"),
+    "C20": ("reconnect", "wss", "network resilience", "断线重连", "网络恢复"),
+    "C21": ("low power", "deep sleep", "低功耗", "深睡眠"),
+    "C22": ("ota", "rollback", "升级回滚", "固件签名"),
+    "C23": ("lcd", "display driver", "显示驱动", "花屏"),
+    "C24": ("shutdown", "deinit", "外设关闭", "停止流程"),
+    "C25": ("a/v sync", "av sync", "lip-sync", "音视频同步", "camera pipeline"),
+    "C26": ("codec", "sample rate", "rgb565", "编解码", "采样率"),
+    "C27": ("jitter", "clock drift", "pts", "时钟漂移", "抖动缓冲"),
+    "C28": ("dma cache", "zero-copy", "cache invalidate", "零拷贝", "缓存一致性"),
+    "C29": ("module contract", "module boundary", "模块契约", "模块边界"),
+    "C30": ("task topology", "任务拓扑", "producer consumer", "生产者消费者"),
+    "C31": ("timeout", "portmax_delay", "wait forever", "超时预算", "永久等待"),
+    "C32": ("observability", "telemetry", "可观测性", "运行指标"),
+    "C33": ("lifecycle", "init/deinit", "生命周期", "重复启停"),
+    "C34": ("hot path", "hotpath", "热路径", "callback latency"),
+    "C35": ("critical path", "关键路径", "stage budget", "阶段预算"),
+    "C36": ("copy budget", "memcpy", "拷贝预算", "data movement"),
+    "C37": ("backpressure", "queue full", "背压", "队列满"),
+    "C38": ("fault isolation", "supervisor", "故障隔离", "自动恢复"),
+    "C39": ("config matrix", "kconfig", "配置矩阵", "feature matrix"),
+    "C40": ("reproduce", "reproduction", "一键复现", "复现命令"),
+    "C41": ("regression", "回归样本", "golden sample"),
+    "C42": ("board resource", "pin mux", "板级资源", "引脚冲突"),
+    "C43": ("lock budget", "deadlock", "锁预算", "死锁"),
+    "C44": ("critical section", "irq off", "临界区", "关中断"),
+    "C45": ("sensor", "who_am_i", "传感器", "data ready"),
+    "C46": ("ble", "gatt", "bluetooth", "蓝牙协议"),
+    "C47": ("tool log", "mcp log", "工具日志", "日志卫生"),
+    "C48": ("ai generated", "generated code", "ai 生成代码", "幻觉 api"),
+}
+
+
+def infer_constraints(text: str) -> list[str]:
+    """Infer relevant constraint IDs from explicit IDs and domain terms."""
+    lowered = text.lower()
+    inferred = {
+        match.upper()
+        for match in re.findall(r"\bC(?:[1-9]|[1-3][0-9]|4[0-8])\b", text, re.IGNORECASE)
+    }
+    def matches(keyword: str) -> bool:
+        if keyword.isascii() and re.fullmatch(r"[a-z0-9_.-]+", keyword):
+            return bool(re.search(rf"(?<![a-z0-9_]){re.escape(keyword)}(?![a-z0-9_])", lowered))
+        return keyword in lowered
+
+    for constraint, keywords in CONSTRAINT_KEYWORDS.items():
+        if any(matches(keyword) for keyword in keywords):
+            inferred.add(constraint)
+    return sorted(inferred, key=lambda item: int(item[1:]))
+
+
 def classify_request(text: str, cross_domain_threshold: float | None = None) -> dict:
     """Classify a natural language request into domain + workflow.
 
     Args:
-        text: the user's first message or request description
+        text: the user's current request or task description
         cross_domain_threshold: override for cross-domain ambiguity threshold
             (default: CROSS_DOMAIN_AMBIGUITY_THRESHOLD)
 
@@ -221,6 +287,7 @@ def classify_request(text: str, cross_domain_threshold: float | None = None) -> 
         "domain": ROUTE_KEYWORDS[best_wf]["domain"],
         "workflow": best_wf,
         "routing_reason": f"Matched keywords: {', '.join(matched_kw[best_wf])}",
+        "inferred_constraints": infer_constraints(text),
     }
 
 
@@ -724,6 +791,7 @@ CONSTRAINT_TO_SHARD = {
     "C40": "recover", "C41": "recover",
     "C10": "voice", "C11": "review", "C12": "review", "C13": "review",
     "C14": "review", "C16": "review",
+    "C47": "platform", "C48": "platform",
 }
 
 # ── 微分片映射 ──
@@ -1147,6 +1215,9 @@ def run_self_test() -> int:
 
     plan_c3 = build_load_plan("code_review", "esp32", "freertos", ["C3"])
     check("C3 adds micro-shard", any("micro_C03" in f["path"] for f in plan_c3["required_files"]))
+    plan_c48 = build_load_plan("code_review", "esp32", "freertos", ["C48"])
+    check("C48 loads its rule shard", any("constraint_platform" in f["path"] for f in plan_c48["required_files"]))
+    check("C48 is not uncovered", "C48" not in plan_c48.get("uncovered_constraints", []))
 
     plan_c46 = build_load_plan("code_review", "esp32", "freertos", ["C46"])
     check("C46 maps to bluetooth shard", any("constraint_bluetooth" in f["path"] for f in plan_c46["required_files"]))
@@ -1289,6 +1360,19 @@ def run_self_test() -> int:
             check(f"classify: '{request[:30]}...' → clarification", is_clar)
         else:
             check(f"classify: '{request[:30]}...' → {expected_wf}", actual_wf == expected_wf and not is_clar)
+
+    CONSTRAINT_INFERENCE_CASES = [
+        ("审查 cJSON 泄漏", {"C3"}),
+        ("DMA cache stale after zero-copy", {"C28"}),
+        ("BLE GATT pairing review", {"C46"}),
+        ("Check C43 and C44 budgets", {"C43", "C44"}),
+        ("ESP-IDF sdkconfig review", set()),
+    ]
+    for request, expected in CONSTRAINT_INFERENCE_CASES:
+        actual = set(infer_constraints(request))
+        check(f"infer constraints: '{request[:30]}...' contains {sorted(expected)}", expected.issubset(actual))
+        if not expected:
+            check(f"infer constraints: '{request[:30]}...' avoids sdkconfig/kconfig false positive", "C39" not in actual)
 
     print(f"\nSelf-test: {passed} passed, {failed} failed")
     return 0 if failed == 0 else 1

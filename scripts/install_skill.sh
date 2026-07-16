@@ -46,16 +46,7 @@ rsync -a \
   --exclude '/CHANGELOG.md' \
   "${SOURCE}/" "${DEST}/"
 
-VER=$(awk '
-  /^version:[[:space:]]*/ { sub(/^version:[[:space:]]*/, ""); print; exit }
-  /^metadata:[[:space:]]*$/ { in_meta=1; next }
-  in_meta && /^[^[:space:]]/ { in_meta=0 }
-  in_meta && /^[[:space:]]+version:[[:space:]]*/ {
-    sub(/^[[:space:]]+version:[[:space:]]*/, "");
-    print;
-    exit
-  }
-' "${DEST}/SKILL.md")
+VER=$(awk -F '"' '/^version[[:space:]]*=/ { print $2; exit }' "${DEST}/pyproject.toml")
 echo "已安装: ${DEST}"
 echo "版本: ${VER}"
 echo "重启 Cursor 或新开 Agent 对话后生效。"

@@ -42,9 +42,10 @@ python tools/run_review.py --dir ./src --platform esp32 --config ./sdkconfig
 
 ```bash
 python tools/project_doctor.py ./your-project
+python tools/project_doctor.py ./your-project --intent "审查这个固件项目" --budget compact --json
 ```
 
-自动识别 SDK/RTOS/构建系统，解析 ESP-IDF 的目标芯片或 Zephyr 的板型，并给出下一步建议。默认只读。
+自动识别 ESP-IDF、Zephyr、STM32 CubeMX、JL、BK 的 SDK/RTOS/目标/构建系统，并给出下一步建议。`--intent` 进一步生成 workflow、约束 ID 和最小 skill 加载计划。默认只读。
 `--run-review` 会自动传递检测到的平台、构建系统及 `sdkconfig` / `prj.conf`，避免已禁用的 `CONFIG_*` 分支产生静态检查误报；JSON 审查结果会保存到目标项目的 `artifacts/review_history/`，并标记相对上一份报告是 improved、regressed 还是 unchanged。
 
 ```bash
@@ -115,7 +116,7 @@ python tools/serial_mqtt_e2e.py --port COM3 --broker 192.168.1.20 --topic device
 | 约束查询 | `python tools/constraint_lookup.py C15` | 规则、checker、样例与平台差异 |
 | 实时审查 | `python tools/run_review.py --dir ./src --watch` | 保存文件后增量重跑 |
 | Claude Code / IDE | Skill | 读取 `SKILL.md` 与对应 workflow |
-| 项目初检 | `python tools/project_doctor.py <project>` | 识别 SDK/RTOS/构建系统，生成可选项目清单 |
+| 项目初检与任务规划 | `python tools/project_doctor.py <project> --intent "<task>"` | 识别五类 SDK/RTOS/构建系统并生成最小加载计划 |
 | 崩溃闭环 | `python tools/diagnostic_loop.py --log ... --dir ...` | 分诊、定向审查、修复建议与复核 |
 | LVGL 页面生成 | 目标工程优先 | 遵循 `workflows/l3_lvgl_page.md` |
 | 发布前自测 | `python scripts/quick_gate.py` | 全量检查 |
