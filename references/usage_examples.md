@@ -93,7 +93,7 @@ Agent should:
 - Reference C8 (boot order), C23 (display), C25 (A/V pipeline)
 
 
-### 7. LVGL ????????
+### 7. LVGL 页面实现
 
 ```
 Use the freertos-embedded-architect skill to implement an LVGL page in this firmware project

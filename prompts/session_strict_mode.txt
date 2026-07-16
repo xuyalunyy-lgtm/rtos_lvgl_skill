@@ -36,7 +36,7 @@ FreeRTOS Embedded Architect — 会话严格模式协议
    - 框架约束 → framework_constraint_checker --auto
    - 发布 → l2_release_qualification
 
-4. 【约束引用】回答中必须引用相关约束域（C1-C45 或框架约束 ID）
+4. 【约束引用】回答中必须引用相关约束域（C1-C48 或框架约束 ID）
 
 5. 【验证计划】如果涉及代码修改，必须声明：
    - 要运行的 checker

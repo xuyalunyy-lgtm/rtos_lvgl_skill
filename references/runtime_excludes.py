@@ -1,7 +1,7 @@
-"""Single source of truth for runtime distribution exclusions.
+"""Canonical runtime-distribution exclusion contract.
 
-All install scripts and validation tools MUST import from here.
-Do NOT maintain separate exclude lists in individual scripts.
+Installers encode equivalent platform-specific patterns. Validation tools use this
+module to prevent those implementations from drifting from the contract.
 """
 
 # Directories excluded from runtime distribution
@@ -40,8 +40,6 @@ RUNTIME_EXCLUDE_DIRS: set[str] = {
 RUNTIME_EXCLUDE_NAME_PATTERNS: tuple[str, ...] = (
     ".tmp_*",
 )
-
-RUNTIME_EXCLUDE_RELATIVE_DIRS: set[str] = set()
 
 # Root-only files excluded from installed skill
 RUNTIME_EXCLUDE_ROOT_FILES: set[str] = {

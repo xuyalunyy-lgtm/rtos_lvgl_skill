@@ -3,9 +3,9 @@
 自动约束发现 v2：扫描用户项目的高频违规模式，建议新增约束。
 
 v2 增强（v9.0.5）：
-  1. --registry-aware：从 checker_registry 读取已有 C1-C45 约束
-  2. 提案编号从 C46+ 开始，避免与已有约束冲突
-  3. 三类输出：已有约束覆盖 / Checker 漏检 / 候选 C46+
+  1. --registry-aware：从 checker_registry 读取已有 C1-C48 约束
+  2. 提案编号从 C49+ 开始，避免与已有约束冲突
+  3. 三类输出：已有约束覆盖 / Checker 漏检 / 候选 C49+
   4. severity 加权排序（P0×3, P1×2, P2×1）
 
 用法:

@@ -11,6 +11,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "mcp"))
+sys.path.insert(0, str(ROOT / "scripts"))
 
 from mqtt_client import MqttBridge
 from mcp_runtime import AuditTrail, CancellationRegistry, JsonMessageBuffer, redact, validate_tool_arguments
@@ -18,6 +19,7 @@ from ota_device import DeviceRegistry
 from ota_firmware import FirmwareRepo
 import mqtt_server
 import ota_server
+import check_release_contract
 
 
 class MqttEcosystemTests(unittest.TestCase):
@@ -90,6 +92,9 @@ class OtaEcosystemTests(unittest.TestCase):
 
 
 class SharedRuntimeTests(unittest.TestCase):
+    def test_release_contract_matches_shipped_mcp_services(self) -> None:
+        self.assertEqual(check_release_contract.validate_contract(ROOT), [])
+
     def test_fragmented_json_is_buffered_until_complete(self) -> None:
         buffer = JsonMessageBuffer()
         self.assertEqual(list(buffer.feed('{"method":')), [])

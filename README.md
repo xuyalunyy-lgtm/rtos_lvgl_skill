@@ -1,6 +1,6 @@
 # FreeRTOS Embedded Architect Skill
 
-FreeRTOS/IoT 固件架构技能：代码审查、LVGL UI 生成、崩溃调试、OTA 安全、SDK 裁剪、模块契约、任务拓扑、DMA/ISR 安全、音视频同步、MCP 串口调试。约束系统 C1-C45（45 个约束域，248 条规则）。
+FreeRTOS/IoT 固件架构技能：代码审查、LVGL UI 生成、崩溃调试、OTA 安全、SDK 裁剪、模块契约、任务拓扑、DMA/ISR 安全、音视频同步、MCP 串口调试。约束系统 C1-C48（48 个约束域，247 条规则）。
 
 第一次使用请从 [onboard.md](onboard.md) 开始。
 

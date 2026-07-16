@@ -4,7 +4,7 @@
 
 ## Iron Rules (MUST comply)
 
-1. **RTOS Constraints Take Priority**: C1-C45 constraints MUST take priority over any SDK example
+1. **RTOS Constraints Take Priority**: C1-C48 constraints MUST take priority over any SDK example
 2. **Lifecycle Symmetry**: init MUST have deinit, create MUST have delete
 3. **ISR Safety**: ISR MUST NOT block, malloc, printf, or cJSON_Parse
 4. **Queue Ownership Transfer**: After xQueueSend, MUST NOT access the payload

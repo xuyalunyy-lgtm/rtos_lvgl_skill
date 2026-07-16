@@ -18,7 +18,7 @@ alwaysApply: false
 1. 代码审查必须运行 `python tools/run_review.py`
 2. 新模块必须生成 contract header + state machine
 3. 所有代码修改必须有验证计划
-4. 引用相关约束域（C1-C45 或框架约束）
+4. 引用相关约束域（C1-C48 或框架约束）
 
 ## 关键约束
 

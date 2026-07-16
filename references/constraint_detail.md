@@ -2,7 +2,7 @@
 
 Agent 在 L2 Code Review、Crash 诊断、L3 架构输出时读取本文件。每条约束有唯一 **ID**（`C#.#`），违规报告与 checklist 须引用 ID。
 
-> C1–C45（含 C22 OTA），45 个约束域，248 条规则。
+> C1–C48（含 C22 OTA），48 个约束域，247 条规则。
 
 总纲摘要 → [core_rules.md](core_rules.md)
 

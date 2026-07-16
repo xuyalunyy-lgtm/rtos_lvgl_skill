@@ -10,7 +10,6 @@ sys.path.insert(0, str(ROOT / "references"))
 from runtime_excludes import (
     RUNTIME_EXCLUDE_DIRS,
     RUNTIME_EXCLUDE_NAME_PATTERNS,
-    RUNTIME_EXCLUDE_RELATIVE_DIRS,
     RUNTIME_EXCLUDE_ROOT_FILES,
 )
 
@@ -22,7 +21,7 @@ def main() -> int:
         if not (ROOT / relative).is_file():
             errors.append(f"missing runtime file: {relative}")
     installers = (ROOT / "scripts" / "install_skill.sh", ROOT / "scripts" / "install_skill.ps1")
-    tokens = sorted(RUNTIME_EXCLUDE_DIRS | RUNTIME_EXCLUDE_RELATIVE_DIRS | RUNTIME_EXCLUDE_ROOT_FILES | set(RUNTIME_EXCLUDE_NAME_PATTERNS))
+    tokens = sorted(RUNTIME_EXCLUDE_DIRS | RUNTIME_EXCLUDE_ROOT_FILES | set(RUNTIME_EXCLUDE_NAME_PATTERNS))
     for installer in installers:
         if not installer.is_file():
             errors.append(f"missing installer: {installer.relative_to(ROOT)}")

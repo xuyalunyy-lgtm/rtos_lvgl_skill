@@ -90,7 +90,7 @@ LITE_REFERENCE_REPLACEMENTS: list[tuple[str, str, str]] = [
     (
         "skill_structure.md",
         r"\| `run_review\.py` \| 一键静态审查（驱动 41 checker） \|",
-        "| `lite_manual_checklist.md` | 人工逐条核对 C1-C45 约束 |",
+        "| `lite_manual_checklist.md` | 人工逐条核对 C1-C48 约束 |",
     ),
     (
         "skill_structure.md",

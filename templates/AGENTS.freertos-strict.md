@@ -21,7 +21,7 @@ This project uses the `freertos-embedded-architect` skill to manage all RTOS/fir
 
 ### Constraint System
 
-- RTOS core constraints: C1-C45
+- RTOS core constraints: C1-C48
 - Framework constraints: LVGL-1~5, ESP-IDF-1~7, MBEDTLS-1~4, LWIP-1~4
 - Every response must reference relevant constraint domains
 
