@@ -398,8 +398,9 @@ if (ticks_since_last_flush > 300) {
    - 示例：在 CI 里加固定场景脚本，对应阈值超限则失败。
 
 ```bash
-python tools/run_lvgl_perf_regression.py --suite nightly --max-fps-delta 2 --max-mem-frag 45
+python tools/lvgl_frame_rate_checker.py --dir ./src
 ```
+该命令只做提交前的静态预检；FPS、flush 时延和内存碎片的回归阈值必须由目标工程的设备或模拟器测试入口采集并比较。
 
 ### 14.1 生产级检查清单
 - [ ] 关键输入事件是否去抖 + 入队，UI 线程无阻塞地消费？
@@ -840,9 +841,7 @@ python tools/run_lvgl_smoke.sh --case home_boot --case list_scroll --case page_n
 - 实施步骤：
   - 统一定义采集指标：`fps_avg、fps_p95、flush_block_ms、frame_time_p95、mem_used_kb、frag_pct、首屏耗时`。
   - 在章节末尾给出对比表模板。
-```bash
-python tools/lvgl_perf_probe.py --duration 30 --out out/baseline.json --fields fps_avg,fps_p95,flush_block_ms,mem_used_kb,frag_pct
-```
+- 由目标工程的设备或模拟器基准测试连续采集 30 秒指标，并产出 `baseline.json` 与 `after.json`；静态检查不能生成或替代这些数据。
 - 验收点：每次策略执行前后必须有两份对比数据文件（`baseline.json` 与 `after.json`）。
 
 4. 日志最小字段标准化（可观测性）
@@ -862,9 +861,7 @@ LOG_I("UI-DIAG ts=%u tick=%u reason=%s render=%u flush=%u dirty=%u mem=%u frag=%
 - 实施步骤：
   - 新增演练项：flush 超时、输入风暴、低内存、重复导航、亮度突变。
   - 每项至少定义 `触发方式/预期现象/恢复期望`。
-```bash
-python tools/lvgl_fault_inject.py --case ui_flush_stall --case input_storm --case low_mem --case duplicate_nav --case brightness_flip
-```
+使用目标工程已有的日志、模拟器或硬件测试入口复现 flush 卡住、输入风暴、低内存、重复导航和亮度变化。
 - 验收点：演练触发时能稳定复现异常并触发 fallback 或恢复策略。
 
 6. 回退开关与降载一键化
