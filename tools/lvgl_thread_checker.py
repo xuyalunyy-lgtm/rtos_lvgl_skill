@@ -45,7 +45,6 @@ ALLOWED_FILE_PATTERNS = [
 ]
 
 ALLOWED_PATH_MARKERS = [
-    "/lvgl_ui/",
     "/beken_generated/",
     "/lvgl/port/",
 ]

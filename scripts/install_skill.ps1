@@ -13,7 +13,6 @@ $ExcludeDirs = @(
     ".skill_metrics", ".skill_evidence"
 )
 $ExcludeDirs += Get-ChildItem -LiteralPath $Source -Directory -Filter ".tmp_*" -ErrorAction SilentlyContinue | ForEach-Object FullName
-$ExcludeDirs += Join-Path $Source "runtime\toolchain\win-x64"
 $RootOnlyExcludeFiles = @("README.md", "INSTALL.md", "CHANGELOG.md")
 
 if (-not (Test-Path (Join-Path $Source "SKILL.md"))) {

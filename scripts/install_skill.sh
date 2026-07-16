@@ -32,7 +32,6 @@ rsync -a \
   --exclude '*.pyc' \
   --exclude '.pytest_cache' \
   --exclude '.tmp_*' \
-  --exclude 'runtime/toolchain/win-x64' \
   --exclude 'node_modules' \
   --exclude 'freertos-skill-lite' \
   --exclude 'archive' \

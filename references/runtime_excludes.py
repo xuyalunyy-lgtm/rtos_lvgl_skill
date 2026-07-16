@@ -41,9 +41,7 @@ RUNTIME_EXCLUDE_NAME_PATTERNS: tuple[str, ...] = (
     ".tmp_*",
 )
 
-RUNTIME_EXCLUDE_RELATIVE_DIRS: set[str] = {
-    "runtime/toolchain/win-x64",
-}
+RUNTIME_EXCLUDE_RELATIVE_DIRS: set[str] = set()
 
 # Root-only files excluded from installed skill
 RUNTIME_EXCLUDE_ROOT_FILES: set[str] = {

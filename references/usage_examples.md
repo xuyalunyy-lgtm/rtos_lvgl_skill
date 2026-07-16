@@ -96,21 +96,14 @@ Agent should:
 ### 7. LVGL ????????
 
 ```
-Use the freertos-embedded-architect skill to generate an LVGL page from ui/*.png design and cut assets
+Use the freertos-embedded-architect skill to implement an LVGL page in this firmware project
 ```
 
 Agent should:
-- Select `lvgl_page` workflow and use compact routing for normal one-page generation.
-- Classify inputs as design screenshot, runtime cut asset, reference crop, or component-only.
-- Generate `analysis_report.json`, `cutout_audit.json`, `debug_overlay.png`, and any template-match debug images before trusting the code.
-- Treat `preview.html` only as an approximate browser preview, not as a comparison result.
-- Match cutouts by improvement over background: `background_error - composite_error`; do not rank solely by absolute error.
-- Account for every `ui/*` cut image in `cutout_audit.json` as `used_cutout`, `used_component_calibration`, `duplicate_or_low_confidence`, or `unmatched_or_state_variant`.
-- Default high-confidence visual icons to cutouts for parity. Use macro switches to offer dynamic LVGL alternatives, for example battery cutout by default and `UI_*_USE_BATTERY_CUTOUT=0` for a dynamic battery widget.
-- Use residual candidate windows first for status-bar icons, loading marks, panels, cards, and buttons. Avoid repeated full-screen brute force.
-- Keep text/images/fonts behind macros such as `UI_TEXT_*`, `UI_IMG_SRC_*`, and `UI_FONT_*`.
-- Add custom-event listener and async post helper on the page root so worker threads do not call LVGL directly.
-- Run quick validation first: image analysis, code generation, `validate_lvgl_layout_code`, and JSON/C coordinate sanity checks. Use full `lvgl_render` regression only when needed.
+- Select the `lvgl_page` workflow and identify the target project's LVGL version, display configuration, assets, and build command.
+- Implement the smallest maintainable C/H file set in the target project; keep text, image, and font choices configurable where the project conventions require it.
+- Route background updates through the project's UI task, queue, Presenter, or asynchronous mechanism; workers must not call LVGL objects directly.
+- Build the target project and, when available, verify the page on its existing display, simulator, or hardware test path.
 
 ---
 

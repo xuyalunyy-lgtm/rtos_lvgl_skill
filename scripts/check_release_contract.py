@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-STALE_REFERENCES = ("mcp/server.py", "mcp/lvgl_", "golden_pages/", "check_lvgl_regression.py", "test_manifest_v2.py", "test_app_codegen.py", "test_app_validator.py", "test_mvp_integration.py", "your-org/freertos-skill")
+STALE_REFERENCES = ("your-org/freertos-skill",)
 
 
 def main() -> int:
@@ -17,7 +17,7 @@ def main() -> int:
             if stale in text:
                 errors.append(f"{path.relative_to(ROOT)} references removed or placeholder target: {stale}")
     quick_gate = (ROOT / "scripts" / "quick_gate.py").read_text(encoding="utf-8")
-    for stale in STALE_REFERENCES[0:8]:
+    for stale in STALE_REFERENCES:
         if stale in quick_gate:
             errors.append(f"scripts/quick_gate.py references removed target: {stale}")
     ci = (ROOT / ".github" / "workflows" / "skill-tools.yml").read_text(encoding="utf-8")

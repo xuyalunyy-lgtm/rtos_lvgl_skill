@@ -171,26 +171,6 @@ python tools/auto_fix_engine.py --plan <review_json> --json
 python tools/auto_fix_engine.py --apply <fix_plan_json>
 ```
 
-## LVGL 工具
-
-### generate_lvgl_from_design.py — 设计稿转 LVGL
-
-```bash
-python tools/generate_lvgl_from_design.py --design <path> --assets <dir> --output <dir>
-```
-
-### run_lvgl_regression.py — LVGL 回归测试
-
-```bash
-python tools/run_lvgl_regression.py --baseline <path> --actual <path> --json
-```
-
-### validate_cutout_audit.py — 切图审计
-
-```bash
-python tools/validate_cutout_audit.py --assets <dir> --json
-```
-
 ## 维护工具
 
 ### check_links.py — 链接检查
