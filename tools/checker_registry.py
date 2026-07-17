@@ -146,6 +146,9 @@ ALL_CHECKERS: tuple[CheckerSpec, ...] = (
     CheckerSpec("lvgl_frame_rate_checker", "lvgl_frame_rate_checker.py", "lvgl-frame-rate", "batch", ("C23",),
                 note="Flags UI polling and refresh patterns that waste the LVGL frame budget",
                 suites=("all", "platform"), error_prefix="C23"),
+    CheckerSpec("lvgl_page_plan_checker", "lvgl_page_plan_checker.py", "lvgl-page-plan", "batch", ("C1", "C23", "C29", "C33"),
+                note="Validates page ownership, navigation, resources, and display budgets before implementation",
+                suites=("all", "platform"), error_prefix="C"),
     # ── C24: Peripheral shutdown ────────────────────────────────────────
     CheckerSpec("peripheral_shutdown_checker", "peripheral_shutdown_checker.py", "peripheral-shutdown", "batch", ("C24",),
                 suites=("default", "all"), error_prefix="C24"),
@@ -312,6 +315,8 @@ SELF_TEST_CASES: tuple[CheckerCase, ...] = (
     CheckerCase("display_driver_checker.py", "../examples/bad_display_no_init.c", 1, "display driver bad"),
     CheckerCase("lvgl_frame_rate_checker.py", "fixtures/good_lvgl_frame_rate.c", 0, "LVGL frame-rate good"),
     CheckerCase("lvgl_frame_rate_checker.py", "fixtures/bad_lvgl_frame_rate.c", 1, "LVGL frame-rate bad"),
+    CheckerCase("lvgl_page_plan_checker.py", "fixtures/good_lvgl_page_plan.json", 0, "LVGL page plan good"),
+    CheckerCase("lvgl_page_plan_checker.py", "fixtures/bad_lvgl_page_plan.json", 1, "LVGL page plan bad"),
     CheckerCase("av_pipeline_checker.py", "../examples/good_av_pipeline_sync.c", 0, "A/V pipeline good"),
     CheckerCase("av_pipeline_checker.py", "../examples/bad_av_pipeline_blocking.c", 1, "A/V pipeline bad"),
     CheckerCase("media_format_checker.py", "../examples/good_media_format_contract.c", 0, "media format good"),

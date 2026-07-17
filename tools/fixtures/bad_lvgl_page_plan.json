@@ -1,0 +1,22 @@
+{
+  "kind": "lvgl_page_plan",
+  "schema_version": "1.0",
+  "display": {"lvgl_version": "v8", "width": 0, "height": 320, "frame_budget_ms": 8, "max_flush_ms": 16},
+  "ui_owner": {"task": "", "update_boundary": "direct"},
+  "initial_page": "missing",
+  "pages": [
+    {
+      "id": "home",
+      "states": [],
+      "resources": {"cache_policy": "none"},
+      "refresh": {"full_screen_invalidate": "sometimes"},
+      "transitions": [{"event": "tap_next", "to": "missing", "guard": ""}]
+    },
+    {
+      "id": "home",
+      "states": ["idle"],
+      "resources": {},
+      "refresh": {"dynamic_regions": [], "full_screen_invalidate": false}
+    }
+  ]
+}

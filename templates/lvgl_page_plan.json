@@ -1,0 +1,58 @@
+{
+  "kind": "lvgl_page_plan",
+  "schema_version": "1.0",
+  "display": {
+    "lvgl_version": "v8",
+    "width": 240,
+    "height": 320,
+    "frame_budget_ms": 16,
+    "max_flush_ms": 8
+  },
+  "ui_owner": {
+    "task": "lvgl_task",
+    "update_boundary": "queue"
+  },
+  "initial_page": "home",
+  "pages": [
+    {
+      "id": "home",
+      "states": ["idle", "loading", "error"],
+      "resources": {
+        "cache_policy": "resident",
+        "images": ["home_background"],
+        "fonts": ["ui_regular"]
+      },
+      "refresh": {
+        "dynamic_regions": ["status_row"],
+        "full_screen_invalidate": false
+      },
+      "transitions": [
+        {
+          "event": "tap_settings",
+          "to": "settings",
+          "guard": "page_state == PAGE_IDLE"
+        }
+      ]
+    },
+    {
+      "id": "settings",
+      "states": ["idle", "saving", "error"],
+      "resources": {
+        "cache_policy": "lazy",
+        "images": [],
+        "fonts": ["ui_regular"]
+      },
+      "refresh": {
+        "dynamic_regions": ["settings_list"],
+        "full_screen_invalidate": false
+      },
+      "transitions": [
+        {
+          "event": "tap_back",
+          "to": "home",
+          "guard": "page_state == PAGE_IDLE"
+        }
+      ]
+    }
+  ]
+}

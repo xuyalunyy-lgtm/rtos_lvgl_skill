@@ -1,0 +1,23 @@
+{
+  "kind": "lvgl_page_plan",
+  "schema_version": "1.0",
+  "display": {"lvgl_version": "v9", "width": 320, "height": 240, "frame_budget_ms": 16, "max_flush_ms": 8},
+  "ui_owner": {"task": "ui_task", "update_boundary": "presenter"},
+  "initial_page": "home",
+  "pages": [
+    {
+      "id": "home",
+      "states": ["idle", "loading"],
+      "resources": {"cache_policy": "resident"},
+      "refresh": {"dynamic_regions": ["clock"], "full_screen_invalidate": false},
+      "transitions": [{"event": "tap_settings", "to": "settings", "guard": "page_state == PAGE_IDLE"}]
+    },
+    {
+      "id": "settings",
+      "states": ["idle"],
+      "resources": {"cache_policy": "lazy"},
+      "refresh": {"dynamic_regions": [], "full_screen_invalidate": false},
+      "transitions": [{"event": "tap_back", "to": "home", "guard": "page_state == PAGE_IDLE"}]
+    }
+  ]
+}
