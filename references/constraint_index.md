@@ -197,7 +197,7 @@ Full matrix (positive/negative/checker) → [constraint_detail.md](constraint_de
 |----|---|--------|
 | C23.1 | 0 | LCD 初始化时序严格遵循 datasheet（复位/命令间延迟） |
 | C23.2 | 1 | 背光用 PWM 控制，支持渐变；低功耗关闭背光电源 |
-| C23.3 | 1 | lv_timer_handler 调用频率匹配面板刷新率 |
+| C23.3 | 1 | lv_timer_handler 调用频率匹配面板，输入回调不直接解码或建整页 |
 | C23.4 | 1 | 显示刷新须撕裂防护（TE 信号/双缓冲） |
 | C23.5 | 0 | 帧缓冲按 RAM 选择全屏/部分刷新，分配须检查 |
 | C23.6 | 1 | lv_disp_drv_t 必须设置字段，flush 回调须在安全后归还 draw buffer |

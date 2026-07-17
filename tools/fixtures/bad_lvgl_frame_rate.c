@@ -27,3 +27,17 @@ void display_init(void)
     disp_drv.flush_cb = lcd_flush_cb;
     lv_disp_drv_register(&disp_drv);
 }
+
+static void page_button_event_cb(lv_event_t *event)
+{
+    lv_obj_t *page = lv_scr_act();
+    lv_obj_t *image = lv_img_create(page);
+    lv_img_set_src(image, "S:/assets/home_background.jpg");
+    lv_label_create(page);
+    lv_btn_create(page);
+}
+
+void bind_page_button(lv_obj_t *button)
+{
+    lv_obj_add_event_cb(button, page_button_event_cb, LV_EVENT_CLICKED, NULL);
+}

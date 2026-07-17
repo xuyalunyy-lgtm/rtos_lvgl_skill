@@ -74,7 +74,7 @@
 |----|------|--------|------|------|------|
 | C23.1 | LCD 初始化时序必须严格遵循 datasheet（复位脉宽≥10ms、复位后等待≥120ms、Sleep Out 后等待≥120ms） | P0 | 人工 | [lcd_display_driver.txt](../prompts/lcd_display_driver.txt) | 复位后立即发命令 |
 | C23.2 | 背光控制必须用 PWM（非 GPIO 开关），支持亮度调节和渐变；低功耗时关闭背光电源 | P1 | 人工 | `ledc_set_duty` + `gpio_set_level(BL_EN, 0)` | `gpio_set_level(BL_PIN, 1)` 仅开/关 |
-| C23.3 | `lv_timer_handler` [TIMER_HANDLER] 调用频率必须匹配面板刷新率（60Hz→16ms，30Hz→33ms）；禁止过快调用浪费 CPU | P1 | `lvgl_frame_rate_checker.py` + 人工 | `vTaskDelay(1000/REFRESH_RATE)` [TASK_DELAY] | `vTaskDelay(1)` [TASK_DELAY] 1ms 调用 |
+| C23.3 | `lv_timer_handler` [TIMER_HANDLER] 调用频率必须匹配面板刷新率（60Hz→16ms，30Hz→33ms）；输入回调只投递导航，禁止直接文件图片解码或整页重建 | P1 | `lvgl_frame_rate_checker.py` + 人工 | `vTaskDelay(1000/REFRESH_RATE)` [TASK_DELAY] + post nav event | `vTaskDelay(1)` [TASK_DELAY] 或回调内加载大图 |
 | C23.4 | 显示刷新必须有撕裂防护（TE 信号同步 / 双缓冲 / 直接模式）；禁止单缓冲无同步写入 | P1 | 人工 | `esp_lcd_panel_io_tx_param(0x35)` TE 信号 | 单缓冲直接写入 |
 | C23.5 | 帧缓冲大小必须根据 RAM 可用性选择：PSRAM 可用→全屏双缓冲；RAM 不足→部分刷新（1/5 或 1/10 屏）；分配失败必须检查 | P0 | `display_driver_checker.py` | `heap_caps_malloc` [HEAP_ALLOC] 返回值检查 | 未检查 `malloc` [HEAP_ALLOC] 返回 |
 | C23.6 | `lv_disp_drv_t` 注册必须设置 `hor_res`、`ver_res`、`draw_buf`、`flush_cb`；已注册的 flush 回调必须在传输安全后调用 ready API，或声明异步完成者 | P1 | `display_driver_checker.py` + `lvgl_frame_rate_checker.py` | 完整 `lv_disp_drv_init` + 字段赋值 + transfer 后 ready | 缺少字段或回调不归还 draw buffer |

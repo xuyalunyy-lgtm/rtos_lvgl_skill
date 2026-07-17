@@ -6,6 +6,7 @@ Reports high-confidence patterns that commonly consume the UI frame budget:
   - forced synchronous refresh with ``lv_refr_now``;
   - invalidating the active screen for a small update;
   - registered flush callbacks that never return their draw buffer to LVGL.
+  - registered input callbacks that decode file images or rebuild a page inline.
 
 This is a static heuristic. It does not estimate measured FPS or replace target
 hardware profiling.
@@ -33,6 +34,19 @@ V9_FLUSH_CALLBACK_ASSIGNMENT = re.compile(
 )
 FLUSH_READY = re.compile(r"\blv_(?:disp|display)_flush_ready\s*\(", re.IGNORECASE)
 ASYNC_FLUSH_READY_ANNOTATION = "LVGL_ASYNC_FLUSH_READY"
+EVENT_CALLBACK_ASSIGNMENT = re.compile(
+    r"\blv_obj_add_event_cb\s*\(\s*[^,]+,\s*&?\s*(?P<name>[A-Za-z_]\w*)\s*,",
+    re.IGNORECASE,
+)
+FILE_IMAGE_LOAD = re.compile(
+    r"\blv_(?:img|image)_set_src\s*\([^;]*?\"[^\"]+\.(?:jpe?g|png|bmp|gif|bin)\b",
+    re.IGNORECASE,
+)
+FILE_IMAGE_DECODE = re.compile(
+    r"\b(?:jpeg|jpg|png|bmp|gif|image)_(?:decode|load)|\b(?:f_open|fread|open|read)\s*\(",
+    re.IGNORECASE,
+)
+WIDGET_CREATE = re.compile(r"\blv_(?:obj|img|image|label|btn|button|list|table|chart)_create\s*\(", re.IGNORECASE)
 
 
 def _next_delay_is_too_fast(lines: list[str], start: int) -> bool:
@@ -83,6 +97,34 @@ def check_flush_completion(path: Path, lines: list[str], text: str) -> list[dict
     return issues
 
 
+def check_event_callback_budget(path: Path, text: str) -> list[dict]:
+    """Keep registered input callbacks from doing file IO or rebuilding pages."""
+    code = strip_comments(text)
+    callbacks = {match.group("name") for match in EVENT_CALLBACK_ASSIGNMENT.finditer(code)}
+    if not callbacks:
+        return []
+
+    functions = {func.name: func for func in extract_functions(code)}
+    issues: list[dict] = []
+    for name in sorted(callbacks):
+        func = functions.get(name)
+        if func is None:
+            continue
+        file_work = FILE_IMAGE_LOAD.search(func.body) or FILE_IMAGE_DECODE.search(func.body)
+        if file_work:
+            issues.append(make_issue(
+                path, func.line + func.body[:file_work.start()].count("\n"), "C23.3", "P1",
+                f"{name} loads or decodes a file image inside an LVGL input callback; post navigation and load through the resource/UI task path",
+            ))
+        create_count = len(WIDGET_CREATE.findall(func.body))
+        if create_count >= 3:
+            issues.append(make_issue(
+                path, func.line, "C23.3", "P1",
+                f"{name} creates {create_count} LVGL widgets directly in an input callback; defer page construction to a guarded UI navigation path",
+            ))
+    return issues
+
+
 def check_file(path: Path) -> list[dict]:
     result = read_file(path)
     if result is None:
@@ -109,6 +151,7 @@ def check_file(path: Path) -> list[dict]:
                 "lv_timer_handler() is followed by a 0-1 ms delay; use the returned timeout or a panel-budgeted cadence",
             ))
     issues.extend(check_flush_completion(path, lines, text))
+    issues.extend(check_event_callback_budget(path, text))
     return issues
 
 

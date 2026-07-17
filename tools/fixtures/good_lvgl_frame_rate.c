@@ -45,3 +45,13 @@ void async_display_init(void)
     disp_drv.flush_cb = async_lcd_flush_cb;
     lv_disp_drv_register(&disp_drv);
 }
+
+static void page_button_event_cb(lv_event_t *event)
+{
+    post_ui_nav_event(NAV_HOME);
+}
+
+void bind_page_button(lv_obj_t *button)
+{
+    lv_obj_add_event_cb(button, page_button_event_cb, LV_EVENT_CLICKED, NULL);
+}

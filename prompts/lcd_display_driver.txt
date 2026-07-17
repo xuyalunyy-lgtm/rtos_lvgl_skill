@@ -181,6 +181,7 @@ void init_style(void)
 
 - Input drivers should debounce and rate-limit raw touch/key events before they reach business logic.
 - Page navigation callbacks should post an event and return; heavy page creation must run on the UI task boundary.
+- Registered input callbacks must not directly load/decode JPEG/PNG/BMP files or build a full widget tree; route assets through the resource layer and let a guarded UI navigation path own page construction.
 - During media playback, page transitions, or async reload, guard repeated clicks with an explicit state machine.
 
 ```c
