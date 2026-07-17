@@ -1,6 +1,6 @@
 {
   "kind": "lvgl_page_plan",
-  "schema_version": "1.1",
+  "schema_version": "1.2",
   "display": {
     "lvgl_version": "v8",
     "width": 240,
@@ -12,12 +12,26 @@
     "task": "lvgl_task",
     "update_boundary": "queue"
   },
+  "layout": {
+    "mode": "responsive",
+    "reference_width": 240,
+    "reference_height": 320,
+    "scale_policy": "native",
+    "fixed_coordinate_rationale": ""
+  },
+  "transition_budget": {
+    "max_create_ms": 8,
+    "max_decode_ms": 0,
+    "max_heap_alloc_bytes": 0
+  },
   "initial_page": "home",
   "navigation": {
     "router_owner": "lvgl_task",
     "root_page": "home",
     "back_stack": "explicit",
-    "interrupt_resume": "previous_or_fallback"
+    "interrupt_resume": "previous_or_fallback",
+    "production_router_enabled": true,
+    "reset_policy": "root_or_recovery"
   },
   "pages": [
     {
@@ -31,6 +45,8 @@
       },
       "resources": {
         "cache_policy": "resident",
+        "decode_policy": "predecoded",
+        "decoded_cache_budget_bytes": 262144,
         "images": ["home_background"],
         "fonts": ["ui_regular"]
       },
@@ -71,6 +87,8 @@
       },
       "resources": {
         "cache_policy": "lazy",
+        "decode_policy": "filesystem",
+        "decoded_cache_budget_bytes": 0,
         "images": [],
         "fonts": ["ui_regular"]
       },
@@ -100,6 +118,8 @@
       },
       "resources": {
         "cache_policy": "lazy",
+        "decode_policy": "filesystem",
+        "decoded_cache_budget_bytes": 0,
         "images": [],
         "fonts": ["ui_regular"]
       },

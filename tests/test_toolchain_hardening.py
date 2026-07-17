@@ -104,10 +104,13 @@ class LvglNavigationReportTests(unittest.TestCase):
         report = build_report(plan, check_file(plan_path))
         markdown = render_markdown(report, plan_path)
         self.assertEqual(report["navigation"]["root_page"], "home")
+        self.assertTrue(report["navigation"]["production_router_enabled"])
+        self.assertEqual(report["transition_budget"]["max_create_ms"], 8)
         self.assertEqual(len(report["pages"]), 3)
         self.assertEqual(len(report["interrupts"]), 1)
         self.assertIn("## 页面树与生命周期", markdown)
         self.assertIn("alarm_triggered", markdown)
+        self.assertIn("资源解码预算", markdown)
         self.assertIn("规划校验通过", markdown)
 
     def test_report_includes_navigation_diagnostics(self) -> None:

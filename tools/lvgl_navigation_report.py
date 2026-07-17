@@ -23,12 +23,22 @@ def _text(value: object, fallback: str = "—") -> str:
     return value.strip() if isinstance(value, str) and value.strip() else fallback
 
 
+def _value_text(value: object, fallback: str = "—") -> str:
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (int, float)):
+        return str(value)
+    return _text(value, fallback)
+
+
 def _cell(value: object) -> str:
     return _text(value).replace("|", "\\|").replace("\n", " ")
 
 
 def build_report(plan: dict[str, Any], diagnostics: list[dict[str, str]]) -> dict[str, Any]:
     navigation = _mapping(plan.get("navigation"))
+    layout = _mapping(plan.get("layout"))
+    transition_budget = _mapping(plan.get("transition_budget"))
     pages = [_mapping(page) for page in _list(plan.get("pages"))]
     page_rows: list[dict[str, str]] = []
     transition_rows: list[dict[str, str]] = []
@@ -44,6 +54,8 @@ def build_report(plan: dict[str, Any], diagnostics: list[dict[str, str]]) -> dic
             "exit": _text(lifecycle.get("exit_policy"), "legacy"),
             "fallback": _text(lifecycle.get("fallback_target")),
             "cache": _text(_mapping(page.get("resources")).get("cache_policy")),
+            "decode": _text(_mapping(page.get("resources")).get("decode_policy"), "legacy"),
+            "decoded_cache_budget_bytes": str(_mapping(page.get("resources")).get("decoded_cache_budget_bytes", "-")),
         })
         for transition in _list(page.get("transitions")):
             item = _mapping(transition)
@@ -55,6 +67,7 @@ def build_report(plan: dict[str, Any], diagnostics: list[dict[str, str]]) -> dic
                 "action": _text(item.get("stack_action"), "legacy"),
                 "direction": _text(item.get("direction"), "legacy"),
                 "guard": _text(item.get("guard")),
+                "reset_reason": _text(item.get("reset_reason")),
             }
             transition_rows.append(row)
             if item.get("kind") == "interrupt":
@@ -75,7 +88,11 @@ def build_report(plan: dict[str, Any], diagnostics: list[dict[str, str]]) -> dic
             "root_page": navigation.get("root_page"),
             "back_stack": navigation.get("back_stack"),
             "interrupt_resume": navigation.get("interrupt_resume"),
+            "production_router_enabled": navigation.get("production_router_enabled"),
+            "reset_policy": navigation.get("reset_policy"),
         },
+        "layout": layout,
+        "transition_budget": transition_budget,
         "pages": page_rows,
         "transitions": transition_rows,
         "interrupts": interrupt_rows,
@@ -105,10 +122,22 @@ def render_markdown(report: dict[str, Any], source: Path) -> str:
         "## 页面树与生命周期",
         "",
     ]
+    lines[1:1] = [
+        "",
+        f"- 生产路由启用：`{_value_text(navigation.get('production_router_enabled'))}`",
+        f"- reset 策略：`{_text(navigation.get('reset_policy'))}`",
+        f"- 布局：`{_text(_mapping(report.get('layout')).get('mode'))}` / `{_text(_mapping(report.get('layout')).get('scale_policy'))}`",
+        f"- 转场预算：创建 `{_value_text(_mapping(report.get('transition_budget')).get('max_create_ms'))}` ms，解码 `{_value_text(_mapping(report.get('transition_budget')).get('max_decode_ms'))}` ms，堆分配 `{_value_text(_mapping(report.get('transition_budget')).get('max_heap_alloc_bytes'))}` B",
+    ]
     page_rows = _list(report.get("pages"))
     lines.extend(_markdown_table(
         ["页面", "父级", "状态", "创建", "离开", "回退", "资源缓存"],
         [[row["id"], row["parent"], row["states"], row["create"], row["exit"], row["fallback"], row["cache"]] for row in page_rows],
+    ))
+    lines.extend(["", "## 资源解码预算", ""])
+    lines.extend(_markdown_table(
+        ["页面", "解码策略", "解码缓存预算 (B)"],
+        [[row["id"], row["decode"], row["decoded_cache_budget_bytes"]] for row in page_rows],
     ))
     lines.extend(["", "## 跳转边", ""])
     transition_rows = _list(report.get("transitions"))

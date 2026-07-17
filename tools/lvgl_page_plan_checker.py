@@ -11,13 +11,17 @@ from checker_io import make_issue, run_checker
 PAGE_PLAN_KIND = "lvgl_page_plan"
 UPDATE_BOUNDARIES = {"queue", "presenter", "async"}
 CACHE_POLICIES = {"resident", "lazy", "prefetch", "external"}
-SCHEMA_VERSIONS = {"1.0", "1.1"}
+SCHEMA_VERSIONS = {"1.0", "1.1", "1.2"}
 CREATE_POLICIES = {"resident", "lazy"}
 EXIT_POLICIES = {"hide", "destroy"}
 TRANSITION_KINDS = {"forward", "back", "return", "interrupt", "reset"}
 STACK_ACTIONS = {"push", "pop", "replace", "reset"}
 DIRECTIONS = {"none", "up", "down", "left", "right"}
 INTERRUPT_RESUMES = {"previous", "fallback"}
+LAYOUT_MODES = {"responsive", "fixed_reference"}
+SCALE_POLICIES = {"native", "uniform", "stretch"}
+DECODE_POLICIES = {"predecoded", "lazy_once", "filesystem"}
+RESET_REASONS = {"boot", "recovery", "system_interrupt"}
 
 
 def _string(value: object) -> bool:
@@ -43,7 +47,7 @@ def check_file(path: Path) -> list[dict]:
     issues: list[dict] = []
     schema_version = data.get("schema_version")
     if schema_version not in SCHEMA_VERSIONS:
-        issues.append(make_issue(path, 1, "C29", "P1", "LVGL page plan must declare schema_version 1.0 or 1.1"))
+        issues.append(make_issue(path, 1, "C29", "P1", "LVGL page plan must declare schema_version 1.0, 1.1, or 1.2"))
 
     display = _mapping(data.get("display"))
     width, height = display.get("width"), display.get("height")
@@ -85,6 +89,18 @@ def check_file(path: Path) -> list[dict]:
         resources = _mapping(page.get("resources"))
         if resources.get("cache_policy") not in CACHE_POLICIES:
             issues.append(make_issue(path, index, "C23.3", "P1", "page resources need cache_policy: resident, lazy, prefetch, or external"))
+        if schema_version == "1.2":
+            decode_policy = resources.get("decode_policy")
+            decoded_cache_budget = resources.get("decoded_cache_budget_bytes")
+            images = _list(resources.get("images"))
+            if decode_policy not in DECODE_POLICIES:
+                issues.append(make_issue(path, index, "C23.3", "P1", "page resources need decode_policy: predecoded, lazy_once, or filesystem"))
+            if not isinstance(decoded_cache_budget, int) or decoded_cache_budget < 0:
+                issues.append(make_issue(path, index, "C23.3", "P1", "page resources need non-negative decoded_cache_budget_bytes"))
+            elif decode_policy == "predecoded" and images and decoded_cache_budget == 0:
+                issues.append(make_issue(path, index, "C23.3", "P1", "predecoded image pages need a non-zero decoded_cache_budget_bytes"))
+            elif decode_policy == "filesystem" and decoded_cache_budget != 0:
+                issues.append(make_issue(path, index, "C23.3", "P1", "filesystem decode policy must not reserve decoded cache bytes"))
         refresh = _mapping(page.get("refresh"))
         if not isinstance(refresh.get("dynamic_regions"), list):
             issues.append(make_issue(path, index, "C23.3", "P1", "page refresh plan must list dynamic_regions"))
@@ -105,7 +121,7 @@ def check_file(path: Path) -> list[dict]:
         if not _string(transition.get("guard")):
             issues.append(make_issue(path, index, "C33.1", "P1", f"page {source} transition needs a reentry guard"))
 
-    if schema_version != "1.1":
+    if schema_version not in {"1.1", "1.2"}:
         return issues
 
     navigation = _mapping(data.get("navigation"))
@@ -118,6 +134,36 @@ def check_file(path: Path) -> list[dict]:
         issues.append(make_issue(path, 1, "C33.1", "P1", "navigation.back_stack must be explicit"))
     if navigation.get("interrupt_resume") != "previous_or_fallback":
         issues.append(make_issue(path, 1, "C33.1", "P1", "navigation.interrupt_resume must be previous_or_fallback"))
+
+    if schema_version == "1.2":
+        if navigation.get("production_router_enabled") is not True:
+            issues.append(make_issue(path, 1, "C33.1", "P0", "navigation.production_router_enabled must be true"))
+        if navigation.get("reset_policy") != "root_or_recovery":
+            issues.append(make_issue(path, 1, "C33.1", "P1", "navigation.reset_policy must be root_or_recovery"))
+
+        layout = _mapping(data.get("layout"))
+        if layout.get("mode") not in LAYOUT_MODES:
+            issues.append(make_issue(path, 1, "C23.6", "P1", "layout.mode must be responsive or fixed_reference"))
+        for key in ("reference_width", "reference_height"):
+            if not isinstance(layout.get(key), int) or layout[key] <= 0:
+                issues.append(make_issue(path, 1, "C23.6", "P1", f"layout.{key} must be a positive integer"))
+        if layout.get("scale_policy") not in SCALE_POLICIES:
+            issues.append(make_issue(path, 1, "C23.6", "P1", "layout.scale_policy must be native, uniform, or stretch"))
+        if layout.get("mode") == "fixed_reference" and not _string(layout.get("fixed_coordinate_rationale")):
+            issues.append(make_issue(path, 1, "C23.6", "P1", "fixed_reference layout needs fixed_coordinate_rationale"))
+
+        transition_budget = _mapping(data.get("transition_budget"))
+        create_budget = transition_budget.get("max_create_ms")
+        decode_budget = transition_budget.get("max_decode_ms")
+        heap_budget = transition_budget.get("max_heap_alloc_bytes")
+        if not isinstance(create_budget, int) or create_budget <= 0:
+            issues.append(make_issue(path, 1, "C23.3", "P1", "transition_budget.max_create_ms must be positive"))
+        if not isinstance(decode_budget, int) or decode_budget < 0:
+            issues.append(make_issue(path, 1, "C23.3", "P1", "transition_budget.max_decode_ms must be non-negative"))
+        elif isinstance(create_budget, int) and create_budget > 0 and decode_budget > create_budget:
+            issues.append(make_issue(path, 1, "C23.3", "P1", "transition_budget.max_decode_ms must not exceed max_create_ms"))
+        if not isinstance(heap_budget, int) or heap_budget < 0:
+            issues.append(make_issue(path, 1, "C23.3", "P1", "transition_budget.max_heap_alloc_bytes must be non-negative"))
 
     for index, page in page_definitions:
         page_id = page.get("id")
@@ -157,6 +203,8 @@ def check_file(path: Path) -> list[dict]:
             issues.append(make_issue(path, index, "C33.1", "P1", f"page {source} reset transition must reset the back stack"))
         if kind == "reset" and transition.get("to") != root_page:
             issues.append(make_issue(path, index, "C33.1", "P1", f"page {source} reset transition must target navigation.root_page"))
+        if schema_version == "1.2" and kind == "reset" and transition.get("reset_reason") not in RESET_REASONS:
+            issues.append(make_issue(path, index, "C33.1", "P1", f"page {source} reset transition needs reset_reason: boot, recovery, or system_interrupt"))
         if kind == "forward" and action == "push" and transition.get("to") == source:
             issues.append(make_issue(path, index, "C33.1", "P0", f"page {source} must not push itself onto the back stack"))
         if kind == "interrupt":

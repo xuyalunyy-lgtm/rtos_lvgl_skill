@@ -30,11 +30,26 @@
 8. 在目标工程中构建，并在其模拟器或设备上验证。浏览器 mockup 只能辅助布局，不构成视觉验证证据。
 9. 记录目标设备上的帧率、`lv_timer_handler()` 最大耗时、flush 最大耗时和整屏失效刷新次数；低帧率时先缩小 dirty area、合并状态更新并检查 DMA/TE 同步，再调整刷新周期。
 
+## 1.2 页面规划补充要求
+
+在第 1 步创建规划时，还必须完成以下内容：
+
+1. 将 `schema_version` 设为 `1.2`，在 `navigation` 中声明 `production_router_enabled: true` 和 `reset_policy: root_or_recovery`。
+2. 为每个跳转按用途选择 `push`、`replace`、`pop` 或 `reset`：详情/可恢复中断用 `push`，同一内容槽位用 `replace`，返回/恢复用 `pop`；`reset` 仅用于启动、恢复或不可恢复系统中断，并填写 `reset_reason`。
+3. 在 `layout` 中声明响应式或固定参考分辨率、缩放策略。使用固定坐标时填写 `fixed_coordinate_rationale`，并记录字体截断、资源解码缓存和显存/SRAM 上限。
+4. 在 `transition_budget` 中填写页面创建、同步解码和临时堆分配上限；每页 `resources` 填写 `decode_policy` 与 `decoded_cache_budget_bytes`。首帧资源优先预解码，不能把大图同步解码放到切页热路径。
+
+编码和设备验证时，额外执行：
+
+1. 用量产构建配置逐条触发规划中的 `forward`、`back`、`return`、`interrupt` 和已声明的 `reset` 路径；不得依赖测试宏、演示循环或日志条件才能进入正式页面。
+2. 在目标设备记录并对照 `transition_budget`：页面创建耗时、同步解码耗时、转场期间临时堆分配、首帧时间、`lv_timer_handler()` 最大耗时和 flush 最大耗时。
+3. 生成导航报告后，确认报告中的生产路由、布局、资源解码预算和所有 reset 原因均与实际实现一致。
+
 ## 完成检查
 
 - 所有资源和字体均能被目标构建解析。
-- `lvgl_page_plan.json` 已通过校验，且所有页面、状态、父级/回退关系、资源策略、导航 guard 和中断恢复策略已在实现前确认。
+- `lvgl_page_plan.json` 已通过校验，且所有页面、状态、父级/回退关系、资源策略、导航 guard 和中断恢复策略已在实现前确认；1.2 规划还确认生产路由、reset 边界、布局策略、解码缓存和转场预算。
 - 页面能针对选定 LVGL 版本编译。
 - 没有后台任务直接修改 LVGL 对象。
-- 已验证显示尺寸、触摸行为和状态切换。
+- 已验证显示尺寸、触摸行为和状态切换，并在量产构建配置中验证所有计划的导航路径。
 - 动态页面已在目标设备或模拟器上检查帧率与 flush 长尾；未测量时明确标记为未验证。

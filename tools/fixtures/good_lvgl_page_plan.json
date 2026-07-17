@@ -1,17 +1,19 @@
 {
   "kind": "lvgl_page_plan",
-  "schema_version": "1.1",
+  "schema_version": "1.2",
   "display": {"lvgl_version": "v9", "width": 320, "height": 240, "frame_budget_ms": 16, "max_flush_ms": 8},
   "ui_owner": {"task": "ui_task", "update_boundary": "presenter"},
+  "layout": {"mode": "responsive", "reference_width": 320, "reference_height": 240, "scale_policy": "native", "fixed_coordinate_rationale": ""},
+  "transition_budget": {"max_create_ms": 8, "max_decode_ms": 0, "max_heap_alloc_bytes": 0},
   "initial_page": "home",
-  "navigation": {"router_owner": "ui_task", "root_page": "home", "back_stack": "explicit", "interrupt_resume": "previous_or_fallback"},
+  "navigation": {"router_owner": "ui_task", "root_page": "home", "back_stack": "explicit", "interrupt_resume": "previous_or_fallback", "production_router_enabled": true, "reset_policy": "root_or_recovery"},
   "pages": [
     {
       "id": "home",
       "parent": null,
       "states": ["idle", "loading"],
       "lifecycle": {"create_policy": "resident", "exit_policy": "hide", "fallback_target": "home"},
-      "resources": {"cache_policy": "resident"},
+      "resources": {"cache_policy": "resident", "decode_policy": "filesystem", "decoded_cache_budget_bytes": 0},
       "refresh": {"dynamic_regions": ["clock"], "full_screen_invalidate": false},
       "transitions": [{"event": "tap_settings", "to": "settings", "guard": "page_state == PAGE_IDLE", "kind": "forward", "stack_action": "push", "direction": "left"}]
     },
@@ -20,7 +22,7 @@
       "parent": "home",
       "states": ["idle"],
       "lifecycle": {"create_policy": "lazy", "exit_policy": "destroy", "fallback_target": "home"},
-      "resources": {"cache_policy": "lazy"},
+      "resources": {"cache_policy": "lazy", "decode_policy": "filesystem", "decoded_cache_budget_bytes": 0},
       "refresh": {"dynamic_regions": [], "full_screen_invalidate": false},
       "transitions": [{"event": "tap_back", "to": "home", "guard": "page_state == PAGE_IDLE", "kind": "back", "stack_action": "pop", "direction": "right"}]
     }
