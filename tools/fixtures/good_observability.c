@@ -14,3 +14,16 @@ typedef struct {
 } module_status_t;
 
 static module_status_t s_status;
+
+typedef struct {
+    uint32_t flush_max_ms;
+    uint32_t render_max_ms;
+} ui_display_metrics_t;
+
+static ui_display_metrics_t s_display_metrics;
+
+void good_lcd_flush_cb(lv_disp_drv_t *drv)
+{
+    s_display_metrics.flush_max_ms = 4U;
+    lv_disp_flush_ready(drv);
+}

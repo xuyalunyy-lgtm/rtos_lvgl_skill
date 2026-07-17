@@ -146,7 +146,7 @@
 | C32.1 | 关键模块必须暴露 `state`、`last_error`、`last_error_line` 或等价字段 | P1 | 人工 | [timeout_lifecycle_observability.txt](../prompts/timeout_lifecycle_observability.txt) | 只打自然语言日志 |
 | C32.2 | 关键链路必须计数 timeout/drop/retry/reconnect/overflow/underrun 等现场指标 | P1 | 人工 | 同上 | 只有平均成功率 |
 | C32.3 | 任务必须可采集 stack high-water、queue high-water、heap free/min/largest 等资源水位 | P1 | 人工 + `stack_calculator.py` | 同上 | 只看总 free heap |
-| C32.4 | init/connect/handshake/decode/render/flush 等阶段必须保留 max time 或最近耗时 | P2 | 人工 | 同上 | 性能尖峰不可定位 |
+| C32.4 | init/connect/handshake/decode/render/flush 等阶段必须保留 max time 或最近耗时；LVGL 路径可声明外部遥测 owner | P2 | `observability_checker.py` + 人工 | 同上 | 性能尖峰不可定位 |
 | C32.5 | 现场 dump 必须能还原最近关键事件，且脱敏、限频、可关闭 | P2 | 人工 | `logging_management_constraints.md` | 量产 DEBUG 全开或完全无日志 |
 
 **症状表**：

@@ -71,6 +71,7 @@ Review points:
 - Match `lv_timer_handler()` cadence to panel refresh and UI workload; do not spin at 1 ms without evidence.
 - Keep display flush asynchronous when the platform supports DMA or LCD engine callbacks.
 - Track frame time, flush time, dirty area, and dropped/merged updates.
+- If another module owns these metrics, add `LVGL_PERF_TELEMETRY_EXTERNAL: <owner>` beside the LVGL port rather than leaving the flush path unobservable.
 
 ```c
 #define LCD_REFRESH_RATE_HZ 60U

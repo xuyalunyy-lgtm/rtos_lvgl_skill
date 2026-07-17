@@ -13,3 +13,8 @@ typedef struct {
 } bad_module_status_t;
 
 static bad_module_status_t s_status;
+
+void bad_lcd_flush_cb(lv_disp_drv_t *drv)
+{
+    lv_disp_flush_ready(drv);
+}

@@ -16,7 +16,19 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from checker_io import make_issue, read_file, run_checker
+from checker_io import line_at, make_issue, read_file, run_checker, strip_comments
+
+
+DISPLAY_RUNTIME = re.compile(
+    r"\b(?:lv_timer_handler|lv_(?:disp|display)_flush_ready)\s*\(|\b[A-Za-z_]\w*flush_cb\s*\(",
+    re.IGNORECASE,
+)
+DISPLAY_TIMING_METRIC = re.compile(
+    r"\b(?:flush|render|frame)_(?:max|last|time|latency|ms|p95)(?:_(?:ms|time|latency))?\b"
+    r"|\b(?:max|last)_(?:flush|render|frame)_(?:ms|time|latency)\b",
+    re.IGNORECASE,
+)
+EXTERNAL_DISPLAY_TELEMETRY = "LVGL_PERF_TELEMETRY_EXTERNAL"
 
 
 def check_file(path: Path) -> list[dict]:
@@ -60,6 +72,14 @@ def check_file(path: Path) -> list[dict]:
             field_match = re.match(r'\w+\s+(\w+)\s*;', stripped)
             if field_match:
                 struct_fields.append(field_match.group(1))
+
+    runtime_code = strip_comments(text)
+    display_runtime = DISPLAY_RUNTIME.search(runtime_code)
+    if display_runtime and not DISPLAY_TIMING_METRIC.search(runtime_code) and EXTERNAL_DISPLAY_TELEMETRY not in text:
+        issues.append(make_issue(
+            path, line_at(runtime_code, display_runtime.start()), "C32.4", "P2",
+            "LVGL render/flush path has no visible frame, render, or flush timing metric; add a max/last duration or document the external telemetry owner",
+        ))
 
     return issues
 

@@ -289,7 +289,7 @@ Full matrix (positive/negative/checker) → [constraint_detail.md](constraint_de
 | C32.1 | 1 | 关键模块必须暴露 state、last_error、last_error_line |
 | C32.2 | 1 | 关键链路必须计数 timeout/drop/retry/overflow/underrun |
 | C32.3 | 1 | 任务必须可采集 stack high-water 与 queue/heap 水位 |
-| C32.4 | 2 | init/connect/decode/render/flush 等阶段必须保留 max time |
+| C32.4 | 2 | init/connect/decode/render/flush 保留 max/last 耗时，LVGL 可声明外部遥测 |
 | C32.5 | 2 | 现场 dump 必须能还原最近关键事件且脱敏限频 |
 
 ## C33 生命周期对称
