@@ -1,6 +1,6 @@
 {
   "kind": "lvgl_page_plan",
-  "schema_version": "1.0",
+  "schema_version": "1.1",
   "display": {
     "lvgl_version": "v8",
     "width": 240,
@@ -13,10 +13,22 @@
     "update_boundary": "queue"
   },
   "initial_page": "home",
+  "navigation": {
+    "router_owner": "lvgl_task",
+    "root_page": "home",
+    "back_stack": "explicit",
+    "interrupt_resume": "previous_or_fallback"
+  },
   "pages": [
     {
       "id": "home",
+      "parent": null,
       "states": ["idle", "loading", "error"],
+      "lifecycle": {
+        "create_policy": "resident",
+        "exit_policy": "hide",
+        "fallback_target": "home"
+      },
       "resources": {
         "cache_policy": "resident",
         "images": ["home_background"],
@@ -30,13 +42,33 @@
         {
           "event": "tap_settings",
           "to": "settings",
-          "guard": "page_state == PAGE_IDLE"
+          "guard": "page_state == PAGE_IDLE",
+          "kind": "forward",
+          "stack_action": "push",
+          "direction": "left"
+        },
+        {
+          "event": "alarm_triggered",
+          "to": "alarm",
+          "guard": "alarm_pending",
+          "kind": "interrupt",
+          "stack_action": "push",
+          "direction": "up",
+          "priority": 100,
+          "resume": "previous",
+          "fallback_target": "home"
         }
       ]
     },
     {
       "id": "settings",
+      "parent": "home",
       "states": ["idle", "saving", "error"],
+      "lifecycle": {
+        "create_policy": "lazy",
+        "exit_policy": "destroy",
+        "fallback_target": "home"
+      },
       "resources": {
         "cache_policy": "lazy",
         "images": [],
@@ -50,7 +82,41 @@
         {
           "event": "tap_back",
           "to": "home",
-          "guard": "page_state == PAGE_IDLE"
+          "guard": "page_state == PAGE_IDLE",
+          "kind": "back",
+          "stack_action": "pop",
+          "direction": "right"
+        }
+      ]
+    },
+    {
+      "id": "alarm",
+      "parent": "home",
+      "states": ["ringing", "acknowledged"],
+      "lifecycle": {
+        "create_policy": "lazy",
+        "exit_policy": "destroy",
+        "fallback_target": "home"
+      },
+      "resources": {
+        "cache_policy": "lazy",
+        "images": [],
+        "fonts": ["ui_regular"]
+      },
+      "refresh": {
+        "dynamic_regions": ["alarm_state"],
+        "full_screen_invalidate": false
+      },
+      "transitions": [
+        {
+          "event": "acknowledge_alarm",
+          "to": "home",
+          "guard": "page_state == ALARM_ACKNOWLEDGED",
+          "kind": "return",
+          "stack_action": "pop",
+          "direction": "down",
+          "resume": "previous",
+          "fallback_target": "home"
         }
       ]
     }

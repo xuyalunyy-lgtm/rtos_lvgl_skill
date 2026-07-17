@@ -2,27 +2,27 @@
   "kind": "lvgl_page_plan",
   "schema_version": "1.1",
   "display": {"lvgl_version": "v9", "width": 320, "height": 240, "frame_budget_ms": 16, "max_flush_ms": 8},
-  "ui_owner": {"task": "ui_task", "update_boundary": "presenter"},
+  "ui_owner": {"task": "ui_task", "update_boundary": "queue"},
   "initial_page": "home",
   "navigation": {"router_owner": "ui_task", "root_page": "home", "back_stack": "explicit", "interrupt_resume": "previous_or_fallback"},
   "pages": [
     {
       "id": "home",
       "parent": null,
-      "states": ["idle", "loading"],
+      "states": ["idle"],
       "lifecycle": {"create_policy": "resident", "exit_policy": "hide", "fallback_target": "home"},
       "resources": {"cache_policy": "resident"},
-      "refresh": {"dynamic_regions": ["clock"], "full_screen_invalidate": false},
-      "transitions": [{"event": "tap_settings", "to": "settings", "guard": "page_state == PAGE_IDLE", "kind": "forward", "stack_action": "push", "direction": "left"}]
+      "refresh": {"dynamic_regions": [], "full_screen_invalidate": false},
+      "transitions": [{"event": "tap_again", "to": "home", "guard": "page_state == PAGE_IDLE", "kind": "forward", "stack_action": "push", "direction": "left"}]
     },
     {
-      "id": "settings",
+      "id": "details",
       "parent": "home",
       "states": ["idle"],
       "lifecycle": {"create_policy": "lazy", "exit_policy": "destroy", "fallback_target": "home"},
       "resources": {"cache_policy": "lazy"},
       "refresh": {"dynamic_regions": [], "full_screen_invalidate": false},
-      "transitions": [{"event": "tap_back", "to": "home", "guard": "page_state == PAGE_IDLE", "kind": "back", "stack_action": "pop", "direction": "right"}]
+      "transitions": []
     }
   ]
 }

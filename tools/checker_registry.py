@@ -317,6 +317,7 @@ SELF_TEST_CASES: tuple[CheckerCase, ...] = (
     CheckerCase("lvgl_frame_rate_checker.py", "fixtures/bad_lvgl_frame_rate.c", 1, "LVGL frame-rate bad"),
     CheckerCase("lvgl_page_plan_checker.py", "fixtures/good_lvgl_page_plan.json", 0, "LVGL page plan good"),
     CheckerCase("lvgl_page_plan_checker.py", "fixtures/bad_lvgl_page_plan.json", 1, "LVGL page plan bad"),
+    CheckerCase("lvgl_page_plan_checker.py", "fixtures/bad_lvgl_navigation_plan.json", 1, "LVGL navigation plan bad"),
     CheckerCase("av_pipeline_checker.py", "../examples/good_av_pipeline_sync.c", 0, "A/V pipeline good"),
     CheckerCase("av_pipeline_checker.py", "../examples/bad_av_pipeline_blocking.c", 1, "A/V pipeline bad"),
     CheckerCase("media_format_checker.py", "../examples/good_media_format_contract.c", 0, "media format good"),

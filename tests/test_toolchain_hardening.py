@@ -21,6 +21,8 @@ import review_watch
 import run_review
 from checker_io import filter_inactive_kconfig_blocks
 from checker_registry import ALL_CHECKERS
+from lvgl_navigation_report import build_report, render_markdown
+from lvgl_page_plan_checker import check_file
 from sdk_lookup import SdkLookup
 
 
@@ -93,6 +95,28 @@ class QuickGateHardeningTests(unittest.TestCase):
         ]
         self.assertEqual(len(contract_results), 2)
         self.assertTrue(all(item["files_checked"] == 0 and item["exit_code"] == 0 for item in contract_results))
+
+
+class LvglNavigationReportTests(unittest.TestCase):
+    def test_report_renders_page_tree_transitions_and_interrupts(self) -> None:
+        plan_path = ROOT / "templates" / "lvgl_page_plan.json"
+        plan = json.loads(plan_path.read_text(encoding="utf-8"))
+        report = build_report(plan, check_file(plan_path))
+        markdown = render_markdown(report, plan_path)
+        self.assertEqual(report["navigation"]["root_page"], "home")
+        self.assertEqual(len(report["pages"]), 3)
+        self.assertEqual(len(report["interrupts"]), 1)
+        self.assertIn("## 页面树与生命周期", markdown)
+        self.assertIn("alarm_triggered", markdown)
+        self.assertIn("规划校验通过", markdown)
+
+    def test_report_includes_navigation_diagnostics(self) -> None:
+        plan_path = ROOT / "tools" / "fixtures" / "bad_lvgl_navigation_plan.json"
+        plan = json.loads(plan_path.read_text(encoding="utf-8"))
+        report = build_report(plan, check_file(plan_path))
+        messages = [issue["issue"] for issue in report["diagnostics"]]
+        self.assertTrue(any("must not push itself" in message for message in messages))
+        self.assertTrue(any("unreachable" in message for message in messages))
 
 
 class RunReviewProtocolTests(unittest.TestCase):
